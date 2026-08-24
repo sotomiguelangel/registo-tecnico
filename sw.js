@@ -1,4 +1,4 @@
-const CACHE = 'registo-v4';
+const CACHE = 'registo-v5';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
