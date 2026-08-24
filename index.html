@@ -188,7 +188,7 @@
   .room-chip.done{ background:var(--ok-100); border-color:var(--ok-500); color:var(--ok-500); }
   .room-chip[aria-disabled="true"]{ cursor:not-allowed; }
   .room-chip.selected{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
-  .room-chip .dot{ position:absolute; top:3px; right:3px; width:6px; height:7px; border-radius:50%; background:var(--ok-500); }
+  .room-chip .dot{ position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--ok-500); }
   .room-chip.selected .dot{ background:var(--aqua-400); }
   .selected-room-banner{
     display:none; align-items:center; gap:8px; background:var(--petrol-900); color:#fff;
@@ -263,7 +263,7 @@
   .trend-badge.up{ background:var(--coral-100); color:#8b3d1d; }
   .trend-badge.down{ background:var(--ok-100); color:#28704b; }
   .trend-badge.flat{ background:var(--aqua-100); color:var(--petrol-700); }
-  /* Barra de progresso do ciclo */
+  /* Barra de progresso */
   .progress-track{ height:8px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px; }
   .progress-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,var(--aqua-500),var(--ok-500)); transition:width .5s ease; }
   /* Alternador do gráfico diário */
@@ -280,6 +280,26 @@
   .report-actions button{ flex:1; padding:12px; border-radius:10px; border:none; cursor:pointer; font-weight:700; font-size:13px; }
   .btn-csv{ background:var(--petrol-900); color:#fff; }
   .btn-print{ background:var(--aqua-100); color:var(--petrol-800); }
+
+  /* Relatório oficial (Fase 2) */
+  .official-toolbar{ display:flex; gap:10px; margin:16px 0 4px; }
+  .official-toolbar button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13.5px; }
+  .btn-official{ background:var(--ok-500); color:#fff; }
+  #officialReport{ display:none; }
+  .off-doc{ font-family:var(--sans); color:#111; background:#fff; padding:28px 22px; }
+  .off-doc h1{ font-size:17px; margin:0 0 2px; }
+  .off-doc .off-sub{ font-size:12px; color:#555; margin-bottom:4px; }
+  .off-doc .off-meta{ font-family:var(--mono); font-size:10.5px; color:#777; margin-bottom:14px; }
+  .off-doc table{ width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 14px; }
+  .off-doc th, .off-doc td{ border:1px solid #bbb; padding:4px 5px; text-align:left; }
+  .off-doc th{ background:#eee; font-weight:700; }
+  .off-doc tr.bad td{ background:#fde8e0; font-weight:700; }
+  .off-doc .off-sum{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 16px; }
+  .off-doc .off-sum div{ border:1px solid #bbb; border-radius:8px; padding:7px 10px; font-size:10.5px; }
+  .off-doc .off-sum b{ display:block; font-size:13px; }
+  .off-doc .off-missing{ font-size:11px; color:#a33; margin:6px 0 14px; }
+  .off-doc .off-sign{ display:flex; justify-content:space-between; margin-top:48px; font-size:11px; }
+  .off-doc .off-sign div{ width:45%; border-top:1px solid #333; padding-top:6px; text-align:center; }
 
   h2.report-heading{ font-family:var(--mono); font-size:14px; margin:22px 0 8px; color:var(--petrol-800); }
   h2.report-heading:first-child{ margin-top:0; }
@@ -337,10 +357,16 @@
   .modal-btn-confirm{ background:var(--petrol-900); color:#fff; }
 
   @media print{
-    body{ background:#fff; }
-    header.top, nav.tabs, .period-toggle, .custom-range, .report-actions, #view-general, #view-quarto, #view-historial, #view-usuarios { display:none !important; }
+    body.printing-official #officialReport{ display:block !important; }
+    body.printing-official #app{ display:none !important; }
+    body:not(.printing-official) header.top, body:not(.printing-official) nav.tabs,
+    body:not(.printing-official) .period-toggle, body:not(.printing-official) .custom-range,
+    body:not(.printing-official) .report-actions, body:not(.printing-official) .official-toolbar,
+    body:not(.printing-official) #view-general, body:not(.printing-official) #view-quarto,
+    body:not(.printing-official) #view-historial, body:not(.printing-official) #view-usuarios { display:none !important; }
     #app{ max-width:100%; }
     main{ padding:0; }
+    body{ background:#fff; }
   }
 </style>
 </head>
@@ -354,7 +380,6 @@
       <div>
         <p class="brand-eyebrow">Manutenção · Moon and Sun</p>
         <h1 class="brand-title">Registo Técnico</h1>
-      </1>
       </div>
       <div class="clock">
         <strong id="clockTime">--:--</strong>
@@ -467,6 +492,12 @@
         </label>
       </div>
 
+      <div class="card">
+        <div class="subgroup-title" style="color:var(--petrol-700)">📝 Observações do dia</div>
+        <textarea id="g-observacoes" rows="3" maxlength="500" style="width:100%; border-radius:10px; border:1.5px solid var(--line); padding:10px 12px; font-family:var(--mono); font-size:13px; background:#fbfcfc; resize:vertical;" placeholder="Ex.: bomba 2 com ruído anormal — vigiar; troca lâmpada sala máquinas..."></textarea>
+        <p style="font-size:10.5px; color:var(--ink-400); margin:6px 0 0;">Fica visível no Painel para toda a equipa (comunicação entre turnos).</p>
+      </div>
+
       <button class="primary" id="btnSaveGeneral"><span class="spinner"></span><span class="lbl-text">Guardar registo geral</span></button>
       <button class="ghost-cancel" id="btnCancelEditGeneral" style="display:none">Cancelar edição</button>
     </section>
@@ -557,6 +588,10 @@
         <label class="field"><span class="lbl">Até</span><input type="date" id="rep-hasta"></label>
       </div>
       <button class="primary" id="btnGenerarReporte"><span class="spinner"></span><span class="lbl-text">Gerar relatório</span></button>
+      <div class="official-toolbar">
+        <button class="btn-official" id="btnOfficialReport">🏛️ Relatório oficial (PDF)</button>
+      </div>
+      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: estatísticas, dias sem registo, fora-de-rango destacados e espaço para assinaturas.</p>
 
       <div id="reporteOutput"></div>
     </section>
@@ -574,6 +609,23 @@
         </label>
       </div>
       <button class="primary" id="btnCreateUser"><span class="spinner"></span><span class="lbl-text">Criar utilizador</span></button>
+
+      <div class="card" id="alertsAdminCard" style="display:none; margin-top:20px;">
+        <div class="subgroup-title" style="color:var(--petrol-700)">📧 Alertas por email</div>
+        <label class="check-field">
+          <input type="checkbox" id="alertsEnabled">
+          <span>Ativar alertas automáticas</span>
+        </label>
+        <label class="field" style="margin-bottom:8px"><span class="lbl">Emails destinatários <span class="unit">(separados por vírgula)</span></span>
+          <input type="text" id="alertsEmails" placeholder="gerencia@hotel.pt, manutencao@hotel.pt">
+        </label>
+        <p style="font-size:11px; color:var(--ink-400); line-height:1.5; margin:0 0 12px;">
+          • Leitura fora do intervalo → email imediato (máx. 1/dia)<br>
+          • Leitura diária em falta → lembrete às 10h00<br>
+          • Resumo semanal para gerência → segunda-feira 08h00
+        </p>
+        <button class="primary" id="btnSaveAlerts"><span class="lbl-text">Guardar configuração de alertas</span></button>
+      </div>
 
       <p class="section-title" style="margin-top:26px">Utilizadores existentes</p>
       <div id="usersList"></div>
@@ -609,6 +661,8 @@
   </main>
 
   <div class="toast" id="toast"></div>
+
+  <div id="officialReport"></div>
 
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box">
@@ -664,7 +718,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-24.1';
+  const APP_VERSION = '2026-08-25.1';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -994,9 +1048,7 @@
     try{
       await apiPost({ action:'changeOwnPin', oldPin: vals.old, newPin: vals.new1 });
       showToast('PIN atualizado — as outras sessões deste utilizador foram encerradas ✓');
-      // A sessão atual deste dispositivo continua válida (o servidor mantém
-      // o token novo emitido no próximo arranque); para simplificar, pedimos
-      // novo login para reemitir o token com a versão atualizada.
+      // Pedimos novo login para reemitir o token com a versão de sessão nova.
       setTimeout(()=>{ forceRelogin(); $('loginHint').textContent = 'PIN alterado — inicie sessão com o novo PIN.'; }, 1200);
     }catch(e){
       showToast('⚠️ ' + e.message, true);
@@ -1011,6 +1063,7 @@
     $('btnEditRooms').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnRecomputeCycle').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
+    loadAlertsAdmin();
     initMainApp();
   }
 
@@ -1132,7 +1185,7 @@
   }
   $('btnCancelEditGeneral').addEventListener('click', ()=>{
     resetGeneralEditState();
-    ['g-agua','g-electricidad','g-retornoAqs','g-aqsQuartos','g-estadoPiscina','g-tempPiscina','g-phPiscina','g-cloroLibre','g-cloroTotal'].forEach(id=> $(id).value='');
+    ['g-agua','g-electricidad','g-retornoAqs','g-aqsQuartos','g-estadoPiscina','g-tempPiscina','g-phPiscina','g-cloroLibre','g-cloroTotal','g-observacoes'].forEach(id=> $(id).value='');
     ['g-lavadoPrefiltro','g-lavadoFiltroArena','g-limpiezaSkimmer'].forEach(id=> $(id).checked=false);
     $('g-fecha').value = todayStr(); $('g-hora').value = nowTimeStr();
   });
@@ -1155,6 +1208,7 @@
       phPiscina: $('g-phPiscina').value,
       cloroLibre: $('g-cloroLibre').value,
       cloroTotal: $('g-cloroTotal').value,
+      observacoes: $('g-observacoes').value.trim(),
     };
     if(!data.fecha){ showToast('Indique a data'); return; }
 
@@ -1174,7 +1228,7 @@
         await saveRecord('general', data);
         showToast('Registo geral guardado na folha ✓');
       }
-      ['g-agua','g-electricidad','g-retornoAqs','g-aqsQuartos','g-estadoPiscina','g-tempPiscina','g-phPiscina','g-cloroLibre','g-cloroTotal'].forEach(id=> $(id).value='');
+      ['g-agua','g-electricidad','g-retornoAqs','g-aqsQuartos','g-estadoPiscina','g-tempPiscina','g-phPiscina','g-cloroLibre','g-cloroTotal','g-observacoes'].forEach(id=> $(id).value='');
       ['g-lavadoPrefiltro','g-lavadoFiltroArena','g-limpiezaSkimmer'].forEach(id=> $(id).checked=false);
       $('g-hora').value = nowTimeStr();
       refreshChips();
@@ -1208,7 +1262,7 @@
       numero,
       fecha: $('q-fecha').value || todayStr(),
       hora: $('q-hora').value || nowTimeStr(),
-      usuario: currentUser ? currentUser.nome || currentUser.nombre : '',
+      usuario: currentUser ? currentUser.nombre : '',
       phCaliente: $('q-phCaliente').value,
       cloroCaliente: $('q-cloroCaliente').value,
       cloroTotalCaliente: $('q-cloroTotalCaliente').value,
@@ -1521,6 +1575,7 @@
             ${entryItem('Pré-filtro', dispYesNo(d.lavadoPrefiltro), '')}
             ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
             ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
+            ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
           </div>
           ${actions}
         </div>`;
@@ -1598,6 +1653,7 @@
       $('g-phPiscina').value = d.phPiscina || '';
       $('g-cloroLibre').value = d.cloroLibre || '';
       $('g-cloroTotal').value = d.cloroTotal || '';
+      $('g-observacoes').value = d.observacoes || '';
       $('g-lavadoPrefiltro').checked = isYesVal(d.lavadoPrefiltro);
       $('g-lavadoFiltroArena').checked = isYesVal(d.lavadoFiltroArena);
       $('g-limpiezaSkimmer').checked = isYesVal(d.limpiezaSkimmer);
@@ -1644,6 +1700,7 @@
     const list = $('usersList');
     list.innerHTML = `<div class="empty">A carregar…</div>`;
     try{
+      loadAlertsAdmin();
       const r = await apiGet({ action:'listUsers' });
       if(r.users.length === 0){ list.innerHTML = `<div class="empty">Não há utilizadores.</div>`; return; }
       list.innerHTML = r.users.map(u=>{
@@ -1656,9 +1713,9 @@
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol === 'admin' ? 'admin' : 'tecnico'}">${u.rol === 'admin' ? 'Admin' : 'Técnico'}</span>
-            <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nome || u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nome || u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nome || u.nombre)}">Eliminar</button>
+            <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nombre)}">PIN</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nombre)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -1724,7 +1781,7 @@
     try{
       await apiPost({ action:'createUser', nombre, usuario, pin, rol });
       showToast(`Utilizador ${nombre} criado ✓`);
-      ['u-nome','u-nombre','u-usuario','u-pin'].forEach(id=> { const el=$(id); if(el) el.value=''; });
+      ['u-nombre','u-usuario','u-pin'].forEach(id=> $(id).value='');
       $('u-rol').value = 'tecnico';
       renderUsersList();
     }catch(e){ showToast('⚠️ ' + e.message, true); }
@@ -1879,6 +1936,8 @@
     }finally{ setLoading(btn, false); }
   });
 
+  $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
+
   function renderReporte(desde, hasta, gen, qu, periodStats, monthStats){
     const out = $('reporteOutput');
     if(gen.length===0 && qu.length===0){
@@ -1912,11 +1971,11 @@
     if(gen.length){
       html += `<h2 class="report-heading">Instalações (${desde} → ${hasta})</h2>
       <div class="table-scroll"><table class="report"><thead><tr>
-        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Água</th><th>Cons.Água</th><th>Elet.</th><th>Cons.Elet.</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préfiltro</th><th>F.Areia</th><th>Skimmer</th>
+        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Água</th><th>Cons.Água</th><th>Elet.</th><th>Cons.Elet.</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préfiltro</th><th>F.Areia</th><th>Skimmer</th><th>Obs.</th>
       </tr></thead><tbody>`;
       gen.forEach(r=>{
         const d = r.data;
-        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${nz(d.agua)}</td><td class="calc">${r.deltaAgua!==null && !isNaN(r.deltaAgua) ? r.deltaAgua.toFixed(2) : '—'}</td><td>${nz(d.electricidad)}</td><td class="calc">${r.deltaElec!==null && !isNaN(r.deltaElec) ? r.deltaElec.toFixed(2) : '—'}</td><td>${nz(d.retornoAqs)}</td><td>${nz(d.aqsQuartos)}</td><td>${nz(d.estadoPiscina)}</td><td>${nz(d.tempPiscina)}</td><td>${nz(d.phPiscina)}</td><td>${nz(d.cloroLibre)}</td><td>${nz(d.cloroTotal)}</td><td>${nz(dispYesNo(d.lavadoPrefiltro))}</td><td>${nz(dispYesNo(d.lavadoFiltroArena))}</td><td>${nz(dispYesNo(d.limpiezaSkimmer))}</td></tr>`;
+        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${nz(d.agua)}</td><td class="calc">${r.deltaAgua!==null && !isNaN(r.deltaAgua) ? r.deltaAgua.toFixed(2) : '—'}</td><td>${nz(d.electricidad)}</td><td class="calc">${r.deltaElec!==null && !isNaN(r.deltaElec) ? r.deltaElec.toFixed(2) : '—'}</td><td>${nz(d.retornoAqs)}</td><td>${nz(d.aqsQuartos)}</td><td>${nz(d.estadoPiscina)}</td><td>${nz(d.tempPiscina)}</td><td>${nz(d.phPiscina)}</td><td>${nz(d.cloroLibre)}</td><td>${nz(d.cloroTotal)}</td><td>${nz(dispYesNo(d.lavadoPrefiltro))}</td><td>${nz(dispYesNo(d.lavadoFiltroArena))}</td><td>${nz(dispYesNo(d.limpiezaSkimmer))}</td><td>${nz(d.observacoes)}</td></tr>`;
       });
       html += `</tbody></table></div>`;
     }
@@ -2339,6 +2398,7 @@
       $('dashboardPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
 
       output.innerHTML = `
+        ${renderComplianceBox(generalRaw)}
         <h2 class="report-heading">Consumos do mês</h2>
         <div class="dashboard-grid">
           <div class="dashboard-card">
@@ -2403,6 +2463,7 @@
         ${chartSection('Piscina · cloro livre 30 dias', [
           {label:'Cloro livre', className:'series-c', points:trendPoints('cloroLibre')}
         ], 'ppm', [{value:DASH_THRESHOLDS.cloroMin,label:'mín. cloro'},{value:DASH_THRESHOLDS.cloroMax,label:'máx. cloro'}], 2)}
+        ${renderLastNote(generalRaw)}
       `;
 
       mountCharts(output);
@@ -2425,10 +2486,10 @@
 
   function exportCsv(desde, hasta, gen, qu){
     let csv = 'REGISTOS GERAIS\n';
-    csv += 'Data,Hora,Utilizador,Agua(m3),ConsumoAgua(m3),Eletricidade(kWh),ConsumoElet(kWh),RetornoAQS(C),AQSQuartos(C),EstadoPiscina,TempPiscina(C),pH,CloroLivre(ppm),CloroTotal(ppm),LavagemPrefiltro,LavagemFiltroAreia,LimpezaSkimmer\n';
+    csv += 'Data,Hora,Utilizador,Agua(m3),ConsumoAgua(m3),Eletricidade(kWh),ConsumoElet(kWh),RetornoAQS(C),AQSQuartos(C),EstadoPiscina,TempPiscina(C),pH,CloroLivre(ppm),CloroTotal(ppm),LavagemPrefiltro,LavagemFiltroAreia,LimpezaSkimmer,Observacoes\n';
     gen.forEach(r=>{
       const d=r.data;
-      csv += [d.fecha,d.hora,d.usuario,d.agua, r.deltaAgua!==null&&!isNaN(r.deltaAgua)?r.deltaAgua.toFixed(2):'', d.electricidad, r.deltaElec!==null&&!isNaN(r.deltaElec)?r.deltaElec.toFixed(2):'', d.retornoAqs,d.aqsQuartos,d.estadoPiscina,d.tempPiscina,d.phPiscina,d.cloroLibre,d.cloroTotal, csvYesNo(d.lavadoPrefiltro), csvYesNo(d.lavadoFiltroArena), csvYesNo(d.limpiezaSkimmer)].map(csvSafe).join(',') + '\n';
+      csv += [d.fecha,d.hora,d.usuario,d.agua, r.deltaAgua!==null&&!isNaN(r.deltaAgua)?r.deltaAgua.toFixed(2):'', d.electricidad, r.deltaElec!==null&&!isNaN(r.deltaElec)?r.deltaElec.toFixed(2):'', d.retornoAqs,d.aqsQuartos,d.estadoPiscina,d.tempPiscina,d.phPiscina,d.cloroLibre,d.cloroTotal, csvYesNo(d.lavadoPrefiltro), csvYesNo(d.lavadoFiltroArena), csvYesNo(d.limpiezaSkimmer), d.observacoes||''].map(csvSafe).join(',') + '\n';
     });
     csv += '\nLEITURAS DE QUARTOS\n';
     csv += 'Data,Hora,Utilizador,Quarto,pH Quente,CloroLivreQuente,CloroTotalQuente,pH Fria,CloroLivreFria,CloroTotalFria\n';
@@ -2451,8 +2512,8 @@
   }
 
   // ---------- Importar em lote ----------
-  const GENERAL_IMPORT_FIELDS = ['fecha','hora','usuario','agua','electricidad','retornoAqs','aqsQuartos','estadoPiscina','tempPiscina','phPiscina','cloroLibre','cloroTotal','lavadoPrefiltro','lavadoFiltroArena','limpiezaSkimmer'];
-  const GENERAL_IMPORT_HEADERS = ['Data','Hora','Utilizador','Agua','Eletricidade','RetornoAQS','AQSQuartos','EstadoPiscina','TempPiscina','pH','CloroLivre','CloroTotal','LavagemPrefiltro','LavagemFiltroAreia','LimpezaSkimmer'];
+  const GENERAL_IMPORT_FIELDS = ['fecha','hora','usuario','agua','electricidad','retornoAqs','aqsQuartos','estadoPiscina','tempPiscina','phPiscina','cloroLibre','cloroTotal','lavadoPrefiltro','lavadoFiltroArena','limpiezaSkimmer','observacoes'];
+  const GENERAL_IMPORT_HEADERS = ['Data','Hora','Utilizador','Agua','Eletricidade','RetornoAQS','AQSQuartos','EstadoPiscina','TempPiscina','pH','CloroLivre','CloroTotal','LavagemPrefiltro','LavagemFiltroAreia','LimpezaSkimmer','Observacoes'];
   const QUARTO_IMPORT_FIELDS = ['fecha','hora','usuario','numero','phCaliente','cloroCaliente','cloroTotalCaliente','phFria','cloroFria','cloroTotalFria'];
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
 
@@ -2465,6 +2526,7 @@
     lavadoprefiltro:'lavadoPrefiltro', lavagemprefiltro:'lavadoPrefiltro',
     lavadofiltroarena:'lavadoFiltroArena', lavagemfiltroareia:'lavadoFiltroArena', lavagemfiltrodareia:'lavadoFiltroArena',
     limpiezaskimmer:'limpiezaSkimmer', limpezaskimmer:'limpiezaSkimmer',
+    observacoes:'observacoes', observacione:'observacoes', notas:'observacoes',
     quarto:'numero', numero:'numero',
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
@@ -2509,7 +2571,7 @@
     const headers = importType === 'quarto' ? QUARTO_IMPORT_HEADERS : GENERAL_IMPORT_HEADERS;
     const ejemplo = importType === 'quarto'
       ? ['2026-08-01','09:00','','101','7.20','1.50','0.30','7.30','1.20','0.20']
-      : ['2026-08-01','09:00','','12.50','340.00','45.0','48.0','Clara','28.5','7.20','1.50','2.00','Sim','Não','Sim'];
+      : ['2026-08-01','09:00','','12.50','340.00','45.0','48.0','Clara','28.5','7.20','1.50','2.00','Sim','Não','Sim','exemplo de observação'];
     const csv = headers.join(',') + '\n' + ejemplo.join(',') + '\n';
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -2626,8 +2688,158 @@
     }
   }
 
+  // ---------- Fase 2: Alertas, cumprimento e relatório oficial ----------
+  function isAdminUser(){ return currentUser && currentUser.rol === 'admin'; }
 
-  // ---------- Arranque da app (otimizado + bootstrap Fase 1) ----------
+  async function loadAlertsAdmin(){
+    const card = $('alertsAdminCard');
+    if(!card) return;
+    if(!isAdminUser()){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    try{
+      await loadConfigSnapshot();
+      const enabled = await getConfigCached('alertsEnabled');
+      const emails = await getConfigCached('alertEmails');
+      $('alertsEnabled').checked = String(enabled || 'Sim').toLowerCase() !== 'não' && String(enabled || 'Sim').toLowerCase() !== 'no';
+      $('alertsEmails').value = String(emails || '');
+    }catch(e){}
+  }
+
+  $('btnSaveAlerts').addEventListener('click', async ()=>{
+    try{
+      const emails = $('alertsEmails').value.trim();
+      if(emails){
+        // Validação básica: cada destinatário deve parecer um email
+        const bad = emails.split(',').map(s=>s.trim()).filter(s=> s && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s));
+        if(bad.length){ showToast('Email inválido: ' + bad.join(', '), true); return; }
+      }
+      await apiPost({ action:'setConfig', key:'alertsEnabled', value: $('alertsEnabled').checked ? 'Sim' : 'Não' });
+      await apiPost({ action:'setConfig', key:'alertEmails', value: emails });
+      invalidateConfig('alertsEnabled'); invalidateConfig('alertEmails');
+      showToast('Configuração de alertas guardada ✓');
+    }catch(e){ showToast('⚠️ ' + e.message, true); }
+  });
+
+  // % de dias do mês (até ontem) com leitura geral registada
+  function complianceStats(generalRaw){
+    const [desde] = rangoMesActual();
+    const days = new Set(generalRaw.filter(r=> r.data.fecha >= desde).map(r=> r.data.fecha));
+    const end = new Date(); end.setDate(end.getDate()-1); // até ontem
+    let total=0, covered=0; const missing=[];
+    for(let d=new Date(desde+'T00:00:00'); d<=end; d.setDate(d.getDate()+1)){
+      const key = fmt(d); total++;
+      if(days.has(key)) covered++; else missing.push(key);
+    }
+    return { total, covered, missing, pct: total ? Math.round(covered/total*100) : 100 };
+  }
+
+  function renderComplianceBox(generalRaw){
+    const c = complianceStats(generalRaw);
+    const tone = c.pct >= 90 ? 'good' : (c.pct >= 70 ? '' : 'alert');
+    return `<h2 class="report-heading">Cumprimento legal · mês em curso</h2>
+    <div class="dashboard-card ${tone}" style="margin-bottom:10px">
+      <div class="lab">Dias com leitura registada</div>
+      <div class="value">${c.covered} / ${c.total} <span style="font-size:12px">(${c.pct}%)</span></div>
+      <div class="progress-track"><div class="progress-fill" style="width:${c.pct}%"></div></div>
+      <div class="meta">${c.missing.length
+        ? 'Sem registo: ' + esc(c.missing.slice(-6).join(', ')) + (c.missing.length>6?` +${c.missing.length-6} mais`:'')
+        : '✓ Todos os dias com leitura — 100% em conformidade'}</div>
+    </div>`;
+  }
+
+  function renderLastNote(generalRaw){
+    const withNote = generalRaw.filter(r=> String(r.data.observacoes||'').trim())
+      .sort((a,b)=> (b.data.fecha+b.data.hora).localeCompare(a.data.fecha+a.data.hora));
+    if(!withNote.length) return '';
+    const last = withNote[0];
+    return `<h2 class="report-heading">📝 Última observação da equipa</h2>
+    <div class="dashboard-card" style="margin-bottom:10px">
+      <div class="meta" style="margin:0 0 4px">${esc(last.data.fecha)} · ${esc(last.data.hora)} · ${esc(last.data.usuario||'—')}</div>
+      <div style="font-size:13px; line-height:1.5;">${esc(last.data.observacoes)}</div>
+    </div>`;
+  }
+
+  // ---------- Relatório Oficial (imprimível / PDF) ----------
+  function buildOfficialReport(desde, hasta, gen, qu){
+    const th = DASH_THRESHOLDS;
+    const bad = r => {
+      const ph=parseFloat(r.data.phPiscina), cl=parseFloat(r.data.cloroLibre), ret=parseFloat(r.data.retornoAqs);
+      return (!isNaN(ph)&&(ph<th.phMin||ph>th.phMax)) || (!isNaN(cl)&&(cl<th.cloroMin||cl>th.cloroMax)) || (!isNaN(ret)&&ret<th.aqsMin);
+    };
+    const stat = (label, key, dec, unit) => {
+      const vals = gen.map(r=>parseFloat(r.data[key])).filter(n=>!isNaN(n));
+      if(!vals.length) return `<div><b>${esc(label)}</b>sem dados</div>`;
+      const mn=Math.min(...vals), mx=Math.max(...vals), av=vals.reduce((a,b)=>a+b,0)/vals.length;
+      return `<div><b>${esc(label)}</b>mín ${mn.toFixed(dec)} · méd ${av.toFixed(dec)} · máx ${mx.toFixed(dec)} ${unit||''}</div>`;
+    };
+    const comp = complianceStats(gen);
+    let rows = '';
+    gen.forEach(r=>{
+      rows += `<tr class="${bad(r)?'bad':''}"><td>${esc(r.data.fecha)}</td><td>${esc(r.data.hora)}</td><td>${esc(r.data.usuario||'')}</td><td>${nz2(r.data.agua)}</td><td>${nz2(r.data.electricidad)}</td><td>${nz2(r.data.retornoAqs)}</td><td>${nz2(r.data.aqsQuartos)}</td><td>${esc(r.data.estadoPiscina||'')}</td><td>${nz2(r.data.tempPiscina)}</td><td>${nz2(r.data.phPiscina)}</td><td>${nz2(r.data.cloroLibre)}</td><td>${nz2(r.data.cloroTotal)}</td><td>${dispYesNo(r.data.lavadoPrefiltro)}</td><td>${dispYesNo(r.data.lavadoFiltroArena)}</td><td>${dispYesNo(r.data.limpiezaSkimmer)}</td><td>${esc(r.data.observacoes||'')}</td></tr>`;
+    });
+    let rowsQ = '';
+    qu.forEach(r=>{
+      rowsQ += `<tr><td>${esc(r.data.fecha)}</td><td>${esc(r.data.hora)}</td><td>${esc(r.data.numero)}</td><td>${nz2(r.data.phCaliente)}</td><td>${nz2(r.data.cloroCaliente)}</td><td>${nz2(r.data.cloroTotalCaliente)}</td><td>${nz2(r.data.phFria)}</td><td>${nz2(r.data.cloroFria)}</td><td>${nz2(r.data.cloroTotalFria)}</td></tr>`;
+    });
+    return `<div class="off-doc">
+      <h1>Relatório Mensal de Controlo — Piscina e AQS</h1>
+      <div class="off-sub">Moon and Sun · Manutenção · Documento de cumprimento (DGS — prevenção da legionela)</div>
+      <div class="off-meta">Período: ${desde} a ${hasta} · Gerado em ${todayStr()} às ${nowTimeStr()} · App Registo Técnico v${APP_VERSION}</div>
+      <div class="off-sum">
+        <div><b>${comp.pct}%</b>cumprimento (${comp.covered}/${comp.total} dias)</div>
+        ${stat('pH piscina','phPiscina',2,'')}
+        ${stat('Cloro livre','cloroLibre',2,'ppm')}
+        ${stat('Cloro total','cloroTotal',2,'ppm')}
+        ${stat('Temp. piscina','tempPiscina',1,'°C')}
+        ${stat('Retorno AQS','retornoAqs',1,'°C')}
+        ${stat('AQS quartos','aqsQuartos',1,'°C')}
+      </div>
+      ${comp.missing.length ? `<div class="off-missing">⚠ Dias sem registo: ${esc(comp.missing.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo</div>'}
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Técnico</th><th>Água m³</th><th>Elet. kWh</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préf.</th><th>Areia</th><th>Skim.</th><th>Observações</th>
+      </tr></thead><tbody>${rows || '<tr><td colspan="16">Sem registos no período</td></tr>'}</tbody></table>
+      <h3 style="font-size:12px; margin:14px 0 4px;">Medições de quartos (${qu.length})</h3>
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Quarto</th><th>pH qu.</th><th>Cl.qu.</th><th>Cl.tot qu.</th><th>pH fr.</th><th>Cl.fr.</th><th>Cl.tot fr.</th>
+      </tr></thead><tbody>${rowsQ || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
+      <p style="font-size:9.5px; color:#666;">Linhas sombreadas = leitura com valores fora dos intervalos de referência (pH ${th.phMin}–${th.phMax} · cloro livre ${th.cloroMin}–${th.cloroMax} ppm · retorno AQS ≥ ${th.aqsMin} °C). Registos editados/eliminados ficam registados na folha Auditoria.</p>
+      <div class="off-sign">
+        <div>O Técnico Responsável</div>
+        <div>Direção / Gerência</div>
+      </div>
+    </div>`;
+  }
+  function nz2(v){ return (v===undefined||v===null||v==='') ? '—' : esc(v); }
+
+  async function generateOfficialReport(){
+    const btn = $('btnOfficialReport');
+    let desde, hasta;
+    if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
+    else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
+    else{
+      desde = $('rep-desde').value; hasta = $('rep-hasta').value;
+      if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
+    }
+    setLoading(btn, true);
+    try{
+      const [genAllRaw, quAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto')]);
+      const inRange = d => d.fecha >= desde && d.fecha <= hasta;
+      const gen = genAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+      const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+      if(!gen.length && !qu.length){ showToast('Não há registos no período selecionado', true); return; }
+      $('officialReport').innerHTML = buildOfficialReport(desde, hasta, gen, qu);
+      document.body.classList.add('printing-official');
+      showToast('Abrindo a impressão — escolha "Guardar como PDF" 📄');
+      setTimeout(()=>{
+        window.print();
+        setTimeout(()=> document.body.classList.remove('printing-official'), 500);
+      }, 400);
+    }catch(e){
+      showToast('⚠️ Não foi possível gerar: ' + e.message, true);
+    }finally{ setLoading(btn, false); }
+  }
+
+  // ---------- Arranque da app (bootstrap em 1 chamada) ----------
   async function initMainApp(){
     // Se o login/bootstrap já trouxe tudo, semeamos as caches locais:
     // zero chamadas extra — o Painel e o Geral abrem instantâneos.
