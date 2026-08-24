@@ -663,7 +663,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-22.1';
+  const APP_VERSION = '2026-08-23.1';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -819,8 +819,27 @@
   }
 
   // ---------- Cache local de configurações ----------
+  // NOVEDAD: se descargan TODAS las configuraciones en UNA sola llamada
+  // (getConfigAll). Las funciones loadRooms/loadCycleDone/loadBaselines
+  // siguen llamando a getConfigCached, pero ahora casi nunca toca la red.
   const CONFIG_TTL_MS = 120000; // 2 minutos
   const configStore = {};
+  let configSnapshotLoadedAt = 0;
+
+  async function loadConfigSnapshot(){
+    if(Date.now() - configSnapshotLoadedAt < CONFIG_TTL_MS) return;
+    try{
+      const r = await apiGet({ action:'getConfigAll' });
+      Object.keys(r.config || {}).forEach(k=>{
+        configStore[k] = { value:r.config[k], ts:Date.now() };
+      });
+      configSnapshotLoadedAt = Date.now();
+    }catch(e){
+      // Si el servidor aún no tiene getConfigAll (despliegue viejo),
+      // getConfigCached sigue funcionando clave a clave como antes.
+    }
+  }
+
   async function getConfigCached(key){
     const c = configStore[key];
     if(c && (Date.now() - c.ts) < CONFIG_TTL_MS) return c.value;
@@ -828,7 +847,10 @@
     configStore[key] = { value:r.value, ts:Date.now() };
     return r.value;
   }
-  function invalidateConfig(key){ delete configStore[key]; }
+  function invalidateConfig(key){
+    delete configStore[key];
+    configSnapshotLoadedAt = 0; // fuerza re-descargar el snapshot la próxima vez
+  }
 
   async function checkApiHealth(){
     try{ await apiGet({ action:'health' }); $('apiWarning').classList.remove('show'); return true; }
@@ -1003,6 +1025,7 @@
     });
   });
 
+  // O botão pede sempre dados frescos à rede (ignora a cache de 1 min)
   $('btnRefreshDashboard').addEventListener('click', ()=> renderDashboard(true));
 
   function setDefaults(){
@@ -1224,11 +1247,10 @@
   let selectedRoom = '';
   let cycleDone = [];
 
-  // NORMALIZAÇÃO de números de quarto — CORREÇÃO DO BUG DO CICLO:
+  // NORMALIZAÇÃO de números de quarto — correção do bug do ciclo:
   // o Google Sheets pode devolver a coluna "Quarto" como NÚMERO (101) em vez
-  // de TEXTO ("101"). Se uma lista tiver números e outra texto, as
-  // comparações falham e nenhum quarto aparece como "medido". Convertendo
-  // TUDO para texto sem espaços antes de comparar, o problema desaparece.
+  // de TEXTO ("101"). Convertendo tudo para texto sem espaços antes de
+  // comparar, as comparações nunca falham por formato.
   function normRoom(n){ return String(n === undefined || n === null ? '' : n).trim(); }
 
   async function loadCycleDone(){
@@ -1631,7 +1653,7 @@
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol === 'admin' ? 'admin' : 'tecnico'}">${u.rol === 'admin' ? 'Admin' : 'Técnico'}</span>
             <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nome||u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
             <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nombre)}">Eliminar</button>
           </div>
         </div>
@@ -1695,7 +1717,7 @@
     setLoading(btn, true);
     try{
       await apiPost({ action:'createUser', nombre, usuario, pin, rol });
-      showToast(`Utilizador ${nome} criado ✓`);
+      showToast(`Utilizador ${nombre} criado ✓`);
       ['u-nombre','u-usuario','u-pin'].forEach(id=> $(id).value='');
       $('u-rol').value = 'tecnico';
       renderUsersList();
@@ -2232,6 +2254,7 @@
     mountCharts(box);
   }
 
+  // forceFresh=true (botão "Atualizar") ignora a cache local e pede à rede.
   async function renderDashboard(forceFresh){
     const output = $('dashboardOutput');
     const button = $('btnRefreshDashboard');
@@ -2606,17 +2629,24 @@
   }
 
 
+  // ---------- Arranque da app (otimizado) ----------
   async function initMainApp(){
-    await loadRooms();
-    await loadCycleDone();
+    await loadConfigSnapshot();               // 1 chamada: todas as configurações
+    await Promise.all([ loadRooms(), loadCycleDone() ]);   // 0 chamadas extra (vêm do snapshot)
+    // As 2 listas vão em paralelo e pré-aquecem a cache para que o Painel
+    // abra quase instantaneamente logo depois de iniciar sessão.
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
   }
 
   (async function boot(){
     if(!CONFIG_OK) return;
-    await checkApiHealth();
+
+    // O ecrã de login aparece AL INSTANTE — já não esperamos pelo servidor
+    // para o pintar (antes: health → seedStatus → 3-9s a olhar para o vazio).
     $('loginScreen').classList.add('show');
 
+    // Há sessão guardada? Validá-la diretamente com 1 chamada ('me').
+    // health e seedStatus só correm em segundo plano se forem precisos.
     const saved = recallUser();
     if(saved && getToken()){
       currentUser = saved;
@@ -2627,9 +2657,11 @@
         $('loginScreen').classList.remove('show');
         onLoggedIn();
         return;
-      }catch(e){ /* token inválido: forceRelogin já mostrou o login */ }
+      }catch(e){ /* token inválido ou sem rede: segue o fluxo de login */ }
     }
+    // Em segundo plano, sem bloquear: nota de 1.ª utilização e banner de ligação
     refreshSeedNote();
+    checkApiHealth();
   })();
 })();
 </script>
