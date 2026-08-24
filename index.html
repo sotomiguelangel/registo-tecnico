@@ -188,7 +188,7 @@
   .room-chip.done{ background:var(--ok-100); border-color:var(--ok-500); color:var(--ok-500); }
   .room-chip[aria-disabled="true"]{ cursor:not-allowed; }
   .room-chip.selected{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
-  .room-chip .dot{ position:absolute; top:3px; right:3px; width:6px; height:6px; border-radius:50%; background:var(--ok-500); }
+  .room-chip .dot{ position:absolute; top:3px; right:3px; width:6px; height:7px; border-radius:50%; background:var(--ok-500); }
   .room-chip.selected .dot{ background:var(--aqua-400); }
   .selected-room-banner{
     display:none; align-items:center; gap:8px; background:var(--petrol-900); color:#fff;
@@ -354,6 +354,7 @@
       <div>
         <p class="brand-eyebrow">Manutenção · Moon and Sun</p>
         <h1 class="brand-title">Registo Técnico</h1>
+      </1>
       </div>
       <div class="clock">
         <strong id="clockTime">--:--</strong>
@@ -566,7 +567,7 @@
         <label class="field"><span class="lbl">Nome completo</span><input type="text" id="u-nombre" placeholder="Ex.: Baldimiro Gonçalves"></label>
         <div class="row2">
           <label class="field"><span class="lbl">Utilizador (login)</span><input type="text" id="u-usuario" placeholder="ex.: baldimiro"></label>
-          <label class="field"><span class="lbl">PIN</span><input type="text" inputmode="numeric" id="u-pin" placeholder="4 dígitos"></label>
+          <label class="field"><span class="lbl">PIN</span><input type="text" inputmode="numeric" id="u-pin" placeholder="4–8 dígitos"></label>
         </div>
         <label class="field" style="margin-bottom:0"><span class="lbl">Perfil</span>
           <select id="u-rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select>
@@ -663,7 +664,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-23.1';
+  const APP_VERSION = '2026-08-24.1';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -677,6 +678,7 @@
   const USER_KEY = 'bitacora_user';
 
   let currentUser = null;
+  let preloadedBoot = null; // dados vindos no login/bootstrap (1 chamada)
 
   function getToken(){ try{ return localStorage.getItem(TOKEN_KEY); }catch(e){ return null; } }
   function setToken(t){ try{ if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }catch(e){} }
@@ -694,10 +696,10 @@
   const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
 
   function forceRelogin(){
-    setToken(null); rememberUser(null); currentUser = null;
+    setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
-    $('loginHint').textContent = 'A sua sessão expirou — inicie sessão novamente.';
+    $('loginHint').textContent = 'A sua sessão expirou ou foi revogada — inicie sessão novamente.';
   }
 
   async function withRetry(fn, retries, delayMs){
@@ -819,9 +821,6 @@
   }
 
   // ---------- Cache local de configurações ----------
-  // NOVEDAD: se descargan TODAS las configuraciones en UNA sola llamada
-  // (getConfigAll). Las funciones loadRooms/loadCycleDone/loadBaselines
-  // siguen llamando a getConfigCached, pero ahora casi nunca toca la red.
   const CONFIG_TTL_MS = 120000; // 2 minutos
   const configStore = {};
   let configSnapshotLoadedAt = 0;
@@ -835,8 +834,8 @@
       });
       configSnapshotLoadedAt = Date.now();
     }catch(e){
-      // Si el servidor aún no tiene getConfigAll (despliegue viejo),
-      // getConfigCached sigue funcionando clave a clave como antes.
+      // Se o servidor ainda não tem getConfigAll, getConfigCached funciona
+      // chave a chave como antes.
     }
   }
 
@@ -849,7 +848,7 @@
   }
   function invalidateConfig(key){
     delete configStore[key];
-    configSnapshotLoadedAt = 0; // fuerza re-descargar el snapshot la próxima vez
+    configSnapshotLoadedAt = 0;
   }
 
   async function checkApiHealth(){
@@ -950,7 +949,7 @@
   async function refreshSeedNote(){
     try{
       const r = await apiGet({ action:'seedStatus' });
-      $('loginSeedNote').style.display = r.defaultAdminActive ? 'block' : 'none';
+      $('loginSeedNote').style.display = r.showSeedNote ? 'block' : 'none';
     }catch(e){}
   }
 
@@ -965,6 +964,7 @@
       setToken(r.token);
       currentUser = r.user;
       rememberUser(r.user);
+      if(r.boot) preloadedBoot = r.boot; // a app já vem carregada nesta resposta
       $('loginScreen').classList.remove('show');
       $('login-pin').value = '';
       onLoggedIn();
@@ -974,7 +974,7 @@
   });
 
   $('btnLogout').addEventListener('click', ()=>{
-    setToken(null); rememberUser(null); currentUser = null;
+    setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
     $('login-pin').value = '';
@@ -990,9 +990,14 @@
     if(!vals) return;
     if(!vals.old || !vals.new1){ showToast('Preencha todos os campos'); return; }
     if(vals.new1 !== vals.new2){ showToast('Os novos PINs não coincidem'); return; }
+    if(!/^\d{4,8}$/.test(vals.new1)){ showToast('O PIN deve ter 4 a 8 dígitos numéricos'); return; }
     try{
       await apiPost({ action:'changeOwnPin', oldPin: vals.old, newPin: vals.new1 });
-      showToast('PIN atualizado ✓');
+      showToast('PIN atualizado — as outras sessões deste utilizador foram encerradas ✓');
+      // A sessão atual deste dispositivo continua válida (o servidor mantém
+      // o token novo emitido no próximo arranque); para simplificar, pedimos
+      // novo login para reemitir o token com a versão atualizada.
+      setTimeout(()=>{ forceRelogin(); $('loginHint').textContent = 'PIN alterado — inicie sessão com o novo PIN.'; }, 1200);
     }catch(e){
       showToast('⚠️ ' + e.message, true);
     }
@@ -1025,7 +1030,6 @@
     });
   });
 
-  // O botão pede sempre dados frescos à rede (ignora a cache de 1 min)
   $('btnRefreshDashboard').addEventListener('click', ()=> renderDashboard(true));
 
   function setDefaults(){
@@ -1204,7 +1208,7 @@
       numero,
       fecha: $('q-fecha').value || todayStr(),
       hora: $('q-hora').value || nowTimeStr(),
-      usuario: currentUser ? currentUser.nombre : '',
+      usuario: currentUser ? currentUser.nome || currentUser.nombre : '',
       phCaliente: $('q-phCaliente').value,
       cloroCaliente: $('q-cloroCaliente').value,
       cloroTotalCaliente: $('q-cloroTotalCaliente').value,
@@ -1568,7 +1572,7 @@
               renderRoomGrid();
             }
           }
-          showToast('Registo eliminado');
+          showToast('Registo eliminado (ficou registado na Auditoria)');
           renderHistorial();
           refreshChips();
         }catch(e){ showToast('⚠️ Não foi possível eliminar: ' + e.message, true); }
@@ -1652,9 +1656,9 @@
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol === 'admin' ? 'admin' : 'tecnico'}">${u.rol === 'admin' ? 'Admin' : 'Técnico'}</span>
-            <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nome||u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nombre)}">Eliminar</button>
+            <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nome || u.nombre)}">PIN</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nome || u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nome || u.nombre)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -1662,13 +1666,14 @@
       list.querySelectorAll('button[data-pin]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
           const vals = await formDialog('Novo PIN para ' + btn.dataset.nombre, [
-            { id:'newpin', label:'PIN novo', type:'password', inputmode:'numeric' }
+            { id:'newpin', label:'PIN novo (4–8 dígitos)', type:'password', inputmode:'numeric' }
           ], 'Guardar PIN');
           if(!vals) return;
           if(!vals.newpin){ showToast('Indique um PIN'); return; }
+          if(!/^\d{4,8}$/.test(vals.newpin)){ showToast('O PIN deve ter 4 a 8 dígitos numéricos'); return; }
           try{
             await apiPost({ action:'adminSetPin', id: btn.dataset.pin, newPin: vals.newpin });
-            showToast(`PIN de ${btn.dataset.nome} atualizado ✓`);
+            showToast(`PIN de ${btn.dataset.nome} atualizado — as sessões dele foram encerradas ✓`);
           }catch(e){ showToast('⚠️ ' + e.message, true); }
         });
       });
@@ -1679,7 +1684,7 @@
           const newActive = willActivate ? 'Sim' : 'Não';
           const ok = await confirmDialog(
             willActivate ? 'Ativar utilizador' : 'Desativar utilizador',
-            `${willActivate ? 'Ativar' : 'Desativar'} ${btn.dataset.nome}?${!willActivate ? ' Não poderá iniciar sessão até que o reative.' : ''}`,
+            `${willActivate ? 'Ativar' : 'Desativar'} ${btn.dataset.nome}?${!willActivate ? ' Não poderá iniciar sessão e as suas sessões abertas serão encerradas imediatamente.' : ''}`,
             willActivate ? 'Ativar' : 'Desativar'
           );
           if(!ok) return;
@@ -1714,11 +1719,12 @@
     const pin = $('u-pin').value.trim();
     const rol = $('u-rol').value;
     if(!nombre || !usuario || !pin){ showToast('Preencha nome, utilizador e PIN'); return; }
+    if(!/^\d{4,8}$/.test(pin)){ showToast('O PIN deve ter 4 a 8 dígitos numéricos'); return; }
     setLoading(btn, true);
     try{
       await apiPost({ action:'createUser', nombre, usuario, pin, rol });
       showToast(`Utilizador ${nombre} criado ✓`);
-      ['u-nombre','u-usuario','u-pin'].forEach(id=> $(id).value='');
+      ['u-nome','u-nombre','u-usuario','u-pin'].forEach(id=> { const el=$(id); if(el) el.value=''; });
       $('u-rol').value = 'tecnico';
       renderUsersList();
     }catch(e){ showToast('⚠️ ' + e.message, true); }
@@ -1953,7 +1959,6 @@
     aqsMin: 45
   };
 
-  // Ticks "redondos" (1/2/5×10ⁿ) para o eixo Y
   function niceTicks(min, max, count){
     if(min === max){ min -= 1; max += 1; }
     const span = max - min;
@@ -1982,7 +1987,6 @@
     return `há ${dias} dia${dias===1?'':'s'}`;
   }
 
-  // Mês anterior, até ao mesmo dia (comparação justa de consumos parciais)
   function prevMonthRangeSameDay(){
     const now = new Date();
     const y = now.getMonth() === 0 ? now.getFullYear()-1 : now.getFullYear();
@@ -2013,7 +2017,6 @@
     return Math.floor((now-from)/86400000);
   }
 
-  // Estatísticas por chave: leitura MAIS RECENTE + média/mín/máx do mês
   function metricFromRecords(records, key){
     const pts = records
       .map(r=>({ v: parseFloat(r.data[key]), t: `${r.data.fecha||''}T${r.data.hora||'00:00'}`, fecha: r.data.fecha, hora: r.data.hora }))
@@ -2254,7 +2257,6 @@
     mountCharts(box);
   }
 
-  // forceFresh=true (botão "Atualizar") ignora a cache local e pede à rede.
   async function renderDashboard(forceFresh){
     const output = $('dashboardOutput');
     const button = $('btnRefreshDashboard');
@@ -2289,8 +2291,6 @@
       const mClTotCal = metricFromRecords(quartos, 'cloroTotalCaliente');
       const mClTotFria = metricFromRecords(quartos, 'cloroTotalFria');
 
-      // Consumos diários (últimos 30 dias): o delta entre duas leituras é
-      // atribuído à data da leitura mais recente.
       const last30Date = new Date(); last30Date.setDate(last30Date.getDate()-29);
       const lim30 = fmt(last30Date);
       const dailyAgua = {}, dailyElec = {};
@@ -2317,7 +2317,6 @@
         }));
       };
 
-      // Alertas com base na leitura MAIS RECENTE (estado operacional atual)
       const alerts = [];
       if(mPh.latest && (mPh.latest.v < DASH_THRESHOLDS.phMin || mPh.latest.v > DASH_THRESHOLDS.phMax))
         alerts.push(`pH atual da piscina fora do intervalo: ${mPh.latest.v.toFixed(2)} (${mPh.latest.ago}). Intervalo: ${DASH_THRESHOLDS.phMin}–${DASH_THRESHOLDS.phMax}.`);
@@ -2457,7 +2456,6 @@
   const QUARTO_IMPORT_FIELDS = ['fecha','hora','usuario','numero','phCaliente','cloroCaliente','cloroTotalCaliente','phFria','cloroFria','cloroTotalFria'];
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
 
-  // Aceita cabeçalhos em português E em espanhol (modelos antigos)
   const IMPORT_ALIASES = {
     fecha:'fecha', data:'fecha', hora:'hora', usuario:'usuario', utilizador:'usuario',
     agua:'agua', electricidad:'electricidad', electricidade:'electricidad', eletricidade:'electricidad',
@@ -2629,37 +2627,51 @@
   }
 
 
-  // ---------- Arranque da app (otimizado) ----------
+  // ---------- Arranque da app (otimizado + bootstrap Fase 1) ----------
   async function initMainApp(){
-    await loadConfigSnapshot();               // 1 chamada: todas as configurações
-    await Promise.all([ loadRooms(), loadCycleDone() ]);   // 0 chamadas extra (vêm do snapshot)
-    // As 2 listas vão em paralelo e pré-aquecem a cache para que o Painel
-    // abra quase instantaneamente logo depois de iniciar sessão.
+    // Se o login/bootstrap já trouxe tudo, semeamos as caches locais:
+    // zero chamadas extra — o Painel e o Geral abrem instantâneos.
+    if(preloadedBoot){
+      try{
+        Object.keys(preloadedBoot.config || {}).forEach(k=>{
+          configStore[k] = { value: preloadedBoot.config[k], ts: Date.now() };
+        });
+        configSnapshotLoadedAt = Date.now();
+        ['general','quarto'].forEach(t=>{
+          const list = preloadedBoot.records && preloadedBoot.records[t];
+          if(list){
+            dataStore[t].items = list.map(d=> ({ key: d.id, data: d }));
+            dataStore[t].ts = Date.now();
+          }
+        });
+        persistStore();
+      }catch(e){}
+      preloadedBoot = null;
+    }
+    await loadConfigSnapshot();
+    await Promise.all([ loadRooms(), loadCycleDone() ]);
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
   }
 
   (async function boot(){
     if(!CONFIG_OK) return;
-
-    // O ecrã de login aparece AL INSTANTE — já não esperamos pelo servidor
-    // para o pintar (antes: health → seedStatus → 3-9s a olhar para o vazio).
     $('loginScreen').classList.add('show');
 
-    // Há sessão guardada? Validá-la diretamente com 1 chamada ('me').
-    // health e seedStatus só correm em segundo plano se forem precisos.
+    // Sessão guardada? Retomá-la com UMA chamada ('bootstrap' devolve
+    // utilizador + configurações + registos). Sem chamadas a health/seed.
     const saved = recallUser();
     if(saved && getToken()){
       currentUser = saved;
       try{
-        const me = await apiGet({ action:'me' });
-        currentUser = me.user;
-        rememberUser(me.user);
+        const r = await apiGet({ action:'bootstrap' });
+        currentUser = r.user;
+        rememberUser(r.user);
+        if(r.config || r.records) preloadedBoot = { config:r.config, records:r.records };
         $('loginScreen').classList.remove('show');
         onLoggedIn();
         return;
-      }catch(e){ /* token inválido ou sem rede: segue o fluxo de login */ }
+      }catch(e){ /* token revogado/expirado: segue o fluxo de login */ }
     }
-    // Em segundo plano, sem bloquear: nota de 1.ª utilização e banner de ligação
     refreshSeedNote();
     checkApiHealth();
   })();
