@@ -276,12 +276,36 @@
   .skel-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
   .skel-card{ height:76px; }
 
+  /* Semáforo do painel */
+  .dashboard-card.st-ok{ border-top:4px solid var(--ok-500); }
+  .dashboard-card.st-ok .value{ color:var(--ok-500); }
+  .dashboard-card.st-bad{ border-top:4px solid var(--coral-500); background:var(--coral-100); }
+  .dashboard-card.st-bad .value{ color:var(--coral-500); }
+  .dashboard-card.st-na{ opacity:.75; }
+  .dashboard-card .st-dot{
+    display:inline-block; width:16px; height:16px; border-radius:50%;
+    font-size:10px; font-weight:700; line-height:16px; text-align:center;
+    margin-right:5px; vertical-align:-3px;
+  }
+  .dashboard-card.st-ok .st-dot{ background:var(--ok-500); color:#fff; }
+  .dashboard-card.st-bad .st-dot{ background:var(--coral-500); color:#fff; }
+  .dashboard-card.st-na .st-dot{ background:var(--ink-400); color:#fff; }
+  .op-banner{ border-radius:14px; padding:14px 16px; margin-bottom:16px; border:1.5px solid; }
+  .op-banner.op-ok{ background:var(--ok-100); border-color:var(--ok-500); }
+  .op-banner.op-bad{ background:var(--coral-100); border-color:var(--coral-500); }
+  .op-banner.op-na{ background:var(--amber-100); border-color:var(--amber-500); }
+  .op-banner .op-big{ font-weight:700; font-size:15px; margin-bottom:3px; }
+  .op-banner.op-ok .op-big{ color:#28704b; }
+  .op-banner.op-bad .op-big{ color:#8b3d1d; }
+  .op-banner.op-na .op-big{ color:#8a5f0f; }
+  .op-banner .op-sub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-600); line-height:1.5; }
+
   .report-actions{ display:flex; gap:10px; margin:16px 0 4px; }
   .report-actions button{ flex:1; padding:12px; border-radius:10px; border:none; cursor:pointer; font-weight:700; font-size:13px; }
   .btn-csv{ background:var(--petrol-900); color:#fff; }
   .btn-print{ background:var(--aqua-100); color:var(--petrol-800); }
 
-  /* Relatório oficial (Fase 2) */
+  /* Relatório oficial */
   .official-toolbar{ display:flex; gap:10px; margin:16px 0 4px; }
   .official-toolbar button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13.5px; }
   .btn-official{ background:var(--ok-500); color:#fff; }
@@ -718,7 +742,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-25.1';
+  const APP_VERSION = '2026-08-25.2';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -1722,7 +1746,7 @@
 
       list.querySelectorAll('button[data-pin]').forEach(btn=>{
         btn.addEventListener('click', async ()=>{
-          const vals = await formDialog('Novo PIN para ' + btn.dataset.nombre, [
+          const vals = await formDialog('Novo PIN para ' + btn.dataset.nome, [
             { id:'newpin', label:'PIN novo (4–8 dígitos)', type:'password', inputmode:'numeric' }
           ], 'Guardar PIN');
           if(!vals) return;
@@ -2011,10 +2035,11 @@
     return `<div class="stat-box${alt?' alt':''}"><div class="lab">${esc(label)}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
   }
 
-  // ---------- Painel (Dashboard) v3 — gráficos interativos ----------
+  // ---------- Painel (Dashboard) v3.5 — gráficos interativos + semáforo ----------
   const DASH_THRESHOLDS = {
     phMin: 7.0, phMax: 7.8,
     cloroMin: 0.5, cloroMax: 3.0,
+    cloroTotalMax: 5.0,   // límite más amplio para cloro total
     aqsMin: 45
   };
 
@@ -2093,21 +2118,51 @@
     };
   }
 
-  function dashboardTone(value, min, max){
-    if(value === null || value === undefined) return '';
-    if((min !== null && value < min) || (max !== null && value > max)) return 'alert';
-    return (min !== null || max !== null) ? 'good' : '';
+  // Estado de una lectura: 'ok' | 'bad' | 'na' (sin datos o sin límites)
+  function cardState(v, min, max){
+    if(v === null || v === undefined || isNaN(v)) return 'na';
+    if((min !== null && min !== undefined && v < min) || (max !== null && max !== undefined && v > max)) return 'bad';
+    return 'ok';
   }
 
+  // Tarjetas con semáforo: verde OK, coral fuera de rango, gris sin datos
   function statusCard(label, m, min, max, unit, dec){
     if(!m || m.count === 0){
-      return `<div class="dashboard-card"><div class="lab">${esc(label)}</div><div class="value">—</div><div class="meta">Sem leituras no mês</div></div>`;
+      return `<div class="dashboard-card st-na"><div class="lab"><span class="st-dot">·</span>${esc(label)}</div><div class="value">—</div><div class="meta">Sem leituras no mês</div></div>`;
     }
-    const tone = dashboardTone(m.latest.v, min, max);
-    return `<div class="dashboard-card ${tone}">
-      <div class="lab">${esc(label)}</div>
+    const st = cardState(m.latest.v, min, max);
+    const dot = st === 'ok' ? '✓' : (st === 'bad' ? '✗' : '·');
+    return `<div class="dashboard-card st-${st}">
+      <div class="lab"><span class="st-dot">${dot}</span>${esc(label)}</div>
       <div class="value">${m.latest.v.toFixed(dec)}${unit?' '+esc(unit):''}</div>
       <div class="meta">${esc(m.latest.ago)} · média ${m.avg.toFixed(dec)} · mín ${m.min.toFixed(dec)} · máx ${m.max.toFixed(dec)}</div>
+    </div>`;
+  }
+
+  // Banner semáforo global: resume de un vistazo si todo está bien
+  function buildOpBanner(metrics){
+    const bad = []; let okCount = 0, naCount = 0;
+    metrics.forEach(x=>{
+      if(!x.m || x.m.count === 0){ naCount++; return; }
+      const st = cardState(x.m.latest.v, x.min, x.max);
+      if(st === 'bad') bad.push(`${x.label} ${x.m.latest.v.toFixed(x.dec)}${x.unit?' '+x.unit:''}`);
+      else okCount++;
+    });
+    if(bad.length){
+      return `<div class="op-banner op-bad">
+        <div class="op-big">⚠ Estado operacional: atenção</div>
+        <div class="op-sub">${bad.length} leitura(s) fora do intervalo — ${esc(bad.join(' · '))}</div>
+      </div>`;
+    }
+    if(okCount > 0){
+      return `<div class="op-banner op-ok">
+        <div class="op-big">✓ Estado operacional: tudo dentro dos intervalos</div>
+        <div class="op-sub">${okCount} leitura(s) avaliadas · limites: pH ${DASH_THRESHOLDS.phMin}–${DASH_THRESHOLDS.phMax} · cloro ${DASH_THRESHOLDS.cloroMin}–${DASH_THRESHOLDS.cloroMax} ppm · AQS ≥ ${DASH_THRESHOLDS.aqsMin} °C</div>
+      </div>`;
+    }
+    return `<div class="op-banner op-na">
+      <div class="op-big">◌ Sem leituras suficientes</div>
+      <div class="op-sub">Registe a leitura geral do dia para avaliar o estado operacional.</div>
     </div>`;
   }
 
@@ -2350,6 +2405,19 @@
       const mClTotCal = metricFromRecords(quartos, 'cloroTotalCaliente');
       const mClTotFria = metricFromRecords(quartos, 'cloroTotalFria');
 
+      // Semáforo global: todas as leituras com limites definidos
+      const opMetrics = [
+        { label:'pH piscina', m:mPh, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
+        { label:'Cloro livre', m:mClLivre, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' },
+        { label:'Retorno AQS', m:mRetorno, min:DASH_THRESHOLDS.aqsMin, max:null, dec:1, unit:'°C' },
+        { label:'AQS quartos', m:mAqsQ, min:DASH_THRESHOLDS.aqsMin, max:null, dec:1, unit:'°C' },
+        { label:'pH quente', m:mPhCal, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
+        { label:'pH fria', m:mPhFria, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
+        { label:'Cloro quente', m:mClCal, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' },
+        { label:'Cloro fria', m:mClFria, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' }
+      ];
+      const opBanner = buildOpBanner(opMetrics);
+
       const last30Date = new Date(); last30Date.setDate(last30Date.getDate()-29);
       const lim30 = fmt(last30Date);
       const dailyAgua = {}, dailyElec = {};
@@ -2399,6 +2467,7 @@
 
       output.innerHTML = `
         ${renderComplianceBox(generalRaw)}
+        ${opBanner}
         <h2 class="report-heading">Consumos do mês</h2>
         <div class="dashboard-grid">
           <div class="dashboard-card">
@@ -2431,17 +2500,17 @@
         <div class="dashboard-grid">
           ${statusCard('pH', mPh, DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax, '', 2)}
           ${statusCard('Cloro livre', mClLivre, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroMax, 'ppm', 2)}
-          ${statusCard('Cloro total', mClTotal, null, null, 'ppm', 2)}
+          ${statusCard('Cloro total', mClTotal, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroTotalMax, 'ppm', 2)}
         </div>
 
         <h2 class="report-heading">Quartos · última medição</h2>
         <div class="dashboard-grid">
-          ${statusCard('pH quente', mPhCal, null, null, '', 2)}
-          ${statusCard('pH fria', mPhFria, null, null, '', 2)}
-          ${statusCard('Cloro livre quente', mClCal, null, null, 'ppm', 2)}
-          ${statusCard('Cloro livre fria', mClFria, null, null, 'ppm', 2)}
-          ${statusCard('Cloro total quente', mClTotCal, null, null, 'ppm', 2)}
-          ${statusCard('Cloro total fria', mClTotFria, null, null, 'ppm', 2)}
+          ${statusCard('pH quente', mPhCal, DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax, '', 2)}
+          ${statusCard('pH fria', mPhFria, DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax, '', 2)}
+          ${statusCard('Cloro livre quente', mClCal, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroMax, 'ppm', 2)}
+          ${statusCard('Cloro livre fria', mClFria, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroMax, 'ppm', 2)}
+          ${statusCard('Cloro total quente', mClTotCal, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroTotalMax, 'ppm', 2)}
+          ${statusCard('Cloro total fria', mClTotFria, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroTotalMax, 'ppm', 2)}
         </div>
 
         <h2 class="report-heading">Cobertura e alertas</h2>
