@@ -1,0 +1,17 @@
+{
+  "name": "Registo Técnico · Moon and Sun",
+  "short_name": "Registo",
+  "description": "Registo diário de manutenção: piscinas, AQS, consumos e quartos.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a2530",
+  "theme_color": "#0e3341",
+  "lang": "pt-PT",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
