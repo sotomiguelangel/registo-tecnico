@@ -392,7 +392,7 @@
 
   @media print{
     body.printing-official #officialReport{ display:block !important; }
-    body.printing-official #app{ display:none !important; }
+    body.printing-official #app > *:not(#officialReport){ display:none !important; }
     body:not(.printing-official) header.top, body:not(.printing-official) nav.tabs,
     body:not(.printing-official) .period-toggle, body:not(.printing-official) .custom-range,
     body:not(.printing-official) .report-actions, body:not(.printing-official) .official-toolbar,
@@ -2932,7 +2932,7 @@
       setTimeout(()=>{
         window.print();
         setTimeout(()=> document.body.classList.remove('printing-official'), 500);
-      }, 400);
+      }, 600);
     }catch(e){
       showToast('⚠️ Não foi possível gerar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
