@@ -389,6 +389,18 @@
     padding:7px 10px; font-size:11.5px; font-weight:700; cursor:pointer;
   }
 
+  /* Botón de logout visible al final del contenido + versión */
+  .logout-main{
+    width:100%; padding:14px; border-radius:12px; cursor:pointer;
+    background:#fff; color:var(--coral-500); border:1.5px solid var(--coral-500);
+    font-weight:700; font-size:14px; margin-top:24px;
+  }
+  .logout-main:active{ background:var(--coral-100); }
+  .app-footer-version{
+    text-align:center; font-family:var(--mono); font-size:10px;
+    color:var(--ink-400); margin:14px 0 0; opacity:.75;
+  }
+
   .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(10,37,48,.55); z-index:100; align-items:flex-end; justify-content:center; }
   .modal-overlay.show{ display:flex; }
   .modal-box{ width:100%; max-width:520px; background:#fff; border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); animation:slideup .2s ease; }
@@ -400,12 +412,6 @@
   .modal-actions button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:14px; }
   .modal-btn-cancel{ background:var(--paper); color:var(--ink-600); border:1.5px solid var(--line) !important; }
   .modal-btn-confirm{ background:var(--petrol-900); color:#fff; }
-
-  /* Versión visible dentro de la app (footer discreto) */
-  .app-footer-version{
-    text-align:center; font-family:var(--mono); font-size:10px;
-    color:var(--ink-400); margin:26px 0 0; opacity:.75;
-  }
 
   @media print{
     /* Imprime a partir da vista previa (estado previewing-official):
@@ -718,7 +724,8 @@
       <div id="importPreview"></div>
     </section>
 
-    <!-- Versión siempre visible al final del contenido de la app -->
+    <!-- Sessão e versão — sempre visíveis no final do conteúdo -->
+    <button class="logout-main" id="btnLogoutMain">🚪 Terminar sessão</button>
     <p class="app-footer-version">Registo Técnico · v<span class="appVersionInline">—</span></p>
 
   </main>
@@ -782,7 +789,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-26.5';
+  const APP_VERSION = '2026-08-26.6';
   // Versión visible en login, setup y en el footer de la app (siempre)
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
@@ -1096,14 +1103,19 @@
     }finally{ setLoading(btn, false); }
   });
 
-  $('btnLogout').addEventListener('click', ()=>{
+  // Sair da sessão — usado pelo botão do header e pelo botão do fim da app
+  function doLogout(){
+    closeOfficialPreview(); // se estava a ver o relatório, fecha-o
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
     $('login-pin').value = '';
     $('loginHint').textContent = '';
-  });
+    window.scrollTo(0,0);
+  }
+  $('btnLogout').addEventListener('click', doLogout);
+  $('btnLogoutMain').addEventListener('click', doLogout);
 
   $('btnChangeMyPin').addEventListener('click', async ()=>{
     const vals = await formDialog('Alterar o meu PIN', [
@@ -1127,7 +1139,7 @@
 
   function onLoggedIn(){
     $('userBadge').style.display = 'flex';
-    $('userBadgeName').textContent = currentUser.nombre;
+    $('userBadgeName').textContent = currentUser.nome || currentUser.nombre;
     const viewer = isViewer();
     $('userBadgeRole').textContent = currentUser.rol === 'admin' ? 'Administrador' : (viewer ? 'Visualizador' : 'Técnico');
     $('navUsuarios').style.display = currentUser.rol === 'admin' ? '' : 'none';
@@ -1339,7 +1351,7 @@
       numero,
       fecha: $('q-fecha').value || todayStr(),
       hora: $('q-hora').value || nowTimeStr(),
-      usuario: currentUser ? currentUser.nome || currentUser.nombre : '',
+      usuario: currentUser ? currentUser.nombre : '',
       phCaliente: $('q-phCaliente').value,
       cloroCaliente: $('q-cloroCaliente').value,
       cloroTotalCaliente: $('q-cloroTotalCaliente').value,
@@ -1795,9 +1807,9 @@
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol}">${u.rol === 'admin' ? 'Admin' : (u.rol === 'visualizador' ? 'Visualizador' : 'Técnico')}</span>
-            <button data-pin="${esc(u.id)}" data-nome="${esc(u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nome)}">Eliminar</button>
+            <button data-pin="${esc(u.id)}" data-nome="${esc(u.nome || u.nombre)}">PIN</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nome || u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nome || u.nome)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -1862,7 +1874,7 @@
     setLoading(btn, true);
     try{
       await apiPost({ action:'createUser', nombre, usuario, pin, rol });
-      showToast(`Utilizador ${nome} criado ✓`);
+      showToast(`Utilizador ${nombre} criado ✓`);
       ['u-nombre','u-usuario','u-pin'].forEach(id=> $(id).value='');
       $('u-rol').value = 'tecnico';
       renderUsersList();
