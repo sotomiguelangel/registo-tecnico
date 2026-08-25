@@ -144,6 +144,7 @@
     background:var(--petrol-900); color:#fff; padding:11px 18px; border-radius:30px;
     font-size:13.5px; font-weight:600; opacity:0; pointer-events:none; transition:.25s ease;
     z-index:50; box-shadow:0 10px 24px -8px rgba(0,0,0,.4); max-width:88%; text-align:center;
+    white-space:pre-line;
   }
   .toast.show{ opacity:1; transform:translate(-50%,0); }
   .toast.err{ background:var(--coral-500); }
@@ -861,7 +862,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-27.2';
+  const APP_VERSION = '2026-08-27.3';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -1729,32 +1730,13 @@
   $('btnTempDeselect').addEventListener('click', deselectEquip);
   $('t-equipamento').addEventListener('change', ()=> selectEquip($('t-equipamento').value));
 
-  async function renderTempWeek(){
-    const box = $('tempWeekBox');
+  async function renderTempView(){
     try{
       await loadEquipamentos();
-      const r = await apiGet({ action:'temperaturaStatus' });
-      const st = r.status;
-      $('tempWeekRange').textContent = `(${st.desde} a ${st.hasta})`;
-      if(!st.items.length){
-        box.innerHTML = `<div class="empty" style="padding:12px 0">Ainda não há equipamentos criados.${isAdmin() ? ' Use "⚙️ Gerir equipamentos" acima para criar os seus 18 equipamentos.' : ''}</div>`;
-      } else {
-        box.innerHTML = `
-          <div style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin-bottom:8px;">
-            Medidos: <b style="color:${st.faltam ? '#8a5f0f' : '#28704b'}">${st.medidos}/${st.total}</b>${st.faltam ? ` · faltam ${st.faltam}` : ' · ✓ semana completa'}
-          </div>
-          ${st.items.map(i=>`
-            <div class="week-card">
-              <div style="min-width:0">
-                <div class="wn">${esc(i.nome)} <span style="font-weight:400; color:var(--ink-400); font-size:11px;">(${esc(i.tipo)})</span></div>
-                <div class="wm">${esc(i.ubicacao || '—')} · última: ${i.ultima ? esc(i.ultima.fecha) + ' ' + esc(i.ultima.hora) + ' → ' + esc(i.ultima.temperatura) + ' °C' + (i.ultima.dentro==='Não' ? ' ⚠' : '') : 'nunca medido'}</div>
-              </div>
-              <span class="week-pill ${i.medidoSemana ? 'ok' : 'pend'}">${i.medidoSemana ? '✓ medido' : 'pendente'}</span>
-            </div>`).join('')}
-        `;
-      }
+      renderEquipSelect();
+      await renderTempWeek();
     }catch(e){
-      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ Erro ao carregar: ${esc(e.message)}<br><br><b>Verifique que o backend está desplegado na v4.7 ("Nova versão" no Apps Script).</b></div>`;
+      $('tempWeekBox').innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
     }
   }
 
@@ -1762,7 +1744,7 @@
     const sel = $('t-equipamento');
     const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
     if(!ativos.length){
-      sel.innerHTML = '<option value="">Sem equipamentos — o admin deve criá-los com "Gerir equipamentos"</option>';
+      sel.innerHTML = '<option value="">Sem equipamentos — o admin deve criá-los com "⚙️ Gerir equipamentos"</option>';
       return;
     }
     const current = selectedEquipId || sel.value;
@@ -1797,7 +1779,7 @@
         `;
       }
     }catch(e){
-      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
+      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ Erro ao carregar: ${esc(e.message)}<br><br><b>Verifique que o backend está desplegado na v4.7 ("Nova versão" no Apps Script).</b></div>`;
     }
   }
   $('btnRefreshTempWeek').addEventListener('click', ()=> renderTempWeek());
@@ -1837,6 +1819,7 @@
       showToast('⚠️ Não foi possível criar: ' + e.message, true);
     }
   }
+  $('btnEquipAdmin').addEventListener('click', openEquipAdmin);
 
   async function editEquipamento(id){
     const eq = equipamentos.find(e=> e.id === id);
