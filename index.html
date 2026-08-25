@@ -17,6 +17,7 @@
     --amber-500:#e0a12b; --amber-100:#fbf0d9;
     --coral-500:#e0602b; --coral-100:#fbe6da;
     --ok-500:#3ea472; --ok-100:#e1f3e9;
+    --ice-500:#3d8bd4; --ice-100:#e3f0fb;
     --paper:#f5f7f6; --card:#ffffff;
     --ink-900:#0f2027; --ink-600:#4c6570; --ink-400:#8ba1a8; --line:#dde6e6;
     --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
@@ -81,6 +82,7 @@
     color:var(--petrol-700); margin:0 0 12px; display:flex; align-items:center; gap:8px;
   }
   .section-title::before{ content:""; width:14px; height:2px; background:var(--aqua-500); display:inline-block; }
+  .section-title.ice::before{ background:var(--ice-500); }
 
   .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
 
@@ -118,12 +120,15 @@
     font-family:var(--mono); font-size:11px; font-weight:600; text-transform:uppercase;
     letter-spacing:.06em; color:var(--aqua-500); margin:0 0 10px;
   }
+  .subgroup-title.ice{ color:var(--ice-500); }
 
   button.primary{
     width:100%; padding:14px; border:none; border-radius:12px; cursor:pointer;
     background:var(--petrol-900); color:#fff; font-family:var(--sans); font-weight:700; font-size:14.5px; letter-spacing:.01em;
     display:flex; align-items:center; justify-content:center; gap:8px;
   }
+  button.primary.ice{ background:var(--ice-500); }
+  button.primary.ice:active{ background:#2f76b8; }
   button.primary:active{ background:var(--petrol-800); }
   button.primary:disabled{ opacity:.65; cursor:default; }
   button.danger{ background:var(--coral-500); }
@@ -155,6 +160,8 @@
   }
   .tag-general{ background:var(--aqua-100); color:var(--petrol-700); }
   .tag-quarto{ background:var(--amber-100); color:#8a5f0f; }
+  .tag-temp{ background:var(--ice-100); color:#1f5f96; }
+  .tag-temp.bad{ background:var(--coral-100); color:#8b3d1d; }
   .entry-grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
   .entry-item{ font-size:13px; color:var(--ink-900); display:flex; justify-content:space-between; }
   .entry-item span.k{ color:var(--ink-400); }
@@ -175,6 +182,7 @@
   .quarto-progress .txt{ font-family:var(--mono); font-size:12.5px; color:var(--ink-600); }
   .quarto-progress .txt b{ color:var(--petrol-900); font-size:14px; }
   .link-edit{ background:none; border:none; color:var(--aqua-500); font-weight:700; font-size:12px; cursor:pointer; padding:4px 0; text-decoration:underline; }
+  .link-edit.ice{ color:var(--ice-500); }
 
   .room-groups{ margin-bottom:8px; }
   .floor-label{ font-family:var(--mono); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-400); margin:12px 0 6px; }
@@ -196,6 +204,24 @@
   }
   .selected-room-banner.show{ display:flex; }
 
+  /* Refrigeração */
+  .temp-selected{
+    display:none; align-items:center; justify-content:space-between; gap:8px;
+    background:var(--ice-500); color:#fff; border-radius:10px; padding:10px 14px;
+    margin-bottom:14px; font-family:var(--mono); font-size:12.5px; font-weight:600;
+  }
+  .temp-selected.show{ display:flex; }
+  .temp-selected .t-range{ font-size:10.5px; opacity:.85; font-weight:400; }
+  .temp-sign-hint{ font-family:var(--mono); font-size:10.5px; color:var(--ink-400); margin:6px 0 0; }
+  .temp-sign-hint b.neg{ color:var(--ice-500); }
+  .week-card{ display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--card); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-bottom:8px; }
+  .week-card .wn{ font-weight:700; font-size:13px; }
+  .week-card .wm{ font-family:var(--mono); font-size:10px; color:var(--ink-400); }
+  .week-pill{ font-family:var(--mono); font-size:10px; font-weight:700; padding:4px 9px; border-radius:20px; flex:0 0 auto; }
+  .week-pill.ok{ background:var(--ok-100); color:#28704b; }
+  .week-pill.pend{ background:var(--amber-100); color:#8a5f0f; }
+
   .period-toggle{ display:flex; gap:8px; margin-bottom:16px; }
   .period-toggle button{
     flex:1; padding:10px 6px; border-radius:10px; border:1.5px solid var(--line);
@@ -210,6 +236,7 @@
   table.report th{ font-family:var(--mono); text-transform:uppercase; font-size:9.5px; letter-spacing:.05em; color:var(--ink-400); font-weight:600; }
   table.report td{ font-family:var(--mono); }
   table.report td.calc{ color:var(--petrol-700); font-weight:700; }
+  table.report td.tbad{ color:var(--coral-500); font-weight:700; }
   .table-scroll{ overflow-x:auto; margin:0 -18px; padding:0 18px; }
 
   .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
@@ -230,6 +257,7 @@
   .dashboard-card.good{ background:var(--ok-100); border-color:var(--ok-500); }
   .dashboard-card.alert{ border-color:var(--coral-500); background:var(--coral-100); }
   .dashboard-card.alert .value{ color:var(--coral-500); }
+  .dashboard-card.ice{ background:var(--ice-100); border-color:var(--ice-500); }
   .dashboard-alert{ border-left:4px solid var(--coral-500); background:var(--coral-100); border-radius:8px; padding:10px 12px; font-size:12.5px; color:#8b3d1d; margin-bottom:8px; line-height:1.4; }
   .dashboard-ok{ border-left:4px solid var(--ok-500); background:var(--ok-100); border-radius:8px; padding:10px 12px; font-size:12.5px; color:#28704b; margin-bottom:8px; }
   .dashboard-chart{ width:100%; height:auto; display:block; margin:0 0 18px; overflow:visible; }
@@ -258,19 +286,15 @@
   .chart-tip .tip-row{ display:flex; align-items:center; gap:6px; }
   .chart-tip .tip-dot{ width:7px; height:7px; border-radius:50%; flex:0 0 auto; }
   .chart-tip .tip-val{ font-weight:700; margin-left:8px; }
-  /* Tendência vs. mês anterior */
   .trend-badge{ display:inline-block; font-family:var(--mono); font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:12px; margin-right:4px; }
   .trend-badge.up{ background:var(--coral-100); color:#8b3d1d; }
   .trend-badge.down{ background:var(--ok-100); color:#28704b; }
   .trend-badge.flat{ background:var(--aqua-100); color:var(--petrol-700); }
-  /* Barra de progresso */
   .progress-track{ height:8px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px; }
   .progress-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,var(--aqua-500),var(--ok-500)); transition:width .5s ease; }
-  /* Alternador do gráfico diário */
   .seg-toggle{ display:flex; gap:6px; margin:0 0 10px; }
   .seg-toggle button{ flex:1; padding:8px 6px; border-radius:9px; border:1.5px solid var(--line); background:#fff; font-size:12px; font-weight:700; color:var(--ink-600); cursor:pointer; }
   .seg-toggle button.active{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
-  /* Skeleton de carregamento */
   .skel{ border-radius:12px; background:linear-gradient(90deg,#e8eeee 25%,#f3f6f5 50%,#e8eeee 75%); background-size:200% 100%; animation:shimmer 1.2s infinite; }
   @keyframes shimmer{ from{background-position:200% 0;} to{background-position:-200% 0;} }
   .skel-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
@@ -310,7 +334,6 @@
   .official-toolbar button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13.5px; }
   .btn-official{ background:var(--ok-500); color:#fff; }
   #officialReport{ display:none; }
-  /* Vista previa del relatório oficial en pantalla (fuera de #app) */
   body.previewing-official #officialReport{ display:block; padding:70px 12px 30px; background:#e8ecec; min-height:100vh; }
   body.previewing-official #app{ display:none; }
   .off-toolbar-float{
@@ -323,6 +346,7 @@
   .off-toolbar-float .b-close{ background:#fff; color:var(--ink-600); }
   .off-doc{ font-family:var(--sans); color:#111; background:#fff; padding:28px 22px; }
   .off-doc h1{ font-size:17px; margin:0 0 2px; }
+  .off-doc h2{ font-size:13px; margin:16px 0 4px; }
   .off-doc .off-sub{ font-size:12px; color:#555; margin-bottom:4px; }
   .off-doc .off-meta{ font-family:var(--mono); font-size:10.5px; color:#777; margin-bottom:14px; }
   .off-doc table{ width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 14px; }
@@ -374,22 +398,21 @@
   }
   .badge-rol.admin{ background:var(--amber-100); color:#8a5f0f; }
   .badge-rol.tecnico{ background:var(--aqua-100); color:var(--petrol-700); }
-  /* Perfil Visualizador */
   .badge-rol.visualizador{ background:#eef2f1; color:var(--ink-600); }
-  /* Perfil visualizador: oculta tudo o que escreve */
   body.viewer-mode #navImportar,
   body.viewer-mode #btnSaveGeneral,
   body.viewer-mode #btnSaveQuarto,
   body.viewer-mode #btnCancelEditGeneral,
   body.viewer-mode #btnCancelEditQuarto,
+  body.viewer-mode #btnSaveTemp,
   body.viewer-mode #selectedRoomBanner,
-  body.viewer-mode #qManualLabel { display:none !important; }
+  body.viewer-mode #qManualLabel,
+  body.viewer-mode #tempSelected { display:none !important; }
   .user-row button{
     background:var(--coral-100); color:var(--coral-500); border:none; border-radius:8px;
     padding:7px 10px; font-size:11.5px; font-weight:700; cursor:pointer;
   }
 
-  /* Botón de logout visible al final del contenido + versión */
   .logout-main{
     width:100%; padding:14px; border-radius:12px; cursor:pointer;
     background:#fff; color:var(--coral-500); border:1.5px solid var(--coral-500);
@@ -403,7 +426,7 @@
 
   .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(10,37,48,.55); z-index:100; align-items:flex-end; justify-content:center; }
   .modal-overlay.show{ display:flex; }
-  .modal-box{ width:100%; max-width:520px; background:#fff; border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); animation:slideup .2s ease; }
+  .modal-box{ width:100%; max-width:520px; background:#fff; border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); animation:slideup .2s ease; max-height:90vh; overflow-y:auto; }
   @keyframes slideup{ from{ transform:translateY(20px); opacity:0;} to{ transform:none; opacity:1;} }
   .modal-title{ font-family:var(--sans); font-weight:700; font-size:16px; margin:0 0 8px; color:var(--ink-900); }
   .modal-msg{ font-size:13.5px; color:var(--ink-600); margin:0 0 16px; white-space:pre-line; line-height:1.5; }
@@ -414,18 +437,14 @@
   .modal-btn-confirm{ background:var(--petrol-900); color:#fff; }
 
   @media print{
-    /* Imprime a partir da vista previa (estado previewing-official):
-       sem trocas de classe nem temporizadores — à prova de falhas. */
     body.previewing-official #app{ display:none !important; }
     body.previewing-official #officialReport{ display:block !important; background:#fff; padding:0; }
     body.previewing-official .off-toolbar-float{ display:none !important; }
     body.previewing-official .off-doc{ padding:8mm 6mm; }
-    /* Mantém as cores (linhas fora-do-intervalo) no PDF */
     .off-doc, .off-doc *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
     body{ background:#fff; }
     #app{ max-width:100%; }
     main{ padding:0; }
-    /* Impressão normal (botão "Imprimir / PDF" dentro da app) */
     body:not(.previewing-official) header.top, body:not(.previewing-official) nav.tabs,
     body:not(.previewing-official) .period-toggle, body:not(.previewing-official) .custom-range,
     body:not(.previewing-official) .report-actions, body:not(.previewing-official) .official-toolbar,
@@ -460,6 +479,7 @@
     <div class="status-strip" id="statusStrip">
       <div class="status-chip"><b id="chipGeneral">0</b>registos gerais</div>
       <div class="status-chip"><b id="chipQuarto">0</b>leituras de quartos</div>
+      <div class="status-chip"><b id="chipTemp">0</b>leituras refrig.</div>
       <div class="status-chip"><b id="chipHoy">0</b>hoje</div>
     </div>
   </header>
@@ -468,6 +488,7 @@
     <button data-view="dashboard">Painel</button>
     <button data-view="general" class="active">Geral</button>
     <button data-view="quarto">Quarto</button>
+    <button data-view="temperatura">Refrigeração</button>
     <button data-view="historial">Histórico</button>
     <button data-view="reportes">Relatórios</button>
     <button data-view="usuarios" id="navUsuarios" style="display:none">Utilizadores</button>
@@ -626,6 +647,54 @@
       <button class="ghost-cancel" id="btnCancelEditQuarto" style="display:none">Cancelar edição</button>
     </section>
 
+    <!-- REFRIGERAÇÃO -->
+    <section class="view" id="view-temperatura">
+      <p class="section-title ice">🧊 Controlo semanal · Refrigeração</p>
+      <div class="edit-banner" id="editBannerTemp">✏️ A editar uma leitura existente — ao guardar será atualizado (apenas administrador).</div>
+      <div class="edit-banner" id="viewerBannerTemp" style="background:var(--ice-100); color:#1f5f96;">👁 Perfil de visualização — pode consultar, mas não registar temperaturas.</div>
+
+      <div class="card">
+        <div class="subgroup-title ice">Controlo da semana <span style="text-transform:none; font-weight:400; color:var(--ink-400)" id="tempWeekRange"></span></div>
+        <div id="tempWeekBox"><div class="empty" style="padding:12px 0">A carregar…</div></div>
+        <div style="display:flex; gap:16px; margin-top:8px;">
+          <button class="link-edit ice" id="btnRefreshTempWeek" type="button">Atualizar controlo semanal</button>
+          <button class="link-edit ice" id="btnEquipAdmin" type="button" style="display:none">⚙️ Gerir equipamentos</button>
+        </div>
+      </div>
+
+      <div class="temp-selected" id="tempSelected">
+        <div>🧊 <span id="tempSelName">—</span> <span class="t-range" id="tempSelRange"></span></div>
+        <button class="link-edit" id="btnTempDeselect" type="button" style="color:#fff;">✕</button>
+      </div>
+
+      <div class="card">
+        <div class="subgroup-title ice">Nova leitura de temperatura</div>
+        <label class="field"><span class="lbl">Equipamento</span>
+          <select id="t-equipamento"><option value="">A carregar equipamentos…</option></select>
+        </label>
+        <p class="temp-sign-hint" id="tempSignHint">Selecione um equipamento para ver o intervalo esperado.</p>
+        <div class="row2" style="margin-top:14px">
+          <label class="field"><span class="lbl">Data</span><input type="date" id="t-fecha"></label>
+          <label class="field"><span class="lbl">Hora</span><input type="time" id="t-hora"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Temperatura <span class="unit">(°C)</span></span><input type="number" step="0.1" min="-60" max="60" id="t-temperatura" placeholder="Ex.: 4.0 ou -18.0"></label>
+          <div></div>
+        </div>
+        <label class="field" style="margin-top:14px; margin-bottom:0"><span class="lbl">Observações <span class="unit">(opcional)</span></span>
+          <input type="text" id="t-observacoes" maxlength="200" placeholder="Ex.: porta mal fechada, gelo acumulado...">
+        </label>
+      </div>
+
+      <button class="primary ice" id="btnSaveTemp"><span class="spinner"></span><span class="lbl-text">Guardar temperatura</span></button>
+      <button class="ghost-cancel" id="btnCancelEditTemp" style="display:none">Cancelar edição</button>
+      <p style="font-size:10.5px; color:var(--ink-400); margin-top:10px; line-height:1.5; font-family:var(--mono)">
+        Frigorífico/Vinhera → temperatura POSITIVA · Congelador → temperatura NEGATIVA.
+        O sistema valida o sinal e o intervalo do equipamento ao guardar.
+        Modificar ou eliminar leituras é exclusivo do administrador (fica na Auditoria).
+      </p>
+    </section>
+
     <section class="view" id="view-historial">
       <p class="section-title">Histórico de registos</p>
       <div class="filter-row">
@@ -633,6 +702,7 @@
           <option value="all">Todos</option>
           <option value="general">Apenas gerais</option>
           <option value="quarto">Apenas quartos</option>
+          <option value="temperatura">Apenas refrigeração</option>
         </select>
         <select id="histFiltroOrden">
           <option value="desc">Mais recente primeiro</option>
@@ -657,7 +727,7 @@
       <div class="official-toolbar">
         <button class="btn-official" id="btnOfficialReport">🏛️ Relatório oficial (PDF)</button>
       </div>
-      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: vê-o primeiro na pantalla e depois imprime/guarda como PDF.</p>
+      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: inclui piscina, AQS e refrigeração, com fora-de-intervalo destacado e espaço para assinaturas.</p>
 
       <div id="reporteOutput"></div>
     </section>
@@ -687,6 +757,7 @@
         </label>
         <p style="font-size:11px; color:var(--ink-400); line-height:1.5; margin:0 0 12px;">
           • Leitura fora do intervalo → email imediato (máx. 1/dia)<br>
+          • Temperatura de equipamento fora do intervalo → email imediato (máx. 1/dia)<br>
           • Leitura diária em falta → lembrete às 10h00<br>
           • Resumo semanal para gerência → segunda-feira 08h00
         </p>
@@ -701,11 +772,12 @@
       <p class="section-title">Importação em lote</p>
       <div class="card">
         <p style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin:0 0 14px;">
-          Carregue muitos registos de uma só vez colando um CSV ou carregando um ficheiro. A <b>primeira linha deve ser o cabeçalho</b> — descarregue o modelo para ter as colunas corretas. As datas no formato <code style="background:var(--aqua-100); padding:2px 5px; border-radius:4px;">AAAA-MM-DD</code>.
+          Carregue muitos registos de uma só vez colando um CSV ou carregando um ficheiro. A <b>primeira linha deve ser o cabeçalho</b> — descarregue o modelo para ter as colunas corretas. As datas no formato <code style="background:var(--aqua-100); padding:2px 5px; border-radius:4px;">AAAA-MM-DD</code>. Na refrigeração, o equipamento identifica-se pelo <b>Nome</b>.
         </p>
         <div class="period-toggle">
           <button data-importtype="general" class="active">Leituras gerais</button>
           <button data-importtype="quarto">Leituras de quartos</button>
+          <button data-importtype="temperatura">Refrigeração</button>
         </div>
         <button class="link-edit" id="btnDownloadTemplate" type="button">Descarregar modelo CSV</button>
 
@@ -789,8 +861,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-26.6';
-  // Versión visible en login, setup y en el footer de la app (siempre)
+  const APP_VERSION = '2026-08-27.2';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -799,30 +870,27 @@
   function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
   function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-  // ---------- Capa de dados: Google Sheets via Apps Script ----------
+  // ---------- Capa de dados ----------
   const TOKEN_KEY = 'bitacora_token';
   const USER_KEY = 'bitacora_user';
 
   let currentUser = null;
-  let preloadedBoot = null; // dados vindos no login/bootstrap (1 chamada)
+  let preloadedBoot = null;
 
   function getToken(){ try{ return localStorage.getItem(TOKEN_KEY); }catch(e){ return null; } }
   function setToken(t){ try{ if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }catch(e){} }
   function rememberUser(u){ try{ if(u) localStorage.setItem(USER_KEY, JSON.stringify(u)); else localStorage.removeItem(USER_KEY); }catch(e){} }
   function recallUser(){ try{ const s = localStorage.getItem(USER_KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
 
-  // Escape HTML — usar SEMPRE que um dado possa chegar a innerHTML
   const esc = s => String(s === undefined || s === null ? '' : s)
     .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  // Sim/Não tolerante: reconhece os valores novos (Sim/Não) e os antigos
-  // em espanhol (Sí/No) que já estavam guardados na folha.
   const isYesVal = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='sim'||s==='sí'; };
   const isNoVal  = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='não'||s==='no'; };
   const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
 
-  // Perfil de apenas leitura
   function isViewer(){ return currentUser && currentUser.rol === 'visualizador'; }
+  function isAdmin(){ return currentUser && currentUser.rol === 'admin'; }
 
   function forceRelogin(){
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
@@ -893,15 +961,15 @@
   }
 
   // ---------- Cache local de registos ----------
-  const CACHE_TTL_MS = 60000; // 1 minuto
-  const dataStore = { general:{items:null,ts:0}, quarto:{items:null,ts:0} };
+  const CACHE_TTL_MS = 60000;
+  const dataStore = { general:{items:null,ts:0}, quarto:{items:null,ts:0}, temperatura:{items:null,ts:0} };
 
   function invalidateRecords(type){
     const s = dataStore[type];
     if(s){ s.items = null; s.ts = 0; }
   }
   function persistStore(){
-    try{ localStorage.setItem('bitacora_store', JSON.stringify({ general:dataStore.general, quarto:dataStore.quarto })); }catch(e){}
+    try{ localStorage.setItem('bitacora_store', JSON.stringify({ general:dataStore.general, quarto:dataStore.quarto, temperatura:dataStore.temperatura })); }catch(e){}
   }
   function restoreStore(){
     try{
@@ -909,6 +977,7 @@
       if(s){
         if(s.general) dataStore.general = s.general;
         if(s.quarto) dataStore.quarto = s.quarto;
+        if(s.temperatura) dataStore.temperatura = s.temperatura;
       }
     }catch(e){}
   }
@@ -934,12 +1003,11 @@
     }
   }
 
-  // ID gerado NO CLIENTE → reintento de rede sobrescreve em vez de duplicar.
   async function saveRecord(type, data){
     data.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    await apiPost({ action:'save', type, data });
+    const r = await apiPost({ action:'save', type, data });
     invalidateRecords(type);
-    return data.id;
+    return r;
   }
   async function updateRecordApi(type, id, data){
     await apiPost({ action:'update', type, id, data });
@@ -950,8 +1018,8 @@
     invalidateRecords(type);
   }
 
-  // ---------- Cache local de configurações ----------
-  const CONFIG_TTL_MS = 120000; // 2 minutos
+  // ---------- Cache local de configurações + equipamentos ----------
+  const CONFIG_TTL_MS = 120000;
   const configStore = {};
   let configSnapshotLoadedAt = 0;
 
@@ -963,10 +1031,7 @@
         configStore[k] = { value:r.config[k], ts:Date.now() };
       });
       configSnapshotLoadedAt = Date.now();
-    }catch(e){
-      // Se o servidor ainda não tem getConfigAll, getConfigCached funciona
-      // chave a chave como antes.
-    }
+    }catch(e){}
   }
 
   async function getConfigCached(key){
@@ -980,6 +1045,19 @@
     delete configStore[key];
     configSnapshotLoadedAt = 0;
   }
+
+  let equipamentos = [];
+  let equipamentosLoadedAt = 0;
+  async function loadEquipamentos(force){
+    if(!force && equipamentos.length && (Date.now() - equipamentosLoadedAt) < CONFIG_TTL_MS) return equipamentos;
+    try{
+      const r = await apiGet({ action:'listEquipamentos' });
+      equipamentos = r.equipamentos || [];
+      equipamentosLoadedAt = Date.now();
+    }catch(e){ if(!equipamentos.length) throw e; }
+    return equipamentos;
+  }
+  function invalidateEquipamentos(){ equipamentos = []; equipamentosLoadedAt = 0; }
 
   async function checkApiHealth(){
     try{ await apiGet({ action:'health' }); $('apiWarning').classList.remove('show'); return true; }
@@ -1058,7 +1136,6 @@
     });
   }
 
-  // Escape fecha qualquer diálogo aberto
   document.addEventListener('keydown', e=>{
     if(e.key === 'Escape' && $('modalOverlay').classList.contains('show')){
       const btnCancel = $('modalActions').querySelector('.modal-btn-cancel');
@@ -1094,7 +1171,7 @@
       setToken(r.token);
       currentUser = r.user;
       rememberUser(r.user);
-      if(r.boot) preloadedBoot = r.boot; // a app já vem carregada nesta resposta
+      if(r.boot) preloadedBoot = r.boot;
       $('loginScreen').classList.remove('show');
       $('login-pin').value = '';
       onLoggedIn();
@@ -1103,9 +1180,8 @@
     }finally{ setLoading(btn, false); }
   });
 
-  // Sair da sessão — usado pelo botão do header e pelo botão do fim da app
   function doLogout(){
-    closeOfficialPreview(); // se estava a ver o relatório, fecha-o
+    closeOfficialPreview();
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
@@ -1130,7 +1206,6 @@
     try{
       await apiPost({ action:'changeOwnPin', oldPin: vals.old, newPin: vals.new1 });
       showToast('PIN atualizado — as outras sessões deste utilizador foram encerradas ✓');
-      // Pedimos novo login para reemitir o token com a versão de sessão nova.
       setTimeout(()=>{ forceRelogin(); $('loginHint').textContent = 'PIN alterado — inicie sessão com o novo PIN.'; }, 1200);
     }catch(e){
       showToast('⚠️ ' + e.message, true);
@@ -1146,16 +1221,17 @@
     $('btnEditRooms').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnRecomputeCycle').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
-    // Perfil visualizador — ocultar tudo o que escreve e mostrar os banners de leitura
+    $('btnEquipAdmin').style.display = currentUser.rol === 'admin' ? '' : 'none';
     document.body.classList.toggle('viewer-mode', viewer);
     $('viewerBannerGeneral').style.display = viewer ? 'flex' : 'none';
     $('viewerBannerQuarto').style.display = viewer ? 'flex' : 'none';
+    $('viewerBannerTemp').style.display = viewer ? 'flex' : 'none';
     loadAlertsAdmin();
     initMainApp();
   }
 
   // ---------- Separadores ----------
-  const views = ['dashboard','general','quarto','historial','reportes','usuarios','importar'];
+  const views = ['dashboard','general','quarto','temperatura','historial','reportes','usuarios','importar'];
   document.querySelectorAll('nav.tabs button[data-view]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.remove('active'));
@@ -1164,6 +1240,7 @@
       $('view-'+btn.dataset.view).classList.add('active');
       if(btn.dataset.view === 'historial') renderHistorial();
       if(btn.dataset.view === 'quarto') renderRoomGrid();
+      if(btn.dataset.view === 'temperatura'){ renderTempView(); }
       if(btn.dataset.view === 'usuarios') renderUsersList();
       if(btn.dataset.view === 'general') refreshConsumoResumen();
       if(btn.dataset.view === 'dashboard') renderDashboard();
@@ -1175,16 +1252,18 @@
   function setDefaults(){
     $('g-fecha').value = todayStr(); $('g-hora').value = nowTimeStr();
     $('q-fecha').value = todayStr(); $('q-hora').value = nowTimeStr();
+    $('t-fecha').value = todayStr(); $('t-hora').value = nowTimeStr();
   }
   setDefaults();
 
   async function refreshChips(){
     try{
-      const [gen, qu] = await Promise.all([listRecords('general'), listRecords('quarto')]);
+      const [gen, qu, tp] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
       $('chipGeneral').textContent = gen.length;
       $('chipQuarto').textContent = qu.length;
+      $('chipTemp').textContent = tp.length;
       const t = todayStr();
-      const hoy = gen.filter(r=>r.data.fecha===t).length + qu.filter(r=>r.data.fecha===t).length;
+      const hoy = gen.filter(r=>r.data.fecha===t).length + qu.filter(r=>r.data.fecha===t).length + tp.filter(r=>r.data.fecha===t).length;
       $('chipHoy').textContent = hoy;
     }catch(e){}
   }
@@ -1394,10 +1473,6 @@
   let selectedRoom = '';
   let cycleDone = [];
 
-  // NORMALIZAÇÃO de números de quarto — correção do bug do ciclo:
-  // o Google Sheets pode devolver a coluna "Quarto" como NÚMERO (101) em vez
-  // de TEXTO ("101"). Convertendo tudo para texto sem espaços antes de
-  // comparar, as comparações nunca falham por formato.
   function normRoom(n){ return String(n === undefined || n === null ? '' : n).trim(); }
 
   async function loadCycleDone(){
@@ -1405,8 +1480,6 @@
       const v = await getConfigCached('cicloQuartosHechos');
       if(v !== null && v !== undefined){
         cycleDone = JSON.parse(v).map(normRoom).filter(Boolean);
-        // Auto-reparação: se o ciclo guardado tinha números (ou espaços),
-        // regrava-o já normalizado para que fique consistente.
         if(JSON.stringify(cycleDone) !== String(v)){
           try{ await apiPost({ action:'setConfig', key:'cicloQuartosHechos', value: JSON.stringify(cycleDone) }); invalidateConfig('cicloQuartosHechos'); }catch(e){}
         }
@@ -1523,8 +1596,6 @@
     const chipHtml = num=>{
       const isDone = doneSet.has(normRoom(num));
       const isSel = normRoom(num) === selectedRoom;
-      // aria-disabled em vez de disabled: botões desativados nativos NÃO
-      // disparam click; assim o toque mostra porque não se pode medir.
       return `<button type="button" class="room-chip${isDone?' done':''}${isSel?' selected':''}" data-room="${esc(num)}" ${isDone?'aria-disabled="true"':''}>${esc(num)}${isDone?'<span class="dot"></span>':''}</button>`;
     };
 
@@ -1605,6 +1676,211 @@
   function phWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<7.0 || n>7.8); }
   function cloroWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<0.5 || n>3.0); }
 
+  // =========================================================
+  // REFRIGERAÇÃO
+  // =========================================================
+  let editingTempId = null;
+  let selectedEquipId = '';
+
+  function resetTempEditState(){
+    editingTempId = null;
+    $('editBannerTemp').classList.remove('show');
+    $('btnCancelEditTemp').style.display = 'none';
+    $('btnSaveTemp').querySelector('.lbl-text').textContent = 'Guardar temperatura';
+  }
+  $('btnCancelEditTemp').addEventListener('click', ()=>{
+    resetTempEditState();
+    $('t-temperatura').value = '';
+    $('t-observacoes').value = '';
+    $('t-fecha').value = todayStr(); $('t-hora').value = nowTimeStr();
+    deselectEquip();
+  });
+
+  function selectedEquip(){
+    return equipamentos.find(e=> e.id === selectedEquipId) || null;
+  }
+
+  function selectEquip(id){
+    selectedEquipId = id;
+    const eq = selectedEquip();
+    const banner = $('tempSelected');
+    if(eq){
+      banner.classList.add('show');
+      $('tempSelName').textContent = `${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
+      $('tempSelRange').textContent = `— intervalo ${eq.min} a ${eq.max} °C`;
+      const neg = eq.tipo === 'Congelador';
+      $('tempSignHint').innerHTML = neg
+        ? `Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`
+        : `${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`;
+      $('t-temperatura').min = neg ? -60 : 0;
+      $('t-temperatura').max = neg ? -0.1 : 60;
+      $('t-temperatura').placeholder = neg ? 'Ex.: -18.0' : 'Ex.: 4.0';
+    } else {
+      banner.classList.remove('show');
+      $('tempSignHint').textContent = 'Selecione um equipamento para ver o intervalo esperado.';
+      $('t-temperatura').min = -60; $('t-temperatura').max = 60;
+    }
+  }
+  function deselectEquip(){
+    selectedEquipId = '';
+    $('t-equipamento').value = '';
+    selectEquip('');
+  }
+  $('btnTempDeselect').addEventListener('click', deselectEquip);
+  $('t-equipamento').addEventListener('change', ()=> selectEquip($('t-equipamento').value));
+
+  async function renderTempView(){
+    try{
+      await loadEquipamentos();
+      renderEquipSelect();
+      await renderTempWeek();
+    }catch(e){
+      $('tempWeekBox').innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
+    }
+  }
+
+  function renderEquipSelect(){
+    const sel = $('t-equipamento');
+    const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
+    if(!ativos.length){
+      sel.innerHTML = '<option value="">Sem equipamentos — o admin deve criá-los com "Gerir equipamentos"</option>';
+      return;
+    }
+    const current = selectedEquipId || sel.value;
+    sel.innerHTML = '<option value="">Selecione o equipamento…</option>' +
+      ativos.map(e=> `<option value="${esc(e.id)}">${esc(e.nome)} — ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C]</option>`).join('');
+    if(current) sel.value = current;
+    selectEquip(sel.value);
+  }
+
+  async function renderTempWeek(){
+    const box = $('tempWeekBox');
+    try{
+      await loadEquipamentos();
+      const r = await apiGet({ action:'temperaturaStatus' });
+      const st = r.status;
+      $('tempWeekRange').textContent = `(${st.desde} a ${st.hasta})`;
+      if(!st.items.length){
+        box.innerHTML = `<div class="empty" style="padding:12px 0">Ainda não há equipamentos criados.${isAdmin() ? ' Use "⚙️ Gerir equipamentos" acima para criar os seus 18 equipamentos.' : ''}</div>`;
+      } else {
+        box.innerHTML = `
+          <div style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin-bottom:8px;">
+            Medidos: <b style="color:${st.faltam ? '#8a5f0f' : '#28704b'}">${st.medidos}/${st.total}</b>${st.faltam ? ` · faltam ${st.faltam}` : ' · ✓ semana completa'}
+          </div>
+          ${st.items.map(i=>`
+            <div class="week-card">
+              <div style="min-width:0">
+                <div class="wn">${esc(i.nome)} <span style="font-weight:400; color:var(--ink-400); font-size:11px;">(${esc(i.tipo)})</span></div>
+                <div class="wm">${esc(i.ubicacao || '—')} · última: ${i.ultima ? esc(i.ultima.fecha) + ' ' + esc(i.ultima.hora) + ' → ' + esc(i.ultima.temperatura) + ' °C' + (i.ultima.dentro==='Não' ? ' ⚠' : '') : 'nunca medido'}</div>
+              </div>
+              <span class="week-pill ${i.medidoSemana ? 'ok' : 'pend'}">${i.medidoSemana ? '✓ medido' : 'pendente'}</span>
+            </div>`).join('')}
+        `;
+      }
+    }catch(e){
+      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
+    }
+  }
+  $('btnRefreshTempWeek').addEventListener('click', ()=> renderTempWeek());
+
+  // Gestão de equipamentos (apenas admin) — permite criar vários seguidos
+  async function openEquipAdmin(){
+    if(!isAdmin()){ showToast('Apenas o administrador pode gerir equipamentos', true); return; }
+    await loadEquipamentos(true);
+    const list = equipamentos.map(e=> `• ${esc(e.nome)} — ${esc(e.tipo)} — ${esc(e.ubicacao||'sem ubicacao')} [${esc(String(e.min))} a ${esc(String(e.max))} °C]${isNoVal(e.ativo)?' (INATIVO)':''}`).join('\n') || '(nenhum equipamento criado)';
+    const vals = await formDialog('Adicionar equipamento', [
+      { id:'nome', label:'Nome do equipamento', placeholder:'Ex.: Frigorífico Cozinha 1', value:'' },
+      { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', placeholder:'Frigorifico', value:'' },
+      { id:'ubicacao', label:'Ubicacao', placeholder:'Ex.: Cozinha — zona quente', value:'' },
+      { id:'min', label:'Min °C (vazio = por defeito do tipo)', placeholder:'ex.: 0', value:'' },
+      { id:'max', label:'Max °C (vazio = por defeito do tipo)', placeholder:'ex.: 8', value:'' }
+    ], 'Adicionar equipamento');
+    if(!vals) return;
+    if(!vals.nome || !vals.tipo){
+      showToast('Preencha nome e tipo (ou cancele)', true);
+      return;
+    }
+    try{
+      await apiPost({ action:'saveEquipamento', data:{ nome: vals.nome, tipo: vals.tipo, ubicacao: vals.ubicacao, min: vals.min, max: vals.max } });
+      showToast(`Equipamento "${vals.nome}" criado ✓ (${equipamentos.length + 1} no total)\nEquipamentos atuais:\n${list.substring(0, 200)}`);
+      invalidateEquipamentos();
+      renderEquipSelect();
+      renderTempWeek();
+      openEquipAdmin(); // permite adicionar vários seguidos
+    }catch(e){ showToast('⚠️ ' + e.message, true); }
+  }
+
+  async function editEquipamento(id){
+    const eq = equipamentos.find(e=> e.id === id);
+    if(!eq) return;
+    const vals = await formDialog('Editar equipamento', [
+      { id:'nome', label:'Nome', value: eq.nome },
+      { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', value: eq.tipo },
+      { id:'ubicacao', label:'Ubicacao', value: eq.ubicacao || '' },
+      { id:'min', label:'Min °C', value: eq.min },
+      { id:'max', label:'Max °C', value: eq.max }
+    ], 'Guardar');
+    if(!vals) return;
+    try{
+      await apiPost({ action:'saveEquipamento', data:{ id: eq.id, nome: vals.nome, tipo: vals.tipo, ubicacao: vals.ubicacao, min: vals.min, max: vals.max, ativo: eq.ativo } });
+      showToast('Equipamento atualizado ✓');
+      invalidateEquipamentos();
+      renderTempView();
+    }catch(e){ showToast('⚠️ ' + e.message, true); }
+  }
+
+  async function deleteEquipamentoById(id){
+    const eq = equipamentos.find(e=> e.id === id);
+    const ok = await confirmDialog('Eliminar equipamento', `Eliminar "${eq ? eq.nome : id}"? As leituras já gravadas mantêm-se (com o nome copiado), mas deixará de aparecer na lista para novas medições.`, 'Eliminar', 'Cancelar');
+    if(!ok) return;
+    try{
+      await apiPost({ action:'deleteEquipamento', id });
+      showToast('Equipamento eliminado');
+      invalidateEquipamentos();
+      renderTempView();
+    }catch(e){ showToast('⚠️ ' + e.message, true); }
+  }
+
+  $('btnSaveTemp').addEventListener('click', async ()=>{
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
+    const btn = $('btnSaveTemp');
+    const eq = selectedEquip();
+    if(!eq){ showToast('Selecione o equipamento', true); return; }
+    const data = {
+      equipamentoId: eq.id,
+      nome: eq.nome,
+      fecha: $('t-fecha').value || todayStr(),
+      hora: $('t-hora').value || nowTimeStr(),
+      temperatura: $('t-temperatura').value.trim(),
+      observacoes: $('t-observacoes').value.trim(),
+    };
+    if(!data.temperatura){ showToast('Indique a temperatura', true); return; }
+
+    setLoading(btn, true);
+    try{
+      if(editingTempId){
+        await updateRecordApi('temperatura', editingTempId, data);
+        showToast('Leitura de temperatura atualizada ✓');
+        resetTempEditState();
+      } else {
+        const r = await saveRecord('temperatura', data);
+        if(r && r.dentroIntervalo === 'Não'){
+          showToast('⚠️ Guardada, mas FORA do intervalo do equipamento — verifique o equipamento', true);
+        } else {
+          showToast('Temperatura guardada na folha ✓');
+        }
+      }
+      $('t-temperatura').value = '';
+      $('t-observacoes').value = '';
+      $('t-hora').value = nowTimeStr();
+      deselectEquip();
+      refreshChips();
+      renderTempWeek();
+    }catch(e){
+      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
+    }finally{ setLoading(btn, false); }
+  });
+
   // ---------- Histórico (paginado) ----------
   const HIST_PAGE_SIZE = 50;
   let histVisibleCount = HIST_PAGE_SIZE;
@@ -1623,6 +1899,7 @@
       try{
         if(tipo==='all' || tipo==='general'){ (await listRecords('general')).forEach(r=> items.push({type:'general', ...r})); }
         if(tipo==='all' || tipo==='quarto'){ (await listRecords('quarto')).forEach(r=> items.push({type:'quarto', ...r})); }
+        if(tipo==='all' || tipo==='temperatura'){ (await listRecords('temperatura')).forEach(r=> items.push({type:'temperatura', ...r})); }
       }catch(e){
         list.innerHTML = `<div class="empty"><span class="glyph">⚠️</span>Não foi possível carregar o histórico: ${esc(e.message)}</div>`;
         return;
@@ -1641,15 +1918,20 @@
       return;
     }
 
-    const isAdmin = currentUser && currentUser.rol === 'admin';
-    // Perfil visualizador não vê o botão "Editar"
+    const isAdminU = isAdmin();
     const canEdit = currentUser && currentUser.rol !== 'visualizador';
     const visible = items.slice(0, histVisibleCount);
 
     let html = visible.map((it,idx)=>{
       const d = it.data;
-      const editBtn = canEdit ? `<button class="edit" data-edit="${idx}">Editar</button>` : '';
-      const delBtn = isAdmin ? `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
+      let editBtn = '', delBtn = '';
+      if(it.type === 'temperatura'){
+        if(isAdminU) editBtn = `<button class="edit" data-edit="${idx}">Editar</button>`;
+        if(isAdminU) delBtn = `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}">Eliminar</button>`;
+      } else {
+        editBtn = canEdit ? `<button class="edit" data-edit="${idx}">Editar</button>` : '';
+        delBtn = isAdminU ? `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
+      }
       const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
       if(it.type==='general'){
         return `<div class="entry">
@@ -1668,6 +1950,18 @@
             ${entryItem('Pré-filtro', dispYesNo(d.lavadoPrefiltro), '')}
             ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
             ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
+            ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
+          </div>
+          ${actions}
+        </div>`;
+      } else if(it.type==='temperatura'){
+        const bad = String(d.dentroIntervalo) === 'Não';
+        return `<div class="entry">
+          <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-temp ${bad?'bad':''}">🧊 ${esc(d.nome || '—')}</span></div>
+          <div class="entry-user">👤 ${esc(d.usuario || '—')} · ${esc(d.tipo || '')}${d.ubicacao ? ' · ' + esc(d.ubicacao) : ''}</div>
+          <div class="entry-grid">
+            ${entryItem('Temperatura', d.temperatura, '°C', bad)}
+            ${entryItem('Dentro do intervalo', dispYesNo(d.dentroIntervalo), '', bad)}
             ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
           </div>
           ${actions}
@@ -1723,6 +2017,7 @@
           showToast('Registo eliminado (ficou registado na Auditoria)');
           renderHistorial();
           refreshChips();
+          if(btn.dataset.type === 'temperatura') renderTempWeek();
         }catch(e){ showToast('⚠️ Não foi possível eliminar: ' + e.message, true); }
       });
     });
@@ -1731,6 +2026,26 @@
   let lastHistorialItems = [];
 
   function startEditRecord(it){
+    if(it.type === 'temperatura'){
+      if(!isAdmin()){ showToast('Modificar temperaturas é exclusivo do administrador', true); return; }
+      const d = it.data;
+      resetTempEditState();
+      editingTempId = d.id;
+      loadEquipamentos().then(()=>{
+        renderEquipSelect();
+        $('t-equipamento').value = d.equipamentoId || '';
+        selectEquip($('t-equipamento').value);
+      });
+      $('t-fecha').value = d.fecha || todayStr();
+      $('t-hora').value = d.hora || nowTimeStr();
+      $('t-temperatura').value = d.temperatura || '';
+      $('t-observacoes').value = d.observacoes || '';
+      $('editBannerTemp').classList.add('show');
+      $('btnCancelEditTemp').style.display = '';
+      $('btnSaveTemp').querySelector('.lbl-text').textContent = 'Atualizar leitura';
+      switchToTab('temperatura');
+      return;
+    }
     if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     const d = it.data;
     if(it.type === 'general'){
@@ -1780,6 +2095,7 @@
     views.forEach(v=> $('view-'+v).classList.remove('active'));
     $('view-'+viewName).classList.add('active');
     if(viewName === 'quarto') renderRoomGrid();
+    if(viewName === 'temperatura') renderTempView();
   }
 
   function entryItem(label, value, unit, warn){
@@ -1802,14 +2118,14 @@
         return `
         <div class="user-row" style="${inactive ? 'opacity:.55' : ''}">
           <div class="info">
-            <span class="n">${esc(u.nombre)}${inactive ? ' <span style="color:var(--coral-500); font-size:11px;">(inativo)</span>' : ''}</span>
+            <span class="n">${esc(u.nome || u.nombre)}${inactive ? ' <span style="color:var(--coral-500); font-size:11px;">(inativo)</span>' : ''}</span>
             <span class="u">@${esc(u.usuario)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol}">${u.rol === 'admin' ? 'Admin' : (u.rol === 'visualizador' ? 'Visualizador' : 'Técnico')}</span>
             <button data-pin="${esc(u.id)}" data-nome="${esc(u.nome || u.nombre)}">PIN</button>
             <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nome || u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nome || u.nome)}">Eliminar</button>
+            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nome || u.nombre)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -2013,18 +2329,19 @@
 
     setLoading(btn, true);
     try{
-      const [genAllRaw, quAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto')]);
+      const [genAllRaw, quAllRaw, tpAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
       const genWithDeltas = await buildGenWithDeltas(genAllRaw);
 
       const inRange = d => d.fecha >= desde && d.fecha <= hasta;
       const genPeriod = genWithDeltas.filter(r=> !r.isBaseline && inRange(r.data));
       const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+      const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
 
       const periodStats = statsForRange(genWithDeltas, desde, hasta);
       const [mDesde, mHasta] = rangoMesActual();
       const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
 
-      renderReporte(desde, hasta, genPeriod, qu, periodStats, monthStats);
+      renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
     }catch(e){
       showToast('⚠️ Não foi possível gerar o relatório: ' + e.message, true);
     }finally{ setLoading(btn, false); }
@@ -2032,9 +2349,9 @@
 
   $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
 
-  function renderReporte(desde, hasta, gen, qu, periodStats, monthStats){
+  function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats){
     const out = $('reporteOutput');
-    if(gen.length===0 && qu.length===0){
+    if(gen.length===0 && qu.length===0 && tp.length===0){
       out.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não há registos entre ${desde} e ${hasta}.</div>`;
       return;
     }
@@ -2086,6 +2403,21 @@
       html += `</tbody></table></div>`;
     }
 
+    if(tp.length){
+      html += `<h2 class="report-heading">🧊 Refrigeração (${desde} → ${hasta})</h2>
+      <div class="table-scroll"><table class="report"><thead><tr>
+        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Estado</th><th>Obs.</th>
+      </tr></thead><tbody>`;
+      tp.forEach(r=>{
+        const d = r.data;
+        const eq = equipamentos.find(e=> e.id === d.equipamentoId);
+        const rng = eq ? `${eq.min} a ${eq.max}` : '—';
+        const bad = String(d.dentroIntervalo) === 'Não';
+        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td class="${bad?'tbad':''}">${nz(d.temperatura)}</td><td>${esc(rng)}</td><td class="${bad?'tbad':''}">${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+
     html += `<div class="report-actions">
       <button class="btn-csv" id="btnExportCsv">Exportar CSV</button>
       <button class="btn-print" id="btnPrint">Imprimir / PDF</button>
@@ -2095,7 +2427,7 @@
     </p>`;
 
     out.innerHTML = html;
-    $('btnExportCsv').addEventListener('click', ()=> exportCsv(desde, hasta, gen, qu));
+    $('btnExportCsv').addEventListener('click', ()=> exportCsv(desde, hasta, gen, qu, tp));
     $('btnPrint').addEventListener('click', ()=> window.print());
   }
 
@@ -2105,11 +2437,11 @@
     return `<div class="stat-box${alt?' alt':''}"><div class="lab">${esc(label)}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
   }
 
-  // ---------- Painel (Dashboard) — gráficos interativos + semáforo ----------
+  // ---------- Painel (Dashboard) ----------
   const DASH_THRESHOLDS = {
     phMin: 7.0, phMax: 7.8,
     cloroMin: 0.5, cloroMax: 3.0,
-    cloroTotalMax: 5.0,   // límite más amplio para cloro total
+    cloroTotalMax: 5.0,
     aqsMin: 45
   };
 
@@ -2188,14 +2520,12 @@
     };
   }
 
-  // Estado de una lectura: 'ok' | 'bad' | 'na' (sin datos o sin límites)
   function cardState(v, min, max){
     if(v === null || v === undefined || isNaN(v)) return 'na';
     if((min !== null && min !== undefined && v < min) || (max !== null && max !== undefined && v > max)) return 'bad';
     return 'ok';
   }
 
-  // Tarjetas con semáforo: verde OK, coral fuera de rango, gris sin datos
   function statusCard(label, m, min, max, unit, dec){
     if(!m || m.count === 0){
       return `<div class="dashboard-card st-na"><div class="lab"><span class="st-dot">·</span>${esc(label)}</div><div class="value">—</div><div class="meta">Sem leituras no mês</div></div>`;
@@ -2209,7 +2539,6 @@
     </div>`;
   }
 
-  // Banner semáforo global: resume de un vistazo si todo está bien
   function buildOpBanner(metrics){
     const bad = []; let okCount = 0;
     metrics.forEach(x=>{
@@ -2450,14 +2779,16 @@
       <div class="skel" style="height:210px; margin-bottom:16px"></div>
       <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
     try{
-      const [generalRaw, quartosRaw] = await Promise.all([
+      const [generalRaw, quartosRaw, tempRaw] = await Promise.all([
         listRecords('general', { fresh: !!forceFresh }),
-        listRecords('quarto', { fresh: !!forceFresh })
+        listRecords('quarto', { fresh: !!forceFresh }),
+        listRecords('temperatura', { fresh: !!forceFresh })
       ]);
       const [desde, hasta] = rangoMesActual();
       const inMonth = rec => rec.data.fecha >= desde && rec.data.fecha <= hasta;
       const general = generalRaw.filter(inMonth);
       const quartos = quartosRaw.filter(inMonth);
+      const temps = tempRaw.filter(inMonth);
       const generalDeltas = await buildGenWithDeltas(generalRaw);
       const consumption = statsForRange(generalDeltas, desde, hasta);
       const [pDesde, pHasta] = prevMonthRangeSameDay();
@@ -2475,7 +2806,6 @@
       const mClTotCal = metricFromRecords(quartos, 'cloroTotalCaliente');
       const mClTotFria = metricFromRecords(quartos, 'cloroTotalFria');
 
-      // Semáforo global: todas as leituras com limites definidos
       const opMetrics = [
         { label:'pH piscina', m:mPh, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
         { label:'Cloro livre', m:mClLivre, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' },
@@ -2521,6 +2851,21 @@
         alerts.push(`Cloro livre atual da piscina fora do intervalo: ${mClLivre.latest.v.toFixed(2)} ppm (${mClLivre.latest.ago}). Intervalo: ${DASH_THRESHOLDS.cloroMin}–${DASH_THRESHOLDS.cloroMax} ppm.`);
       if(mRetorno.latest && mRetorno.latest.v < DASH_THRESHOLDS.aqsMin)
         alerts.push(`Retorno AQS baixo: ${mRetorno.latest.v.toFixed(1)} °C (${mRetorno.latest.ago}). Referência mínima: ${DASH_THRESHOLDS.aqsMin} °C.`);
+
+      // Refrigeração — alertas (últimos 7 dias)
+      const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
+      const tempBad = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+      if(tempBad.length){
+        const names = [...new Set(tempBad.map(r=> `${r.data.nome} (${r.data.temperatura} °C)`))];
+        alerts.push(`🧊 Temperatura(s) de refrigeração FORA do intervalo nos últimos 7 dias: ${names.slice(0,5).join(' · ')}${names.length>5?` +${names.length-5} mais`:''}.`);
+      }
+      try{
+        const st = await apiGet({ action:'temperaturaStatus' });
+        if(st.status.total > 0 && st.status.faltam > 0){
+          alerts.push(`🧊 ${st.status.faltam} de ${st.status.total} equipamentos SEM medição de temperatura esta semana (ver aba Refrigeração).`);
+        }
+      }catch(e){}
+
       const done = effectiveCycleDone().length, pending = Math.max(0, roomsList.length - done);
       if(pending > 0) alerts.push(`${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'} no ciclo atual.`);
       const latestGeneral = latestByDate(generalRaw);
@@ -2532,6 +2877,7 @@
       const prevAgua = prevConsumption.aguaDeltaCount ? prevConsumption.aguaTotal : null;
       const prevElec = prevConsumption.elecDeltaCount ? prevConsumption.elecTotal : null;
       const pctDone = roomsList.length ? Math.round(done / roomsList.length * 100) : 0;
+      const tempOk = tempBad.length === 0;
 
       $('dashboardPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
 
@@ -2549,6 +2895,20 @@
             <div class="lab">Eletricidade</div>
             <div class="value">${elecVal !== null ? fmtNum(elecVal)+' kWh' : '—'}</div>
             <div class="meta">${trendBadge(elecVal, prevElec)}${consumption.elecDeltaCount ? `média ${fmtNum(consumption.elecProm)} kWh/dia` : 'sem dados suficientes'}</div>
+          </div>
+        </div>
+
+        <h2 class="report-heading">🧊 Refrigeração · últimos 7 dias</h2>
+        <div class="dashboard-grid">
+          <div class="dashboard-card ${tempOk ? 'good' : 'alert'}">
+            <div class="lab">Temperaturas fora do intervalo</div>
+            <div class="value">${tempBad.length}</div>
+            <div class="meta">${tempOk ? '✓ todas dentro do intervalo' : [...new Set(tempBad.map(r=>r.data.nome))].slice(0,3).join(' · ')}</div>
+          </div>
+          <div class="dashboard-card ice">
+            <div class="lab">Leituras de refrigeração (7 dias)</div>
+            <div class="value">${temp7.length}</div>
+            <div class="meta">${temps.length} este mês · ver aba Refrigeração para o controlo semanal</div>
           </div>
         </div>
 
@@ -2623,7 +2983,7 @@
     }finally{ setLoading(button, false); }
   }
 
-  function exportCsv(desde, hasta, gen, qu){
+  function exportCsv(desde, hasta, gen, qu, tp){
     let csv = 'REGISTOS GERAIS\n';
     csv += 'Data,Hora,Utilizador,Agua(m3),ConsumoAgua(m3),Eletricidade(kWh),ConsumoElet(kWh),RetornoAQS(C),AQSQuartos(C),EstadoPiscina,TempPiscina(C),pH,CloroLivre(ppm),CloroTotal(ppm),LavagemPrefiltro,LavagemFiltroAreia,LimpezaSkimmer,Observacoes\n';
     gen.forEach(r=>{
@@ -2635,6 +2995,12 @@
     qu.forEach(r=>{
       const d=r.data;
       csv += [d.fecha,d.hora,d.usuario,d.numero,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
+    });
+    csv += '\nREFRIGERACAO\n';
+    csv += 'Data,Hora,Utilizador,Equipamento,Tipo,Ubicacao,Temperatura(C),DentroDoIntervalo,Observacoes\n';
+    tp.forEach(r=>{
+      const d=r.data;
+      csv += [d.fecha,d.hora,d.usuario,d.nome,d.tipo,d.ubicacao,d.temperatura,dispYesNo(d.dentroIntervalo),d.observacoes||''].map(csvSafe).join(',') + '\n';
     });
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -2655,6 +3021,8 @@
   const GENERAL_IMPORT_HEADERS = ['Data','Hora','Utilizador','Agua','Eletricidade','RetornoAQS','AQSQuartos','EstadoPiscina','TempPiscina','pH','CloroLivre','CloroTotal','LavagemPrefiltro','LavagemFiltroAreia','LimpezaSkimmer','Observacoes'];
   const QUARTO_IMPORT_FIELDS = ['fecha','hora','usuario','numero','phCaliente','cloroCaliente','cloroTotalCaliente','phFria','cloroFria','cloroTotalFria'];
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
+  const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
+  const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
 
   const IMPORT_ALIASES = {
     fecha:'fecha', data:'fecha', hora:'hora', usuario:'usuario', utilizador:'usuario',
@@ -2670,7 +3038,8 @@
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
     clorototalcaliente:'cloroTotalCaliente', clorototalquente:'cloroTotalCaliente',
-    phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria'
+    phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria',
+    equipamento:'nome', nome:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura'
   };
 
   let importType = 'general';
@@ -2707,15 +3076,25 @@
   });
 
   $('btnDownloadTemplate').addEventListener('click', ()=>{
-    const headers = importType === 'quarto' ? QUARTO_IMPORT_HEADERS : GENERAL_IMPORT_HEADERS;
-    const ejemplo = importType === 'quarto'
-      ? ['2026-08-01','09:00','','101','7.20','1.50','0.30','7.30','1.20','0.20']
-      : ['2026-08-01','09:00','','12.50','340.00','45.0','48.0','Clara','28.5','7.20','1.50','2.00','Sim','Não','Sim','exemplo de observação'];
+    let headers, ejemplo, fname;
+    if(importType === 'quarto'){
+      headers = QUARTO_IMPORT_HEADERS;
+      ejemplo = ['2026-08-01','09:00','','101','7.20','1.50','0.30','7.30','1.20','0.20'];
+      fname = 'modelo_quarto.csv';
+    } else if(importType === 'temperatura'){
+      headers = TEMP_IMPORT_HEADERS;
+      ejemplo = ['2026-08-01','09:00','Frigorifico Cozinha 1','4.2','porta verificada'];
+      fname = 'modelo_temperatura.csv';
+    } else {
+      headers = GENERAL_IMPORT_HEADERS;
+      ejemplo = ['2026-08-01','09:00','','12.50','340.00','45.0','48.0','Clara','28.5','7.20','1.50','2.00','Sim','Não','Sim','exemplo de observação'];
+      fname = 'modelo_general.csv';
+    }
     const csv = headers.join(',') + '\n' + ejemplo.join(',') + '\n';
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `modelo_${importType}.csv`;
+    a.href = url; a.download = fname;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
   });
@@ -2760,6 +3139,10 @@
         if(!obj.fecha) errores.push('falta a data');
         else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.fecha)) errores.push('a data deve ser AAAA-MM-DD');
         if(importType === 'quarto' && !obj.numero) errores.push('falta o número do quarto');
+        if(importType === 'temperatura'){
+          if(!obj.nome) errores.push('falta o nome do equipamento');
+          if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
+        }
         if(!obj.hora) obj.hora = '00:00';
         return { obj, errores };
       });
@@ -2774,10 +3157,11 @@
     const el = $('importPreview');
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
-    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS;
+    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS);
 
     let html = `<div class="card" style="margin-top:16px;">
       <p style="font-size:13px; font-weight:700; margin:0 0 10px;">${valid.length} de ${importParsedRows.length} linhas prontas para importar${invalid.length ? ` · ${invalid.length} com problemas` : ''}</p>
+      <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas na importação com a indicação da linha.</p>
       <div class="table-scroll"><table class="report"><thead><tr>
         <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th>Estado</th>
       </tr></thead><tbody>`;
@@ -2792,7 +3176,7 @@
 
     $('btnConfirmImport').addEventListener('click', async ()=>{
       if(valid.length === 0){ showToast('Não há linhas válidas para importar'); return; }
-      const ok = await confirmDialog('Confirmar importação', `Vai adicionar ${valid.length} registo(s) novo(s) do tipo "${importType === 'quarto' ? 'Quartos' : 'Gerais'}" à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`, 'Importar');
+      const ok = await confirmDialog('Confirmar importação', `Vai adicionar ${valid.length} registo(s) novo(s) à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`, 'Importar');
       if(!ok) return;
       await runImport(valid.map(r=> r.obj));
     });
@@ -2820,6 +3204,7 @@
       refreshChips();
       refreshConsumoResumen();
       if(importType === 'quarto'){ await loadCycleDone(); renderRoomGrid(); }
+      if(importType === 'temperatura'){ renderTempWeek(); }
     }catch(e){
       showToast(`⚠️ Foram importados ${imported} antes do erro: ${e.message}`, true);
     }finally{
@@ -2828,13 +3213,11 @@
     }
   }
 
-  // ---------- Fase 2: Alertas, cumprimento e relatório oficial ----------
-  function isAdminUser(){ return currentUser && currentUser.rol === 'admin'; }
-
+  // ---------- Alertas, cumprimento e relatório oficial ----------
   async function loadAlertsAdmin(){
     const card = $('alertsAdminCard');
     if(!card) return;
-    if(!isAdminUser()){ card.style.display = 'none'; return; }
+    if(!isAdmin()){ card.style.display = 'none'; return; }
     card.style.display = '';
     try{
       await loadConfigSnapshot();
@@ -2849,7 +3232,6 @@
     try{
       const emails = $('alertsEmails').value.trim();
       if(emails){
-        // Validação básica: cada destinatário deve parecer um email
         const bad = emails.split(',').map(s=>s.trim()).filter(s=> s && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s));
         if(bad.length){ showToast('Email inválido: ' + bad.join(', '), true); return; }
       }
@@ -2860,11 +3242,10 @@
     }catch(e){ showToast('⚠️ ' + e.message, true); }
   });
 
-  // % de dias do mês (até ontem) com leitura geral registada
   function complianceStats(generalRaw){
     const [desde] = rangoMesActual();
     const days = new Set(generalRaw.filter(r=> r.data.fecha >= desde).map(r=> r.data.fecha));
-    const end = new Date(); end.setDate(end.getDate()-1); // até ontem
+    const end = new Date(); end.setDate(end.getDate()-1);
     let total=0, covered=0; const missing=[];
     for(let d=new Date(desde+'T00:00:00'); d<=end; d.setDate(d.getDate()+1)){
       const key = fmt(d); total++;
@@ -2900,7 +3281,7 @@
   }
 
   // ---------- Relatório Oficial — vista previa + impressão ----------
-  function buildOfficialReport(desde, hasta, gen, qu){
+  function buildOfficialReport(desde, hasta, gen, qu, tp){
     const th = DASH_THRESHOLDS;
     const bad = r => {
       const ph=parseFloat(r.data.phPiscina), cl=parseFloat(r.data.cloroLibre), ret=parseFloat(r.data.retornoAqs);
@@ -2921,9 +3302,17 @@
     qu.forEach(r=>{
       rowsQ += `<tr><td>${esc(r.data.fecha)}</td><td>${esc(r.data.hora)}</td><td>${esc(r.data.numero)}</td><td>${nz2(r.data.phCaliente)}</td><td>${nz2(r.data.cloroCaliente)}</td><td>${nz2(r.data.cloroTotalCaliente)}</td><td>${nz2(r.data.phFria)}</td><td>${nz2(r.data.cloroFria)}</td><td>${nz2(r.data.cloroTotalFria)}</td></tr>`;
     });
+    let rowsT = '';
+    let tempBadCount = 0;
+    tp.forEach(r=>{
+      const d = r.data;
+      const isBad = String(d.dentroIntervalo) === 'Não';
+      if(isBad) tempBadCount++;
+      rowsT += `<tr class="${isBad?'bad':''}"><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.nome||'')}</td><td>${esc(d.tipo||'')}</td><td>${esc(d.ubicacao||'')}</td><td>${nz2(d.temperatura)}</td><td>${dispYesNo(d.dentroIntervalo)}</td><td>${esc(d.observacoes||'')}</td></tr>`;
+    });
     return `<div class="off-doc">
-      <h1>Relatório Mensal de Controlo — Piscina e AQS</h1>
-      <div class="off-sub">Moon and Sun · Manutenção · Documento de cumprimento (DGS — prevenção da legionela)</div>
+      <h1>Relatório Mensal de Controlo — Piscina, AQS e Refrigeração</h1>
+      <div class="off-sub">Moon and Sun · Manutenção · Documento de cumprimento (DGS — prevenção da legionela · HACCP/APPCC)</div>
       <div class="off-meta">Período: ${desde} a ${hasta} · Gerado em ${todayStr()} às ${nowTimeStr()} · App Registo Técnico v${APP_VERSION}</div>
       <div class="off-sum">
         <div><b>${comp.pct}%</b>cumprimento (${comp.covered}/${comp.total} dias)</div>
@@ -2933,16 +3322,22 @@
         ${stat('Temp. piscina','tempPiscina',1,'°C')}
         ${stat('Retorno AQS','retornoAqs',1,'°C')}
         ${stat('AQS quartos','aqsQuartos',1,'°C')}
+        <div><b>${tp.length}</b>leituras de refrigeração (${tempBadCount} fora do intervalo)</div>
       </div>
-      ${comp.missing.length ? `<div class="off-missing">⚠ Dias sem registo: ${esc(comp.missing.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo</div>'}
+      ${comp.missing.length ? `<div class="off-missing">⚠ Dias sem registo geral: ${esc(comp.missing.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo geral</div>'}
+      <h2>1. Controlo diário — Piscina e AQS</h2>
       <table><thead><tr>
         <th>Data</th><th>Hora</th><th>Técnico</th><th>Água m³</th><th>Elet. kWh</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préf.</th><th>Areia</th><th>Skim.</th><th>Observações</th>
       </tr></thead><tbody>${rows || '<tr><td colspan="16">Sem registos no período</td></tr>'}</tbody></table>
-      <h3 style="font-size:12px; margin:14px 0 4px;">Medições de quartos (${qu.length})</h3>
+      <h2>2. Medições de quartos (${qu.length})</h2>
       <table><thead><tr>
         <th>Data</th><th>Hora</th><th>Quarto</th><th>pH qu.</th><th>Cl.qu.</th><th>Cl.tot qu.</th><th>pH fr.</th><th>Cl.fr.</th><th>Cl.tot fr.</th>
       </tr></thead><tbody>${rowsQ || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
-      <p style="font-size:9.5px; color:#666;">Linhas sombreadas = leitura com valores fora dos intervalos de referência (pH ${th.phMin}–${th.phMax} · cloro livre ${th.cloroMin}–${th.cloroMax} ppm · retorno AQS ≥ ${th.aqsMin} °C). Registos editados/eliminados ficam registados na folha Auditoria.</p>
+      <h2>3. Refrigeração — Frigoríficos, Congeladores e Vinheras (${tp.length})</h2>
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Observações</th>
+      </tr></thead><tbody>${rowsT || '<tr><td colspan="8">Sem registos no período</td></tr>'}</tbody></table>
+      <p style="font-size:9.5px; color:#666;">Linhas sombreadas = valores fora dos intervalos de referência (pH ${th.phMin}–${th.phMax} · cloro livre ${th.cloroMin}–${th.cloroMax} ppm · retorno AQS ≥ ${th.aqsMin} °C · refrigeração: intervalo próprio de cada equipamento). Registos editados/eliminados ficam registados na folha Auditoria.</p>
       <div class="off-sign">
         <div>O Técnico Responsável</div>
         <div>Direção / Gerência</div>
@@ -2951,7 +3346,6 @@
   }
   function nz2(v){ return (v===undefined||v===null||v==='') ? '—' : esc(v); }
 
-  // Gera o documento, MOSTRA-O NA PANTALLA (vista previa) e imprime a pedido.
   async function generateOfficialReport(){
     const btn = $('btnOfficialReport');
     let desde, hasta;
@@ -2963,26 +3357,23 @@
     }
     setLoading(btn, true);
     try{
-      const [genAllRaw, quAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto')]);
+      const [genAllRaw, quAllRaw, tpAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
       const inRange = d => d.fecha >= desde && d.fecha <= hasta;
       const gen = genAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
       const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-      if(!gen.length && !qu.length){
+      const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+      if(!gen.length && !qu.length && !tp.length){
         showToast(`Sem registos entre ${desde} e ${hasta} — mude o período (Esta semana / Este mês / Intervalo)`, true);
         return;
       }
-      // Constrói o documento e mostra-o NA PANTALLA: vê os dados antes de imprimir
       $('officialReport').innerHTML =
         `<div class="off-toolbar-float">
            <button class="b-print" id="btnOffDoPrint">🖨️ Imprimir / PDF</button>
            <button class="b-close" id="btnOffClose">✕ Fechar</button>
          </div>` +
-        buildOfficialReport(desde, hasta, gen, qu);
+        buildOfficialReport(desde, hasta, gen, qu, tp);
       document.body.classList.add('previewing-official');
       window.scrollTo(0,0);
-      // Imprime diretamente a partir da vista previa: o CSS @media print já
-      // mostra só o documento neste estado. Sem trocas de classe nem
-      // temporizadores — e Ctrl+P também funciona corretamente.
       $('btnOffDoPrint').addEventListener('click', ()=> window.print());
       $('btnOffClose').addEventListener('click', closeOfficialPreview);
     }catch(e){
@@ -2995,34 +3386,35 @@
     document.body.classList.remove('printing-official');
     $('officialReport').innerHTML = '';
   }
-  // Escape também fecha a vista previa
   document.addEventListener('keydown', e=>{
     if(e.key === 'Escape' && document.body.classList.contains('previewing-official')) closeOfficialPreview();
   });
 
   // ---------- Arranque da app (bootstrap em 1 chamada) ----------
   async function initMainApp(){
-    // Se o login/bootstrap já trouxe tudo, semeamos as caches locais:
-    // zero chamadas extra — o Painel e o Geral abrem instantâneos.
     if(preloadedBoot){
       try{
         Object.keys(preloadedBoot.config || {}).forEach(k=>{
           configStore[k] = { value: preloadedBoot.config[k], ts: Date.now() };
         });
         configSnapshotLoadedAt = Date.now();
-        ['general','quarto'].forEach(t=>{
+        ['general','quarto','temperatura'].forEach(t=>{
           const list = preloadedBoot.records && preloadedBoot.records[t];
           if(list){
             dataStore[t].items = list.map(d=> ({ key: d.id, data: d }));
             dataStore[t].ts = Date.now();
           }
         });
+        if(Array.isArray(preloadedBoot.equipamentos)){
+          equipamentos = preloadedBoot.equipamentos;
+          equipamentosLoadedAt = Date.now();
+        }
         persistStore();
       }catch(e){}
       preloadedBoot = null;
     }
     await loadConfigSnapshot();
-    await Promise.all([ loadRooms(), loadCycleDone() ]);
+    await Promise.all([ loadRooms(), loadCycleDone(), loadEquipamentos().catch(()=>{}) ]);
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
   }
 
@@ -3030,8 +3422,6 @@
     if(!CONFIG_OK) return;
     $('loginScreen').classList.add('show');
 
-    // Sessão guardada? Retomá-la com UMA chamada ('bootstrap' devolve
-    // utilizador + configurações + registos). Sem chamadas a health/seed.
     const saved = recallUser();
     if(saved && getToken()){
       currentUser = saved;
@@ -3039,11 +3429,11 @@
         const r = await apiGet({ action:'bootstrap' });
         currentUser = r.user;
         rememberUser(r.user);
-        if(r.config || r.records) preloadedBoot = { config:r.config, records:r.records };
+        if(r.config || r.records) preloadedBoot = { config:r.config, records:r.records, equipamentos:r.equipamentos };
         $('loginScreen').classList.remove('show');
         onLoggedIn();
         return;
-      }catch(e){ /* token revogado/expirado: segue o fluxo de login */ }
+      }catch(e){}
     }
     refreshSeedNote();
     checkApiHealth();
