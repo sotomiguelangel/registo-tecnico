@@ -310,6 +310,17 @@
   .official-toolbar button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13.5px; }
   .btn-official{ background:var(--ok-500); color:#fff; }
   #officialReport{ display:none; }
+  /* Vista previa del relatório oficial en pantalla (fuera de #app) */
+  body.previewing-official #officialReport{ display:block; padding:70px 12px 30px; background:#e8ecec; min-height:100vh; }
+  body.previewing-official #app{ display:none; }
+  .off-toolbar-float{
+    position:fixed; top:0; left:0; right:0; z-index:300;
+    background:var(--petrol-900); padding:12px 14px; display:flex; gap:10px;
+    box-shadow:0 6px 18px -8px rgba(0,0,0,.5);
+  }
+  .off-toolbar-float button{ flex:1; padding:13px; border-radius:10px; border:none; font-weight:700; font-size:14px; cursor:pointer; }
+  .off-toolbar-float .b-print{ background:var(--ok-500); color:#fff; }
+  .off-toolbar-float .b-close{ background:#fff; color:var(--ink-600); }
   .off-doc{ font-family:var(--sans); color:#111; background:#fff; padding:28px 22px; }
   .off-doc h1{ font-size:17px; margin:0 0 2px; }
   .off-doc .off-sub{ font-size:12px; color:#555; margin-bottom:4px; }
@@ -363,7 +374,7 @@
   }
   .badge-rol.admin{ background:var(--amber-100); color:#8a5f0f; }
   .badge-rol.tecnico{ background:var(--aqua-100); color:var(--petrol-700); }
-  /* Perfil Visualizador (v4.6) */
+  /* Perfil Visualizador */
   .badge-rol.visualizador{ background:#eef2f1; color:var(--ink-600); }
   /* Perfil visualizador: oculta tudo o que escreve */
   body.viewer-mode #navImportar,
@@ -391,8 +402,9 @@
   .modal-btn-confirm{ background:var(--petrol-900); color:#fff; }
 
   @media print{
-    body.printing-official #officialReport{ display:block !important; }
-    body.printing-official #app > *:not(#officialReport){ display:none !important; }
+    body.printing-official #officialReport{ display:block !important; background:#fff; padding:0; }
+    body.printing-official #app{ display:none !important; }
+    body.printing-official .off-toolbar-float{ display:none !important; }
     body:not(.printing-official) header.top, body:not(.printing-official) nav.tabs,
     body:not(.printing-official) .period-toggle, body:not(.printing-official) .custom-range,
     body:not(.printing-official) .report-actions, body:not(.printing-official) .official-toolbar,
@@ -627,7 +639,7 @@
       <div class="official-toolbar">
         <button class="btn-official" id="btnOfficialReport">🏛️ Relatório oficial (PDF)</button>
       </div>
-      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: estatísticas, dias sem registo, fora-de-rango destacados e espaço para assinaturas.</p>
+      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: vê-o primeiro na pantalla e depois imprime/guarda como PDF.</p>
 
       <div id="reporteOutput"></div>
     </section>
@@ -698,8 +710,6 @@
 
   <div class="toast" id="toast"></div>
 
-  <div id="officialReport"></div>
-
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal-box">
       <p class="modal-title" id="modalTitle"></p>
@@ -743,6 +753,9 @@
   </div>
 </div>
 
+<!-- Relatório oficial: FORA de #app para que a impressão funcione sempre -->
+<div id="officialReport"></div>
+
 <script>
 (function(){
   const $ = (id) => document.getElementById(id);
@@ -754,7 +767,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-26.1';
+  const APP_VERSION = '2026-08-26.4';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -785,7 +798,7 @@
   const isNoVal  = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='não'||s==='no'; };
   const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
 
-  // v4.6: perfil de apenas leitura
+  // Perfil de apenas leitura
   function isViewer(){ return currentUser && currentUser.rol === 'visualizador'; }
 
   function forceRelogin(){
@@ -1105,7 +1118,7 @@
     $('btnEditRooms').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnRecomputeCycle').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
-    // v4.6: perfil visualizador — ocultar tudo o que escreve e mostrar os banners de leitura
+    // Perfil visualizador — ocultar tudo o que escreve e mostrar os banners de leitura
     document.body.classList.toggle('viewer-mode', viewer);
     $('viewerBannerGeneral').style.display = viewer ? 'flex' : 'none';
     $('viewerBannerQuarto').style.display = viewer ? 'flex' : 'none';
@@ -1601,7 +1614,7 @@
     }
 
     const isAdmin = currentUser && currentUser.rol === 'admin';
-    // v4.6: perfil visualizador não vê o botão "Editar"
+    // Perfil visualizador não vê o botão "Editar"
     const canEdit = currentUser && currentUser.rol !== 'visualizador';
     const visible = items.slice(0, histVisibleCount);
 
@@ -1767,8 +1780,8 @@
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
             <span class="badge-rol ${u.rol}">${u.rol === 'admin' ? 'Admin' : (u.rol === 'visualizador' ? 'Visualizador' : 'Técnico')}</span>
             <button data-pin="${esc(u.id)}" data-nome="${esc(u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nombre)}">Eliminar</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nome)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nome)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -2858,7 +2871,7 @@
     </div>`;
   }
 
-  // ---------- Relatório Oficial (imprimível / PDF) ----------
+  // ---------- Relatório Oficial — vista previa + impressão ----------
   function buildOfficialReport(desde, hasta, gen, qu){
     const th = DASH_THRESHOLDS;
     const bad = r => {
@@ -2910,6 +2923,7 @@
   }
   function nz2(v){ return (v===undefined||v===null||v==='') ? '—' : esc(v); }
 
+  // Gera o documento, MOSTRA-O NA PANTALLA (vista previa) e imprime a pedido.
   async function generateOfficialReport(){
     const btn = $('btnOfficialReport');
     let desde, hasta;
@@ -2925,18 +2939,46 @@
       const inRange = d => d.fecha >= desde && d.fecha <= hasta;
       const gen = genAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
       const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-      if(!gen.length && !qu.length){ showToast('Não há registos no período selecionado', true); return; }
-      $('officialReport').innerHTML = buildOfficialReport(desde, hasta, gen, qu);
-      document.body.classList.add('printing-official');
-      showToast('Abrindo a impressão — escolha "Guardar como PDF" 📄');
-      setTimeout(()=>{
-        window.print();
-        setTimeout(()=> document.body.classList.remove('printing-official'), 500);
-      }, 600);
+      if(!gen.length && !qu.length){
+        showToast(`Sem registos entre ${desde} e ${hasta} — mude o período (Esta semana / Este mês / Intervalo)`, true);
+        return;
+      }
+      // Constrói o documento e mostra-o NA PANTALLA: vê os dados antes de imprimir
+      $('officialReport').innerHTML =
+        `<div class="off-toolbar-float">
+           <button class="b-print" id="btnOffDoPrint">🖨️ Imprimir / PDF</button>
+           <button class="b-close" id="btnOffClose">✕ Fechar</button>
+         </div>` +
+        buildOfficialReport(desde, hasta, gen, qu);
+      document.body.classList.add('previewing-official');
+      window.scrollTo(0,0);
+      $('btnOffDoPrint').addEventListener('click', ()=>{
+        document.body.classList.remove('previewing-official');
+        document.body.classList.add('printing-official');
+        setTimeout(()=>{
+          window.print();
+          // Ao fechar o diálogo de impressão, volta à vista previa
+          setTimeout(()=>{
+            document.body.classList.remove('printing-official');
+            document.body.classList.add('previewing-official');
+          }, 400);
+        }, 300);
+      });
+      $('btnOffClose').addEventListener('click', closeOfficialPreview);
     }catch(e){
       showToast('⚠️ Não foi possível gerar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   }
+
+  function closeOfficialPreview(){
+    document.body.classList.remove('previewing-official');
+    document.body.classList.remove('printing-official');
+    $('officialReport').innerHTML = '';
+  }
+  // Escape também fecha a vista previa
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape' && document.body.classList.contains('previewing-official')) closeOfficialPreview();
+  });
 
   // ---------- Arranque da app (bootstrap em 1 chamada) ----------
   async function initMainApp(){
