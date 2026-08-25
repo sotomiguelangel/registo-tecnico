@@ -1729,13 +1729,32 @@
   $('btnTempDeselect').addEventListener('click', deselectEquip);
   $('t-equipamento').addEventListener('change', ()=> selectEquip($('t-equipamento').value));
 
-  async function renderTempView(){
+  async function renderTempWeek(){
+    const box = $('tempWeekBox');
     try{
       await loadEquipamentos();
-      renderEquipSelect();
-      await renderTempWeek();
+      const r = await apiGet({ action:'temperaturaStatus' });
+      const st = r.status;
+      $('tempWeekRange').textContent = `(${st.desde} a ${st.hasta})`;
+      if(!st.items.length){
+        box.innerHTML = `<div class="empty" style="padding:12px 0">Ainda não há equipamentos criados.${isAdmin() ? ' Use "⚙️ Gerir equipamentos" acima para criar os seus 18 equipamentos.' : ''}</div>`;
+      } else {
+        box.innerHTML = `
+          <div style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin-bottom:8px;">
+            Medidos: <b style="color:${st.faltam ? '#8a5f0f' : '#28704b'}">${st.medidos}/${st.total}</b>${st.faltam ? ` · faltam ${st.faltam}` : ' · ✓ semana completa'}
+          </div>
+          ${st.items.map(i=>`
+            <div class="week-card">
+              <div style="min-width:0">
+                <div class="wn">${esc(i.nome)} <span style="font-weight:400; color:var(--ink-400); font-size:11px;">(${esc(i.tipo)})</span></div>
+                <div class="wm">${esc(i.ubicacao || '—')} · última: ${i.ultima ? esc(i.ultima.fecha) + ' ' + esc(i.ultima.hora) + ' → ' + esc(i.ultima.temperatura) + ' °C' + (i.ultima.dentro==='Não' ? ' ⚠' : '') : 'nunca medido'}</div>
+              </div>
+              <span class="week-pill ${i.medidoSemana ? 'ok' : 'pend'}">${i.medidoSemana ? '✓ medido' : 'pendente'}</span>
+            </div>`).join('')}
+        `;
+      }
     }catch(e){
-      $('tempWeekBox').innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
+      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ Erro ao carregar: ${esc(e.message)}<br><br><b>Verifique que o backend está desplegado na v4.7 ("Nova versão" no Apps Script).</b></div>`;
     }
   }
 
@@ -1786,28 +1805,37 @@
   // Gestão de equipamentos (apenas admin) — permite criar vários seguidos
   async function openEquipAdmin(){
     if(!isAdmin()){ showToast('Apenas o administrador pode gerir equipamentos', true); return; }
-    await loadEquipamentos(true);
-    const list = equipamentos.map(e=> `• ${esc(e.nome)} — ${esc(e.tipo)} — ${esc(e.ubicacao||'sem ubicacao')} [${esc(String(e.min))} a ${esc(String(e.max))} °C]${isNoVal(e.ativo)?' (INATIVO)':''}`).join('\n') || '(nenhum equipamento criado)';
-    const vals = await formDialog('Adicionar equipamento', [
-      { id:'nome', label:'Nome do equipamento', placeholder:'Ex.: Frigorífico Cozinha 1', value:'' },
-      { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', placeholder:'Frigorifico', value:'' },
-      { id:'ubicacao', label:'Ubicacao', placeholder:'Ex.: Cozinha — zona quente', value:'' },
-      { id:'min', label:'Min °C (vazio = por defeito do tipo)', placeholder:'ex.: 0', value:'' },
-      { id:'max', label:'Max °C (vazio = por defeito do tipo)', placeholder:'ex.: 8', value:'' }
-    ], 'Adicionar equipamento');
-    if(!vals) return;
+    try{
+      await loadEquipamentos(true);
+    }catch(e){ /* segue com o que houver em cache */ }
+    const list = equipamentos.map(e=> `• ${e.nome} — ${e.tipo} — ${e.ubicacao||'sem ubicacao'} [${e.min} a ${e.max} °C]${isNoVal(e.ativo)?' (INATIVO)':''}`).join('\n') || '(nenhum equipamento criado ainda)';
+    const vals = await formDialog(
+      'Adicionar equipamento',
+      [
+        { id:'nome', label:'Nome do equipamento', placeholder:'Ex.: Frigorifico Cozinha 1', value:'' },
+        { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', placeholder:'Frigorifico', value:'' },
+        { id:'ubicacao', label:'Ubicacao', placeholder:'Ex.: Cozinha — zona quente', value:'' },
+        { id:'min', label:'Min °C (vazio = por defeito do tipo)', placeholder:'ex.: 0', value:'' },
+        { id:'max', label:'Max °C (vazio = por defeito do tipo)', placeholder:'ex.: 8', value:'' }
+      ],
+      'Adicionar equipamento'
+    );
+    if(!vals) return; // cancelou
     if(!vals.nome || !vals.tipo){
-      showToast('Preencha nome e tipo (ou cancele)', true);
+      showToast('Preencha nome e tipo para adicionar', true);
       return;
     }
     try{
       await apiPost({ action:'saveEquipamento', data:{ nome: vals.nome, tipo: vals.tipo, ubicacao: vals.ubicacao, min: vals.min, max: vals.max } });
-      showToast(`Equipamento "${vals.nome}" criado ✓ (${equipamentos.length + 1} no total)\nEquipamentos atuais:\n${list.substring(0, 200)}`);
+      showToast(`Equipamento "${vals.nome}" criado ✓`, false);
       invalidateEquipamentos();
       renderEquipSelect();
       renderTempWeek();
-      openEquipAdmin(); // permite adicionar vários seguidos
-    }catch(e){ showToast('⚠️ ' + e.message, true); }
+      // Reabre o diálogo já com a lista atualizada (permite criar vários seguidos)
+      setTimeout(()=> openEquipAdmin(), 100);
+    }catch(e){
+      showToast('⚠️ Não foi possível criar: ' + e.message, true);
+    }
   }
 
   async function editEquipamento(id){
