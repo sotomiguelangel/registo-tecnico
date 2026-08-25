@@ -363,6 +363,16 @@
   }
   .badge-rol.admin{ background:var(--amber-100); color:#8a5f0f; }
   .badge-rol.tecnico{ background:var(--aqua-100); color:var(--petrol-700); }
+  /* Perfil Visualizador (v4.6) */
+  .badge-rol.visualizador{ background:#eef2f1; color:var(--ink-600); }
+  /* Perfil visualizador: oculta tudo o que escreve */
+  body.viewer-mode #navImportar,
+  body.viewer-mode #btnSaveGeneral,
+  body.viewer-mode #btnSaveQuarto,
+  body.viewer-mode #btnCancelEditGeneral,
+  body.viewer-mode #btnCancelEditQuarto,
+  body.viewer-mode #selectedRoomBanner,
+  body.viewer-mode #qManualLabel { display:none !important; }
   .user-row button{
     background:var(--coral-100); color:var(--coral-500); border:none; border-radius:8px;
     padding:7px 10px; font-size:11.5px; font-weight:700; cursor:pointer;
@@ -431,7 +441,7 @@
     <button data-view="historial">Histórico</button>
     <button data-view="reportes">Relatórios</button>
     <button data-view="usuarios" id="navUsuarios" style="display:none">Utilizadores</button>
-    <button data-view="importar">Importar</button>
+    <button data-view="importar" id="navImportar">Importar</button>
   </nav>
 
   <main>
@@ -446,6 +456,7 @@
     <section class="view active" id="view-general">
       <p class="section-title">Controlo diário · Instalações</p>
       <div class="edit-banner" id="editBannerGeneral">✏️ A editar um registo existente — ao guardar será atualizado, não será criado um novo.</div>
+      <div class="edit-banner" id="viewerBannerGeneral" style="background:var(--aqua-100); color:var(--petrol-700);">👁 Perfil de visualização — pode consultar tudo, mas não modificar registos.</div>
       <div class="card">
         <div class="row2">
           <label class="field"><span class="lbl">Data</span><input type="date" id="g-fecha"></label>
@@ -529,6 +540,7 @@
     <section class="view" id="view-quarto">
       <p class="section-title">Controlo diário · Quarto</p>
       <div class="edit-banner" id="editBannerQuarto">✏️ A editar um registo existente — ao guardar será atualizado, não será criado um novo.</div>
+      <div class="edit-banner" id="viewerBannerQuarto" style="background:var(--aqua-100); color:var(--petrol-700);">👁 Perfil de visualização — pode consultar tudo, mas não modificar registos.</div>
 
       <div class="card">
         <div class="quarto-progress">
@@ -540,7 +552,7 @@
         </div>
         <p style="font-size:11px; color:var(--ink-400); margin:0 0 12px; line-height:1.4;">O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">40</span> quartos — não por data, pode demorar mais de um mês.</p>
         <div class="room-groups" id="roomGrid"></div>
-        <label class="field" style="margin-top:10px; margin-bottom:0">
+        <label class="field" id="qManualLabel" style="margin-top:10px; margin-bottom:0">
           <span class="lbl">Ou escreva o número manualmente <span style="font-weight:400; color:var(--ink-400)">(caso precise de repetir um que já foi feito)</span></span>
           <input type="text" inputmode="numeric" id="q-numero" placeholder="Ex.: 214">
         </label>
@@ -629,7 +641,7 @@
           <label class="field"><span class="lbl">PIN</span><input type="text" inputmode="numeric" id="u-pin" placeholder="4–8 dígitos"></label>
         </div>
         <label class="field" style="margin-bottom:0"><span class="lbl">Perfil</span>
-          <select id="u-rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option></select>
+          <select id="u-rol"><option value="tecnico">Técnico</option><option value="admin">Administrador</option><option value="visualizador">Visualizador (só leitura)</option></select>
         </label>
       </div>
       <button class="primary" id="btnCreateUser"><span class="spinner"></span><span class="lbl-text">Criar utilizador</span></button>
@@ -742,7 +754,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-25.2';
+  const APP_VERSION = '2026-08-26.1';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -773,8 +785,12 @@
   const isNoVal  = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='não'||s==='no'; };
   const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
 
+  // v4.6: perfil de apenas leitura
+  function isViewer(){ return currentUser && currentUser.rol === 'visualizador'; }
+
   function forceRelogin(){
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
+    document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
     $('loginHint').textContent = 'A sua sessão expirou ou foi revogada — inicie sessão novamente.';
@@ -1053,6 +1069,7 @@
 
   $('btnLogout').addEventListener('click', ()=>{
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
+    document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
     $('login-pin').value = '';
@@ -1082,11 +1099,16 @@
   function onLoggedIn(){
     $('userBadge').style.display = 'flex';
     $('userBadgeName').textContent = currentUser.nombre;
-    $('userBadgeRole').textContent = currentUser.rol === 'admin' ? 'Administrador' : 'Técnico';
+    const viewer = isViewer();
+    $('userBadgeRole').textContent = currentUser.rol === 'admin' ? 'Administrador' : (viewer ? 'Visualizador' : 'Técnico');
     $('navUsuarios').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnEditRooms').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnRecomputeCycle').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
+    // v4.6: perfil visualizador — ocultar tudo o que escreve e mostrar os banners de leitura
+    document.body.classList.toggle('viewer-mode', viewer);
+    $('viewerBannerGeneral').style.display = viewer ? 'flex' : 'none';
+    $('viewerBannerQuarto').style.display = viewer ? 'flex' : 'none';
     loadAlertsAdmin();
     initMainApp();
   }
@@ -1215,6 +1237,7 @@
   });
 
   $('btnSaveGeneral').addEventListener('click', async ()=>{
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     const btn = $('btnSaveGeneral');
     const data = {
       fecha: $('g-fecha').value || todayStr(),
@@ -1279,6 +1302,7 @@
   });
 
   $('btnSaveQuarto').addEventListener('click', async ()=>{
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     const btn = $('btnSaveQuarto');
     const numero = normRoom($('q-numero').value);
     if(!numero){ showToast('Indique o número do quarto'); return; }
@@ -1479,6 +1503,7 @@
           showToast(`O quarto ${chip.dataset.room} já está medido no ciclo atual.`);
           return;
         }
+        if(isViewer()){ showToast('O seu perfil é apenas de visualização — não pode selecionar quartos para medir', true); return; }
         selectRoom(chip.dataset.room);
       });
     });
@@ -1527,6 +1552,7 @@
   });
 
   $('q-numero').addEventListener('input', ()=>{
+    if(isViewer()) return;
     selectedRoom = normRoom($('q-numero').value);
     const banner = $('selectedRoomBanner');
     if(selectedRoom){ banner.classList.add('show'); $('selectedRoomLabel').textContent = selectedRoom; }
@@ -1575,13 +1601,15 @@
     }
 
     const isAdmin = currentUser && currentUser.rol === 'admin';
+    // v4.6: perfil visualizador não vê o botão "Editar"
+    const canEdit = currentUser && currentUser.rol !== 'visualizador';
     const visible = items.slice(0, histVisibleCount);
 
     let html = visible.map((it,idx)=>{
       const d = it.data;
-      const editBtn = `<button class="edit" data-edit="${idx}">Editar</button>`;
+      const editBtn = canEdit ? `<button class="edit" data-edit="${idx}">Editar</button>` : '';
       const delBtn = isAdmin ? `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
-      const actions = `<div class="entry-actions">${editBtn}${delBtn}</div>`;
+      const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
       if(it.type==='general'){
         return `<div class="entry">
           <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-general">Geral</span></div>
@@ -1662,6 +1690,7 @@
   let lastHistorialItems = [];
 
   function startEditRecord(it){
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     const d = it.data;
     if(it.type === 'general'){
       resetQuartoEditState();
@@ -1736,10 +1765,10 @@
             <span class="u">@${esc(u.usuario)}</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
-            <span class="badge-rol ${u.rol === 'admin' ? 'admin' : 'tecnico'}">${u.rol === 'admin' ? 'Admin' : 'Técnico'}</span>
-            <button data-pin="${esc(u.id)}" data-nombre="${esc(u.nombre)}">PIN</button>
-            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nombre="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
-            <button data-deluser="${esc(u.id)}" data-nombre="${esc(u.nombre)}">Eliminar</button>
+            <span class="badge-rol ${u.rol}">${u.rol === 'admin' ? 'Admin' : (u.rol === 'visualizador' ? 'Visualizador' : 'Técnico')}</span>
+            <button data-pin="${esc(u.id)}" data-nome="${esc(u.nombre)}">PIN</button>
+            <button data-toggle="${esc(u.id)}" data-active="${esc(u.activo)}" data-nome="${esc(u.nombre)}">${inactive ? 'Ativar' : 'Desativar'}</button>
+            <button data-deluser="${esc(u.id)}" data-nome="${esc(u.nombre)}">Eliminar</button>
           </div>
         </div>
       `;}).join('');
@@ -2035,7 +2064,7 @@
     return `<div class="stat-box${alt?' alt':''}"><div class="lab">${esc(label)}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
   }
 
-  // ---------- Painel (Dashboard) v3.5 — gráficos interativos + semáforo ----------
+  // ---------- Painel (Dashboard) — gráficos interativos + semáforo ----------
   const DASH_THRESHOLDS = {
     phMin: 7.0, phMax: 7.8,
     cloroMin: 0.5, cloroMax: 3.0,
@@ -2141,9 +2170,9 @@
 
   // Banner semáforo global: resume de un vistazo si todo está bien
   function buildOpBanner(metrics){
-    const bad = []; let okCount = 0, naCount = 0;
+    const bad = []; let okCount = 0;
     metrics.forEach(x=>{
-      if(!x.m || x.m.count === 0){ naCount++; return; }
+      if(!x.m || x.m.count === 0){ return; }
       const st = cardState(x.m.latest.v, x.min, x.max);
       if(st === 'bad') bad.push(`${x.label} ${x.m.latest.v.toFixed(x.dec)}${x.unit?' '+x.unit:''}`);
       else okCount++;
@@ -2659,6 +2688,7 @@
   });
 
   $('btnPreviewImport').addEventListener('click', async ()=>{
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     const btn = $('btnPreviewImport');
     const text = $('importTextarea').value.trim();
     if(!text){ showToast('Cole dados CSV ou selecione um ficheiro primeiro'); return; }
