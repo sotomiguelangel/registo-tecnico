@@ -248,6 +248,43 @@
   .stat-box .val{ font-family:var(--mono); font-size:15px; font-weight:700; color:var(--petrol-900); }
   .stat-box .sub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-600); }
 
+  /* Resumo Executivo */
+  .kpi-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
+  .kpi-card{ border-radius:16px; padding:16px; border:1px solid var(--line); background:var(--card); }
+  .kpi-card .kpi-lab{ font-size:12px; font-weight:700; color:var(--ink-600); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+  .kpi-card .kpi-val{ font-family:var(--mono); font-size:26px; font-weight:700; color:var(--petrol-900); line-height:1.1; }
+  .kpi-card .kpi-sub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-400); margin-top:4px; }
+  .kpi-card.st-ok{ border-top:5px solid var(--ok-500); }
+  .kpi-card.st-ok .kpi-val{ color:var(--ok-500); }
+  .kpi-card.st-bad{ border-top:5px solid var(--coral-500); background:var(--coral-100); }
+  .kpi-card.st-bad .kpi-val{ color:var(--coral-500); }
+  .kpi-card.st-na{ opacity:.7; }
+  .kpi-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .kpi-card.st-ok .kpi-dot{ background:var(--ok-500); }
+  .kpi-card.st-bad .kpi-dot{ background:var(--coral-500); }
+  .kpi-card.st-na .kpi-dot{ background:var(--ink-400); }
+
+  .spark{ display:block; margin-top:6px; overflow:visible; }
+  .spark polyline{ fill:none; stroke-width:2; }
+
+  /* Heatmap de cumprimento */
+  .heatmap-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .heatmap-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .heatmap-head .ttl{ font-family:var(--mono); font-size:12px; font-weight:700; color:var(--petrol-700); text-transform:uppercase; letter-spacing:.06em; }
+  .heatmap-nav{ display:flex; gap:6px; }
+  .heatmap-nav button{ background:var(--aqua-100); border:none; color:var(--petrol-700); font-weight:700; font-size:12px; padding:4px 10px; border-radius:8px; cursor:pointer; }
+  .heatmap-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
+  .heatmap-dow{ font-family:var(--mono); font-size:9px; color:var(--ink-400); text-align:center; text-transform:uppercase; }
+  .heatmap-cell{ aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:10px; font-weight:600; }
+  .heatmap-cell.hc-empty{ background:transparent; }
+  .heatmap-cell.hc-none{ background:#eef2f1; color:var(--ink-400); }
+  .heatmap-cell.hc-ok{ background:var(--ok-500); color:#fff; }
+  .heatmap-cell.hc-bad{ background:var(--coral-500); color:#fff; }
+  .heatmap-cell.hc-future{ background:transparent; border:1px dashed var(--line); color:var(--ink-400); }
+  .heatmap-legend{ display:flex; gap:12px; margin-top:10px; font-family:var(--mono); font-size:10px; color:var(--ink-600); }
+  .heatmap-legend span{ display:flex; align-items:center; gap:5px; }
+  .heatmap-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+
   /* Dashboard */
   .dashboard-period{ font-family:var(--mono); font-size:11px; color:var(--ink-400); margin:-6px 0 16px; }
   .dashboard-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
@@ -487,6 +524,7 @@
 
   <nav class="tabs">
     <button data-view="dashboard">Painel</button>
+    <button data-view="ejecutivo">Executivo</button>
     <button data-view="general" class="active">Geral</button>
     <button data-view="quarto">Quarto</button>
     <button data-view="temperatura">Refrigeração</button>
@@ -503,6 +541,13 @@
       <p class="dashboard-period" id="dashboardPeriod">A carregar indicadores…</p>
       <button class="primary" id="btnRefreshDashboard" style="margin-bottom:16px"><span class="spinner"></span><span class="lbl-text">Atualizar painel</span></button>
       <div id="dashboardOutput"><div class="empty"><span class="glyph">◌</span>Abra o painel para carregar os indicadores.</div></div>
+    </section>
+
+    <section class="view" id="view-ejecutivo">
+      <p class="section-title">Resumo executivo</p>
+      <p class="dashboard-period" id="ejecutivoPeriod">A carregar…</p>
+      <button class="primary" id="btnRefreshEjecutivo" style="margin-bottom:16px"><span class="spinner"></span><span class="lbl-text">Atualizar resumo</span></button>
+      <div id="ejecutivoOutput"><div class="empty"><span class="glyph">◌</span>Abra o resumo para carregar os indicadores.</div></div>
     </section>
 
     <section class="view active" id="view-general">
@@ -862,7 +907,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-27.3';
+  const APP_VERSION = '2026-08-27.4';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -1232,7 +1277,7 @@
   }
 
   // ---------- Separadores ----------
-  const views = ['dashboard','general','quarto','temperatura','historial','reportes','usuarios','importar'];
+  const views = ['dashboard','ejecutivo','general','quarto','temperatura','historial','reportes','usuarios','importar'];
   document.querySelectorAll('nav.tabs button[data-view]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.remove('active'));
@@ -1245,6 +1290,7 @@
       if(btn.dataset.view === 'usuarios') renderUsersList();
       if(btn.dataset.view === 'general') refreshConsumoResumen();
       if(btn.dataset.view === 'dashboard') renderDashboard();
+      if(btn.dataset.view === 'ejecutivo') renderEjecutivo();
     });
   });
 
@@ -2635,7 +2681,8 @@
     });
     [...new Set([0, Math.round((n-1)/3), Math.round(2*(n-1)/3), n-1])].forEach(i=>{
       const d = allDates[i];
-      svg += `<text class="axis-text" x="${iToX(i).toFixed(1)}" y="${H-10}" text-anchor="${i===0?'start':(i===n-1?'end':'middle')}">${d.slice(8)}/${d.slice(5,7)}</text>`;
+      const xLabel = cfg.xLabelFn ? cfg.xLabelFn(d) : `${d.slice(8)}/${d.slice(5,7)}`;
+      svg += `<text class="axis-text" x="${iToX(i).toFixed(1)}" y="${H-10}" text-anchor="${i===0?'start':(i===n-1?'end':'middle')}">${esc(xLabel)}</text>`;
     });
     (cfg.refs||[]).forEach(r=>{
       svg += `<line class="reference" x1="${L}" x2="${W-R}" y1="${yOf(r.value).toFixed(1)}" y2="${yOf(r.value).toFixed(1)}"/>`;
@@ -2727,8 +2774,8 @@
             dot.setAttribute('visibility', 'hidden');
           }
         });
-        const dp = date.split('-');
-        tip.innerHTML = `<div class="tip-date">${dp[2]}/${dp[1]}</div>` + rows;
+        const tipLabel = cfg.xLabelFn ? cfg.xLabelFn(date) : (()=>{ const dp = date.split('-'); return `${dp[2]}/${dp[1]}`; })();
+        tip.innerHTML = `<div class="tip-date">${esc(tipLabel)}</div>` + rows;
         tip.style.left = Math.max(16, Math.min(84, xSvg / meta.W * 100)) + '%';
         tip.classList.add('show');
       }
@@ -2780,6 +2827,232 @@
     });
     mountCharts(box);
   }
+
+  // ---------- Sparklines ----------
+  function sparkline(values, opts){
+    opts = opts || {};
+    const w = opts.w || 90, h = opts.h || 26, color = opts.color || CHART_COLORS.a;
+    const nums = values.filter(v=> v!==null && v!==undefined && !isNaN(v));
+    if(nums.length < 2) return '';
+    const min = Math.min(...nums), max = Math.max(...nums);
+    const span = (max - min) || 1;
+    const pts = nums.map((v,i)=>{
+      const x = (i/(nums.length-1))*w;
+      const y = h - ((v-min)/span)*h;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const last = pts[pts.length-1].split(',');
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+      <polyline points="${pts.join(' ')}" stroke="${color}"/>
+      <circle cx="${last[0]}" cy="${last[1]}" r="2.4" fill="${color}"/>
+    </svg>`;
+  }
+
+  // Série de valores diários (média do dia) para os últimos N dias — reutilizável para sparklines e gráficos.
+  function dailySeries(records, key, days){
+    const lim = new Date(); lim.setDate(lim.getDate() - (days-1));
+    const limStr = fmt(lim);
+    const byDay = {};
+    records.forEach(r=>{
+      if(!r.data.fecha || r.data.fecha < limStr) return;
+      const v = parseFloat(r.data[key]);
+      if(isNaN(v)) return;
+      (byDay[r.data.fecha] = byDay[r.data.fecha] || []).push(v);
+    });
+    return Object.keys(byDay).sort().map(d=> byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length);
+  }
+
+  // ---------- KPI com semáforo (cartão grande para o resumo executivo) ----------
+  function kpiCard(label, valueText, subText, state, sparkValues, sparkColor){
+    const dotless = state === 'na' ? '' : `<span class="kpi-dot"></span>`;
+    const spark = sparkValues ? sparkline(sparkValues, { color: sparkColor }) : '';
+    return `<div class="kpi-card st-${state}">
+      <div class="kpi-lab">${dotless}${esc(label)}</div>
+      <div class="kpi-val">${valueText}</div>
+      <div class="kpi-sub">${esc(subText||'')}</div>
+      ${spark}
+    </div>`;
+  }
+
+  // ---------- Heatmap de cumprimento (mês calendário) ----------
+  let heatmapMonthOffset = 0;
+
+  function dayStatusFromRecords(recordsForDay){
+    if(!recordsForDay.length) return 'none';
+    const bad = recordsForDay.some(r=>{
+      const ph = parseFloat(r.data.phPiscina);
+      const cl = parseFloat(r.data.cloroLibre);
+      const ret = parseFloat(r.data.retornoAqs);
+      const aqs = parseFloat(r.data.aqsQuartos);
+      return (!isNaN(ph) && (ph < DASH_THRESHOLDS.phMin || ph > DASH_THRESHOLDS.phMax)) ||
+             (!isNaN(cl) && (cl < DASH_THRESHOLDS.cloroMin || cl > DASH_THRESHOLDS.cloroMax)) ||
+             (!isNaN(ret) && ret < DASH_THRESHOLDS.aqsMin) ||
+             (!isNaN(aqs) && aqs < DASH_THRESHOLDS.aqsMin);
+    });
+    return bad ? 'bad' : 'ok';
+  }
+
+  function renderComplianceHeatmap(generalRaw, monthOffset){
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth() + monthOffset;
+    const first = new Date(y, m, 1);
+    const daysInMonth = new Date(y, m+1, 0).getDate();
+    const monthLabel = first.toLocaleDateString('pt-PT', { month:'long', year:'numeric' });
+    const todayStr2 = todayStr();
+
+    const byDate = {};
+    generalRaw.forEach(r=>{ (byDate[r.data.fecha] = byDate[r.data.fecha] || []).push(r); });
+
+    const firstWeekday = (first.getDay()+6)%7; // 0=segunda
+    const cells = [];
+    for(let i=0;i<firstWeekday;i++) cells.push('<div class="heatmap-cell hc-empty"></div>');
+    for(let d=1; d<=daysInMonth; d++){
+      const dateStr = fmt(new Date(y,m,d));
+      let cls, label = d;
+      if(dateStr > todayStr2){ cls = 'hc-future'; }
+      else{
+        const st = dayStatusFromRecords(byDate[dateStr] || []);
+        cls = st === 'none' ? 'hc-none' : (st === 'bad' ? 'hc-bad' : 'hc-ok');
+      }
+      cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)}">${label}</div>`);
+    }
+
+    const dows = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+    return `<div class="heatmap-card">
+      <div class="heatmap-head">
+        <span class="ttl">${esc(monthLabel)}</span>
+        <div class="heatmap-nav">
+          <button id="hmPrev">‹</button>
+          <button id="hmNext" ${monthOffset>=0?'disabled style="opacity:.4;cursor:default"':''}>›</button>
+        </div>
+      </div>
+      <div class="heatmap-grid">
+        ${dows.map(d=>`<div class="heatmap-dow">${d}</div>`).join('')}
+        ${cells.join('')}
+      </div>
+      <div class="heatmap-legend">
+        <span><i style="background:var(--ok-500)"></i>Dentro do intervalo</span>
+        <span><i style="background:var(--coral-500)"></i>Fora do intervalo</span>
+        <span><i style="background:#eef2f1"></i>Sem registo</span>
+      </div>
+    </div>`;
+  }
+
+  function wireHeatmapNav(generalRaw){
+    const prev = $('hmPrev'), next = $('hmNext');
+    if(prev) prev.onclick = ()=>{ heatmapMonthOffset--; $('heatmapBox').innerHTML = renderComplianceHeatmap(generalRaw, heatmapMonthOffset); wireHeatmapNav(generalRaw); };
+    if(next) next.onclick = ()=>{ if(heatmapMonthOffset<0){ heatmapMonthOffset++; $('heatmapBox').innerHTML = renderComplianceHeatmap(generalRaw, heatmapMonthOffset); wireHeatmapNav(generalRaw); } };
+  }
+
+  // ---------- Histórico mensal (6-12 meses) ----------
+  function complianceStatsRange(generalRaw, desde, hasta){
+    const set = new Set(generalRaw.filter(r=> r.data.fecha>=desde && r.data.fecha<=hasta).map(r=> r.data.fecha));
+    const start = new Date(desde+'T00:00:00');
+    const end = new Date(hasta+'T00:00:00');
+    const today = new Date(); today.setHours(0,0,0,0);
+    const cappedEnd = end > today ? today : end;
+    let total=0, covered=0;
+    for(let d=new Date(start); d<=cappedEnd; d.setDate(d.getDate()+1)){
+      total++;
+      if(set.has(fmt(d))) covered++;
+    }
+    return { total, covered, pct: total ? Math.round(covered/total*100) : 100 };
+  }
+
+  function monthRangeOffset(offsetMonths){
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth()+offsetMonths, 1);
+    const last = new Date(now.getFullYear(), now.getMonth()+offsetMonths+1, 0);
+    return [fmt(first), fmt(last)];
+  }
+
+  async function buildMonthlyHistory(monthsBack){
+    const genAllRaw = await listRecords('general');
+    const genWithDeltas = await buildGenWithDeltas(genAllRaw);
+    const months = [];
+    for(let i=monthsBack-1; i>=0; i--){
+      const [desde, hasta] = monthRangeOffset(-i);
+      const stats = statsForRange(genWithDeltas, desde, hasta);
+      const comp = complianceStatsRange(genAllRaw, desde, hasta);
+      months.push({ label: desde.slice(0,7), agua: stats.aguaDeltaCount ? stats.aguaTotal : null, elec: stats.elecDeltaCount ? stats.elecTotal : null, compliance: comp.pct });
+    }
+    return months;
+  }
+
+  function monthLabelFn(dateKey){
+    // dateKey vem como "AAAA-MM"
+    const [y,m] = dateKey.split('-').map(Number);
+    const d = new Date(y, m-1, 1);
+    return d.toLocaleDateString('pt-PT', { month:'short' }).replace('.','') + '/' + String(y).slice(2);
+  }
+
+  // ---------- Render principal do Resumo Executivo ----------
+  async function renderEjecutivo(){
+    const output = $('ejecutivoOutput');
+    const button = $('btnRefreshEjecutivo');
+    setLoading(button, true);
+    output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
+    try{
+      const [generalRaw, tempRaw] = await Promise.all([ listRecords('general'), listRecords('temperatura') ]);
+      const [desde, hasta] = rangoMesActual();
+      const genWithDeltas = await buildGenWithDeltas(generalRaw);
+      const monthStats = statsForRange(genWithDeltas, desde, hasta);
+      const comp = complianceStatsRange(generalRaw, desde, hasta);
+
+      const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
+      const tempBad = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+
+      const done = effectiveCycleDone().length, pending = Math.max(0, roomsList.length - done);
+
+      const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
+      const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
+
+      const kpis = `<div class="kpi-grid">
+        ${kpiCard('Cumprimento do mês', comp.pct+'%', comp.covered+'/'+comp.total+' dias com leitura', comp.pct>=90?'ok':(comp.pct>=70?'na':'bad'))}
+        ${kpiCard('Refrigeração — 7 dias', tempBad.length===0?'✓ OK':tempBad.length+' alerta(s)', tempBad.length===0?'todas dentro do intervalo':'ver aba Refrigeração', tempBad.length===0?'ok':'bad')}
+        ${kpiCard('Consumo água (mês)', monthStats.aguaDeltaCount? fmtNum(monthStats.aguaTotal)+' m³':'—', monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', aguaSpark, CHART_COLORS.a)}
+        ${kpiCard('Consumo eletricidade (mês)', monthStats.elecDeltaCount? fmtNum(monthStats.elecTotal)+' kWh':'—', monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', elecSpark, CHART_COLORS.b)}
+        ${kpiCard('Ciclo de quartos', done+'/'+roomsList.length, pending+' pendente(s)', pending===0?'ok':'na')}
+      </div>`;
+
+      $('ejecutivoPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
+
+      const months = await buildMonthlyHistory(6);
+      const aguaMonthly = chartHTML({
+        title:'Consumo de água — 6 meses', type:'bar', unit:'m³', dec:2,
+        series:[{ label:'Água', className:'series-a', points: months.filter(m=>m.agua!==null).map(m=>({date:m.label, value:m.agua})) }],
+        xLabelFn: monthLabelFn
+      });
+      const elecMonthly = chartHTML({
+        title:'Consumo de eletricidade — 6 meses', type:'bar', unit:'kWh', dec:1,
+        series:[{ label:'Eletricidade', className:'series-b', points: months.filter(m=>m.elec!==null).map(m=>({date:m.label, value:m.elec})) }],
+        xLabelFn: monthLabelFn
+      });
+      const compMonthly = chartHTML({
+        title:'Cumprimento (%) — 6 meses', unit:'%', dec:0,
+        series:[{ label:'Cumprimento', className:'series-c', points: months.map(m=>({date:m.label, value:m.compliance})) }],
+        refs:[{value:90, label:'meta 90%'}],
+        xLabelFn: monthLabelFn
+      });
+
+      output.innerHTML = `
+        ${kpis}
+        <h2 class="report-heading">Calendário de cumprimento</h2>
+        <div id="heatmapBox">${renderComplianceHeatmap(generalRaw, heatmapMonthOffset)}</div>
+        <h2 class="report-heading">Histórico de consumos (6 meses)</h2>
+        ${aguaMonthly}
+        ${elecMonthly}
+        <h2 class="report-heading">Histórico de cumprimento (6 meses)</h2>
+        ${compMonthly}
+      `;
+      mountCharts(output);
+      wireHeatmapNav(generalRaw);
+    }catch(e){
+      output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo.<br>${esc(e.message)}</div>`;
+    }finally{ setLoading(button, false); }
+  }
+
+  $('btnRefreshEjecutivo').addEventListener('click', ()=> renderEjecutivo());
 
   async function renderDashboard(forceFresh){
     const output = $('dashboardOutput');
