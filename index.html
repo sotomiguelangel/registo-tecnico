@@ -267,6 +267,9 @@
   .spark{ display:block; margin-top:6px; overflow:visible; }
   .spark polyline{ fill:none; stroke-width:2; }
 
+  .cost-tag{ font-family:var(--mono); font-weight:700; color:var(--petrol-700); font-size:13px; }
+  .cost-tag.on-dark{ color:var(--aqua-400); }
+
   /* Heatmap de cumprimento */
   .heatmap-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
   .heatmap-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
@@ -810,6 +813,18 @@
         <button class="primary" id="btnSaveAlerts"><span class="lbl-text">Guardar configuração de alertas</span></button>
       </div>
 
+      <div class="card" id="tarifasAdminCard" style="display:none; margin-top:20px;">
+        <div class="subgroup-title" style="color:var(--petrol-700)">💶 Tarifas (para mostrar custo estimado)</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Água <span class="unit">(€/m³)</span></span><input type="number" step="0.0001" min="0" id="tarifaAgua" placeholder="Ex.: 1.85"></label>
+          <label class="field"><span class="lbl">Eletricidade <span class="unit">(€/kWh)</span></span><input type="number" step="0.0001" min="0" id="tarifaElectricidad" placeholder="Ex.: 0.18"></label>
+        </div>
+        <p style="font-size:11px; color:var(--ink-400); line-height:1.5; margin:0 0 12px;">
+          Deixe em branco para não mostrar o custo estimado. É apenas informativo — não substitui a fatura real.
+        </p>
+        <button class="primary" id="btnSaveTarifas"><span class="lbl-text">Guardar tarifas</span></button>
+      </div>
+
       <p class="section-title" style="margin-top:26px">Utilizadores existentes</p>
       <div id="usersList"></div>
     </section>
@@ -907,7 +922,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-27.4';
+  const APP_VERSION = '2026-08-27.5';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -1273,6 +1288,7 @@
     $('viewerBannerQuarto').style.display = viewer ? 'flex' : 'none';
     $('viewerBannerTemp').style.display = viewer ? 'flex' : 'none';
     loadAlertsAdmin();
+    loadTarifasAdmin();
     initMainApp();
   }
 
@@ -1341,12 +1357,13 @@
       const elecHoyDiag = consumoDiag(hoyStats, 'elec');
       const aguaMesDiag = consumoDiag(monthStats, 'agua');
       const elecMesDiag = consumoDiag(monthStats, 'elec');
+      const tarifas = await getTarifas();
 
       grid.innerHTML = `
-        ${statBox('Água — hoje', aguaHoyDiag ? '—' : fmtNum(hoyStats.aguaTotal)+' m³', aguaHoyDiag || `consumo do dia`)}
-        ${statBox('Eletricidade — hoje', elecHoyDiag ? '—' : fmtNum(hoyStats.elecTotal)+' kWh', elecHoyDiag || `consumo do dia`, true)}
-        ${statBox('Água — acumulado do mês', aguaMesDiag ? '—' : fmtNum(monthStats.aguaTotal)+' m³', aguaMesDiag || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
-        ${statBox('Eletricidade — acumulado do mês', elecMesDiag ? '—' : fmtNum(monthStats.elecTotal)+' kWh', elecMesDiag || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
+        ${statBox('Água — hoje', (aguaHoyDiag ? '—' : fmtNum(hoyStats.aguaTotal)+' m³') + (aguaHoyDiag?'':costTag(hoyStats.aguaTotal, tarifas.agua)), aguaHoyDiag || `consumo do dia`)}
+        ${statBox('Eletricidade — hoje', (elecHoyDiag ? '—' : fmtNum(hoyStats.elecTotal)+' kWh') + (elecHoyDiag?'':costTag(hoyStats.elecTotal, tarifas.elec)), elecHoyDiag || `consumo do dia`, true)}
+        ${statBox('Água — acumulado do mês', (aguaMesDiag ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag?'':costTag(monthStats.aguaTotal, tarifas.agua)), aguaMesDiag || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
+        ${statBox('Eletricidade — acumulado do mês', (elecMesDiag ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag?'':costTag(monthStats.elecTotal, tarifas.elec)), elecMesDiag || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
       `;
       if($('consumoDetailTable').style.display !== 'none'){ renderConsumoDetailTable(); }
     }catch(e){
@@ -2168,6 +2185,7 @@
     list.innerHTML = `<div class="empty">A carregar…</div>`;
     try{
       loadAlertsAdmin();
+      loadTarifasAdmin();
       const r = await apiGet({ action:'listUsers' });
       if(r.users.length === 0){ list.innerHTML = `<div class="empty">Não há utilizadores.</div>`; return; }
       list.innerHTML = r.users.map(u=>{
@@ -2398,7 +2416,7 @@
       const [mDesde, mHasta] = rangoMesActual();
       const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
 
-      renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
+      await renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
     }catch(e){
       showToast('⚠️ Não foi possível gerar o relatório: ' + e.message, true);
     }finally{ setLoading(btn, false); }
@@ -2406,7 +2424,7 @@
 
   $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
 
-  function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats){
+  async function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats){
     const out = $('reporteOutput');
     if(gen.length===0 && qu.length===0 && tp.length===0){
       out.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não há registos entre ${desde} e ${hasta}.</div>`;
@@ -2420,16 +2438,17 @@
     const elecPerDiag = consumoDiag(periodStats, 'elec');
     const aguaMesDiag2 = consumoDiag(monthStats, 'agua');
     const elecMesDiag2 = consumoDiag(monthStats, 'elec');
+    const tarifasRep = await getTarifas();
 
     let html = `<h2 class="report-heading">Consumo — período selecionado</h2>
     <div class="stat-grid">
-      ${statBox('Consumo de água (período)', aguaPerDiag ? '—' : fmtNum(periodStats.aguaTotal)+' m³', aguaPerDiag || `média diária: ${fmtNum(periodStats.aguaProm)} m³ · ${periodStats.aguaDiasTotal} dia${periodStats.aguaDiasTotal===1?'':'s'} coberto${periodStats.aguaDiasTotal===1?'':'s'}`)}
-      ${statBox('Consumo de eletricidade (período)', elecPerDiag ? '—' : fmtNum(periodStats.elecTotal)+' kWh', elecPerDiag || `média diária: ${fmtNum(periodStats.elecProm)} kWh · ${periodStats.elecDiasTotal} dia${periodStats.elecDiasTotal===1?'':'s'} coberto${periodStats.elecDiasTotal===1?'':'s'}`, true)}
+      ${statBox('Consumo de água (período)', (aguaPerDiag ? '—' : fmtNum(periodStats.aguaTotal)+' m³') + (aguaPerDiag?'':costTag(periodStats.aguaTotal, tarifasRep.agua)), aguaPerDiag || `média diária: ${fmtNum(periodStats.aguaProm)} m³ · ${periodStats.aguaDiasTotal} dia${periodStats.aguaDiasTotal===1?'':'s'} coberto${periodStats.aguaDiasTotal===1?'':'s'}`)}
+      ${statBox('Consumo de eletricidade (período)', (elecPerDiag ? '—' : fmtNum(periodStats.elecTotal)+' kWh') + (elecPerDiag?'':costTag(periodStats.elecTotal, tarifasRep.elec)), elecPerDiag || `média diária: ${fmtNum(periodStats.elecProm)} kWh · ${periodStats.elecDiasTotal} dia${periodStats.elecDiasTotal===1?'':'s'} coberto${periodStats.elecDiasTotal===1?'':'s'}`, true)}
     </div>
     <h2 class="report-heading">Consumo — mês em curso (sempre atual)</h2>
     <div class="stat-grid">
-      ${statBox('Acumulado de água do mês', aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³', aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
-      ${statBox('Acumulado de eletricidade do mês', elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh', elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
+      ${statBox('Acumulado de água do mês', (aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag2?'':costTag(monthStats.aguaTotal, tarifasRep.agua)), aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
+      ${statBox('Acumulado de eletricidade do mês', (elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag2?'':costTag(monthStats.elecTotal, tarifasRep.elec)), elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
     </div>
     <div class="stat-grid">
       ${statBox('pH piscina (méd. período)', fmtNum(avg(phVals)), rangeSub(minmax(phVals)))}
@@ -3006,12 +3025,13 @@
 
       const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
       const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
+      const tarifasEjec = await getTarifas();
 
       const kpis = `<div class="kpi-grid">
         ${kpiCard('Cumprimento do mês', comp.pct+'%', comp.covered+'/'+comp.total+' dias com leitura', comp.pct>=90?'ok':(comp.pct>=70?'na':'bad'))}
         ${kpiCard('Refrigeração — 7 dias', tempBad.length===0?'✓ OK':tempBad.length+' alerta(s)', tempBad.length===0?'todas dentro do intervalo':'ver aba Refrigeração', tempBad.length===0?'ok':'bad')}
-        ${kpiCard('Consumo água (mês)', monthStats.aguaDeltaCount? fmtNum(monthStats.aguaTotal)+' m³':'—', monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', aguaSpark, CHART_COLORS.a)}
-        ${kpiCard('Consumo eletricidade (mês)', monthStats.elecDeltaCount? fmtNum(monthStats.elecTotal)+' kWh':'—', monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', elecSpark, CHART_COLORS.b)}
+        ${kpiCard('Consumo água (mês)', (monthStats.aguaDeltaCount? fmtNum(monthStats.aguaTotal)+' m³':'—') + (monthStats.aguaDeltaCount?costTag(monthStats.aguaTotal, tarifasEjec.agua):''), monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', aguaSpark, CHART_COLORS.a)}
+        ${kpiCard('Consumo eletricidade (mês)', (monthStats.elecDeltaCount? fmtNum(monthStats.elecTotal)+' kWh':'—') + (monthStats.elecDeltaCount?costTag(monthStats.elecTotal, tarifasEjec.elec):''), monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', elecSpark, CHART_COLORS.b)}
         ${kpiCard('Ciclo de quartos', done+'/'+roomsList.length, pending+' pendente(s)', pending===0?'ok':'na')}
       </div>`;
 
@@ -3162,6 +3182,7 @@
       const prevElec = prevConsumption.elecDeltaCount ? prevConsumption.elecTotal : null;
       const pctDone = roomsList.length ? Math.round(done / roomsList.length * 100) : 0;
       const tempOk = tempBad.length === 0;
+      const tarifasDash = await getTarifas();
 
       $('dashboardPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
 
@@ -3172,12 +3193,12 @@
         <div class="dashboard-grid">
           <div class="dashboard-card">
             <div class="lab">Água</div>
-            <div class="value">${aguaVal !== null ? fmtNum(aguaVal)+' m³' : '—'}</div>
+            <div class="value">${aguaVal !== null ? fmtNum(aguaVal)+' m³'+costTag(aguaVal, tarifasDash.agua) : '—'}</div>
             <div class="meta">${trendBadge(aguaVal, prevAgua)}${consumption.aguaDeltaCount ? `média ${fmtNum(consumption.aguaProm)} m³/dia` : 'sem dados suficientes'}</div>
           </div>
           <div class="dashboard-card">
             <div class="lab">Eletricidade</div>
-            <div class="value">${elecVal !== null ? fmtNum(elecVal)+' kWh' : '—'}</div>
+            <div class="value">${elecVal !== null ? fmtNum(elecVal)+' kWh'+costTag(elecVal, tarifasDash.elec) : '—'}</div>
             <div class="meta">${trendBadge(elecVal, prevElec)}${consumption.elecDeltaCount ? `média ${fmtNum(consumption.elecProm)} kWh/dia` : 'sem dados suficientes'}</div>
           </div>
         </div>
@@ -3510,6 +3531,49 @@
       $('alertsEnabled').checked = String(enabled || 'Sim').toLowerCase() !== 'não' && String(enabled || 'Sim').toLowerCase() !== 'no';
       $('alertsEmails').value = String(emails || '');
     }catch(e){}
+  }
+
+  // ---------- Tarifas (€/m³ e €/kWh) ----------
+  async function loadTarifasAdmin(){
+    const card = $('tarifasAdminCard');
+    if(!card) return;
+    if(!isAdmin()){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    try{
+      await loadConfigSnapshot();
+      const ta = await getConfigCached('tarifaAgua');
+      const te = await getConfigCached('tarifaElectricidad');
+      $('tarifaAgua').value = (ta!==null && ta!==undefined) ? ta : '';
+      $('tarifaElectricidad').value = (te!==null && te!==undefined) ? te : '';
+    }catch(e){}
+  }
+
+  $('btnSaveTarifas') && $('btnSaveTarifas').addEventListener('click', async ()=>{
+    try{
+      const va = $('tarifaAgua').value.trim();
+      const ve = $('tarifaElectricidad').value.trim();
+      if(va && (isNaN(parseFloat(va)) || parseFloat(va) < 0)){ showToast('Tarifa de água inválida', true); return; }
+      if(ve && (isNaN(parseFloat(ve)) || parseFloat(ve) < 0)){ showToast('Tarifa de eletricidade inválida', true); return; }
+      await apiPost({ action:'setConfig', key:'tarifaAgua', value: va });
+      await apiPost({ action:'setConfig', key:'tarifaElectricidad', value: ve });
+      invalidateConfig('tarifaAgua'); invalidateConfig('tarifaElectricidad');
+      showToast('Tarifas guardadas ✓');
+      refreshConsumoResumen();
+    }catch(e){ showToast('⚠️ ' + e.message, true); }
+  });
+
+  async function getTarifas(){
+    let agua = null, elec = null;
+    try{ const v = await getConfigCached('tarifaAgua'); if(v!==null && v!==undefined && String(v).trim()!==''){ const n = parseFloat(v); if(!isNaN(n) && n>0) agua = n; } }catch(e){}
+    try{ const v = await getConfigCached('tarifaElectricidad'); if(v!==null && v!==undefined && String(v).trim()!==''){ const n = parseFloat(v); if(!isNaN(n) && n>0) elec = n; } }catch(e){}
+    return { agua, elec };
+  }
+
+  // Devuelve " (~12,34 €)" o '' si falta o el consumo/tarifa no está disponible.
+  function costTag(valor, tarifa, onDark){
+    if(valor===null || valor===undefined || isNaN(valor) || tarifa===null || tarifa===undefined) return '';
+    const cost = valor * tarifa;
+    return ` <span class="cost-tag${onDark?' on-dark':''}">(~${cost.toFixed(2)} €)</span>`;
   }
 
   $('btnSaveAlerts').addEventListener('click', async ()=>{
