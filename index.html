@@ -763,6 +763,11 @@
 
     <section class="view" id="view-reportes">
       <p class="section-title">Gerar relatório</p>
+      <div class="period-toggle" id="repTipoToggle">
+        <button data-reptipo="geral" class="active">Geral</button>
+        <button data-reptipo="quarto">Quartos</button>
+        <button data-reptipo="temperatura">Refrigeração</button>
+      </div>
       <div class="period-toggle">
         <button data-periodo="semana" class="active">Esta semana</button>
         <button data-periodo="mes">Este mês</button>
@@ -922,7 +927,7 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-27.5';
+  const APP_VERSION = '2026-08-27.6';
   document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
@@ -2364,6 +2369,15 @@
 
   // ---------- Relatórios ----------
   let periodoActual = 'semana';
+  let reportTipo = 'geral';
+  document.querySelectorAll('#repTipoToggle button[data-reptipo]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#repTipoToggle button[data-reptipo]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      reportTipo = btn.dataset.reptipo;
+      $('reporteOutput').innerHTML = '';
+    });
+  });
   document.querySelectorAll('.period-toggle button[data-periodo]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.period-toggle button[data-periodo]').forEach(b=>b.classList.remove('active'));
@@ -2404,25 +2418,231 @@
 
     setLoading(btn, true);
     try{
-      const [genAllRaw, quAllRaw, tpAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
-      const genWithDeltas = await buildGenWithDeltas(genAllRaw);
+      if(reportTipo === 'quarto'){
+        await renderReporteQuartos(desde, hasta);
+      } else if(reportTipo === 'temperatura'){
+        await renderReporteRefrigeracao(desde, hasta);
+      } else {
+        const [genAllRaw, quAllRaw, tpAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
+        const genWithDeltas = await buildGenWithDeltas(genAllRaw);
 
-      const inRange = d => d.fecha >= desde && d.fecha <= hasta;
-      const genPeriod = genWithDeltas.filter(r=> !r.isBaseline && inRange(r.data));
-      const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-      const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+        const inRange = d => d.fecha >= desde && d.fecha <= hasta;
+        const genPeriod = genWithDeltas.filter(r=> !r.isBaseline && inRange(r.data));
+        const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+        const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
 
-      const periodStats = statsForRange(genWithDeltas, desde, hasta);
-      const [mDesde, mHasta] = rangoMesActual();
-      const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
+        const periodStats = statsForRange(genWithDeltas, desde, hasta);
+        const [mDesde, mHasta] = rangoMesActual();
+        const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
 
-      await renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
+        await renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
+      }
     }catch(e){
       showToast('⚠️ Não foi possível gerar o relatório: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
   $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
+
+  // ---------- Relatório específico: Quartos ----------
+  async function renderReporteQuartos(desde, hasta){
+    const out = $('reporteOutput');
+    const quAllRaw = await listRecords('quarto');
+    const inRange = d => d.fecha >= desde && d.fecha <= hasta;
+    const qu = quAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+
+    if(!qu.length){
+      out.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não há leituras de quartos entre ${desde} e ${hasta}.</div>`;
+      return;
+    }
+
+    const roomsNorm = roomsList.map(normRoom);
+    const measuredRooms = new Set(qu.map(r=> normRoom(r.data.numero)));
+    const notMeasured = roomsNorm.filter(n=> !measuredRooms.has(n));
+    const coveredCount = roomsNorm.filter(n=> measuredRooms.has(n)).length;
+    const coveragePct = roomsNorm.length ? Math.round(coveredCount / roomsNorm.length * 100) : 0;
+
+    const phWarnCount = qu.filter(r=> phWarn(r.data.phCaliente) || phWarn(r.data.phFria)).length;
+    const cloroWarnCount = qu.filter(r=> cloroWarn(r.data.cloroCaliente) || cloroWarn(r.data.cloroFria) || cloroWarn(r.data.cloroTotalCaliente) || cloroWarn(r.data.cloroTotalFria)).length;
+
+    // Última leitura de cada quarto dentro do período
+    const lastByRoom = {};
+    qu.forEach(r=>{
+      const n = normRoom(r.data.numero);
+      const key = r.data.fecha + r.data.hora;
+      if(!lastByRoom[n] || key > lastByRoom[n]._key){ lastByRoom[n] = Object.assign({ _key: key }, r.data); }
+    });
+
+    let html = `<div class="stat-grid">
+      ${statBox('Quartos cobertos no período', coveredCount+' / '+roomsNorm.length, coveragePct+'% da lista atual de quartos')}
+      ${statBox('Leituras registadas', String(qu.length), `entre ${desde} e ${hasta}`, true)}
+      ${statBox('Alertas de pH', String(phWarnCount), 'fora do intervalo 7.0–7.8')}
+      ${statBox('Alertas de cloro', String(cloroWarnCount), 'fora do intervalo 0.5–3.0 ppm', true)}
+    </div>`;
+
+    if(notMeasured.length){
+      html += `<div class="dashboard-alert">⚠ ${notMeasured.length} quarto${notMeasured.length===1?'':'s'} da lista atual sem leitura neste período: ${esc(notMeasured.slice(0,25).join(', '))}${notMeasured.length>25?` +${notMeasured.length-25} mais`:''}.</div>`;
+    } else {
+      html += `<div class="dashboard-ok">✓ Todos os quartos da lista atual foram medidos neste período.</div>`;
+    }
+
+    html += `<h2 class="report-heading">Resumo por quarto (última leitura no período)</h2>
+      <div class="table-scroll"><table class="report"><thead><tr>
+        <th>Quarto</th><th>Última data</th><th>pH qu.</th><th>Cloro qu.</th><th>pH fr.</th><th>Cloro fr.</th><th>Estado</th>
+      </tr></thead><tbody>`;
+    roomsNorm.forEach(n=>{
+      const r = lastByRoom[n];
+      if(!r){
+        html += `<tr style="color:var(--ink-400)"><td>${esc(n)}</td><td colspan="6">sem leitura no período</td></tr>`;
+        return;
+      }
+      const bad = phWarn(r.phCaliente) || phWarn(r.phFria) || cloroWarn(r.cloroCaliente) || cloroWarn(r.cloroFria);
+      html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(n)}</td><td>${esc(r.fecha)}</td><td>${nz(r.phCaliente)}</td><td>${nz(r.cloroCaliente)}</td><td>${nz(r.phFria)}</td><td>${nz(r.cloroFria)}</td><td>${bad?'⚠ Fora':'✓ OK'}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    html += `<h2 class="report-heading">Detalhe de leituras (${desde} → ${hasta})</h2>
+      <div class="table-scroll"><table class="report"><thead><tr>
+        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Quarto</th><th>pH qu.</th><th>Cl.livre qu.</th><th>Cl.total qu.</th><th>pH fr.</th><th>Cl.livre fr.</th><th>Cl.total fr.</th>
+      </tr></thead><tbody>`;
+    qu.forEach(r=>{
+      const d = r.data;
+      const bad = phWarn(d.phCaliente) || phWarn(d.phFria) || cloroWarn(d.cloroCaliente) || cloroWarn(d.cloroFria);
+      html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    html += `<div class="report-actions">
+      <button class="btn-csv" id="btnExportCsvQuarto">Exportar CSV</button>
+      <button class="btn-print" id="btnPrintQuarto">Imprimir / PDF</button>
+    </div>`;
+
+    out.innerHTML = html;
+    $('btnExportCsvQuarto').addEventListener('click', ()=> exportCsvQuartos(desde, hasta, qu));
+    $('btnPrintQuarto').addEventListener('click', ()=> window.print());
+  }
+
+  function exportCsvQuartos(desde, hasta, qu){
+    let csv = 'LEITURAS DE QUARTOS\n';
+    csv += 'Data,Hora,Utilizador,Quarto,pH Quente,CloroLivreQuente,CloroTotalQuente,pH Fria,CloroLivreFria,CloroTotalFria\n';
+    qu.forEach(r=>{
+      const d = r.data;
+      csv += [d.fecha,d.hora,d.usuario,d.numero,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
+    });
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `relatorio_quartos_${desde}_a_${hasta}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- Relatório específico: Refrigeração ----------
+  function isoWeeksInRange(desde, hasta){
+    const weeks = [];
+    let d = new Date(desde+'T00:00:00');
+    const day = (d.getDay()+6)%7;
+    d.setDate(d.getDate()-day);
+    const end = new Date(hasta+'T00:00:00');
+    while(d <= end){
+      const wStart = fmt(d);
+      const wEndDate = new Date(d); wEndDate.setDate(wEndDate.getDate()+6);
+      weeks.push([wStart, fmt(wEndDate)]);
+      d.setDate(d.getDate()+7);
+    }
+    return weeks;
+  }
+
+  async function renderReporteRefrigeracao(desde, hasta){
+    const out = $('reporteOutput');
+    await loadEquipamentos();
+    const tpAllRaw = await listRecords('temperatura');
+    const inRange = d => d.fecha >= desde && d.fecha <= hasta;
+    const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+
+    const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
+    if(!tp.length && !ativos.length){
+      out.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não há leituras de refrigeração nem equipamentos ativos entre ${desde} e ${hasta}.</div>`;
+      return;
+    }
+
+    const badCount = tp.filter(r=> String(r.data.dentroIntervalo) === 'Não').length;
+    const weeks = isoWeeksInRange(desde, hasta);
+
+    const perEquip = ativos.map(eq=>{
+      const readings = tp.filter(r=> String(r.data.equipamentoId) === String(eq.id));
+      const bad = readings.filter(r=> String(r.data.dentroIntervalo) === 'Não').length;
+      const weeksCovered = weeks.filter(([ws,we])=> readings.some(r=> r.data.fecha>=ws && r.data.fecha<=we)).length;
+      const last = readings.length ? readings.slice().sort((a,b)=> (b.data.fecha+b.data.hora).localeCompare(a.data.fecha+a.data.hora))[0] : null;
+      return { eq, count: readings.length, bad, weeksCovered, weeksTotal: weeks.length, last };
+    });
+
+    const avgCoveragePct = perEquip.length
+      ? Math.round(perEquip.reduce((a,x)=> a + (x.weeksTotal ? x.weeksCovered/x.weeksTotal : 0), 0) / perEquip.length * 100)
+      : 0;
+
+    let html = `<div class="stat-grid">
+      ${statBox('Leituras no período', String(tp.length), ativos.length+' equipamento'+(ativos.length===1?'':'s')+' ativo'+(ativos.length===1?'':'s'))}
+      ${statBox('Fora do intervalo', String(badCount), badCount ? 'verifique os equipamentos assinalados' : 'nenhuma leitura fora do intervalo', true)}
+      ${statBox('Cumprimento semanal médio', avgCoveragePct+'%', weeks.length+' semana'+(weeks.length===1?'':'s')+' no período')}
+    </div>`;
+
+    if(badCount){
+      const badList = tp.filter(r=> String(r.data.dentroIntervalo) === 'Não')
+        .map(r=> `${r.data.nome} — ${r.data.fecha} ${r.data.hora} (${r.data.temperatura} °C)`);
+      html += `<div class="dashboard-alert">⚠ ${badCount} leitura${badCount===1?'':'s'} fora do intervalo: ${esc(badList.slice(0,10).join(' · '))}${badList.length>10?` +${badList.length-10} mais`:''}.</div>`;
+    } else if(ativos.length){
+      html += `<div class="dashboard-ok">✓ Todas as leituras do período estão dentro do intervalo de cada equipamento.</div>`;
+    }
+
+    html += `<h2 class="report-heading">Resumo por equipamento</h2>
+      <div class="table-scroll"><table class="report"><thead><tr>
+        <th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Leituras</th><th>Fora interv.</th><th>Cumprim. semanal</th><th>Última leitura</th>
+      </tr></thead><tbody>`;
+    perEquip.forEach(x=>{
+      const pct = x.weeksTotal ? Math.round(x.weeksCovered/x.weeksTotal*100) : 0;
+      const lastTxt = x.last ? `${x.last.data.fecha} ${x.last.data.hora} → ${x.last.data.temperatura} °C` : 'sem leitura';
+      html += `<tr${x.bad?' style="color:var(--coral-500)"':''}><td>${esc(x.eq.nome)}</td><td>${esc(x.eq.tipo)}</td><td>${nz(x.eq.ubicacao)}</td><td>${x.count}</td><td>${x.bad}</td><td>${x.weeksCovered}/${x.weeksTotal} (${pct}%)</td><td>${esc(lastTxt)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    if(tp.length){
+      html += `<h2 class="report-heading">Detalhe de leituras (${desde} → ${hasta})</h2>
+        <div class="table-scroll"><table class="report"><thead><tr>
+          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Estado</th><th>Obs.</th>
+        </tr></thead><tbody>`;
+      tp.forEach(r=>{
+        const d = r.data;
+        const bad = String(d.dentroIntervalo) === 'Não';
+        html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td>${nz(d.temperatura)}</td><td>${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+      });
+      html += `</tbody></table></div>`;
+    }
+
+    html += `<div class="report-actions">
+      <button class="btn-csv" id="btnExportCsvTemp">Exportar CSV</button>
+      <button class="btn-print" id="btnPrintTemp">Imprimir / PDF</button>
+    </div>`;
+
+    out.innerHTML = html;
+    $('btnExportCsvTemp').addEventListener('click', ()=> exportCsvRefrigeracao(desde, hasta, tp));
+    $('btnPrintTemp').addEventListener('click', ()=> window.print());
+  }
+
+  function exportCsvRefrigeracao(desde, hasta, tp){
+    let csv = 'REFRIGERACAO\n';
+    csv += 'Data,Hora,Utilizador,Equipamento,Tipo,Ubicacao,Temperatura(C),DentroDoIntervalo,Observacoes\n';
+    tp.forEach(r=>{
+      const d = r.data;
+      csv += [d.fecha,d.hora,d.usuario,d.nome,d.tipo,d.ubicacao,d.temperatura,dispYesNo(d.dentroIntervalo),d.observacoes||''].map(csvSafe).join(',') + '\n';
+    });
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `relatorio_refrigeracao_${desde}_a_${hasta}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   async function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats){
     const out = $('reporteOutput');
