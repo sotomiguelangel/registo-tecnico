@@ -4,12 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Registo Técnico · Moon and Sun</title>
+<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
 <meta name="theme-color" content="#0e3341">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="/node_modules/d3/dist/d3.min.js"></script>
+<script>
+  if(typeof d3 === 'undefined'){
+    document.write('<script src="https://cdn.jsdelivr.net/npm/d3@7"><\/script>');
+  }
+</script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -477,6 +484,105 @@
   .modal-btn-cancel{ background:var(--paper); color:var(--ink-600); border:1.5px solid var(--line) !important; }
   .modal-btn-confirm{ background:var(--petrol-900); color:#fff; }
 
+  /* D3 Gráficos de Dispersão Cloro vs. pH */
+  .d3-scatter-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:18px;
+    box-shadow:0 2px 10px -4px rgba(10,37,48,.08);
+  }
+  .d3-scatter-header{
+    display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;
+  }
+  .d3-scatter-title{
+    font-family:var(--sans); font-size:14px; font-weight:700; color:var(--petrol-900); margin:0 0 3px; display:flex; align-items:center; gap:6px;
+  }
+  .d3-scatter-sub{
+    font-family:var(--mono); font-size:11px; color:var(--ink-400); margin:0; line-height:1.4;
+  }
+  .d3-badge-tag{
+    background:var(--aqua-100); color:var(--petrol-700); font-family:var(--mono); font-size:10px; font-weight:700;
+    padding:3px 8px; border-radius:12px; letter-spacing:0.04em; white-space:nowrap;
+  }
+  .d3-controls-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;
+  }
+  .d3-controls-grid select{
+    font-size:12px; padding:8px 10px; border-radius:8px; font-family:var(--sans); font-weight:600;
+  }
+  .d3-mode-toggle{
+    display:flex; gap:6px; margin-bottom:12px;
+  }
+  .d3-mode-toggle button{
+    flex:1; padding:8px 6px; border-radius:9px; border:1.5px solid var(--line); background:#fff;
+    font-size:11.5px; font-weight:700; color:var(--ink-600); cursor:pointer; transition:.15s ease;
+  }
+  .d3-mode-toggle button.active{
+    background:var(--petrol-900); border-color:var(--petrol-900); color:#fff;
+  }
+  .d3-stat-strip{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:14px;
+  }
+  .d3-stat-pill{
+    background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:7px 8px; text-align:center;
+  }
+  .d3-stat-pill .p-lbl{
+    font-size:9.5px; font-weight:600; color:var(--ink-400); text-transform:uppercase; font-family:var(--mono); margin-bottom:2px;
+  }
+  .d3-stat-pill .p-val{
+    font-family:var(--mono); font-size:13.5px; font-weight:700; color:var(--petrol-900); line-height:1.2;
+  }
+  .d3-stat-pill.ok .p-val{ color:var(--ok-500); }
+  .d3-stat-pill.warn .p-val{ color:var(--coral-500); }
+  .d3-stat-pill.info .p-val{ color:var(--ice-500); }
+  .d3-chart-box{
+    position:relative; width:100%; min-height:270px; touch-action:pan-y; margin-bottom:8px;
+  }
+  .d3-chart-box svg{
+    display:block; width:100%; height:auto; overflow:visible;
+  }
+  .d3-chart-box .d3-axis text{
+    font-family:var(--mono); font-size:10px; fill:var(--ink-400);
+  }
+  .d3-chart-box .d3-axis line, .d3-chart-box .d3-axis path{
+    stroke:var(--line);
+  }
+  .d3-chart-box .d3-grid line{
+    stroke:var(--line); stroke-dasharray:2 2; stroke-opacity:0.7;
+  }
+  .d3-scatter-tip{
+    position:absolute; background:var(--petrol-950); color:#fff; border-radius:10px; padding:9px 12px;
+    font-family:var(--mono); font-size:11px; line-height:1.55; pointer-events:none; opacity:0;
+    transition:opacity .15s ease, transform .1s ease; z-index:20; box-shadow:0 10px 25px -5px rgba(0,0,0,.6);
+    white-space:nowrap; transform:translate(-50%, -115%);
+  }
+  .d3-scatter-tip.show{ opacity:1; }
+  .d3-scatter-tip .tip-title{
+    font-weight:700; font-size:11.5px; color:var(--aqua-400); border-bottom:1px solid rgba(255,255,255,.15);
+    padding-bottom:3px; margin-bottom:4px;
+  }
+  .d3-scatter-tip .tip-row{
+    display:flex; justify-content:space-between; gap:12px;
+  }
+  .d3-scatter-tip .tip-k{ color:rgba(255,255,255,.65); }
+  .d3-scatter-tip .tip-v{ font-weight:700; color:#fff; }
+  .d3-scatter-tip .tip-badge-ok{ color:var(--ok-500); font-weight:700; }
+  .d3-scatter-tip .tip-badge-bad{ color:var(--coral-500); font-weight:700; }
+  .d3-legend-scatter{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; margin-top:10px;
+    font-family:var(--mono); font-size:10px; color:var(--ink-600);
+  }
+  .d3-legend-scatter span{ display:flex; align-items:center; gap:4px; }
+  .d3-legend-scatter i{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .d3-legend-scatter .sq-zone{ width:12px; height:8px; border-radius:2px; background:rgba(62,164,114,.18); border:1px dashed var(--ok-500); }
+  .d3-scatter-options{
+    display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--ink-600);
+  }
+  .d3-check-label{
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer; font-weight:600; font-size:11.5px;
+  }
+  .d3-check-label input[type="checkbox"]{
+    width:15px; height:15px; accent-color:var(--petrol-900); margin:0; cursor:pointer;
+  }
+
   @media print{
     body.previewing-official #app{ display:none !important; }
     body.previewing-official #officialReport{ display:block !important; background:#fff; padding:0; }
@@ -562,19 +668,6 @@
           <label class="field"><span class="lbl">Data</span><input type="date" id="g-fecha"></label>
           <label class="field"><span class="lbl">Hora</span><input type="time" id="g-hora"></label>
         </div>
-      </div>
-
-      <div class="card">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-          <div class="subgroup-title" style="color:var(--petrol-700); margin:0;">📊 Consumo do mês em curso <span style="text-transform:none; font-weight:400; color:var(--ink-400)">(por diferença entre leituras)</span></div>
-          <button class="link-edit" id="btnSetBaseline" type="button" style="display:none; white-space:nowrap; margin-left:8px;">Leitura inicial</button>
-        </div>
-        <div id="baselineDisplay" style="display:none; font-family:var(--mono); font-size:11px; color:var(--ink-400); margin-bottom:12px; line-height:1.6;"></div>
-        <div class="stat-grid" id="consumoResumenGrid">
-          <div class="empty" style="padding:8px 0; grid-column:1/-1">A carregar…</div>
-        </div>
-        <button class="link-edit" id="btnToggleConsumoDetail" type="button" style="margin-top:10px;">Ver detalhe do cálculo</button>
-        <div id="consumoDetailTable" style="display:none; margin-top:10px;"></div>
       </div>
 
       <div class="card">
@@ -1286,7 +1379,7 @@
     $('navUsuarios').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnEditRooms').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnRecomputeCycle').style.display = currentUser.rol === 'admin' ? '' : 'none';
-    $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
+    if($('btnSetBaseline')) $('btnSetBaseline').style.display = currentUser.rol === 'admin' ? '' : 'none';
     $('btnEquipAdmin').style.display = currentUser.rol === 'admin' ? '' : 'none';
     document.body.classList.toggle('viewer-mode', viewer);
     $('viewerBannerGeneral').style.display = viewer ? 'flex' : 'none';
@@ -1309,7 +1402,6 @@
       if(btn.dataset.view === 'quarto') renderRoomGrid();
       if(btn.dataset.view === 'temperatura'){ renderTempView(); }
       if(btn.dataset.view === 'usuarios') renderUsersList();
-      if(btn.dataset.view === 'general') refreshConsumoResumen();
       if(btn.dataset.view === 'dashboard') renderDashboard();
       if(btn.dataset.view === 'ejecutivo') renderEjecutivo();
     });
@@ -1338,54 +1430,14 @@
 
   let lastConsumoDetail = [];
 
-  async function refreshConsumoResumen(){
-    const grid = $('consumoResumenGrid');
-    try{
-      const { aguaBaseline, elecBaseline } = await loadBaselines();
-      const baselineEl = $('baselineDisplay');
-      const lineas = [];
-      if(aguaBaseline) lineas.push(`💧 Linha base água: ${esc(aguaBaseline.valor)} m³ (desde ${esc(aguaBaseline.fecha)})`);
-      else lineas.push('💧 Linha base água: não configurada');
-      if(elecBaseline) lineas.push(`⚡ Linha base eletricidade: ${esc(elecBaseline.valor)} kWh (desde ${esc(elecBaseline.fecha)})`);
-      else lineas.push('⚡ Linha base eletricidade: não configurada');
-      baselineEl.innerHTML = lineas.join('<br>');
-      baselineEl.style.display = 'block';
-
-      const genAllRaw = await listRecords('general');
-      const genWithDeltas = await buildGenWithDeltas(genAllRaw, { aguaBaseline, elecBaseline });
-      lastConsumoDetail = genWithDeltas;
-      const [mDesde, mHasta] = rangoMesActual();
-      const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
-      const hoyStats = statsForRange(genWithDeltas, todayStr(), todayStr());
-
-      const aguaHoyDiag = consumoDiag(hoyStats, 'agua');
-      const elecHoyDiag = consumoDiag(hoyStats, 'elec');
-      const aguaMesDiag = consumoDiag(monthStats, 'agua');
-      const elecMesDiag = consumoDiag(monthStats, 'elec');
-      const tarifas = await getTarifas();
-
-      grid.innerHTML = `
-        ${statBox('Água — hoje', (aguaHoyDiag ? '—' : fmtNum(hoyStats.aguaTotal)+' m³') + (aguaHoyDiag?'':costTag(hoyStats.aguaTotal, tarifas.agua)), aguaHoyDiag || `consumo do dia`)}
-        ${statBox('Eletricidade — hoje', (elecHoyDiag ? '—' : fmtNum(hoyStats.elecTotal)+' kWh') + (elecHoyDiag?'':costTag(hoyStats.elecTotal, tarifas.elec)), elecHoyDiag || `consumo do dia`, true)}
-        ${statBox('Água — acumulado do mês', (aguaMesDiag ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag?'':costTag(monthStats.aguaTotal, tarifas.agua)), aguaMesDiag || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
-        ${statBox('Eletricidade — acumulado do mês', (elecMesDiag ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag?'':costTag(monthStats.elecTotal, tarifas.elec)), elecMesDiag || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
-      `;
-      if($('consumoDetailTable').style.display !== 'none'){ renderConsumoDetailTable(); }
-    }catch(e){
-      grid.innerHTML = `<div class="empty" style="padding:8px 0; grid-column:1/-1">Não foi possível calcular o consumo: ${esc(e.message)}</div>`;
-    }
-  }
-
-  function renderConsumoDetailTable(){
-    const el = $('consumoDetailTable');
-    if(lastConsumoDetail.length === 0){
-      el.innerHTML = `<div class="empty" style="padding:8px 0">Ainda não há registos gerais.</div>`;
-      return;
+  function renderConsumoDetailTableHtml(deltas){
+    if(!deltas || deltas.length === 0){
+      return `<div class="empty" style="padding:8px 0">Ainda não há registos gerais.</div>`;
     }
     let html = `<div class="table-scroll"><table class="report"><thead><tr>
       <th>Data</th><th>Hora</th><th>Origem</th><th>Água</th><th>ΔÁgua</th><th>Dias</th><th>Elet.</th><th>ΔElet.</th><th>Dias</th>
     </tr></thead><tbody>`;
-    lastConsumoDetail.forEach(r=>{
+    deltas.forEach(r=>{
       const d = r.data;
       const origen = r.isBaseline ? '📍 linha base' : esc(d.usuario || '—');
       const aguaV = nz(d.agua);
@@ -1398,16 +1450,33 @@
     });
     html += `</tbody></table></div>
     <p style="font-size:11px; color:var(--ink-400); margin-top:8px; font-family:var(--mono)">"Dias" = dias reais entre esta leitura e a anterior — a média distribui o consumo por esses dias.</p>`;
-    el.innerHTML = html;
+    return html;
   }
 
-  $('btnToggleConsumoDetail').addEventListener('click', ()=>{
-    const el = $('consumoDetailTable');
-    const showing = el.style.display !== 'none';
-    el.style.display = showing ? 'none' : 'block';
-    $('btnToggleConsumoDetail').textContent = showing ? 'Ver detalhe do cálculo' : 'Ocultar detalhe do cálculo';
-    if(!showing) renderConsumoDetailTable();
-  });
+  async function openBaselineDialog(){
+    const { aguaBaseline, elecBaseline } = await loadBaselines();
+    const vals = await formDialog('Leitura inicial (linha base)', [
+      { id:'aguaValor', label:'Água inicial (m³)', type:'number', placeholder:'0.00', value: aguaBaseline ? aguaBaseline.valor : '' },
+      { id:'aguaFecha', label:'Data dessa leitura de água', type:'date', value: aguaBaseline ? aguaBaseline.fecha : '' },
+      { id:'elecValor', label:'Eletricidade inicial (kWh)', type:'number', placeholder:'0.00', value: elecBaseline ? elecBaseline.valor : '' },
+      { id:'elecFecha', label:'Data dessa leitura de eletricidade', type:'date', value: elecBaseline ? elecBaseline.fecha : '' },
+    ], 'Guardar');
+    if(!vals) return;
+    try{
+      if(vals.aguaValor && vals.aguaFecha){
+        await apiPost({ action:'setConfig', key:'baselineAgua', value: JSON.stringify({ valor: vals.aguaValor, fecha: vals.aguaFecha }) });
+      }
+      if(vals.elecValor && vals.elecFecha){
+        await apiPost({ action:'setConfig', key:'baselineElectricidad', value: JSON.stringify({ valor: vals.elecValor, fecha: vals.elecFecha }) });
+      }
+      invalidateConfig('baselineAgua');
+      invalidateConfig('baselineElectricidad');
+      showToast('Leitura inicial guardada ✓');
+      renderDashboard(true);
+    }catch(e){
+      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
+    }
+  }
 
   // ---------- Guardar: Geral ----------
   let editingGeneralId = null;
@@ -1468,7 +1537,6 @@
       ['g-lavadoPrefiltro','g-lavadoFiltroArena','g-limpiezaSkimmer'].forEach(id=> $(id).checked=false);
       $('g-hora').value = nowTimeStr();
       refreshChips();
-      refreshConsumoResumen();
     }catch(e){
       showToast('⚠️ Não foi possível guardar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
@@ -1705,31 +1773,6 @@
     if(!ok) return;
     try{ await recomputeCycleFromHistory(); }
     catch(e){ showToast('⚠️ Não foi possível recalcular: ' + e.message, true); }
-  });
-
-  $('btnSetBaseline').addEventListener('click', async ()=>{
-    const { aguaBaseline, elecBaseline } = await loadBaselines();
-    const vals = await formDialog('Leitura inicial (linha base)', [
-      { id:'aguaValor', label:'Água inicial (m³)', type:'number', placeholder:'0.00', value: aguaBaseline ? aguaBaseline.valor : '' },
-      { id:'aguaFecha', label:'Data dessa leitura de água', type:'date', value: aguaBaseline ? aguaBaseline.fecha : '' },
-      { id:'elecValor', label:'Eletricidade inicial (kWh)', type:'number', placeholder:'0.00', value: elecBaseline ? elecBaseline.valor : '' },
-      { id:'elecFecha', label:'Data dessa leitura de eletricidade', type:'date', value: elecBaseline ? elecBaseline.fecha : '' },
-    ], 'Guardar');
-    if(!vals) return;
-    try{
-      if(vals.aguaValor && vals.aguaFecha){
-        await apiPost({ action:'setConfig', key:'baselineAgua', value: JSON.stringify({ valor: vals.aguaValor, fecha: vals.aguaFecha }) });
-      }
-      if(vals.elecValor && vals.elecFecha){
-        await apiPost({ action:'setConfig', key:'baselineElectricidad', value: JSON.stringify({ valor: vals.elecValor, fecha: vals.elecFecha }) });
-      }
-      invalidateConfig('baselineAgua');
-      invalidateConfig('baselineElectricidad');
-      showToast('Leitura inicial guardada ✓');
-      refreshConsumoResumen();
-    }catch(e){
-      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
-    }
   });
 
   $('q-numero').addEventListener('input', ()=>{
@@ -3101,6 +3144,670 @@
     return Object.keys(byDay).sort().map(d=> byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length);
   }
 
+  // ---------- Módulo D3.js: Gráficos de Dispersão Cloro vs. pH ao Longo do Tempo ----------
+  let d3ScatterSource = 'piscina'; // 'piscina', 'quarto-caliente', 'quarto-fria', 'todos'
+  let d3ScatterMode = 'quadrant'; // 'quadrant', 'timeline'
+  let d3ScatterPeriod = '90'; // '30', '90', '180', 'all'
+  let d3ScatterCloroType = 'libre'; // 'libre', 'total'
+  let d3ShowRegression = true;
+  let d3CachedGeneral = [];
+  let d3CachedQuartos = [];
+  let d3ResizeTimer;
+
+  window.addEventListener('resize', ()=>{
+    clearTimeout(d3ResizeTimer);
+    d3ResizeTimer = setTimeout(()=>{
+      if(document.getElementById('d3ScatterContainer')) drawD3ScatterChart();
+    }, 150);
+  });
+
+  function getD3ScatterData(generalRaw, quartosRaw){
+    let minDate = '';
+    if(d3ScatterPeriod !== 'all'){
+      const days = parseInt(d3ScatterPeriod, 10);
+      const d = new Date();
+      d.setDate(d.getDate() - (days - 1));
+      minDate = fmt(d);
+    }
+    const inPeriod = rec => !minDate || (rec.data.fecha && rec.data.fecha >= minDate);
+    const points = [];
+
+    // Piscina (Geral)
+    if(d3ScatterSource === 'piscina' || d3ScatterSource === 'todos'){
+      (generalRaw || []).filter(inPeriod).forEach(r=>{
+        const ph = parseFloat(r.data.phPiscina);
+        const clLivre = parseFloat(r.data.cloroLibre);
+        const clTotal = parseFloat(r.data.cloroTotal);
+        const cl = d3ScatterCloroType === 'total' ? (!isNaN(clTotal) ? clTotal : clLivre) : clLivre;
+        if(!isNaN(ph) && !isNaN(cl)){
+          points.push({
+            id: r.key || (r.data.fecha + '_' + (r.data.hora||'00:00') + '_piscina'),
+            fecha: r.data.fecha,
+            hora: r.data.hora || '—',
+            ph: ph,
+            cloro: cl,
+            cloroLibre: !isNaN(clLivre) ? clLivre : null,
+            cloroTotal: !isNaN(clTotal) ? clTotal : null,
+            origen: 'Piscina (Geral)',
+            tipo: 'piscina',
+            usuario: r.data.usuario || 'Técnico',
+            temp: r.data.tempPiscina ? parseFloat(r.data.tempPiscina) : null,
+            dt: new Date(`${r.data.fecha}T${r.data.hora || '12:00'}`)
+          });
+        }
+      });
+    }
+
+    // Quartos - Água Quente
+    if(d3ScatterSource === 'quarto-caliente' || d3ScatterSource === 'todos'){
+      (quartosRaw || []).filter(inPeriod).forEach(r=>{
+        const ph = parseFloat(r.data.phCaliente);
+        const clCal = parseFloat(r.data.cloroCaliente);
+        const clTotCal = parseFloat(r.data.cloroTotalCaliente);
+        const cl = d3ScatterCloroType === 'total' ? (!isNaN(clTotCal) ? clTotCal : clCal) : clCal;
+        if(!isNaN(ph) && !isNaN(cl)){
+          points.push({
+            id: r.key || (r.data.fecha + '_' + (r.data.hora||'00:00') + '_' + r.data.numero + '_q'),
+            fecha: r.data.fecha,
+            hora: r.data.hora || '—',
+            ph: ph,
+            cloro: cl,
+            cloroLibre: !isNaN(clCal) ? clCal : null,
+            cloroTotal: !isNaN(clTotCal) ? clTotCal : null,
+            origen: `Quarto ${r.data.numero} (Água Quente)`,
+            tipo: 'quarto-caliente',
+            usuario: r.data.usuario || 'Técnico',
+            quarto: r.data.numero,
+            dt: new Date(`${r.data.fecha}T${r.data.hora || '12:00'}`)
+          });
+        }
+      });
+    }
+
+    // Quartos - Água Fria
+    if(d3ScatterSource === 'quarto-fria' || d3ScatterSource === 'todos'){
+      (quartosRaw || []).filter(inPeriod).forEach(r=>{
+        const ph = parseFloat(r.data.phFria);
+        const clFria = parseFloat(r.data.cloroFria);
+        const clTotFria = parseFloat(r.data.cloroTotalFria);
+        const cl = d3ScatterCloroType === 'total' ? (!isNaN(clTotFria) ? clTotFria : clFria) : clFria;
+        if(!isNaN(ph) && !isNaN(cl)){
+          points.push({
+            id: r.key || (r.data.fecha + '_' + (r.data.hora||'00:00') + '_' + r.data.numero + '_f'),
+            fecha: r.data.fecha,
+            hora: r.data.hora || '—',
+            ph: ph,
+            cloro: cl,
+            cloroLibre: !isNaN(clFria) ? clFria : null,
+            cloroTotal: !isNaN(clTotFria) ? clTotFria : null,
+            origen: `Quarto ${r.data.numero} (Água Fria)`,
+            tipo: 'quarto-fria',
+            usuario: r.data.usuario || 'Técnico',
+            quarto: r.data.numero,
+            dt: new Date(`${r.data.fecha}T${r.data.hora || '12:00'}`)
+          });
+        }
+      });
+    }
+
+    return points.sort((a,b)=> a.dt - b.dt);
+  }
+
+  function calcD3ScatterStats(points){
+    const n = points.length;
+    if(!n) return { count:0, okCount:0, okPct:0, avgPh:0, avgCl:0, r:null, reg:null };
+
+    let sumPh = 0, sumCl = 0, sumPh2 = 0, sumCl2 = 0, sumPhCl = 0;
+    let okCount = 0;
+
+    points.forEach(p=>{
+      sumPh += p.ph;
+      sumCl += p.cloro;
+      sumPh2 += p.ph * p.ph;
+      sumCl2 += p.cloro * p.cloro;
+      sumPhCl += p.ph * p.cloro;
+      const isPhOk = p.ph >= DASH_THRESHOLDS.phMin && p.ph <= DASH_THRESHOLDS.phMax;
+      const isClOk = p.cloro >= DASH_THRESHOLDS.cloroMin && p.cloro <= DASH_THRESHOLDS.cloroMax;
+      if(isPhOk && isClOk) okCount++;
+    });
+
+    const avgPh = sumPh / n;
+    const avgCl = sumCl / n;
+    const okPct = Math.round((okCount / n) * 100);
+
+    // Pearson Correlation coefficient
+    const num = (n * sumPhCl) - (sumCl * sumPh);
+    const den = Math.sqrt(((n * sumCl2) - (sumCl * sumCl)) * ((n * sumPh2) - (sumPh * sumPh)));
+    const r = (den !== 0 && !isNaN(den)) ? (num / den) : null;
+
+    // Linear regression: y (pH) = slope * x (Cloro) + intercept
+    let reg = null;
+    const denomSlope = (n * sumCl2) - (sumCl * sumCl);
+    if(n >= 2 && denomSlope !== 0 && !isNaN(denomSlope)){
+      const slope = num / denomSlope;
+      const intercept = avgPh - (slope * avgCl);
+      reg = { slope, intercept };
+    }
+
+    return { count: n, okCount, okPct, avgPh, avgCl, r, reg };
+  }
+
+  function renderD3ScatterSectionHtml(){
+    return `
+      <h2 class="report-heading">🔬 Análise de Dispersão Cloro vs. pH (D3)</h2>
+      <div class="d3-scatter-card" id="d3ScatterCard">
+        <div class="d3-scatter-header">
+          <div>
+            <div class="d3-scatter-title">Dispersão e Conformidade Operacional <span class="d3-badge-tag">D3.js</span></div>
+            <p class="d3-scatter-sub">Correlação entre desinfetante (Cloro) e acidez (pH) com zona ideal de operação.</p>
+          </div>
+        </div>
+
+        <div class="d3-mode-toggle">
+          <button id="btnD3ModeQuadrant" class="${d3ScatterMode==='quadrant'?'active':''}">🎯 Quadrante Cloro × pH</button>
+          <button id="btnD3ModeTimeline" class="${d3ScatterMode==='timeline'?'active':''}">📈 Dispersão Temporal</button>
+        </div>
+
+        <div class="d3-controls-grid">
+          <label class="field" style="margin:0"><span class="lbl" style="font-size:10px">Origem dos dados</span>
+            <select id="d3SourceSelect">
+              <option value="piscina" ${d3ScatterSource==='piscina'?'selected':''}>🏊 Piscina (Geral)</option>
+              <option value="quarto-caliente" ${d3ScatterSource==='quarto-caliente'?'selected':''}>🚿 Quartos (Água Quente)</option>
+              <option value="quarto-fria" ${d3ScatterSource==='quarto-fria'?'selected':''}>🧊 Quartos (Água Fria)</option>
+              <option value="todos" ${d3ScatterSource==='todos'?'selected':''}>🔄 Todos os Registos</option>
+            </select>
+          </label>
+          <label class="field" style="margin:0"><span class="lbl" style="font-size:10px">Período</span>
+            <select id="d3PeriodSelect">
+              <option value="30" ${d3ScatterPeriod==='30'?'selected':''}>Últimos 30 dias</option>
+              <option value="90" ${d3ScatterPeriod==='90'?'selected':''}>Últimos 90 dias</option>
+              <option value="180" ${d3ScatterPeriod==='180'?'selected':''}>Últimos 180 dias</option>
+              <option value="all" ${d3ScatterPeriod==='all'?'selected':''}>Todo o histórico</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="d3-controls-grid" style="margin-bottom:12px">
+          <label class="field" style="margin:0"><span class="lbl" style="font-size:10px">Parâmetro de Cloro</span>
+            <select id="d3CloroTypeSelect">
+              <option value="libre" ${d3ScatterCloroType==='libre'?'selected':''}>Cloro Livre</option>
+              <option value="total" ${d3ScatterCloroType==='total'?'selected':''}>Cloro Total</option>
+            </select>
+          </label>
+          <div style="display:flex; align-items:flex-end; padding-bottom:6px">
+            <label class="d3-check-label">
+              <input type="checkbox" id="d3ToggleRegression" ${d3ShowRegression?'checked':''}>
+              <span>Linha de tendência</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="d3-stat-strip" id="d3StatStrip"></div>
+
+        <div class="d3-chart-box" id="d3ChartBox">
+          <div id="d3ScatterContainer"></div>
+          <div class="d3-scatter-tip" id="d3ScatterTip"></div>
+        </div>
+
+        <div class="d3-legend-scatter" id="d3ScatterLegend">
+          <span><span class="sq-zone"></span> Zona Ideal (7.0–7.8 pH / 0.5–3.0 ppm)</span>
+          <span><i style="background:#3ea472"></i> Conforme</span>
+          <span><i style="background:#e0a12b"></i> Alerta pH</span>
+          <span><i style="background:#3d8bd4"></i> Alerta Cloro</span>
+          <span><i style="background:#e0602b"></i> Fora dos Limites</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function drawD3ScatterChart(){
+    const container = $('d3ScatterContainer');
+    const tip = $('d3ScatterTip');
+    const statStrip = $('d3StatStrip');
+    if(!container || typeof d3 === 'undefined') return;
+
+    const points = getD3ScatterData(d3CachedGeneral, d3CachedQuartos);
+    const stats = calcD3ScatterStats(points);
+
+    // Update Stat Strip
+    if(statStrip){
+      const okClass = stats.okPct >= 85 ? 'ok' : (stats.okPct >= 60 ? 'info' : 'warn');
+      const rText = stats.r !== null ? (stats.r > 0 ? `+${stats.r.toFixed(2)}` : stats.r.toFixed(2)) : '—';
+      statStrip.innerHTML = `
+        <div class="d3-stat-pill ${okClass}">
+          <div class="p-lbl">No Alvo</div>
+          <div class="p-val">${stats.count ? stats.okPct+'%' : '—'}</div>
+        </div>
+        <div class="d3-stat-pill">
+          <div class="p-lbl">Méd. pH</div>
+          <div class="p-val">${stats.count ? stats.avgPh.toFixed(2) : '—'}</div>
+        </div>
+        <div class="d3-stat-pill">
+          <div class="p-lbl">Méd. Cloro</div>
+          <div class="p-val">${stats.count ? stats.avgCl.toFixed(2)+' <span style="font-size:9px">ppm</span>' : '—'}</div>
+        </div>
+        <div class="d3-stat-pill">
+          <div class="p-lbl">Correlação (r)</div>
+          <div class="p-val" title="Coeficiente de Pearson: -1 (inverso) a +1 (direto)">${rText}</div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = '';
+    if(tip) tip.classList.remove('show');
+
+    if(!points.length){
+      container.innerHTML = `<div class="empty" style="padding:40px 10px">Sem dados de medições para os filtros selecionados.</div>`;
+      return;
+    }
+
+    const W = 460, H = 270;
+    const margin = { top: 22, right: 28, bottom: 44, left: 46 };
+    const pw = W - margin.left - margin.right;
+    const ph = H - margin.top - margin.bottom;
+
+    const svg = d3.select(container)
+      .append('svg')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .style('width', '100%')
+      .style('height', 'auto');
+
+    const g = svg.append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Helper: Point Status
+    const getPointStatus = (p)=>{
+      const isPhOk = p.ph >= DASH_THRESHOLDS.phMin && p.ph <= DASH_THRESHOLDS.phMax;
+      const isClOk = p.cloro >= DASH_THRESHOLDS.cloroMin && p.cloro <= DASH_THRESHOLDS.cloroMax;
+      if(isPhOk && isClOk) return { label: 'Conforme', color: '#3ea472', cls: 'ok' };
+      if(!isPhOk && !isClOk) return { label: 'pH e Cloro Fora', color: '#e0602b', cls: 'bad' };
+      if(!isPhOk) return { label: 'pH Fora do Limite', color: '#e0a12b', cls: 'warn' };
+      return { label: 'Cloro Fora do Limite', color: '#3d8bd4', cls: 'info' };
+    };
+
+    // MODE 1: QUADRANT (Cloro x pH)
+    if(d3ScatterMode === 'quadrant'){
+      const maxCloroData = d3.max(points, d=>d.cloro) || 3.0;
+      const xMax = Math.max(3.6, Math.ceil(maxCloroData * 1.15 * 10) / 10);
+      const minPhData = d3.min(points, d=>d.ph) || 7.0;
+      const maxPhData = d3.max(points, d=>d.ph) || 7.8;
+      const yMin = Math.min(6.4, Math.floor((minPhData - 0.2) * 10) / 10);
+      const yMax = Math.max(8.4, Math.ceil((maxPhData + 0.2) * 10) / 10);
+
+      const xScale = d3.scaleLinear().domain([0, xMax]).range([0, pw]).nice();
+      const yScale = d3.scaleLinear().domain([yMin, yMax]).range([ph, 0]).nice();
+
+      // Ideal Safe Quadrant Area (pH 7.0–7.8, Cloro 0.5–3.0 ppm)
+      const qx1 = Math.max(0, xScale(DASH_THRESHOLDS.cloroMin));
+      const qx2 = Math.min(pw, xScale(DASH_THRESHOLDS.cloroMax));
+      const qy1 = yScale(DASH_THRESHOLDS.phMax);
+      const qy2 = yScale(DASH_THRESHOLDS.phMin);
+      const qw = Math.max(0, qx2 - qx1);
+      const qh = Math.max(0, qy2 - qy1);
+
+      // Shaded Ideal Zone
+      g.append('rect')
+        .attr('x', qx1)
+        .attr('y', qy1)
+        .attr('width', qw)
+        .attr('height', qh)
+        .attr('rx', 4)
+        .attr('fill', '#3ea472')
+        .attr('fill-opacity', 0.12)
+        .attr('stroke', '#3ea472')
+        .attr('stroke-width', 1.2)
+        .attr('stroke-dasharray', '4 3');
+
+      g.append('text')
+        .attr('x', qx1 + qw / 2)
+        .attr('y', qy1 + qh / 2 + 3)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '9.5px')
+        .attr('font-weight', '700')
+        .attr('fill', '#28704b')
+        .attr('letter-spacing', '0.04em')
+        .text('ZONA IDEAL');
+
+      // Grid Lines
+      g.append('g')
+        .attr('class', 'd3-grid')
+        .call(d3.axisLeft(yScale).ticks(5).tickSize(-pw).tickFormat(''));
+
+      g.append('g')
+        .attr('class', 'd3-grid')
+        .attr('transform', `translate(0,${ph})`)
+        .call(d3.axisBottom(xScale).ticks(6).tickSize(-ph).tickFormat(''));
+
+      // Reference threshold lines
+      [DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax].forEach(val=>{
+        if(val >= yMin && val <= yMax){
+          g.append('line')
+            .attr('x1', 0).attr('x2', pw)
+            .attr('y1', yScale(val)).attr('y2', yScale(val))
+            .attr('stroke', '#e0a12b')
+            .attr('stroke-width', 1)
+            .attr('stroke-dasharray', '2 2')
+            .attr('opacity', 0.7);
+        }
+      });
+
+      // Linear Regression Line
+      if(d3ShowRegression && stats.reg && points.length >= 2){
+        const { slope, intercept } = stats.reg;
+        const x1 = 0;
+        const y1 = slope * x1 + intercept;
+        const x2 = xMax;
+        const y2 = slope * x2 + intercept;
+
+        g.append('line')
+          .attr('x1', xScale(x1))
+          .attr('y1', yScale(y1))
+          .attr('x2', xScale(x2))
+          .attr('y2', yScale(y2))
+          .attr('stroke', 'var(--petrol-700)')
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '4 4')
+          .attr('opacity', 0.8);
+      }
+
+      // Crosshairs for hover
+      const crosshairX = g.append('line')
+        .attr('stroke', 'var(--petrol-900)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2 2')
+        .attr('opacity', 0)
+        .style('pointer-events', 'none');
+
+      const crosshairY = g.append('line')
+        .attr('stroke', 'var(--petrol-900)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2 2')
+        .attr('opacity', 0)
+        .style('pointer-events', 'none');
+
+      // Scatter Points
+      const circles = g.selectAll('circle.d3-point')
+        .data(points, d=> d.id)
+        .enter()
+        .append('circle')
+        .attr('class', 'd3-point')
+        .attr('cx', d=> xScale(d.cloro))
+        .attr('cy', d=> yScale(d.ph))
+        .attr('r', 0)
+        .attr('fill', d=> getPointStatus(d).color)
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer');
+
+      circles.transition()
+        .duration(450)
+        .delay((d,i)=> Math.min(300, i * 15))
+        .attr('r', 5.5);
+
+      // Tooltip interaction
+      circles
+        .on('pointerenter pointermove', function(event, d){
+          d3.select(this).attr('r', 8).attr('stroke-width', 2.5);
+          crosshairX
+            .attr('x1', xScale(d.cloro)).attr('x2', xScale(d.cloro))
+            .attr('y1', 0).attr('y2', ph)
+            .attr('opacity', 0.65);
+          crosshairY
+            .attr('x1', 0).attr('x2', pw)
+            .attr('y1', yScale(d.ph)).attr('y2', yScale(d.ph))
+            .attr('opacity', 0.65);
+
+          const status = getPointStatus(d);
+          const cloroName = d3ScatterCloroType === 'total' ? 'Cloro Total' : 'Cloro Livre';
+          tip.innerHTML = `
+            <div class="tip-title">${esc(d.origen)}</div>
+            <div class="tip-row"><span class="tip-k">Data / Hora:</span><span class="tip-v">${esc(d.fecha)} ${esc(d.hora)}</span></div>
+            <div class="tip-row"><span class="tip-k">pH Medido:</span><span class="tip-v">${d.ph.toFixed(2)}</span></div>
+            <div class="tip-row"><span class="tip-k">${esc(cloroName)}:</span><span class="tip-v">${d.cloro.toFixed(2)} ppm</span></div>
+            <div class="tip-row"><span class="tip-k">Técnico:</span><span class="tip-v">${esc(d.usuario)}</span></div>
+            <div style="margin-top:4px; text-align:right" class="tip-badge-${status.cls === 'ok' ? 'ok' : 'bad'}">${status.label}</div>
+          `;
+
+          const boxRect = $('d3ChartBox').getBoundingClientRect();
+          const pointX = margin.left + xScale(d.cloro);
+          const pointY = margin.top + yScale(d.ph);
+          const tipLeft = (pointX / W) * boxRect.width;
+          const tipTop = (pointY / H) * boxRect.height;
+
+          tip.style.left = `${tipLeft}px`;
+          tip.style.top = `${tipTop}px`;
+          tip.classList.add('show');
+        })
+        .on('pointerleave', function(){
+          d3.select(this).attr('r', 5.5).attr('stroke-width', 1.5);
+          crosshairX.attr('opacity', 0);
+          crosshairY.attr('opacity', 0);
+          tip.classList.remove('show');
+        });
+
+      // Axes
+      const xAxis = d3.axisBottom(xScale).ticks(6).tickFormat(d=> d.toFixed(1));
+      const yAxis = d3.axisLeft(yScale).ticks(5).tickFormat(d=> d.toFixed(1));
+
+      g.append('g')
+        .attr('class', 'd3-axis')
+        .attr('transform', `translate(0,${ph})`)
+        .call(xAxis);
+
+      g.append('g')
+        .attr('class', 'd3-axis')
+        .call(yAxis);
+
+      // Axis Titles
+      g.append('text')
+        .attr('x', pw / 2)
+        .attr('y', ph + 34)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10.5px')
+        .attr('font-weight', '700')
+        .attr('fill', 'var(--ink-600)')
+        .text(`Cloro ${d3ScatterCloroType==='total'?'Total':'Livre'} (ppm)`);
+
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -ph / 2)
+        .attr('y', -32)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10.5px')
+        .attr('font-weight', '700')
+        .attr('fill', 'var(--ink-600)')
+        .text('pH');
+
+    } else {
+      // MODE 2: TIMELINE DISPERSION (Tempo x pH / Cloro)
+      const dateExt = d3.extent(points, d=> d.dt);
+      const timeScale = d3.scaleTime()
+        .domain(dateExt[0] && dateExt[1] && dateExt[0].getTime() !== dateExt[1].getTime() ? dateExt : [new Date(Date.now()-86400000), new Date()])
+        .range([0, pw]);
+
+      const yPh = d3.scaleLinear().domain([6.4, 8.4]).range([ph, 0]);
+      const yCl = d3.scaleLinear().domain([0, 3.6]).range([ph, 0]);
+
+      // Ideal bands for pH and Cloro
+      g.append('rect')
+        .attr('x', 0).attr('width', pw)
+        .attr('y', yPh(DASH_THRESHOLDS.phMax))
+        .attr('height', Math.max(0, yPh(DASH_THRESHOLDS.phMin) - yPh(DASH_THRESHOLDS.phMax)))
+        .attr('fill', '#22b8b0')
+        .attr('fill-opacity', 0.09);
+
+      g.append('g')
+        .attr('class', 'd3-grid')
+        .call(d3.axisLeft(yPh).ticks(5).tickSize(-pw).tickFormat(''));
+
+      // Connected lines
+      const linePh = d3.line().x(d=> timeScale(d.dt)).y(d=> yPh(d.ph)).curve(d3.curveMonotoneX);
+      const lineCl = d3.line().x(d=> timeScale(d.dt)).y(d=> yCl(d.cloro)).curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(points)
+        .attr('fill', 'none')
+        .attr('stroke', '#22b8b0')
+        .attr('stroke-width', 1.8)
+        .attr('stroke-opacity', 0.6)
+        .attr('d', linePh);
+
+      g.append('path')
+        .datum(points)
+        .attr('fill', 'none')
+        .attr('stroke', '#e0602b')
+        .attr('stroke-width', 1.8)
+        .attr('stroke-dasharray', '3 2')
+        .attr('stroke-opacity', 0.6)
+        .attr('d', lineCl);
+
+      // Points pH
+      g.selectAll('circle.pt-ph')
+        .data(points)
+        .enter()
+        .append('circle')
+        .attr('class', 'pt-ph')
+        .attr('cx', d=> timeScale(d.dt))
+        .attr('cy', d=> yPh(d.ph))
+        .attr('r', 4.5)
+        .attr('fill', '#22b8b0')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.5);
+
+      // Points Cloro
+      g.selectAll('circle.pt-cl')
+        .data(points)
+        .enter()
+        .append('circle')
+        .attr('class', 'pt-cl')
+        .attr('cx', d=> timeScale(d.dt))
+        .attr('cy', d=> yCl(d.cloro))
+        .attr('r', 4.5)
+        .attr('fill', '#e0602b')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.5);
+
+      // Overlay for tracking
+      const trackLine = g.append('line')
+        .attr('stroke', 'var(--petrol-900)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3 3')
+        .attr('y1', 0).attr('y2', ph)
+        .attr('opacity', 0)
+        .style('pointer-events', 'none');
+
+      svg.append('rect')
+        .attr('x', margin.left).attr('y', margin.top)
+        .attr('width', pw).attr('height', ph)
+        .attr('fill', 'transparent')
+        .style('cursor', 'crosshair')
+        .on('pointerenter pointermove', function(event){
+          const [mx] = d3.pointer(event, g.node());
+          const xDate = timeScale.invert(mx);
+          const bisect = d3.bisector(d=> d.dt).center;
+          const idx = bisect(points, xDate);
+          const d = points[Math.max(0, Math.min(points.length - 1, idx))];
+          if(!d) return;
+
+          trackLine.attr('x1', timeScale(d.dt)).attr('x2', timeScale(d.dt)).attr('opacity', 0.7);
+
+          const status = getPointStatus(d);
+          const cloroName = d3ScatterCloroType === 'total' ? 'Cloro Total' : 'Cloro Livre';
+          tip.innerHTML = `
+            <div class="tip-title">${esc(d.origen)}</div>
+            <div class="tip-row"><span class="tip-k">Data / Hora:</span><span class="tip-v">${esc(d.fecha)} ${esc(d.hora)}</span></div>
+            <div class="tip-row"><span class="tip-k">pH Medido:</span><span class="tip-v">${d.ph.toFixed(2)}</span></div>
+            <div class="tip-row"><span class="tip-k">${esc(cloroName)}:</span><span class="tip-v">${d.cloro.toFixed(2)} ppm</span></div>
+            <div class="tip-row"><span class="tip-k">Técnico:</span><span class="tip-v">${esc(d.usuario)}</span></div>
+            <div style="margin-top:4px; text-align:right" class="tip-badge-${status.cls === 'ok' ? 'ok' : 'bad'}">${status.label}</div>
+          `;
+
+          const boxRect = $('d3ChartBox').getBoundingClientRect();
+          const pointX = margin.left + timeScale(d.dt);
+          const pointY = margin.top + Math.min(yPh(d.ph), yCl(d.cloro));
+          const tipLeft = (pointX / W) * boxRect.width;
+          const tipTop = (pointY / H) * boxRect.height;
+
+          tip.style.left = `${tipLeft}px`;
+          tip.style.top = `${tipTop}px`;
+          tip.classList.add('show');
+        })
+        .on('pointerleave', function(){
+          trackLine.attr('opacity', 0);
+          tip.classList.remove('show');
+        });
+
+      // Dual Axes
+      const xAxis = d3.axisBottom(timeScale).ticks(5).tickFormat(d3.timeFormat('%d/%m'));
+      const yAxisLeft = d3.axisLeft(yPh).ticks(5);
+      const yAxisRight = d3.axisRight(yCl).ticks(5);
+
+      g.append('g').attr('class', 'd3-axis').attr('transform', `translate(0,${ph})`).call(xAxis);
+      g.append('g').attr('class', 'd3-axis').call(yAxisLeft);
+      g.append('g').attr('class', 'd3-axis').attr('transform', `translate(${pw},0)`).call(yAxisRight);
+
+      // Axis Labels
+      g.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -ph/2).attr('y', -32)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('font-weight', '700')
+        .attr('fill', '#22b8b0')
+        .text('pH (Eixo Esq.)');
+
+      g.append('text')
+        .attr('transform', 'rotate(90)')
+        .attr('x', ph/2).attr('y', -pw - 22)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('font-weight', '700')
+        .attr('fill', '#e0602b')
+        .text('Cloro ppm (Eixo Dir.)');
+    }
+  }
+
+  function wireD3ScatterControls(){
+    const selSrc = $('d3SourceSelect');
+    const selPer = $('d3PeriodSelect');
+    const selCl = $('d3CloroTypeSelect');
+    const btnQuad = $('btnD3ModeQuadrant');
+    const btnTime = $('btnD3ModeTimeline');
+    const chkReg = $('d3ToggleRegression');
+
+    if(selSrc) selSrc.onchange = (e)=>{ d3ScatterSource = e.target.value; drawD3ScatterChart(); };
+    if(selPer) selPer.onchange = (e)=>{ d3ScatterPeriod = e.target.value; drawD3ScatterChart(); };
+    if(selCl) selCl.onchange = (e)=>{ d3ScatterCloroType = e.target.value; drawD3ScatterChart(); };
+    if(chkReg) chkReg.onchange = (e)=>{ d3ShowRegression = e.target.checked; drawD3ScatterChart(); };
+
+    if(btnQuad) btnQuad.onclick = ()=>{
+      d3ScatterMode = 'quadrant';
+      btnQuad.classList.add('active');
+      if(btnTime) btnTime.classList.remove('active');
+      drawD3ScatterChart();
+    };
+
+    if(btnTime) btnTime.onclick = ()=>{
+      d3ScatterMode = 'timeline';
+      btnTime.classList.add('active');
+      if(btnQuad) btnQuad.classList.remove('active');
+      drawD3ScatterChart();
+    };
+  }
+
+  function initD3Scatter(generalRaw, quartosRaw){
+    d3CachedGeneral = generalRaw || [];
+    d3CachedQuartos = quartosRaw || [];
+    wireD3ScatterControls();
+    drawD3ScatterChart();
+  }
+
   // ---------- KPI com semáforo (cartão grande para o resumo executivo) ----------
   function kpiCard(label, valueText, subText, state, sparkValues, sparkColor){
     const dotless = state === 'na' ? '' : `<span class="kpi-dot"></span>`;
@@ -3313,10 +4020,18 @@
       const general = generalRaw.filter(inMonth);
       const quartos = quartosRaw.filter(inMonth);
       const temps = tempRaw.filter(inMonth);
-      const generalDeltas = await buildGenWithDeltas(generalRaw);
+      const { aguaBaseline, elecBaseline } = await loadBaselines();
+      const generalDeltas = await buildGenWithDeltas(generalRaw, { aguaBaseline, elecBaseline });
+      lastConsumoDetail = generalDeltas;
       const consumption = statsForRange(generalDeltas, desde, hasta);
+      const hoyStats = statsForRange(generalDeltas, todayStr(), todayStr());
       const [pDesde, pHasta] = prevMonthRangeSameDay();
       const prevConsumption = statsForRange(generalDeltas, pDesde, pHasta);
+
+      const aguaHoyDiag = consumoDiag(hoyStats, 'agua');
+      const elecHoyDiag = consumoDiag(hoyStats, 'elec');
+      const aguaMesDiag = consumoDiag(consumption, 'agua');
+      const elecMesDiag = consumoDiag(consumption, 'elec');
 
       const mRetorno = metricFromRecords(general, 'retornoAqs');
       const mAqsQ = metricFromRecords(general, 'aqsQuartos');
@@ -3396,31 +4111,39 @@
       const staleDays = latestGeneral ? daysFromToday(latestGeneral.data.fecha) : null;
       if(staleDays !== null && staleDays > 1) alerts.push(`A última leitura geral tem ${staleDays} dias (${latestGeneral.data.fecha}).`);
 
-      const aguaVal = consumption.aguaDeltaCount ? consumption.aguaTotal : null;
-      const elecVal = consumption.elecDeltaCount ? consumption.elecTotal : null;
       const prevAgua = prevConsumption.aguaDeltaCount ? prevConsumption.aguaTotal : null;
       const prevElec = prevConsumption.elecDeltaCount ? prevConsumption.elecTotal : null;
       const pctDone = roomsList.length ? Math.round(done / roomsList.length * 100) : 0;
       const tempOk = tempBad.length === 0;
       const tarifasDash = await getTarifas();
 
+      const baselineLines = [];
+      if(aguaBaseline) baselineLines.push(`💧 Linha base água: ${esc(aguaBaseline.valor)} m³ (desde ${esc(aguaBaseline.fecha)})`);
+      else baselineLines.push('💧 Linha base água: não configurada');
+      if(elecBaseline) baselineLines.push(`⚡ Linha base eletricidade: ${esc(elecBaseline.valor)} kWh (desde ${esc(elecBaseline.fecha)})`);
+      else baselineLines.push('⚡ Linha base eletricidade: não configurada');
+      const baselineDisplayHtml = `<div id="baselineDisplay" style="font-family:var(--mono); font-size:11px; color:var(--ink-400); margin-bottom:12px; line-height:1.6;">${baselineLines.join('<br>')}</div>`;
+
       $('dashboardPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
 
       output.innerHTML = `
         ${renderComplianceBox(generalRaw)}
         ${opBanner}
-        <h2 class="report-heading">Consumos do mês</h2>
-        <div class="dashboard-grid">
-          <div class="dashboard-card">
-            <div class="lab">Água</div>
-            <div class="value">${aguaVal !== null ? fmtNum(aguaVal)+' m³'+costTag(aguaVal, tarifasDash.agua) : '—'}</div>
-            <div class="meta">${trendBadge(aguaVal, prevAgua)}${consumption.aguaDeltaCount ? `média ${fmtNum(consumption.aguaProm)} m³/dia` : 'sem dados suficientes'}</div>
+        
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <div class="subgroup-title" style="color:var(--petrol-700); margin:0;">📊 Consumo de água e eletricidade <span style="text-transform:none; font-weight:400; color:var(--ink-400)">(por diferença entre leituras)</span></div>
+            <button class="link-edit" id="btnSetBaseline" type="button" style="${isAdmin() ? '' : 'display:none;'} white-space:nowrap; margin-left:8px;">Leitura inicial</button>
           </div>
-          <div class="dashboard-card">
-            <div class="lab">Eletricidade</div>
-            <div class="value">${elecVal !== null ? fmtNum(elecVal)+' kWh'+costTag(elecVal, tarifasDash.elec) : '—'}</div>
-            <div class="meta">${trendBadge(elecVal, prevElec)}${consumption.elecDeltaCount ? `média ${fmtNum(consumption.elecProm)} kWh/dia` : 'sem dados suficientes'}</div>
+          ${baselineDisplayHtml}
+          <div class="stat-grid" style="margin-bottom:10px;">
+            ${statBox('Água — hoje', (aguaHoyDiag ? '—' : fmtNum(hoyStats.aguaTotal)+' m³') + (aguaHoyDiag?'':costTag(hoyStats.aguaTotal, tarifasDash.agua)), aguaHoyDiag || `consumo do dia`)}
+            ${statBox('Eletricidade — hoje', (elecHoyDiag ? '—' : fmtNum(hoyStats.elecTotal)+' kWh') + (elecHoyDiag?'':costTag(hoyStats.elecTotal, tarifasDash.elec)), elecHoyDiag || `consumo do dia`, true)}
+            ${statBox('Água — acumulado do mês', (aguaMesDiag ? '—' : fmtNum(consumption.aguaTotal)+' m³') + (aguaMesDiag?'':costTag(consumption.aguaTotal, tarifasDash.agua)), (consumption.aguaDeltaCount ? trendBadge(consumption.aguaTotal, prevAgua) : '') + (aguaMesDiag || `média diária: ${fmtNum(consumption.aguaProm)} m³ · ${consumption.aguaDiasTotal} dia${consumption.aguaDiasTotal===1?'':'s'} coberto${consumption.aguaDiasTotal===1?'':'s'}`))}
+            ${statBox('Eletricidade — acumulado do mês', (elecMesDiag ? '—' : fmtNum(consumption.elecTotal)+' kWh') + (elecMesDiag?'':costTag(consumption.elecTotal, tarifasDash.elec)), (consumption.elecDeltaCount ? trendBadge(consumption.elecTotal, prevElec) : '') + (elecMesDiag || `média diária: ${fmtNum(consumption.elecProm)} kWh · ${consumption.elecDiasTotal} dia${consumption.elecDiasTotal===1?'':'s'} coberto${consumption.elecDiasTotal===1?'':'s'}`), true)}
           </div>
+          <button class="link-edit" id="btnToggleConsumoDetail" type="button" style="margin-top:4px;">Ver detalhe do cálculo</button>
+          <div id="consumoDetailTable" style="display:none; margin-top:10px;">${renderConsumoDetailTableHtml(generalDeltas)}</div>
         </div>
 
         <h2 class="report-heading">🧊 Refrigeração · últimos 7 dias</h2>
@@ -3487,11 +4210,27 @@
         ${chartSection('Piscina · cloro livre 30 dias', [
           {label:'Cloro livre', className:'series-c', points:trendPoints('cloroLibre')}
         ], 'ppm', [{value:DASH_THRESHOLDS.cloroMin,label:'mín. cloro'},{value:DASH_THRESHOLDS.cloroMax,label:'máx. cloro'}], 2)}
+        ${renderD3ScatterSectionHtml()}
         ${renderLastNote(generalRaw)}
       `;
 
       mountCharts(output);
       renderDailyChartBox();
+      initD3Scatter(generalRaw, quartosRaw);
+
+      const btnBase = $('btnSetBaseline');
+      if(btnBase) btnBase.addEventListener('click', openBaselineDialog);
+
+      const btnToggle = $('btnToggleConsumoDetail');
+      if(btnToggle){
+        btnToggle.addEventListener('click', ()=>{
+          const el = $('consumoDetailTable');
+          if(!el) return;
+          const showing = el.style.display !== 'none';
+          el.style.display = showing ? 'none' : 'block';
+          btnToggle.textContent = showing ? 'Ver detalhe do cálculo' : 'Ocultar detalhe do cálculo';
+        });
+      }
 
       $('segAgua').addEventListener('click', ()=>{
         dailyMetric = 'agua';

@@ -8,7 +8,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-// Serve static assets from root directory
+// Serve static assets and node_modules
+app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
 app.use(express.static(__dirname));
 
 // Health check endpoint
