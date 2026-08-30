@@ -186,6 +186,27 @@
   .empty{ text-align:center; padding:40px 20px; color:var(--ink-400); font-size:13.5px; }
   .empty .glyph{ font-size:30px; display:block; margin-bottom:10px; }
 
+  /* Seletor e Histórico de Ciclos de Quartos */
+  .cycle-selector-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:8px 12px; margin-bottom:12px;
+  }
+  .cycle-selector-bar label{
+    font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--petrol-800); display:flex; align-items:center; gap:6px; margin:0;
+  }
+  .cycle-selector-bar select{
+    font-family:var(--mono); font-size:12px; font-weight:600; padding:4px 8px; border-radius:8px; border:1px solid var(--line); background:#fff; color:var(--petrol-900);
+  }
+  .cycle-actions-btns{ display:flex; align-items:center; gap:8px; }
+  .cycle-btn{
+    background:#fff; border:1px solid var(--line); color:var(--petrol-800); font-family:var(--mono); font-size:11px; font-weight:700;
+    padding:5px 9px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;
+  }
+  .cycle-btn:hover{ background:var(--aqua-100); border-color:var(--aqua-500); }
+  .cycle-btn.primary{ background:var(--petrol-900); color:#fff; border-color:var(--petrol-900); }
+  .cycle-btn.primary:hover{ background:var(--petrol-800); }
+  .cycle-history-modal{ max-width:680px; width:95%; }
+
   .quarto-progress{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
   .quarto-progress .txt{ font-family:var(--mono); font-size:12.5px; color:var(--ink-600); }
   .quarto-progress .txt b{ color:var(--petrol-900); font-size:14px; }
@@ -255,7 +276,96 @@
   .stat-box .val{ font-family:var(--mono); font-size:15px; font-weight:700; color:var(--petrol-900); }
   .stat-box .sub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-600); }
 
-  /* Resumo Executivo */
+  /* Resumo Executivo Avançado */
+  .exec-toolbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .exec-actions{ display:flex; gap:8px; }
+  .exec-btn-action{
+    background:#fff; border:1.5px solid var(--line); color:var(--petrol-900); font-family:var(--sans); font-size:12px; font-weight:700;
+    padding:8px 12px; border-radius:10px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:.15s ease;
+  }
+  .exec-btn-action:hover{ background:var(--aqua-100); border-color:var(--aqua-500); }
+  .exec-btn-action.primary-action{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
+  .exec-btn-action.primary-action:hover{ background:var(--petrol-800); }
+
+  .exec-score-card{
+    background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;
+    box-shadow:0 3px 12px -4px rgba(10,37,48,.07);
+  }
+  .exec-score-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .exec-score-title{ font-family:var(--sans); font-size:14px; font-weight:700; color:var(--petrol-900); margin:0; }
+  .exec-score-badge{ font-family:var(--mono); font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; letter-spacing:.04em; text-transform:uppercase; }
+  .exec-score-badge.status-exc{ background:var(--ok-100); color:#28704b; border:1px solid var(--ok-500); }
+  .exec-score-badge.status-good{ background:var(--aqua-100); color:var(--petrol-700); border:1px solid var(--aqua-500); }
+  .exec-score-badge.status-warn{ background:var(--amber-100); color:#8a5f0f; border:1px solid var(--amber-500); }
+  .exec-score-badge.status-bad{ background:var(--coral-100); color:#8b3d1d; border:1px solid var(--coral-500); }
+
+  .exec-score-hero{ display:flex; align-items:center; gap:20px; margin-bottom:16px; }
+  .exec-score-circle{
+    width:76px; height:76px; border-radius:50%; flex:0 0 76px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border:5px solid var(--ok-500); background:#fbfcfc;
+  }
+  .exec-score-circle.status-good{ border-color:var(--aqua-500); }
+  .exec-score-circle.status-warn{ border-color:var(--amber-500); }
+  .exec-score-circle.status-bad{ border-color:var(--coral-500); }
+  .exec-score-number{ font-family:var(--mono); font-size:22px; font-weight:800; color:var(--petrol-900); line-height:1; }
+  .exec-score-unit{ font-family:var(--mono); font-size:9.5px; font-weight:600; color:var(--ink-400); margin-top:2px; }
+  .exec-score-text{ flex:1; }
+  .exec-score-headline{ font-size:14px; font-weight:700; color:var(--petrol-900); margin-bottom:4px; }
+  .exec-score-desc{ font-size:12px; color:var(--ink-600); line-height:1.45; }
+
+  .exec-pillars-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .exec-pillar-item{ background:#fbfcfc; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .exec-pillar-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:11.5px; font-weight:700; color:var(--petrol-900); }
+  .exec-pillar-val{ font-family:var(--mono); font-size:11.5px; font-weight:700; }
+  .exec-pillar-bar{ height:5px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .exec-pillar-fill{ height:100%; border-radius:4px; transition:width .4s ease; }
+  .exec-pillar-note{ font-family:var(--mono); font-size:9.5px; color:var(--ink-400); margin-top:4px; }
+
+  /* Cockpit Financeiro */
+  .exec-fin-card{
+    background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;
+    box-shadow:0 3px 12px -4px rgba(10,37,48,.07);
+  }
+  .exec-fin-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .exec-fin-box{ background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .exec-fin-box.accent{ background:var(--aqua-100); border-color:var(--aqua-500); }
+  .exec-fin-lab{ font-size:11px; font-weight:700; color:var(--ink-600); text-transform:uppercase; letter-spacing:.04em; font-family:var(--mono); margin-bottom:4px; }
+  .exec-fin-box.accent .exec-fin-lab{ color:var(--petrol-800); }
+  .exec-fin-val{ font-family:var(--mono); font-size:22px; font-weight:800; color:var(--petrol-900); line-height:1.15; }
+  .exec-fin-sub{ font-family:var(--mono); font-size:10.5px; color:var(--ink-400); margin-top:4px; }
+  .exec-fin-box.accent .exec-fin-sub{ color:var(--petrol-700); }
+
+  .exec-split-bar-wrap{ margin-top:10px; margin-bottom:6px; }
+  .exec-split-labels{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; font-weight:700; margin-bottom:4px; }
+  .exec-split-track{ height:10px; background:#e8eeee; border-radius:6px; overflow:hidden; display:flex; }
+  .exec-split-seg-a{ background:var(--aqua-500); height:100%; transition:width .4s ease; }
+  .exec-split-seg-b{ background:var(--petrol-700); height:100%; transition:width .4s ease; }
+  .exec-split-legend{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; color:var(--ink-600); margin-top:6px; }
+
+  /* Matriz de Decisões & Ações Prioritárias */
+  .exec-matrix-card{
+    background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;
+    box-shadow:0 3px 12px -4px rgba(10,37,48,.07);
+  }
+  .exec-matrix-title{ font-family:var(--sans); font-size:14px; font-weight:700; color:var(--petrol-900); margin:0 0 12px; display:flex; align-items:center; gap:6px; }
+  .exec-action-item{
+    border-radius:12px; padding:12px 14px; margin-bottom:10px; border-left:4px solid;
+    display:flex; flex-direction:column; gap:4px;
+  }
+  .exec-action-item:last-child{ margin-bottom:0; }
+  .exec-action-item.crit{ background:var(--coral-100); border-color:var(--coral-500); color:#8b3d1d; }
+  .exec-action-item.warn{ background:var(--amber-100); border-color:var(--amber-500); color:#8a5f0f; }
+  .exec-action-item.info{ background:var(--aqua-100); border-color:var(--petrol-700); color:var(--petrol-900); }
+  .exec-action-item.ok{ background:var(--ok-100); border-color:var(--ok-500); color:#28704b; }
+  .exec-action-head{ display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:12.5px; }
+  .exec-action-tag{ font-family:var(--mono); font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:4px; }
+  .exec-action-item.crit .exec-action-tag{ background:var(--coral-500); color:#fff; }
+  .exec-action-item.warn .exec-action-tag{ background:var(--amber-500); color:#fff; }
+  .exec-action-item.info .exec-action-tag{ background:var(--petrol-700); color:#fff; }
+  .exec-action-item.ok .exec-action-tag{ background:var(--ok-500); color:#fff; }
+  .exec-action-body{ font-size:12px; line-height:1.45; color:var(--ink-700); }
+  .exec-action-rec{ font-family:var(--sans); font-size:11.5px; font-weight:600; margin-top:2px; }
+
   .kpi-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px; }
   .kpi-card{ border-radius:16px; padding:16px; border:1px solid var(--line); background:var(--card); }
   .kpi-card .kpi-lab{ font-size:12px; font-weight:700; color:var(--ink-600); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
@@ -475,9 +585,16 @@
   .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(10,37,48,.55); z-index:100; align-items:flex-end; justify-content:center; }
   .modal-overlay.show{ display:flex; }
   .modal-box{ width:100%; max-width:520px; background:#fff; border-radius:20px 20px 0 0; padding:22px 20px calc(20px + env(safe-area-inset-bottom)); animation:slideup .2s ease; max-height:90vh; overflow-y:auto; }
+  @media(min-width:600px){
+    .modal-overlay{ align-items:center; padding:20px; }
+    .modal-box{ border-radius:20px; }
+    .modal-box.modal-wide{ max-width:680px; }
+  }
   @keyframes slideup{ from{ transform:translateY(20px); opacity:0;} to{ transform:none; opacity:1;} }
   .modal-title{ font-family:var(--sans); font-weight:700; font-size:16px; margin:0 0 8px; color:var(--ink-900); }
-  .modal-msg{ font-size:13.5px; color:var(--ink-600); margin:0 0 16px; white-space:pre-line; line-height:1.5; }
+  .modal-msg{ font-size:13.5px; color:var(--ink-600); margin:0 0 16px; line-height:1.5; }
+  .modal-msg p{ margin:0 0 10px; }
+  .modal-msg p:last-child{ margin-bottom:0; }
   .modal-textarea{ width:100%; min-height:90px; border-radius:10px; border:1.5px solid var(--line); padding:10px 12px; font-family:var(--mono); font-size:14px; margin-bottom:16px; resize:vertical; }
   .modal-actions{ display:flex; gap:10px; }
   .modal-actions button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:14px; }
@@ -653,9 +770,19 @@
     </section>
 
     <section class="view" id="view-ejecutivo">
-      <p class="section-title">Resumo executivo</p>
-      <p class="dashboard-period" id="ejecutivoPeriod">A carregar…</p>
-      <button class="primary" id="btnRefreshEjecutivo" style="margin-bottom:16px"><span class="spinner"></span><span class="lbl-text">Atualizar resumo</span></button>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+        <div>
+          <p class="section-title" style="margin-bottom:2px">Painel Executivo & Tomada de Decisão</p>
+          <p class="dashboard-period" id="ejecutivoPeriod" style="margin:0 0 12px">A carregar indicadores estratégicos…</p>
+        </div>
+      </div>
+      <div class="exec-toolbar" id="execToolbar">
+        <button class="primary" id="btnRefreshEjecutivo" style="margin:0; padding:9px 14px; font-size:12.5px;"><span class="spinner"></span><span class="lbl-text">↻ Atualizar</span></button>
+        <div class="exec-actions">
+          <button class="exec-btn-action" id="btnExportExecCsv" type="button">📥 Exportar CSV</button>
+          <button class="exec-btn-action primary-action" id="btnPrintExecReport" type="button">🖨️ Relatório Executivo</button>
+        </div>
+      </div>
       <div id="ejecutivoOutput"><div class="empty"><span class="glyph">◌</span>Abra o resumo para carregar os indicadores.</div></div>
     </section>
 
@@ -735,15 +862,28 @@
       <div class="edit-banner" id="editBannerQuarto">✏️ A editar um registo existente — ao guardar será atualizado, não será criado um novo.</div>
       <div class="edit-banner" id="viewerBannerQuarto" style="background:var(--aqua-100); color:var(--petrol-700);">👁 Perfil de visualização — pode consultar tudo, mas não modificar registos.</div>
 
+      <div class="cycle-selector-bar">
+        <label>
+          <span>🔄 Ciclo:</span>
+          <select id="qCycleSelect">
+            <option value="current">Ciclo atual (em curso)</option>
+          </select>
+        </label>
+        <div class="cycle-actions-btns">
+          <button type="button" class="cycle-btn" id="btnViewCycleHistory">📋 Ver Histórico de Ciclos</button>
+          <button type="button" class="cycle-btn primary" id="btnReportCycle">📊 Relatório do Ciclo</button>
+        </div>
+      </div>
+
       <div class="card">
         <div class="quarto-progress">
-          <span class="txt"><b id="roomsDoneCount">0</b> / <span id="roomsTotalCount">0</span> quartos medidos neste ciclo</span>
+          <span class="txt"><b id="roomsDoneCount">0</b> / <span id="roomsTotalCount">0</span> quartos medidos <span id="cycleLabelStatus">neste ciclo</span></span>
           <div style="display:flex; gap:12px;">
             <button class="link-edit" id="btnRecomputeCycle" type="button" style="display:none">Recalcular ciclo</button>
             <button class="link-edit" id="btnEditRooms" type="button" style="display:none">Editar lista</button>
           </div>
         </div>
-        <p style="font-size:11px; color:var(--ink-400); margin:0 0 12px; line-height:1.4;">O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">40</span> quartos — não por data, pode demorar mais de um mês.</p>
+        <p style="font-size:11px; color:var(--ink-400); margin:0 0 12px; line-height:1.4;" id="cycleExplanationText">O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">40</span> quartos — não por data, pode demorar mais de um mês. Pode tocar num quarto já medido para consultar ou modificar o seu valor caso necessário.</p>
         <div class="room-groups" id="roomGrid"></div>
         <label class="field" id="qManualLabel" style="margin-top:10px; margin-bottom:0">
           <span class="lbl">Ou escreva o número manualmente <span style="font-weight:400; color:var(--ink-400)">(caso precise de repetir um que já foi feito)</span></span>
@@ -964,9 +1104,9 @@
   <div class="toast" id="toast"></div>
 
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal-box">
+    <div class="modal-box" id="modalBox">
       <p class="modal-title" id="modalTitle"></p>
-      <p class="modal-msg" id="modalMsg"></p>
+      <div class="modal-msg" id="modalMsg"></div>
       <textarea class="modal-textarea" id="modalTextarea" style="display:none"></textarea>
       <div id="modalFormContainer"></div>
       <div class="modal-actions" id="modalActions"></div>
@@ -1239,26 +1379,57 @@
   function confirmDialog(title, msg, confirmLabel, cancelLabel){
     return new Promise(resolve=>{
       const overlay = $('modalOverlay');
-      $('modalTitle').textContent = title; $('modalMsg').textContent = msg; $('modalTextarea').style.display = 'none';
+      const box = $('modalBox');
+      $('modalTitle').textContent = title;
+      const msgEl = $('modalMsg');
+      if(typeof msg === 'string' && (msg.includes('<table') || msg.includes('<div') || msg.includes('<p') || msg.includes('<b') || msg.includes('<span'))){
+        msgEl.innerHTML = msg;
+      } else {
+        msgEl.textContent = msg || '';
+      }
+      $('modalTextarea').style.display = 'none';
+      $('modalFormContainer').innerHTML = '';
       const actions = $('modalActions'); actions.innerHTML = '';
-      const btnCancel = document.createElement('button'); btnCancel.className = 'modal-btn-cancel'; btnCancel.textContent = cancelLabel || 'Cancelar';
-      const btnConfirm = document.createElement('button'); btnConfirm.className = 'modal-btn-confirm'; btnConfirm.textContent = confirmLabel || 'Confirmar';
-      function close(result){ overlay.classList.remove('show'); resolve(result); }
-      btnCancel.addEventListener('click', ()=> close(false));
-      btnConfirm.addEventListener('click', ()=> close(true));
-      actions.appendChild(btnCancel); actions.appendChild(btnConfirm);
+
+      const showCancel = cancelLabel !== false && cancelLabel !== null && cancelLabel !== '';
+      if(showCancel){
+        const btnCancel = document.createElement('button');
+        btnCancel.className = 'modal-btn-cancel';
+        btnCancel.textContent = (typeof cancelLabel === 'string' && cancelLabel) ? cancelLabel : 'Cancelar';
+        btnCancel.addEventListener('click', ()=> close(false));
+        actions.appendChild(btnCancel);
+      }
+
+      const showConfirm = confirmLabel !== false && confirmLabel !== null && confirmLabel !== '';
+      if(showConfirm){
+        const btnConfirm = document.createElement('button');
+        btnConfirm.className = 'modal-btn-confirm';
+        btnConfirm.textContent = (typeof confirmLabel === 'string' && confirmLabel) ? confirmLabel : 'Confirmar';
+        btnConfirm.addEventListener('click', ()=> close(true));
+        actions.appendChild(btnConfirm);
+      }
+
+      function close(result){
+        overlay.classList.remove('show');
+        if(box) box.classList.remove('modal-wide');
+        msgEl.innerHTML = '';
+        resolve(result);
+      }
       overlay.classList.add('show');
     });
   }
   function promptDialog(title, msg, defaultValue){
     return new Promise(resolve=>{
       const overlay = $('modalOverlay');
+      const box = $('modalBox');
+      if(box) box.classList.remove('modal-wide');
       $('modalTitle').textContent = title; $('modalMsg').textContent = msg || '';
       const ta = $('modalTextarea'); ta.style.display = 'block'; ta.value = defaultValue || '';
+      $('modalFormContainer').innerHTML = '';
       const actions = $('modalActions'); actions.innerHTML = '';
       const btnCancel = document.createElement('button'); btnCancel.className = 'modal-btn-cancel'; btnCancel.textContent = 'Cancelar';
       const btnConfirm = document.createElement('button'); btnConfirm.className = 'modal-btn-confirm'; btnConfirm.textContent = 'Guardar';
-      function close(result){ overlay.classList.remove('show'); ta.style.display='none'; resolve(result); }
+      function close(result){ overlay.classList.remove('show'); ta.style.display='none'; $('modalMsg').innerHTML = ''; resolve(result); }
       btnCancel.addEventListener('click', ()=> close(null));
       btnConfirm.addEventListener('click', ()=> close(ta.value));
       actions.appendChild(btnCancel); actions.appendChild(btnConfirm);
@@ -1269,6 +1440,8 @@
   function formDialog(title, fields, confirmLabel){
     return new Promise(resolve=>{
       const overlay = $('modalOverlay');
+      const box = $('modalBox');
+      if(box) box.classList.remove('modal-wide');
       $('modalTitle').textContent = title;
       $('modalMsg').textContent = '';
       $('modalTextarea').style.display = 'none';
@@ -1282,7 +1455,7 @@
       const actions = $('modalActions'); actions.innerHTML = '';
       const btnCancel = document.createElement('button'); btnCancel.className = 'modal-btn-cancel'; btnCancel.textContent = 'Cancelar';
       const btnConfirm = document.createElement('button'); btnConfirm.className = 'modal-btn-confirm'; btnConfirm.textContent = confirmLabel || 'Guardar';
-      function close(result){ overlay.classList.remove('show'); container.innerHTML = ''; resolve(result); }
+      function close(result){ overlay.classList.remove('show'); container.innerHTML = ''; $('modalMsg').innerHTML = ''; resolve(result); }
       btnCancel.addEventListener('click', ()=> close(null));
       btnConfirm.addEventListener('click', ()=>{
         const values = {};
@@ -1609,8 +1782,78 @@
   let roomsList = [];
   let selectedRoom = '';
   let cycleDone = [];
+  let selectedCycleIndex = 'current'; // 'current' | number
+  let detectedCyclesList = [];
 
   function normRoom(n){ return String(n === undefined || n === null ? '' : n).trim(); }
+
+  // Agrupa todas as leituras de quartos em ciclos sequenciais
+  function groupQuartoRecordsIntoCycles(rawRecords, rList){
+    const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
+    const setList = new Set(listNorm);
+    const targetSize = listNorm.length || 40;
+
+    // Ordenar cronologicamente ascendente
+    const sorted = rawRecords.slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+
+    const cycles = [];
+    let currentRoomsMap = new Map(); // roomNum -> record
+    let currentRecords = [];
+
+    sorted.forEach(r=>{
+      const num = normRoom(r.data.numero);
+      if(!num) return;
+
+      // Se este quarto já foi medido neste ciclo e ainda não cobrimos todos os quartos da lista,
+      // ou se o ciclo já atingiu o total de quartos da lista, consideramos fecho de ciclo
+      if(currentRoomsMap.has(num) && currentRoomsMap.size >= targetSize){
+        // Fechar ciclo
+        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize));
+        currentRoomsMap = new Map();
+        currentRecords = [];
+      }
+
+      currentRoomsMap.set(num, r);
+      currentRecords.push(r);
+
+      if(currentRoomsMap.size >= targetSize){
+        // Ciclo completo
+        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize));
+        currentRoomsMap = new Map();
+        currentRecords = [];
+      }
+    });
+
+    // O que sobra é o ciclo em curso
+    const activeCycleIndex = cycles.length + 1;
+    const activeSummary = buildCycleSummary(activeCycleIndex, currentRecords, currentRoomsMap, targetSize, true);
+
+    return { completedCycles: cycles, currentCycle: activeSummary, allCycles: [...cycles, activeSummary] };
+  }
+
+  function buildCycleSummary(index, records, roomsMap, targetSize, isActive){
+    const uniqueRooms = Array.from(roomsMap.keys());
+    let fechaInicio = '—', fechaFin = '—';
+    if(records.length){
+      const sorted = records.slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+      fechaInicio = sorted[0].data.fecha;
+      fechaFin = sorted[sorted.length - 1].data.fecha;
+    }
+    const isCompleted = uniqueRooms.length >= targetSize;
+    return {
+      index,
+      label: isActive ? `Ciclo Atual #${index} (em curso)` : `Ciclo #${index} (${fechaInicio} a ${fechaFin})`,
+      fechaInicio,
+      fechaFin,
+      totalRooms: targetSize,
+      doneCount: uniqueRooms.length,
+      isCompleted,
+      isActive: !!isActive,
+      records,
+      roomsMap, // roomNum -> record
+      uniqueRooms
+    };
+  }
 
   async function loadCycleDone(){
     try{
@@ -1666,16 +1909,18 @@
 
   async function recomputeCycleFromHistory(){
     const existing = await listRecords('quarto');
+    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+    const activeDone = grouped.currentCycle.uniqueRooms;
     const roomsNormalized = roomsList.map(normRoom);
-    const foundRaw = [...new Set(existing.map(r=> normRoom(r.data.numero)).filter(Boolean))];
-    const matched = foundRaw.filter(n=> roomsNormalized.includes(n));
-    const unmatched = foundRaw.filter(n=> !roomsNormalized.includes(n));
+    const matched = activeDone.filter(n=> roomsNormalized.includes(n));
+    const unmatched = activeDone.filter(n=> !roomsNormalized.includes(n));
     const coversFullCycle = roomsNormalized.length > 0 && matched.length >= roomsNormalized.length;
     cycleDone = coversFullCycle ? [] : matched;
     await saveCycleDone();
+    await updateCycleSelectorOptions();
     await renderRoomGrid();
-    let msg = `Ciclo recalculado: ${matched.length}/${roomsList.length} quartos detetados`;
-    if(matched.length){ msg += ` (${matched.slice(0,12).join(', ')}${matched.length>12?'…':''})`; }
+    let msg = `Ciclo atual recalculado: ${matched.length}/${roomsList.length} quartos detetados (${grouped.completedCycles.length} ciclos anteriores concluídos)`;
+    if(matched.length){ msg += ` (${matched.slice(0,10).join(', ')}${matched.length>10?'…':''})`; }
     showToast(msg);
     if(unmatched.length){
       await confirmDialog(
@@ -1721,19 +1966,65 @@
     document.querySelectorAll('.room-chip').forEach(c=>{ c.classList.toggle('selected', normRoom(c.dataset.room) === selectedRoom); });
   }
 
+  async function updateCycleSelectorOptions(){
+    const select = $('qCycleSelect');
+    if(!select) return;
+    const existing = await listRecords('quarto');
+    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+    detectedCyclesList = grouped.allCycles;
+
+    let html = `<option value="current">Ciclo atual (em curso) · ${grouped.currentCycle.doneCount}/${roomsList.length} medidos</option>`;
+    if(grouped.completedCycles.length){
+      // Ciclos anteriores do mais recente para o mais antigo
+      grouped.completedCycles.slice().reverse().forEach(c=>{
+        html += `<option value="${c.index}">Ciclo #${c.index} · ${c.fechaInicio} a ${c.fechaFin} (${c.doneCount}/${c.totalRooms})</option>`;
+      });
+    }
+    select.innerHTML = html;
+    select.value = selectedCycleIndex === 'current' ? 'current' : String(selectedCycleIndex);
+  }
+
   async function renderRoomGrid(){
     const grid = $('roomGrid');
-    const doneSet = new Set(effectiveCycleDone());
+    const existing = await listRecords('quarto');
+    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+    detectedCyclesList = grouped.allCycles;
+
+    let targetCycle = grouped.currentCycle;
+    const isViewingPast = selectedCycleIndex !== 'current';
+    if(isViewingPast){
+      const idx = parseInt(selectedCycleIndex, 10);
+      const found = detectedCyclesList.find(c=> c.index === idx);
+      if(found) targetCycle = found;
+    }
+
+    const cycleRoomsMap = targetCycle.roomsMap || new Map();
+    const doneSet = new Set(targetCycle.uniqueRooms || (isViewingPast ? [] : effectiveCycleDone()));
 
     $('roomsTotalCount').textContent = roomsList.length;
-    $('roomsDoneCount').textContent = doneSet.size;
+    $('roomsDoneCount').textContent = targetCycle.doneCount || doneSet.size;
     const hint = $('roomsCycleTotalHint');
     if(hint) hint.textContent = roomsList.length;
 
+    const lblStatus = $('cycleLabelStatus');
+    if(lblStatus){
+      lblStatus.textContent = isViewingPast ? `no Ciclo #${targetCycle.index} (${targetCycle.fechaInicio} a ${targetCycle.fechaFin})` : 'no ciclo atual';
+    }
+
+    const expText = $('cycleExplanationText');
+    if(expText){
+      if(isViewingPast){
+        expText.innerHTML = `⚠️ A visualizar o <b>Ciclo #${targetCycle.index}</b> (concluído entre ${targetCycle.fechaInicio} e ${targetCycle.fechaFin}). Pode clicar em qualquer quarto medido para <b>consultar ou retificar a leitura</b> deste ciclo.`;
+      } else {
+        expText.innerHTML = `O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">${roomsList.length}</span> quartos — não por data. Pode tocar num quarto já medido para <b>consultar ou modificar o seu valor</b> caso necessário.`;
+      }
+    }
+
     const chipHtml = num=>{
-      const isDone = doneSet.has(normRoom(num));
-      const isSel = normRoom(num) === selectedRoom;
-      return `<button type="button" class="room-chip${isDone?' done':''}${isSel?' selected':''}" data-room="${esc(num)}" ${isDone?'aria-disabled="true"':''}>${esc(num)}${isDone?'<span class="dot"></span>':''}</button>`;
+      const normN = normRoom(num);
+      const isDone = doneSet.has(normN);
+      const isSel = normN === selectedRoom;
+      return `<button type="button" class="room-chip${isDone?' done':''}${isSel?' selected':''}" data-room="${esc(normN)}">${esc(normN)}${isDone?'<span class="dot"></span>':''}</button>`;
     };
 
     const allThreeDigits = roomsList.every(n=> /^\d{3}$/.test(n));
@@ -1746,16 +2037,230 @@
     } else {
       grid.innerHTML = `<div class="room-grid">${roomsList.map(chipHtml).join('')}</div>`;
     }
+
     grid.querySelectorAll('.room-chip').forEach(chip=>{
-      chip.addEventListener('click', ()=>{
-        if(chip.getAttribute('aria-disabled') === 'true'){
-          showToast(`O quarto ${chip.dataset.room} já está medido no ciclo atual.`);
+      chip.addEventListener('click', async ()=>{
+        const roomNum = normRoom(chip.dataset.room);
+        const isDone = doneSet.has(roomNum);
+
+        if(isDone && cycleRoomsMap.has(roomNum)){
+          const rec = cycleRoomsMap.get(roomNum);
+          await openRoomDetailAndEditDialog(rec, targetCycle);
           return;
         }
+
+        if(isViewingPast){
+          showToast(`O quarto ${roomNum} não teve leitura no Ciclo #${targetCycle.index}.`, true);
+          return;
+        }
+
         if(isViewer()){ showToast('O seu perfil é apenas de visualização — não pode selecionar quartos para medir', true); return; }
-        selectRoom(chip.dataset.room);
+        selectRoom(roomNum);
       });
     });
+  }
+
+  // Modal com detalhe da leitura do quarto no ciclo com opção de edição direta
+  async function openRoomDetailAndEditDialog(rec, cycle){
+    const d = rec.data;
+    const num = d.numero;
+    const canModify = !isViewer();
+
+    const title = `Quarto ${num} · Ciclo #${cycle.index}`;
+    const htmlBody = `
+      <div style="font-family:var(--mono); font-size:11.5px; color:var(--ink-400); margin-bottom:12px;">
+        📅 Registado em ${d.fecha} às ${d.hora} por 👤 <b>${esc(d.usuario || 'Técnico')}</b>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:var(--paper); padding:12px; border-radius:12px; border:1px solid var(--line); margin-bottom:14px;">
+        <div>
+          <div style="font-weight:700; font-size:12px; color:var(--petrol-800); margin-bottom:4px;">🔥 Água Quente</div>
+          <div style="font-size:12px;">pH: <b>${nz(d.phCaliente)}</b></div>
+          <div style="font-size:12px;">Cloro livre: <b>${nz(d.cloroCaliente)} ppm</b></div>
+          <div style="font-size:12px;">Cloro total: <b>${nz(d.cloroTotalCaliente)} ppm</b></div>
+        </div>
+        <div>
+          <div style="font-weight:700; font-size:12px; color:var(--petrol-800); margin-bottom:4px;">💧 Água Fria</div>
+          <div style="font-size:12px;">pH: <b>${nz(d.phFria)}</b></div>
+          <div style="font-size:12px;">Cloro livre: <b>${nz(d.cloroFria)} ppm</b></div>
+          <div style="font-size:12px;">Cloro total: <b>${nz(d.cloroTotalFria)} ppm</b></div>
+        </div>
+      </div>
+      <p style="font-size:12px; color:var(--ink-600); margin:0 0 14px; line-height:1.4;">
+        Este quarto já tem leitura gravada neste ciclo. Se necessário, pode carregar estes dados no formulário abaixo para corrigir ou atualizar qualquer parâmetro.
+      </p>
+    `;
+
+    const ok = await confirmDialog(
+      title,
+      htmlBody,
+      canModify ? '✏️ Carregar no Formulário para Modificar' : 'Fechar',
+      canModify ? 'Fechar' : ''
+    );
+
+    if(ok && canModify){
+      startEditRecord({ type:'quarto', data: d });
+    }
+  }
+
+  // Histórico de Ciclos modal e gerador de relatórios de ciclos
+  async function openCycleHistoryDialog(){
+    const existing = await listRecords('quarto');
+    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+    const all = grouped.allCycles.slice().reverse();
+
+    let listHtml = `
+      <div style="max-height:55vh; overflow-y:auto; margin:4px 0 12px; border:1px solid var(--line); border-radius:10px;">
+        <table class="report" style="width:100%; margin:0;">
+          <thead>
+            <tr>
+              <th style="padding:8px 10px;">Ciclo</th>
+              <th style="padding:8px 10px;">Período</th>
+              <th style="padding:8px 10px;">Quartos Medidos</th>
+              <th style="padding:8px 10px;">Estado</th>
+              <th style="padding:8px 10px; text-align:right;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    all.forEach(c=>{
+      const isAct = c.isActive;
+      listHtml += `
+        <tr style="${isAct?'background:var(--aqua-100); font-weight:600;':''}">
+          <td style="padding:8px 10px; font-weight:700;">Ciclo #${c.index}</td>
+          <td style="padding:8px 10px; font-family:var(--mono); font-size:11px;">${c.fechaInicio} → ${c.fechaFin}</td>
+          <td style="padding:8px 10px; font-family:var(--mono);">${c.doneCount} / ${c.totalRooms} (${Math.round((c.doneCount/c.totalRooms)*100)}%)</td>
+          <td style="padding:8px 10px;">${isAct ? '<span style="color:var(--petrol-800); font-weight:700;">🟢 Em curso</span>' : (c.isCompleted ? '<span style="color:#28704b; font-weight:700;">✓ Concluído</span>' : '<span style="color:#8a5f0f; font-weight:700;">🟡 Incompleto</span>')}</td>
+          <td style="padding:8px 10px; text-align:right; white-space:nowrap;">
+            <button type="button" class="cycle-btn" data-viewcycle="${c.index}" style="padding:4px 8px; font-size:11px;">Ver no mapa</button>
+            <button type="button" class="cycle-btn primary" data-reportcycle="${c.index}" style="padding:4px 8px; font-size:11px;">Relatório</button>
+          </td>
+        </tr>
+      `;
+    });
+
+    listHtml += `
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:11.5px; color:var(--ink-400); margin:0;">Pode selecionar qualquer ciclo para visualizar o mapa de quartos correspondente ou emitir o relatório técnico em PDF.</p>
+    `;
+
+    const box = $('modalBox');
+    if(box) box.classList.add('modal-wide');
+    await confirmDialog(
+      'Histórico de Ciclos de Quartos',
+      listHtml,
+      'Fechar',
+      ''
+    );
+  }
+
+  // Relatório formatado oficial de um ciclo específico de quartos
+  async function generateCycleReport(cycleIndex){
+    const existing = await listRecords('quarto');
+    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+    let cycle = grouped.currentCycle;
+    if(cycleIndex && cycleIndex !== 'current'){
+      const idx = parseInt(cycleIndex, 10);
+      const found = grouped.allCycles.find(c=> c.index === idx);
+      if(found) cycle = found;
+    }
+
+    if(!cycle.records.length){
+      showToast('Este ciclo não possui leituras registadas.', true);
+      return;
+    }
+
+    const printDiv = $('officialReport');
+    if(!printDiv) return;
+
+    const listNorm = roomsList.map(normRoom);
+    const roomsMap = cycle.roomsMap || new Map();
+    const measuredList = Array.from(roomsMap.values()).sort((a,b)=> (a.data.numero).localeCompare(b.data.numero, undefined, {numeric:true}));
+    const missingRooms = listNorm.filter(n=> !roomsMap.has(n));
+
+    const html = `
+      <div class="off-page">
+        <div class="off-header">
+          <div class="off-title">Moon & Sun · Relatório Técnico de Ciclo de Quartos (AQS / Legionela)</div>
+          <div class="off-meta">Ciclo #${cycle.index} ${cycle.isActive?'(Em Curso)':'(Concluído)'} · Período: ${cycle.fechaInicio} a ${cycle.fechaFin} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser?currentUser.nombre:'Técnico')}</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px;">
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Progresso do Ciclo</div>
+            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${cycle.doneCount} / ${cycle.totalRooms}</div>
+            <div style="font-size:9px; color:#666;">${Math.round(cycle.doneCount/cycle.totalRooms*100)}% de quartos cobertos</div>
+          </div>
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Data Início / Fim</div>
+            <div style="font-size:14px; font-weight:800; color:#1a3d3b; margin-top:4px;">${cycle.fechaInicio}</div>
+            <div style="font-size:12px; color:#444;">até ${cycle.fechaFin}</div>
+          </div>
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Estado Operacional</div>
+            <div style="font-size:16px; font-weight:800; color:${cycle.isCompleted?'#28704b':'#8a5f0f'}; margin-top:4px;">
+              ${cycle.isCompleted ? '✓ Ciclo Completo' : '🟡 Ciclo em Andamento'}
+            </div>
+            <div style="font-size:9px; color:#666;">${missingRooms.length ? `${missingRooms.length} quartos restantes` : 'Todos os quartos amostrados'}</div>
+          </div>
+        </div>
+
+        ${missingRooms.length ? `
+          <div style="background:#fff4e5; border-left:4px solid #e0a12b; padding:8px 12px; font-size:11px; color:#8a5f0f; margin-bottom:14px;">
+            <b>Quartos pendentes neste ciclo (${missingRooms.length}):</b> ${missingRooms.join(', ')}
+          </div>
+        ` : ''}
+
+        <h3 style="font-size:13px; font-weight:bold; margin:14px 0 8px; border-bottom:1.5px solid #222; padding-bottom:4px;">
+          Medições Efetuadas no Ciclo #${cycle.index} (${measuredList.length} quartos)
+        </h3>
+
+        <table class="off-table" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:16px;">
+          <thead>
+            <tr style="background:#f4f6f6; border-bottom:1.5px solid #222;">
+              <th style="padding:6px; text-align:left;">Quarto</th>
+              <th style="padding:6px; text-align:left;">Data</th>
+              <th style="padding:6px; text-align:left;">Hora</th>
+              <th style="padding:6px; text-align:left;">Técnico</th>
+              <th style="padding:6px; text-align:right;">pH Quente</th>
+              <th style="padding:6px; text-align:right;">Cl. Livre Qu. (ppm)</th>
+              <th style="padding:6px; text-align:right;">Cl. Total Qu. (ppm)</th>
+              <th style="padding:6px; text-align:right;">pH Fria</th>
+              <th style="padding:6px; text-align:right;">Cl. Livre Fr. (ppm)</th>
+              <th style="padding:6px; text-align:right;">Cl. Total Fr. (ppm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${measuredList.map(r => {
+              const d = r.data;
+              return `
+                <tr style="border-bottom:1px solid #eee;">
+                  <td style="padding:5px 6px; font-weight:bold;">${esc(d.numero)}</td>
+                  <td style="padding:5px 6px;">${esc(d.fecha)}</td>
+                  <td style="padding:5px 6px;">${esc(d.hora)}</td>
+                  <td style="padding:5px 6px;">${esc(d.usuario || '—')}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.phCaliente)}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.cloroCaliente)}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.cloroTotalCaliente)}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.phFria)}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.cloroFria)}</td>
+                  <td style="padding:5px 6px; text-align:right;">${nz(d.cloroTotalFria)}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div style="font-size:10px; color:#777; margin-top:20px; border-top:1px solid #ddd; padding-top:8px;">
+          Documento gerado automaticamente pelo Sistema de Gestão Técnica Moon & Sun em conformidade com o plano de prevenção e controlo sanitário.
+        </div>
+      </div>
+    `;
+
+    printDiv.innerHTML = html;
+    window.print();
   }
 
   $('btnEditRooms').addEventListener('click', async ()=>{
@@ -1764,7 +2269,7 @@
     if(input === null) return;
     const parsed = input.split(',').map(s=>s.trim()).filter(Boolean);
     if(parsed.length === 0){ showToast('A lista não pode estar vazia'); return; }
-    try{ await saveRoomsList(parsed); showToast('Lista de quartos atualizada ✓'); renderRoomGrid(); }
+    try{ await saveRoomsList(parsed); showToast('Lista de quartos atualizada ✓'); updateCycleSelectorOptions(); renderRoomGrid(); }
     catch(e){ showToast('⚠️ Não foi possível guardar a lista: ' + e.message, true); }
   });
 
@@ -1773,6 +2278,49 @@
     if(!ok) return;
     try{ await recomputeCycleFromHistory(); }
     catch(e){ showToast('⚠️ Não foi possível recalcular: ' + e.message, true); }
+  });
+
+  $('qCycleSelect') && $('qCycleSelect').addEventListener('change', (e)=>{
+    selectedCycleIndex = e.target.value;
+    renderRoomGrid();
+  });
+
+  $('btnViewCycleHistory') && $('btnViewCycleHistory').addEventListener('click', ()=>{
+    openCycleHistoryDialog();
+  });
+
+  $('btnReportCycle') && $('btnReportCycle').addEventListener('click', ()=>{
+    generateCycleReport(selectedCycleIndex);
+  });
+
+  // Delegar cliques nos botões do modal de histórico de ciclos
+  document.addEventListener('click', (e)=>{
+    const btnView = e.target.closest('button[data-viewcycle]');
+    if(btnView){
+      const cIndex = btnView.dataset.viewcycle;
+      selectedCycleIndex = cIndex;
+      const sel = $('qCycleSelect');
+      if(sel) sel.value = String(cIndex);
+      const modal = $('modalOverlay');
+      if(modal) modal.classList.remove('show');
+      $('modalMsg').innerHTML = '';
+      const box = $('modalBox');
+      if(box) box.classList.remove('modal-wide');
+      renderRoomGrid();
+      showToast(`A visualizar o Ciclo #${cIndex}`);
+      return;
+    }
+    const btnRep = e.target.closest('button[data-reportcycle]');
+    if(btnRep){
+      const cIndex = btnRep.dataset.reportcycle;
+      const modal = $('modalOverlay');
+      if(modal) modal.classList.remove('show');
+      $('modalMsg').innerHTML = '';
+      const box = $('modalBox');
+      if(box) box.classList.remove('modal-wide');
+      generateCycleReport(cIndex);
+      return;
+    }
   });
 
   $('q-numero').addEventListener('input', ()=>{
@@ -2216,7 +2764,7 @@
     document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
     views.forEach(v=> $('view-'+v).classList.remove('active'));
     $('view-'+viewName).classList.add('active');
-    if(viewName === 'quarto') renderRoomGrid();
+    if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
     if(viewName === 'temperatura') renderTempView();
   }
 
@@ -3912,15 +4460,28 @@
     return [fmt(first), fmt(last)];
   }
 
+  let execActiveMetric = 'costo';
+  let cachedExecMonths = null;
+
   async function buildMonthlyHistory(monthsBack){
-    const genAllRaw = await listRecords('general');
+    const [genAllRaw, tarifas] = await Promise.all([ listRecords('general'), getTarifas() ]);
     const genWithDeltas = await buildGenWithDeltas(genAllRaw);
     const months = [];
     for(let i=monthsBack-1; i>=0; i--){
       const [desde, hasta] = monthRangeOffset(-i);
       const stats = statsForRange(genWithDeltas, desde, hasta);
       const comp = complianceStatsRange(genAllRaw, desde, hasta);
-      months.push({ label: desde.slice(0,7), agua: stats.aguaDeltaCount ? stats.aguaTotal : null, elec: stats.elecDeltaCount ? stats.elecTotal : null, compliance: comp.pct });
+      const costAgua = (stats.aguaDeltaCount && tarifas.agua) ? stats.aguaTotal * tarifas.agua : null;
+      const costElec = (stats.elecDeltaCount && tarifas.elec) ? stats.elecTotal * tarifas.elec : null;
+      const totalCost = (costAgua !== null || costElec !== null) ? ((costAgua||0) + (costElec||0)) : null;
+      months.push({
+        label: desde.slice(0,7),
+        desde, hasta,
+        agua: stats.aguaDeltaCount ? stats.aguaTotal : null,
+        elec: stats.elecDeltaCount ? stats.elecTotal : null,
+        compliance: comp.pct,
+        costAgua, costElec, totalCost
+      });
     }
     return months;
   }
@@ -3937,66 +4498,504 @@
     const output = $('ejecutivoOutput');
     const button = $('btnRefreshEjecutivo');
     setLoading(button, true);
-    output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
+    output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
+    <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
     try{
-      const [generalRaw, tempRaw] = await Promise.all([ listRecords('general'), listRecords('temperatura') ]);
+      const [generalRaw, tempRaw, quartosRaw, tarifasEjec] = await Promise.all([
+        listRecords('general'),
+        listRecords('temperatura'),
+        listRecords('quarto'),
+        getTarifas()
+      ]);
       const [desde, hasta] = rangoMesActual();
       const genWithDeltas = await buildGenWithDeltas(generalRaw);
+      const inMonth = r => r.data.fecha >= desde && r.data.fecha <= hasta;
+      const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
       const monthStats = statsForRange(genWithDeltas, desde, hasta);
       const comp = complianceStatsRange(generalRaw, desde, hasta);
 
+      const [pDesde, pHasta] = monthRangeOffset(-1);
+      const prevMonthStats = statsForRange(genWithDeltas, pDesde, pHasta);
+
+      // Refrigeração
       const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
-      const tempBad = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+      const tempBad7 = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+      const tempMonth = tempRaw.filter(inMonth);
+      const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
 
-      const done = effectiveCycleDone().length, pending = Math.max(0, roomsList.length - done);
+      // Ciclo de quartos
+      const done = effectiveCycleDone().length;
+      const totalRooms = roomsList.length || 40;
+      const pending = Math.max(0, totalRooms - done);
+      const roomsPct = Math.min(100, Math.round((done / totalRooms) * 100));
 
+      // 1. Pilares do Score Global de Saúde Técnica (0-100%)
+      // Pilar A: Segurança Sanitária (AQS & Piscina) - Peso 35%
+      let aqsTotal = 0, aqsOk = 0, poolTotal = 0, poolOk = 0;
+      let minAqsRetorno = null, minAqsQuartos = null;
+      genMonth.forEach(r => {
+        const ret = parseFloat(r.data.retornoAqs);
+        const aqsQ = parseFloat(r.data.aqsQuartos);
+        const ph = parseFloat(r.data.phPiscina);
+        const cl = parseFloat(r.data.cloroLibre);
+        if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
+        if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
+        if(!isNaN(ph)){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
+        if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
+      });
+      const pilarSanitario = (aqsTotal + poolTotal) > 0 ? Math.round(((aqsOk + poolOk) / (aqsTotal + poolTotal)) * 100) : 100;
+
+      // Pilar B: Cadeia de Frio & HACCP - Peso 25%
+      const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 100;
+
+      // Pilar C: Eficiência & Cadência Operacional - Peso 20%
+      const pilarEficiencia = Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85));
+
+      // Pilar D: Manutenção Preventiva Quartos - Peso 20%
+      const pilarQuartos = roomsPct;
+
+      // Score Ponderado Global
+      const healthScore = Math.min(100, Math.max(0, Math.round(
+        (pilarSanitario * 0.35) +
+        (pilarFrio * 0.25) +
+        (pilarEficiencia * 0.20) +
+        (pilarQuartos * 0.20)
+      )));
+
+      let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
+      let scoreDesc = 'Todos os sistemas técnicos críticos operam com elevada fiabilidade, sem riscos de segurança ou conformidade identificados.';
+      if(healthScore < 65){
+        scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
+        scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
+      } else if(healthScore < 80){
+        scoreStatusClass = 'status-warn'; scoreBadgeText = 'Atenção'; scoreHeadline = 'Acompanhamento Recomendado';
+        scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS ou quartos.';
+      } else if(healthScore < 90){
+        scoreStatusClass = 'status-good'; scoreBadgeText = 'Conforme'; scoreHeadline = 'Operação Estável e Conforme';
+        scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança alimentar.';
+      }
+
+      // 2. Cockpit Financeiro & Projeção
+      const aguaVal = monthStats.aguaDeltaCount ? monthStats.aguaTotal : 0;
+      const elecVal = monthStats.elecDeltaCount ? monthStats.elecTotal : 0;
+      const costAgua = aguaVal * (tarifasEjec.agua || 0);
+      const costElec = elecVal * (tarifasEjec.elec || 0);
+      const costTotal = costAgua + costElec;
+
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysElapsed = Math.min(now.getDate(), daysInMonth);
+      const projectedCost = daysElapsed > 0 ? (costTotal / daysElapsed) * daysInMonth : costTotal;
+      const dailyCost = daysElapsed > 0 ? costTotal / daysElapsed : 0;
+
+      const prevAgua = prevMonthStats.aguaDeltaCount ? prevMonthStats.aguaTotal : 0;
+      const prevElec = prevMonthStats.elecDeltaCount ? prevMonthStats.elecTotal : 0;
+      const prevTotalCost = (prevAgua * (tarifasEjec.agua || 0)) + (prevElec * (tarifasEjec.elec || 0));
+      let varCostPct = null;
+      if(prevTotalCost > 0){
+        varCostPct = ((projectedCost - prevTotalCost) / prevTotalCost) * 100;
+      }
+
+      const totalSplit = (costAgua + costElec) || 1;
+      const pctAguaSplit = Math.round((costAgua / totalSplit) * 100);
+      const pctElecSplit = 100 - pctAguaSplit;
+
+      // 3. Matriz de Decisões & Ações Prioritárias
+      const actionItems = [];
+
+      // AQS / Legionella Check
+      if(minAqsRetorno !== null && minAqsRetorno < DASH_THRESHOLDS.aqsMin){
+        actionItems.push({
+          type: 'crit', tag: 'AQS · Risco Legionella',
+          title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < 50.0°C)`,
+          desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
+          rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
+        });
+      }
+      if(minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsMin){
+        actionItems.push({
+          type: 'warn', tag: 'AQS · Conforto & Higiene',
+          title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C`,
+          desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo dos 50°C.',
+          rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
+        });
+      }
+
+      // Refrigeração Check
+      if(tempBad7.length > 0){
+        const equipNomes = [...new Set(tempBad7.map(r=>r.data.nome))].slice(0,3).join(', ');
+        actionItems.push({
+          type: 'crit', tag: 'HACCP · Cadeia de Frio',
+          title: `${tempBad7.length} leitura(s) fora do intervalo seguro nos últimos 7 dias`,
+          desc: `Equipamentos com desvio: ${esc(equipNomes)}. Risco de conservação e segurança alimentar.`,
+          rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
+        });
+      }
+
+      // Piscina Check
+      if(poolTotal > 0 && poolOk < poolTotal){
+        actionItems.push({
+          type: 'warn', tag: 'Qualidade da Água · Piscina',
+          title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
+          desc: 'Foram registados valores fora do intervalo regulamentar (pH 7.0–7.8 ou Cloro 0.5–3.0 ppm).',
+          rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
+        });
+      }
+
+      // Quartos Ciclo Check
+      if(pending > 0){
+        actionItems.push({
+          type: pending > 15 ? 'warn' : 'info', tag: 'Manutenção de Quartos',
+          title: `Ciclo de quartos a ${roomsPct}% (${done}/${totalRooms} concluídos)`,
+          desc: `Faltam ${pending} quartos para completar a amostragem trimestral de cloro e pH.`,
+          rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} turnos adicionais.`
+        });
+      }
+
+      // Cadência de Registos
+      if(comp.pct < 90){
+        actionItems.push({
+          type: 'warn', tag: 'Cadência Operacional',
+          title: `Taxa de cumprimento do registo diário em ${comp.pct}% (${comp.covered}/${comp.total} dias)`,
+          desc: 'Existem dias sem preenchimento do registo técnico obrigatório.',
+          rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
+        });
+      }
+
+      // Se tudo estiver OK
+      if(actionItems.length === 0){
+        actionItems.push({
+          type: 'ok', tag: 'Operação 100% Conforme',
+          title: 'Todas as instalações e sistemas em parâmetros nominais',
+          desc: 'AQS, Refrigeração, Piscinas e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
+          rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
+        });
+      }
+
+      // Sparklines para os KPIs
       const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
       const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
-      const tarifasEjec = await getTarifas();
 
+      // Scorecard HTML
+      const scorecardHTML = `
+        <div class="exec-score-card">
+          <div class="exec-score-header">
+            <h3 class="exec-score-title">Índice Global de Saúde Técnica & Conformidade</h3>
+            <span class="exec-score-badge ${scoreStatusClass}">${scoreBadgeText}</span>
+          </div>
+          <div class="exec-score-hero">
+            <div class="exec-score-circle ${scoreStatusClass}">
+              <span class="exec-score-number">${healthScore}%</span>
+              <span class="exec-score-unit">SCORE</span>
+            </div>
+            <div class="exec-score-text">
+              <div class="exec-score-headline">${scoreHeadline}</div>
+              <div class="exec-score-desc">${scoreDesc}</div>
+            </div>
+          </div>
+          <div class="exec-pillars-grid">
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>💧 Segurança AQS & Piscina</span>
+                <span class="exec-pillar-val" style="color:${pilarSanitario>=90?'var(--ok-500)':(pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}">${pilarSanitario}%</span>
+              </div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarSanitario}%; background:${pilarSanitario>=90?'var(--ok-500)':(pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">Legionella & Cloro/pH (${aqsOk+poolOk}/${aqsTotal+poolTotal||1} conformes)</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🧊 Cadeia de Frio (7 dias)</span>
+                <span class="exec-pillar-val" style="color:${pilarFrio>=95?'var(--ok-500)':(pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}">${pilarFrio}%</span>
+              </div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarFrio}%; background:${pilarFrio>=95?'var(--ok-500)':(pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">${tempBad7.length===0?'Zero desvios':tempBad7.length+' alerta(s) detetado(s)'}</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>⚡ Eficiência & Registos</span>
+                <span class="exec-pillar-val" style="color:${pilarEficiencia>=90?'var(--ok-500)':(pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}">${pilarEficiencia}%</span>
+              </div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarEficiencia}%; background:${pilarEficiencia>=90?'var(--ok-500)':(pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">${comp.covered}/${comp.total} dias registados no mês</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🛏️ Ciclo de Quartos</span>
+                <span class="exec-pillar-val" style="color:${roomsPct>=90?'var(--ok-500)':(roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}">${roomsPct}%</span>
+              </div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${roomsPct}%; background:${roomsPct>=90?'var(--ok-500)':(roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}"></div></div>
+              <div class="exec-pillar-note">${done}/${totalRooms} quartos inspecionados</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Cockpit Financeiro HTML
+      const finCockpitHTML = `
+        <div class="exec-fin-card">
+          <div class="exec-score-header">
+            <h3 class="exec-score-title">Cockpit de Custos Energéticos & Projeção Mensal</h3>
+            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${daysElapsed} de ${daysInMonth} dias decorridos</span>
+          </div>
+          <div class="exec-fin-grid">
+            <div class="exec-fin-box">
+              <div class="exec-fin-lab">Custo Acumulado no Mês</div>
+              <div class="exec-fin-val">${(costAgua||costElec)? (costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+              <div class="exec-fin-sub">Média de ${dailyCost>0 ? dailyCost.toFixed(2)+' €/dia' : '—'}</div>
+            </div>
+            <div class="exec-fin-box accent">
+              <div class="exec-fin-lab">Projeção Fecho do Mês</div>
+              <div class="exec-fin-val">${projectedCost>0 ? projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+              <div class="exec-fin-sub">
+                ${varCostPct !== null ? `${varCostPct>0?'+':''}${varCostPct.toFixed(1)}% vs mês anterior (${prevTotalCost.toFixed(0)} €)` : 'Sem histórico anterior suficiente'}
+              </div>
+            </div>
+          </div>
+
+          <div class="exec-split-bar-wrap">
+            <div class="exec-split-labels">
+              <span style="color:var(--aqua-500)">💧 Água: ${(costAgua||0).toFixed(2)} € (${pctAguaSplit}%)</span>
+              <span style="color:var(--petrol-700)">⚡ Luz: ${(costElec||0).toFixed(2)} € (${pctElecSplit}%)</span>
+            </div>
+            <div class="exec-split-track">
+              <div class="exec-split-seg-a" style="width:${pctAguaSplit}%"></div>
+              <div class="exec-split-seg-b" style="width:${pctElecSplit}%"></div>
+            </div>
+            <div class="exec-split-legend">
+              <span>${aguaVal>0 ? fmtNum(aguaVal)+' m³ consumidos' : '0.00 m³'} (tarifa: ${tarifasEjec.agua?tarifasEjec.agua.toFixed(2)+'€/m³':'—'})</span>
+              <span>${elecVal>0 ? fmtNum(elecVal)+' kWh consumidos' : '0.0 kWh'} (tarifa: ${tarifasEjec.elec?tarifasEjec.elec.toFixed(3)+'€/kWh':'—'})</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Matriz de Ações HTML
+      const matrixHTML = `
+        <div class="exec-matrix-card">
+          <h3 class="exec-matrix-title">
+            <span>🎯 Matriz de Decisão & Ações Prioritárias</span>
+          </h3>
+          ${actionItems.map(item => `
+            <div class="exec-action-item ${item.type}">
+              <div class="exec-action-head">
+                <span>${esc(item.title)}</span>
+                <span class="exec-action-tag">${esc(item.tag)}</span>
+              </div>
+              <div class="exec-action-body">${esc(item.desc)}</div>
+              <div class="exec-action-rec">${esc(item.rec)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      // KPIs operacionais
       const kpis = `<div class="kpi-grid">
         ${kpiCard('Cumprimento do mês', comp.pct+'%', comp.covered+'/'+comp.total+' dias com leitura', comp.pct>=90?'ok':(comp.pct>=70?'na':'bad'))}
-        ${kpiCard('Refrigeração — 7 dias', tempBad.length===0?'✓ OK':tempBad.length+' alerta(s)', tempBad.length===0?'todas dentro do intervalo':'ver aba Refrigeração', tempBad.length===0?'ok':'bad')}
+        ${kpiCard('Refrigeração — 7 dias', tempBad7.length===0?'✓ OK':tempBad7.length+' alerta(s)', tempBad7.length===0?'todas dentro do intervalo':'ver aba Refrigeração', tempBad7.length===0?'ok':'bad')}
         ${kpiCard('Consumo água (mês)', (monthStats.aguaDeltaCount? fmtNum(monthStats.aguaTotal)+' m³':'—') + (monthStats.aguaDeltaCount?costTag(monthStats.aguaTotal, tarifasEjec.agua):''), monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', aguaSpark, CHART_COLORS.a)}
         ${kpiCard('Consumo eletricidade (mês)', (monthStats.elecDeltaCount? fmtNum(monthStats.elecTotal)+' kWh':'—') + (monthStats.elecDeltaCount?costTag(monthStats.elecTotal, tarifasEjec.elec):''), monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', elecSpark, CHART_COLORS.b)}
-        ${kpiCard('Ciclo de quartos', done+'/'+roomsList.length, pending+' pendente(s)', pending===0?'ok':'na')}
       </div>`;
 
-      $('ejecutivoPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado ${nowTimeStr()}`;
+      $('ejecutivoPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado às ${nowTimeStr()}`;
 
-      const months = await buildMonthlyHistory(6);
-      const aguaMonthly = chartHTML({
-        title:'Consumo de água — 6 meses', type:'bar', unit:'m³', dec:2,
-        series:[{ label:'Água', className:'series-a', points: months.filter(m=>m.agua!==null).map(m=>({date:m.label, value:m.agua})) }],
-        xLabelFn: monthLabelFn
-      });
-      const elecMonthly = chartHTML({
-        title:'Consumo de eletricidade — 6 meses', type:'bar', unit:'kWh', dec:1,
-        series:[{ label:'Eletricidade', className:'series-b', points: months.filter(m=>m.elec!==null).map(m=>({date:m.label, value:m.elec})) }],
-        xLabelFn: monthLabelFn
-      });
-      const compMonthly = chartHTML({
-        title:'Cumprimento (%) — 6 meses', unit:'%', dec:0,
-        series:[{ label:'Cumprimento', className:'series-c', points: months.map(m=>({date:m.label, value:m.compliance})) }],
-        refs:[{value:90, label:'meta 90%'}],
-        xLabelFn: monthLabelFn
-      });
+      // Histórico mensal (6 meses)
+      cachedExecMonths = await buildMonthlyHistory(6);
+
+      const chartSwitcherHTML = `
+        <div style="background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px;">
+            <h3 style="font-family:var(--sans); font-size:14px; font-weight:700; color:var(--petrol-900); margin:0">Evolução Histórica Multimensal (6 Meses)</h3>
+            <div class="seg-toggle" style="margin:0">
+              <button id="execMetricCosto" class="${execActiveMetric==='costo'?'active':''}">💶 Custos Totais (€)</button>
+              <button id="execMetricAgua" class="${execActiveMetric==='agua'?'active':''}">💧 Água (m³)</button>
+              <button id="execMetricElec" class="${execActiveMetric==='elec'?'active':''}">⚡ Luz (kWh)</button>
+              <button id="execMetricComp" class="${execActiveMetric==='comp'?'active':''}">📈 Cumprimento (%)</button>
+            </div>
+          </div>
+          <div id="execChartInteractiveBox"></div>
+        </div>
+      `;
 
       output.innerHTML = `
+        ${scorecardHTML}
+        ${finCockpitHTML}
+        ${matrixHTML}
+        <h3 class="report-heading" style="margin-top:24px">Indicadores Operacionais Chave</h3>
         ${kpis}
-        <h2 class="report-heading">Calendário de cumprimento</h2>
+        ${chartSwitcherHTML}
+        <h3 class="report-heading" style="margin-top:24px">Calendário de Cumprimento de Registos</h3>
         <div id="heatmapBox">${renderComplianceHeatmap(generalRaw, heatmapMonthOffset)}</div>
-        <h2 class="report-heading">Histórico de consumos (6 meses)</h2>
-        ${aguaMonthly}
-        ${elecMonthly}
-        <h2 class="report-heading">Histórico de cumprimento (6 meses)</h2>
-        ${compMonthly}
       `;
-      mountCharts(output);
+
+      renderExecInteractiveChart();
       wireHeatmapNav(generalRaw);
+      wireExecEvents(cachedExecMonths, { desde, hasta, healthScore, costTotal, projectedCost, comp, done, totalRooms, tarifasEjec });
+
     }catch(e){
-      output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo.<br>${esc(e.message)}</div>`;
+      output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
     }finally{ setLoading(button, false); }
+  }
+
+  function renderExecInteractiveChart(){
+    const box = $('execChartInteractiveBox');
+    if(!box || !cachedExecMonths) return;
+    let chartConfig;
+    if(execActiveMetric === 'costo'){
+      chartConfig = {
+        title:'Despesa Total Estimada (€/mês)', type:'bar', unit:'€', dec:2,
+        series:[{ label:'Despesa (€)', className:'series-b', points: cachedExecMonths.filter(m=>m.totalCost!==null).map(m=>({date:m.label, value:m.totalCost})) }],
+        xLabelFn: monthLabelFn
+      };
+    } else if(execActiveMetric === 'agua'){
+      chartConfig = {
+        title:'Consumo de Água (m³/mês)', type:'bar', unit:'m³', dec:2,
+        series:[{ label:'Água', className:'series-a', points: cachedExecMonths.filter(m=>m.agua!==null).map(m=>({date:m.label, value:m.agua})) }],
+        xLabelFn: monthLabelFn
+      };
+    } else if(execActiveMetric === 'elec'){
+      chartConfig = {
+        title:'Consumo de Eletricidade (kWh/mês)', type:'bar', unit:'kWh', dec:1,
+        series:[{ label:'Eletricidade', className:'series-b', points: cachedExecMonths.filter(m=>m.elec!==null).map(m=>({date:m.label, value:m.elec})) }],
+        xLabelFn: monthLabelFn
+      };
+    } else {
+      chartConfig = {
+        title:'Taxa de Cumprimento de Registos (%)', unit:'%', dec:0,
+        series:[{ label:'Cumprimento', className:'series-c', points: cachedExecMonths.map(m=>({date:m.label, value:m.compliance})) }],
+        refs:[{value:90, label:'meta 90%'}],
+        xLabelFn: monthLabelFn
+      };
+    }
+
+    box.innerHTML = chartHTML(chartConfig);
+    mountCharts(box);
+  }
+
+  function wireExecEvents(months, execMeta){
+    const btnCosto = $('execMetricCosto');
+    const btnAgua = $('execMetricAgua');
+    const btnElec = $('execMetricElec');
+    const btnComp = $('execMetricComp');
+
+    const updateBtns = (activeId) => {
+      [btnCosto, btnAgua, btnElec, btnComp].forEach(b => { if(b) b.classList.remove('active'); });
+      const active = $(activeId);
+      if(active) active.classList.add('active');
+    };
+
+    if(btnCosto) btnCosto.onclick = () => { execActiveMetric = 'costo'; updateBtns('execMetricCosto'); renderExecInteractiveChart(); };
+    if(btnAgua) btnAgua.onclick = () => { execActiveMetric = 'agua'; updateBtns('execMetricAgua'); renderExecInteractiveChart(); };
+    if(btnElec) btnElec.onclick = () => { execActiveMetric = 'elec'; updateBtns('execMetricElec'); renderExecInteractiveChart(); };
+    if(btnComp) btnComp.onclick = () => { execActiveMetric = 'comp'; updateBtns('execMetricComp'); renderExecInteractiveChart(); };
+
+    // Exportação CSV Executivo
+    const btnCsv = $('btnExportExecCsv');
+    if(btnCsv){
+      btnCsv.onclick = () => {
+        if(!months || !months.length){ showToast('Sem dados para exportar'); return; }
+        let csv = 'Mes,Agua_m3,TarifaAgua_Eur_m3,CustoAgua_Eur,Elec_kWh,TarifaElec_Eur_kWh,CustoElec_Eur,CustoTotal_Eur,Cumprimento_Pct\n';
+        months.forEach(m => {
+          csv += [
+            m.label,
+            m.agua !== null ? m.agua.toFixed(2) : '',
+            execMeta.tarifasEjec.agua || '',
+            m.costAgua !== null ? m.costAgua.toFixed(2) : '',
+            m.elec !== null ? m.elec.toFixed(1) : '',
+            execMeta.tarifasEjec.elec || '',
+            m.costElec !== null ? m.costElec.toFixed(2) : '',
+            m.totalCost !== null ? m.totalCost.toFixed(2) : '',
+            m.compliance
+          ].map(csvSafe).join(',') + '\n';
+        });
+        const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `resumo_executivo_${todayStr()}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Resumo executivo exportado em CSV ✓');
+      };
+    }
+
+    // Impressão / Relatório Executivo
+    const btnPrint = $('btnPrintExecReport');
+    if(btnPrint){
+      btnPrint.onclick = () => {
+        printExecutiveReport(months, execMeta);
+      };
+    }
+  }
+
+  function printExecutiveReport(months, meta){
+    const printDiv = $('officialReport');
+    if(!printDiv) return;
+
+    const html = `
+      <div class="off-page">
+        <div class="off-header">
+          <div class="off-title">Moon & Sun · Resumo Executivo de Manutenção & Sustentabilidade</div>
+          <div class="off-meta">Período: ${meta.desde} a ${meta.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser?currentUser.nombre:'Técnico')}</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;">
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Score de Saúde</div>
+            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.healthScore}%</div>
+            <div style="font-size:9px; color:#666;">Conformidade Técnica Global</div>
+          </div>
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Despesa Atual</div>
+            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.costTotal.toFixed(2)} €</div>
+            <div style="font-size:9px; color:#666;">Água + Luz acumulado</div>
+          </div>
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Projeção Mês</div>
+            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.projectedCost.toFixed(2)} €</div>
+            <div style="font-size:9px; color:#666;">Estimativa fecho do mês</div>
+          </div>
+          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
+            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Ciclo Quartos</div>
+            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.done}/${meta.totalRooms}</div>
+            <div style="font-size:9px; color:#666;">Quartos inspecionados</div>
+          </div>
+        </div>
+
+        <h3 style="font-size:13px; font-weight:bold; margin:14px 0 8px; border-bottom:1px solid #333; padding-bottom:4px;">Histórico dos Últimos 6 Meses</h3>
+        <table class="off-table" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:16px;">
+          <thead>
+            <tr style="background:#f4f6f6; border-bottom:1.5px solid #222;">
+              <th style="padding:6px; text-align:left;">Mês</th>
+              <th style="padding:6px; text-align:right;">Água (m³)</th>
+              <th style="padding:6px; text-align:right;">Custo Água (€)</th>
+              <th style="padding:6px; text-align:right;">Luz (kWh)</th>
+              <th style="padding:6px; text-align:right;">Custo Luz (€)</th>
+              <th style="padding:6px; text-align:right;">Custo Total (€)</th>
+              <th style="padding:6px; text-align:right;">Cumprimento (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${months.map(m => `
+              <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:5px 6px; font-weight:bold;">${monthLabelFn(m.label)}</td>
+                <td style="padding:5px 6px; text-align:right;">${m.agua !== null ? m.agua.toFixed(2) : '—'}</td>
+                <td style="padding:5px 6px; text-align:right;">${m.costAgua !== null ? m.costAgua.toFixed(2)+' €' : '—'}</td>
+                <td style="padding:5px 6px; text-align:right;">${m.elec !== null ? m.elec.toFixed(1) : '—'}</td>
+                <td style="padding:5px 6px; text-align:right;">${m.costElec !== null ? m.costElec.toFixed(2)+' €' : '—'}</td>
+                <td style="padding:5px 6px; text-align:right; font-weight:bold;">${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
+                <td style="padding:5px 6px; text-align:right;">${m.compliance}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div style="font-size:10px; color:#777; margin-top:20px; border-top:1px solid #ddd; padding-top:8px;">
+          Documento gerado automaticamente pelo Sistema de Gestão Técnica Moon & Sun. As leituras e custos baseiam-se nos registos efetuados na plataforma.
+        </div>
+      </div>
+    `;
+
+    printDiv.innerHTML = html;
+    window.print();
   }
 
   $('btnRefreshEjecutivo').addEventListener('click', ()=> renderEjecutivo());
@@ -4390,6 +5389,16 @@
         return;
       }
 
+      // Obter registos existentes da base de dados para verificar duplicações prévias
+      let existingRecords = [];
+      try{
+        existingRecords = await listRecords(importType);
+      }catch(e){}
+
+      const existingGeneralDates = new Set(existingRecords.filter(r=> r.data && r.data.fecha).map(r=> r.data.fecha));
+      const existingQuartoKeys = new Set(existingRecords.filter(r=> r.data && r.data.numero).map(r=> `${r.data.fecha}_${normRoom(r.data.numero)}`));
+      const existingTempKeys = new Set(existingRecords.filter(r=> r.data && r.data.nome && r.data.fecha).map(r=> `${r.data.fecha}_${(r.data.nome||'').toLowerCase().trim()}`));
+
       const dataRows = rows.slice(1);
       importParsedRows = dataRows.map(row=>{
         const obj = {};
@@ -4400,15 +5409,36 @@
           if(obj[f]) obj[f] = isYesVal(obj[f]) ? 'Sim' : (isNoVal(obj[f]) ? 'Não' : obj[f]);
         });
         const errores = [];
+        const avisos = [];
         if(!obj.fecha) errores.push('falta a data');
         else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.fecha)) errores.push('a data deve ser AAAA-MM-DD');
-        if(importType === 'quarto' && !obj.numero) errores.push('falta o número do quarto');
+        
+        if(importType === 'quarto'){
+          if(!obj.numero) errores.push('falta o número do quarto');
+          else if(obj.fecha){
+            const qKey = `${obj.fecha}_${normRoom(obj.numero)}`;
+            if(existingQuartoKeys.has(qKey)){
+              avisos.push(`Já existe leitura para o quarto ${obj.numero} no dia ${obj.fecha}`);
+            }
+          }
+        }
+        if(importType === 'general' && obj.fecha){
+          if(existingGeneralDates.has(obj.fecha)){
+            avisos.push(`Já existe registo geral para o dia ${obj.fecha}`);
+          }
+        }
         if(importType === 'temperatura'){
           if(!obj.nome) errores.push('falta o nome do equipamento');
           if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
+          else if(obj.fecha && obj.nome){
+            const tKey = `${obj.fecha}_${(obj.nome||'').toLowerCase().trim()}`;
+            if(existingTempKeys.has(tKey)){
+              avisos.push(`Já existe medição para ${obj.nome} em ${obj.fecha}`);
+            }
+          }
         }
         if(!obj.hora) obj.hora = '00:00';
-        return { obj, errores };
+        return { obj, errores, avisos };
       });
 
       renderImportPreview();
@@ -4421,17 +5451,33 @@
     const el = $('importPreview');
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
+    const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.avisos && r.avisos.length>0);
     const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS);
 
+    let dupBanner = '';
+    if(withDuplicates.length > 0){
+      dupBanner = `
+        <div style="background:var(--amber-100); border-left:4px solid var(--amber-500); padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:12.5px; color:#8a5f0f; line-height:1.4;">
+          ⚠️ <b>Aviso de Duplicação:</b> Foram detetadas <b>${withDuplicates.length} linha(s)</b> cujos registos já existem na base de dados (ex.: leitura para esse quarto ou dia). Poderá prosseguir com a importação ou retificar o ficheiro.
+        </div>
+      `;
+    }
+
     let html = `<div class="card" style="margin-top:16px;">
-      <p style="font-size:13px; font-weight:700; margin:0 0 10px;">${valid.length} de ${importParsedRows.length} linhas prontas para importar${invalid.length ? ` · ${invalid.length} com problemas` : ''}</p>
+      ${dupBanner}
+      <p style="font-size:13px; font-weight:700; margin:0 0 10px;">${valid.length} de ${importParsedRows.length} linhas prontas para importar${invalid.length ? ` · ${invalid.length} com problemas` : ''}${withDuplicates.length ? ` · ${withDuplicates.length} com avisos de já existente` : ''}</p>
       <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas na importação com a indicação da linha.</p>
       <div class="table-scroll"><table class="report"><thead><tr>
-        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th>Estado</th>
+        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th>Estado / Validação</th>
       </tr></thead><tbody>`;
     importParsedRows.forEach((r,i)=>{
       const bad = r.errores.length>0;
-      html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${bad? '⚠️ '+esc(r.errores.join(', ')) : '✓'}</td></tr>`;
+      const hasWarn = !bad && r.avisos && r.avisos.length>0;
+      let statusHtml = '✓';
+      if(bad) statusHtml = '⚠️ ' + esc(r.errores.join(', '));
+      else if(hasWarn) statusHtml = '<span style="color:#8a5f0f; font-weight:bold;">⚠️ ' + esc(r.avisos.join(', ')) + '</span>';
+
+      html += `<tr${bad?' style="color:var(--coral-500)"':(hasWarn?' style="background:var(--amber-100)"':'')}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${statusHtml}</td></tr>`;
     });
     html += `</tbody></table></div>
       <button class="primary" id="btnConfirmImport" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Importar ${valid.length} registo${valid.length===1?'':'s'}</span></button>
@@ -4440,7 +5486,11 @@
 
     $('btnConfirmImport').addEventListener('click', async ()=>{
       if(valid.length === 0){ showToast('Não há linhas válidas para importar'); return; }
-      const ok = await confirmDialog('Confirmar importação', `Vai adicionar ${valid.length} registo(s) novo(s) à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`, 'Importar');
+      let confirmMsg = `Vai adicionar ${valid.length} registo(s) novo(s) à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`;
+      if(withDuplicates.length > 0){
+        confirmMsg = `Atenção: ${withDuplicates.length} dos registos a importar já possuem leitura registada para essa mesma data/quarto.\n\nDeseja mesmo importar estes registos adicionais?`;
+      }
+      const ok = await confirmDialog('Confirmar importação', confirmMsg, 'Importar');
       if(!ok) return;
       await runImport(valid.map(r=> r.obj));
     });
