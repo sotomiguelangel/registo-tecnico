@@ -1,0 +1,6 @@
+{
+  "name": "Registo Técnico · Moon and Sun",
+  "description": "Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
