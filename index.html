@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="/node_modules/d3/dist/d3.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -5062,7 +5062,11 @@
     const container = $('d3ScatterContainer');
     const tip = $('d3ScatterTip');
     const statStrip = $('d3StatStrip');
-    if(!container || typeof d3 === 'undefined') return;
+        if(!container) return;
+    if(typeof d3 === 'undefined'){
+      container.innerHTML = `<div class="empty" style="padding:24px 10px">⚠️ Não foi possível carregar a biblioteca D3.js (verifique a ligação à internet).</div>`;
+      return;
+    }
 
     const points = getD3ScatterData(d3CachedGeneral, d3CachedQuartos);
     const stats = calcD3ScatterStats(points);
@@ -7229,3 +7233,4 @@
 </script>
 </body>
 </html>
+
