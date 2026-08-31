@@ -1363,6 +1363,33 @@
 (function(){
   const $ = (id) => document.getElementById(id);
   const pad = n => String(n).padStart(2,'0');
+  const esc = s => String(s === undefined || s === null ? '' : s)
+    .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  const isYesVal = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='sim'||s==='sí'; };
+  const isNoVal  = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='não'||s==='no'; };
+  const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
+
+  function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+  function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+  async function safeFetch(url, opts){
+    const fn = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch : (typeof fetch === 'function' ? fetch : null);
+    if(!fn) throw new Error('API fetch não disponível neste navegador.');
+    return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
+  }
+
+  // ---------- Toast ----------
+  let toastTimer;
+  function showToast(msg, isErr){
+    const t = $('toast');
+    if(!t) return;
+    t.textContent = msg;
+    t.classList.toggle('err', !!isErr);
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> t.classList.remove('show'), 3500);
+  }
 
   // =======================================================================
   // CONFIGURAÇÃO — cole aqui o URL do seu Apps Script. Deve terminar em /exec
@@ -1480,7 +1507,7 @@
 
   async function checkAppVersion(manual){
     try{
-      const res = await fetch('/api/version?t=' + Date.now(), {
+      const res = await safeFetch('/api/version?t=' + Date.now(), {
         cache: 'no-store',
         headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' }
       });
@@ -1658,9 +1685,6 @@
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
   if(!CONFIG_OK){ $('setupScreen').classList.add('show'); }
 
-  function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-  function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-
   // ---------- Capa de dados ----------
   const TOKEN_KEY = 'bitacora_token';
   const USER_KEY = 'bitacora_user';
@@ -1672,13 +1696,6 @@
   function setToken(t){ try{ if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }catch(e){} }
   function rememberUser(u){ try{ if(u) localStorage.setItem(USER_KEY, JSON.stringify(u)); else localStorage.removeItem(USER_KEY); }catch(e){} }
   function recallUser(){ try{ const s = localStorage.getItem(USER_KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
-
-  const esc = s => String(s === undefined || s === null ? '' : s)
-    .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  const isYesVal = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='sim'||s==='sí'; };
-  const isNoVal  = v => { const s = String(v===undefined||v===null?'':v).trim().toLowerCase(); return s==='não'||s==='no'; };
-  const dispYesNo = v => isYesVal(v) ? 'Sim' : (isNoVal(v) ? 'Não' : '—');
 
   function isViewer(){ return currentUser && currentUser.rol === 'visualizador'; }
   function isAdmin(){ return currentUser && currentUser.rol === 'admin'; }
@@ -1711,7 +1728,7 @@
       const url = new URL(API_URL);
       Object.keys(params).forEach(k=> url.searchParams.set(k, params[k]));
       const tk = getToken(); if(tk) url.searchParams.set('token', tk);
-      const res = await fetch(url.toString());
+      const res = await safeFetch(url.toString());
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -1731,7 +1748,7 @@
     return withRetry(async ()=>{
       const payload = Object.assign({}, body);
       const tk = getToken(); if(tk) payload.token = tk;
-      const res = await fetch(API_URL, {
+      const res = await safeFetch(API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
