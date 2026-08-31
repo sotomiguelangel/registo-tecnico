@@ -988,9 +988,13 @@
           <label class="field"><span class="lbl">Data</span><input type="date" id="t-fecha"></label>
           <label class="field"><span class="lbl">Hora</span><input type="time" id="t-hora"></label>
         </div>
-        <div class="row2">
+        <div class="row2" id="tempSingleRow">
           <label class="field"><span class="lbl">Temperatura <span class="unit">(°C)</span></span><input type="number" step="0.1" min="-60" max="60" id="t-temperatura" placeholder="Ex.: 4.0 ou -18.0"></label>
           <div></div>
+        </div>
+        <div class="row2" id="tempRangeRow" style="display:none">
+          <label class="field"><span class="lbl">Temp. Mínima <span class="unit">(°C)</span></span><input type="number" step="0.1" min="-10" max="40" id="t-temp-min" placeholder="Ex.: 8.0"></label>
+          <label class="field"><span class="lbl">Temp. Máxima <span class="unit">(°C)</span></span><input type="number" step="0.1" min="-10" max="40" id="t-temp-max" placeholder="Ex.: 14.0"></label>
         </div>
         <label class="field" style="margin-top:14px; margin-bottom:0"><span class="lbl">Observações <span class="unit">(opcional)</span></span>
           <input type="text" id="t-observacoes" maxlength="200" placeholder="Ex.: porta mal fechada, gelo acumulado...">
@@ -1000,8 +1004,8 @@
       <button class="primary ice" id="btnSaveTemp"><span class="spinner"></span><span class="lbl-text">Guardar temperatura</span></button>
       <button class="ghost-cancel" id="btnCancelEditTemp" style="display:none">Cancelar edição</button>
       <p style="font-size:10.5px; color:var(--ink-400); margin-top:10px; line-height:1.5; font-family:var(--mono)">
-        Frigorífico/Vinhera → temperatura POSITIVA · Congelador → temperatura NEGATIVA.
-        O sistema valida o sinal e o intervalo do equipamento ao guardar.
+        Frigorífico → temp. POSITIVA · Congelador → temp. NEGATIVA · Vinheira / Vinera → intervalo MÍNIMO e MÁXIMO medidos.
+        O sistema valida o sinal e o intervalo de referência do equipamento ao guardar.
         Modificar ou eliminar leituras é registado na Auditoria.
       </p>
     </section>
@@ -2631,6 +2635,55 @@
   let selectedEquipId = '';
   let selectedTempWeekOffset = 0;
 
+  function isVinera(eq){
+    if(!eq) return false;
+    const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+    return str.includes('vin') || str.includes('garrafeir') || str.includes('adega') || str.includes('cave') || eq.isRange === true || eq.tipoRango === true;
+  }
+
+  function parseTempReading(tempStr, eq){
+    if(tempStr === null || tempStr === undefined) return { isRange:false, val:null, min:null, max:null, formatted:'—', formattedRaw:'—', isBad:false };
+    const s = String(tempStr).trim();
+    if(!s) return { isRange:false, val:null, min:null, max:null, formatted:'—', formattedRaw:'—', isBad:false };
+
+    const eqMin = eq && !isNaN(parseFloat(eq.min)) ? parseFloat(eq.min) : null;
+    const eqMax = eq && !isNaN(parseFloat(eq.max)) ? parseFloat(eq.max) : null;
+
+    // Reconhece formatos de intervalo: "8 a 14", "8.0 - 14.0", "8 - 14", "8/14", "8..14"
+    const rangeMatch = s.match(/^(-?\d+(?:[\.,]\d+)?)\s*(?:[-–—/a]|até|\.\.)\s*(-?\d+(?:[\.,]\d+)?)$/i);
+    if(rangeMatch){
+      const v1 = parseFloat(rangeMatch[1].replace(',', '.'));
+      const v2 = parseFloat(rangeMatch[2].replace(',', '.'));
+      const tMin = Math.min(v1, v2);
+      const tMax = Math.max(v1, v2);
+      const isBad = (eqMin !== null && tMin < eqMin) || (eqMax !== null && tMax > eqMax);
+      return {
+        isRange: true,
+        min: tMin,
+        max: tMax,
+        val: (tMin + tMax) / 2,
+        formatted: `${tMin} a ${tMax} °C`,
+        formattedRaw: `${tMin} a ${tMax}`,
+        isBad
+      };
+    }
+
+    const val = parseFloat(s.replace(',', '.'));
+    if(isNaN(val)){
+      return { isRange:false, val:null, min:null, max:null, formatted:s, formattedRaw:s, isBad:false };
+    }
+    const isBad = (eqMin !== null && val < eqMin) || (eqMax !== null && val > eqMax);
+    return {
+      isRange: false,
+      val,
+      min: val,
+      max: val,
+      formatted: `${val} °C`,
+      formattedRaw: `${val}`,
+      isBad
+    };
+  }
+
   function resetTempEditState(){
     editingTempId = null;
     $('editBannerTemp').classList.remove('show');
@@ -2640,6 +2693,8 @@
   $('btnCancelEditTemp').addEventListener('click', ()=>{
     resetTempEditState();
     $('t-temperatura').value = '';
+    if($('t-temp-min')) $('t-temp-min').value = '';
+    if($('t-temp-max')) $('t-temp-max').value = '';
     $('t-observacoes').value = '';
     $('t-fecha').value = todayStr(); $('t-hora').value = nowTimeStr();
     deselectEquip();
@@ -2653,19 +2708,37 @@
     selectedEquipId = id;
     const eq = selectedEquip();
     const banner = $('tempSelected');
+    const singleRow = $('tempSingleRow');
+    const rangeRow = $('tempRangeRow');
+
     if(eq){
       banner.classList.add('show');
-      $('tempSelName').textContent = `${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
-      $('tempSelRange').textContent = `— intervalo ${eq.min} a ${eq.max} °C`;
-      const neg = String(eq.tipo).toLowerCase().includes('congelador');
-      $('tempSignHint').innerHTML = neg
-        ? `Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`
-        : `${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`;
-      $('t-temperatura').min = neg ? -60 : 0;
-      $('t-temperatura').max = neg ? -0.1 : 60;
-      $('t-temperatura').placeholder = neg ? 'Ex.: -18.0' : 'Ex.: 4.0';
+      const vin = isVinera(eq);
+      const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+      $('tempSelName').textContent = `${icon} ${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
+      $('tempSelRange').textContent = `— intervalo de referência: ${eq.min} a ${eq.max} °C`;
+
+      if(vin){
+        if(singleRow) singleRow.style.display = 'none';
+        if(rangeRow) rangeRow.style.display = '';
+        $('tempSignHint').innerHTML = `🍷 <b>${esc(eq.nome)}</b> (Vinheira / Vinera): registe o intervalo medido (<b>Temp. Mínima</b> e <b>Temp. Máxima</b>). O intervalo de referência admissível é <b>${esc(eq.min)} a ${esc(eq.max)} °C</b>.`;
+        if($('t-temp-min')) { $('t-temp-min').min = -10; $('t-temp-min').max = 40; $('t-temp-min').placeholder = `Ex.: ${eq.min || '8.0'}`; }
+        if($('t-temp-max')) { $('t-temp-max').min = -10; $('t-temp-max').max = 40; $('t-temp-max').placeholder = `Ex.: ${eq.max || '14.0'}`; }
+      } else {
+        if(singleRow) singleRow.style.display = '';
+        if(rangeRow) rangeRow.style.display = 'none';
+        const neg = String(eq.tipo).toLowerCase().includes('congelador');
+        $('tempSignHint').innerHTML = neg
+          ? `❄️ Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`
+          : `🧊 ${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`;
+        $('t-temperatura').min = neg ? -60 : 0;
+        $('t-temperatura').max = neg ? -0.1 : 60;
+        $('t-temperatura').placeholder = neg ? 'Ex.: -18.0' : 'Ex.: 4.0';
+      }
     } else {
       banner.classList.remove('show');
+      if(singleRow) singleRow.style.display = '';
+      if(rangeRow) rangeRow.style.display = 'none';
       $('tempSignHint').textContent = 'Selecione um equipamento para ver o intervalo esperado.';
       $('t-temperatura').min = -60; $('t-temperatura').max = 60;
     }
@@ -2737,7 +2810,11 @@
     }
     const current = selectedEquipId || sel.value;
     sel.innerHTML = '<option value="">Selecione o equipamento…</option>' +
-      ativos.map(e=> `<option value="${esc(e.id)}">${esc(e.nome)} — ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C]</option>`).join('');
+      ativos.map(e=> {
+        const vin = isVinera(e);
+        const icon = vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+        return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)} — ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
+      }).join('');
     if(current) sel.value = current;
     selectEquip(sel.value);
   }
@@ -2768,39 +2845,44 @@
         const hasReading = eqReadings.length > 0;
         let lastReading = null;
         let isBad = false;
+        let readingFormatted = '';
 
         if(hasReading){
           medidosCount++;
           lastReading = eqReadings.sort((a,b)=> (b.data.fecha+b.data.hora).localeCompare(a.data.fecha+a.data.hora))[0];
-          const tempVal = parseFloat(lastReading.data.temperatura);
-          const minVal = parseFloat(eq.min), maxVal = parseFloat(eq.max);
-          if((!isNaN(minVal) && !isNaN(tempVal) && tempVal < minVal) || (!isNaN(maxVal) && !isNaN(tempVal) && tempVal > maxVal) || String(lastReading.data.dentroIntervalo) === 'Não'){
+          const parsed = parseTempReading(lastReading.data.temperatura, eq);
+          readingFormatted = parsed.formatted;
+          if(parsed.isBad || String(lastReading.data.dentroIntervalo) === 'Não'){
             isBad = true;
             alertasCount++;
           }
         }
+
+        const vin = isVinera(eq);
+        const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
 
         return `
           <div class="week-card" style="display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:var(--paper); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
               <div style="min-width:0; flex:1;">
                 <div class="wn" style="font-weight:700; font-size:13.5px; color:var(--petrol-900); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                  <span>${esc(eq.nome)}</span>
+                  <span>${icon} ${esc(eq.nome)}</span>
                   <span style="font-weight:600; color:var(--ice-500); font-size:11px; background:var(--ice-100); padding:1px 6px; border-radius:4px;">${esc(eq.tipo)}</span>
+                  ${vin ? '<span style="font-weight:600; color:#8a5f0f; font-size:10.5px; background:var(--amber-100); padding:1px 6px; border-radius:4px;">Rango Mín-Máx</span>' : ''}
                 </div>
                 <div class="wm" style="font-size:11px; color:var(--ink-600); margin-top:2px; font-family:var(--mono);">
-                  ${esc(eq.ubicacao || 'Sem localização')} · Intervalo: <b>${esc(String(eq.min))} a ${esc(String(eq.max))} °C</b>
+                  ${esc(eq.ubicacao || 'Sem localização')} · Intervalo de referência: <b>${esc(String(eq.min))} a ${esc(String(eq.max))} °C</b>
                 </div>
               </div>
               <span class="week-pill ${hasReading ? (isBad ? 'bad' : 'ok') : 'pend'}" style="white-space:nowrap;">
-                ${hasReading ? (isBad ? `⚠️ ${esc(lastReading.data.temperatura)} °C` : `✓ ${esc(lastReading.data.temperatura)} °C`) : 'Pendente'}
+                ${hasReading ? (isBad ? `⚠️ ${esc(readingFormatted)}` : `✓ ${esc(readingFormatted)}`) : 'Pendente'}
               </span>
             </div>
 
             ${hasReading ? `
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; background:#fff; padding:7px 10px; border-radius:8px; border:1px solid var(--line); font-size:11.5px; margin-top:2px;">
                 <div style="font-family:var(--mono); color:var(--ink-600); line-height:1.4;">
-                  📅 <b>${esc(lastReading.data.fecha)}</b> ${esc(lastReading.data.hora)} · 👤 ${esc(lastReading.data.usuario || '—')}
+                  📅 <b>${esc(lastReading.data.fecha)}</b> ${esc(lastReading.data.hora)} · 👤 ${esc(lastReading.data.usuario || '—')} · <b>${esc(readingFormatted)}</b>
                   ${isBad ? ' · <span style="color:var(--coral-500); font-weight:700;">⚠️ Fora do intervalo!</span>' : ''}
                   ${lastReading.data.observacoes ? `<br><span style="color:#8a5f0f;">📝 ${esc(lastReading.data.observacoes)}</span>` : ''}
                   ${(lastReading.data.modificadoPor || lastReading.data.editado === 'Sim') ? `<br><span style="color:var(--ink-400); font-size:10px;">✏️ Editado por ${esc(lastReading.data.modificadoPor || '—')}</span>` : ''}
@@ -2854,8 +2936,14 @@
           $('t-equipamento').value = eqId;
           selectEquip(eqId);
           $('t-fecha').value = wr.desde;
-          $('t-temperatura').focus();
-          $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const eq = selectedEquip();
+          if(isVinera(eq) && $('t-temp-min')){
+            $('t-temp-min').focus();
+            $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            $('t-temperatura').focus();
+            $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
         });
       });
 
@@ -2879,17 +2967,36 @@
       renderEquipSelect();
       $('t-equipamento').value = readingData.equipamentoId || '';
       selectEquip(readingData.equipamentoId || '');
+      const eq = selectedEquip();
+      if(isVinera(eq)){
+        const parsed = parseTempReading(readingData.temperatura, eq);
+        if(parsed.isRange){
+          if($('t-temp-min')) $('t-temp-min').value = parsed.min !== null ? parsed.min : '';
+          if($('t-temp-max')) $('t-temp-max').value = parsed.max !== null ? parsed.max : '';
+        } else if(readingData.temperaturaMin !== undefined && readingData.temperaturaMax !== undefined){
+          if($('t-temp-min')) $('t-temp-min').value = readingData.temperaturaMin;
+          if($('t-temp-max')) $('t-temp-max').value = readingData.temperaturaMax;
+        } else if(parsed.val !== null){
+          if($('t-temp-min')) $('t-temp-min').value = parsed.val;
+          if($('t-temp-max')) $('t-temp-max').value = parsed.val;
+        }
+        if($('t-temp-min')){
+          $('t-temp-min').focus();
+          $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else {
+        $('t-temperatura').value = readingData.temperatura || '';
+        $('t-temperatura').focus();
+        $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     });
     $('t-fecha').value = readingData.fecha || todayStr();
     $('t-hora').value = readingData.hora || nowTimeStr();
-    $('t-temperatura').value = readingData.temperatura || '';
     $('t-observacoes').value = readingData.observacoes || '';
     $('editBannerTemp').classList.add('show');
     $('btnCancelEditTemp').style.display = '';
     $('btnSaveTemp').querySelector('.lbl-text').textContent = 'Atualizar leitura de temperatura';
     switchToTab('temperatura');
-    $('t-temperatura').focus();
-    $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
     showToast(`A editar leitura de ${readingData.nome || 'equipamento'} — modifique e guarde ✓`);
   }
 
@@ -2911,10 +3018,8 @@
         inWeek.forEach(r => {
           if(r.data.equipamentoId) equipIdsMedidos.add(String(r.data.equipamentoId));
           const eq = equipamentos.find(e => String(e.id) === String(r.data.equipamentoId));
-          const t = parseFloat(r.data.temperatura);
-          if(eq && !isNaN(t)){
-            if(t < eq.min || t > eq.max || String(r.data.dentroIntervalo) === 'Não') desvios++;
-          }
+          const parsed = parseTempReading(r.data.temperatura, eq);
+          if(parsed.isBad || String(r.data.dentroIntervalo) === 'Não') desvios++;
         });
 
         const medidos = equipIdsMedidos.size;
@@ -3066,11 +3171,11 @@
     const vals = await formDialog(
       'Adicionar Novo Equipamento de Refrigeração',
       [
-        { id:'nome', label:'Nome do Equipamento', placeholder:'Ex.: Frigorífico Cozinha 1', value:'' },
-        { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira)', placeholder:'Frigorífico', value:'' },
-        { id:'ubicacao', label:'Localização / Ubicação', placeholder:'Ex.: Cozinha — bancada fria', value:'' },
-        { id:'min', label:'Temperatura Mínima (°C)', placeholder:'Ex.: 0 ou -22', value:'' },
-        { id:'max', label:'Temperatura Máxima (°C)', placeholder:'Ex.: 5 ou -18', value:'' }
+        { id:'nome', label:'Nome do Equipamento', placeholder:'Ex.: Vinheira Bar Principal / Frigorífico Cozinha', value:'' },
+        { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira / Garrafeira)', placeholder:'Vinheira', value:'' },
+        { id:'ubicacao', label:'Localização / Ubicação', placeholder:'Ex.: Restaurante / Bar / Cozinha', value:'' },
+        { id:'min', label:'Temperatura Mínima Admissível (°C)', placeholder:'Ex.: 6 (Vinheira), 0 (Frigo), -22 (Congelador)', value:'' },
+        { id:'max', label:'Temperatura Máxima Admissível (°C)', placeholder:'Ex.: 16 (Vinheira), 5 (Frigo), -18 (Congelador)', value:'' }
       ],
       'Criar Equipamento'
     );
@@ -3094,10 +3199,10 @@
     if(!eq) return;
     const vals = await formDialog('Modificar Características do Equipamento', [
       { id:'nome', label:'Nome do Equipamento', value: eq.nome },
-      { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira)', value: eq.tipo },
+      { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira / Garrafeira)', value: eq.tipo },
       { id:'ubicacao', label:'Localização / Ubicação', value: eq.ubicacao || '' },
-      { id:'min', label:'Temperatura Mínima (°C)', value: eq.min },
-      { id:'max', label:'Temperatura Máxima (°C)', value: eq.max }
+      { id:'min', label:'Temperatura Mínima Admissível (°C)', value: eq.min },
+      { id:'max', label:'Temperatura Máxima Admissível (°C)', value: eq.max }
     ], 'Guardar Características');
     if(!vals) return;
     if(!vals.nome || !vals.tipo){
@@ -3140,15 +3245,54 @@
     const btn = $('btnSaveTemp');
     const eq = selectedEquip();
     if(!eq){ showToast('Selecione o equipamento', true); return; }
+
+    const vin = isVinera(eq);
+    let tempStr = '';
+    let minVal = null, maxVal = null;
+
+    if(vin){
+      const minRaw = $('t-temp-min') ? $('t-temp-min').value.trim() : '';
+      const maxRaw = $('t-temp-max') ? $('t-temp-max').value.trim() : '';
+      if(!minRaw || !maxRaw){
+        showToast('Para as vinheiras/vineras, indique a temperatura Mínima e Máxima registadas', true);
+        return;
+      }
+      minVal = parseFloat(minRaw.replace(',', '.'));
+      maxVal = parseFloat(maxRaw.replace(',', '.'));
+      if(isNaN(minVal) || isNaN(maxVal)){
+        showToast('Indique valores numéricos válidos para a temperatura mínima e máxima', true);
+        return;
+      }
+      if(minVal > maxVal){
+        const tmp = minVal; minVal = maxVal; maxVal = tmp;
+      }
+      tempStr = `${minVal} a ${maxVal}`;
+    } else {
+      const raw = $('t-temperatura').value.trim();
+      if(!raw){ showToast('Indique a temperatura', true); return; }
+      const v = parseFloat(raw.replace(',', '.'));
+      if(isNaN(v)){ showToast('Temperatura inválida', true); return; }
+      tempStr = String(v);
+    }
+
+    const parsed = parseTempReading(tempStr, eq);
+
     const data = {
       equipamentoId: eq.id,
       nome: eq.nome,
+      tipo: eq.tipo,
+      ubicacao: eq.ubicacao || '',
       fecha: $('t-fecha').value || todayStr(),
       hora: $('t-hora').value || nowTimeStr(),
-      temperatura: $('t-temperatura').value.trim(),
+      temperatura: tempStr,
+      dentroIntervalo: parsed.isBad ? 'Não' : 'Sim',
       observacoes: $('t-observacoes').value.trim(),
     };
-    if(!data.temperatura){ showToast('Indique a temperatura', true); return; }
+    if(vin){
+      data.temperaturaMin = minVal;
+      data.temperaturaMax = maxVal;
+      data.tipoRegisto = 'rango';
+    }
 
     setLoading(btn, true);
     try{
@@ -3158,13 +3302,15 @@
         resetTempEditState();
       } else {
         const r = await saveRecord('temperatura', data);
-        if(r && r.dentroIntervalo === 'Não'){
-          showToast('⚠️ Guardada, mas FORA do intervalo do equipamento — verifique o equipamento', true);
+        if(parsed.isBad || (r && r.dentroIntervalo === 'Não')){
+          showToast(`⚠️ Guardada (${tempStr} °C), mas FORA do intervalo de referência (${eq.min} a ${eq.max} °C)`, true);
         } else {
-          showToast('Temperatura guardada na folha ✓');
+          showToast(`Temperatura ${vin ? 'da vinheira' : ''} guardada na folha ✓`);
         }
       }
       $('t-temperatura').value = '';
+      if($('t-temp-min')) $('t-temp-min').value = '';
+      if($('t-temp-max')) $('t-temp-max').value = '';
       $('t-observacoes').value = '';
       $('t-hora').value = nowTimeStr();
       deselectEquip();
