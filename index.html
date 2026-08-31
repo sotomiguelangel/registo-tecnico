@@ -182,6 +182,11 @@
   }
   .entry-actions button.del{ color:var(--coral-500); border-color:var(--coral-100); background:var(--coral-100); }
   .entry-actions button.edit{ color:var(--petrol-700); border-color:var(--aqua-100); background:var(--aqua-100); }
+  .entry-audit-badge{
+    grid-column: 1 / -1; display:inline-flex; align-items:center; gap:5px;
+    font-family:var(--mono); font-size:10.5px; color:var(--ink-400);
+    background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:3px 7px; margin-top:4px;
+  }
 
   .empty{ text-align:center; padding:40px 20px; color:var(--ink-400); font-size:13.5px; }
   .empty .glyph{ font-size:30px; display:block; margin-bottom:10px; }
@@ -488,9 +493,12 @@
   .btn-print{ background:var(--aqua-100); color:var(--petrol-800); }
 
   /* Relatório oficial */
-  .official-toolbar{ display:flex; gap:10px; margin:16px 0 4px; }
-  .official-toolbar button{ flex:1; padding:13px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13.5px; }
+  .official-toolbar{ display:flex; flex-wrap:wrap; gap:10px; margin:16px 0 6px; }
+  .official-toolbar button{ flex:1 1 calc(50% - 5px); min-width:140px; padding:13px 12px; border-radius:12px; border:none; cursor:pointer; font-weight:700; font-size:13px; display:inline-flex; align-items:center; justify-content:center; gap:6px; transition:.15s ease; }
   .btn-official{ background:var(--ok-500); color:#fff; }
+  .btn-official:hover{ background:#338c60; }
+  .btn-official-exec{ background:var(--petrol-900); color:#fff; }
+  .btn-official-exec:hover{ background:var(--petrol-800); }
   #officialReport{ display:none; }
   body.previewing-official #officialReport{ display:block; padding:70px 12px 30px; background:#e8ecec; min-height:100vh; }
   body.previewing-official #app{ display:none; }
@@ -578,8 +586,17 @@
   }
   .logout-main:active{ background:var(--coral-100); }
   .app-footer-version{
-    text-align:center; font-family:var(--mono); font-size:10px;
-    color:var(--ink-400); margin:14px 0 0; opacity:.75;
+    text-align:center; font-family:var(--mono); font-size:11px;
+    color:var(--ink-600); margin:18px 0 0; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .app-version-badge{
+    display:inline-flex; align-items:center; gap:6px;
+    background:#ffffff; border:1px solid var(--line); border-radius:20px;
+    padding:4px 12px; box-shadow:0 1px 4px rgba(10,37,48,.04);
+    font-weight:600; color:var(--petrol-800); letter-spacing:.02em;
+  }
+  .app-version-badge .v-dot{
+    width:6px; height:6px; border-radius:50%; background:var(--ok-500); display:inline-block;
   }
 
   .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(10,37,48,.55); z-index:100; align-items:flex-end; justify-content:center; }
@@ -736,6 +753,7 @@
     <div class="user-badge" id="userBadge" style="display:none">
       <div class="who">Sessão iniciada como <b id="userBadgeName">—</b><br><span class="role" id="userBadgeRole">—</span></div>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+        <button id="btnLockScreen">🔒 Bloquear ecrã</button>
         <button id="btnChangeMyPin">Alterar o meu PIN</button>
         <button id="btnLogout">Mudar de utilizador</button>
       </div>
@@ -1012,9 +1030,10 @@
       </div>
       <button class="primary" id="btnGenerarReporte"><span class="spinner"></span><span class="lbl-text">Gerar relatório</span></button>
       <div class="official-toolbar">
-        <button class="btn-official" id="btnOfficialReport">🏛️ Relatório oficial (PDF)</button>
+        <button class="btn-official" id="btnOfficialReport">🏛️ Relatório Oficial (PDF)</button>
+        <button class="btn-official-exec" id="btnExecReportFromReports"><span class="spinner"></span><span class="lbl-text">📊 Relatório Executivo (PDF)</span></button>
       </div>
-      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documento de cumprimento para inspeção: inclui piscina, AQS e refrigeração, com fora-de-intervalo destacado e espaço para assinaturas.</p>
+      <p style="font-size:10.5px; color:var(--ink-400); margin:0 0 8px; font-family:var(--mono)">Documentos para impressão e auditoria: <b>Oficial</b> (cumprimento legal DGS/HACCP) e <b>Executivo</b> (score global de saúde técnica, cockpit financeiro e histórico de 6 meses).</p>
 
       <div id="reporteOutput"></div>
     </section>
@@ -1097,7 +1116,9 @@
 
     <!-- Sessão e versão — sempre visíveis no final do conteúdo -->
     <button class="logout-main" id="btnLogoutMain">🚪 Terminar sessão</button>
-    <p class="app-footer-version">Registo Técnico · v<span class="appVersionInline">—</span></p>
+    <div class="app-footer-version">
+      <span class="app-version-badge"><span class="v-dot"></span>Registo Técnico · v<span class="appVersionInline">—</span></span>
+    </div>
 
   </main>
 
@@ -1116,7 +1137,7 @@
   <div class="fullscreen-overlay" id="setupScreen">
     <div class="overlay-card">
       <h2>⚙️ Falta ligar o Google Sheets</h2>
-      <p style="font-family:var(--mono); font-size:10.5px; color:var(--ink-400); margin:-6px 0 14px;">Versão: <span id="appVersionLabelSetup">—</span></p>
+      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin:-6px 0 14px;"><span class="app-version-badge"><span class="v-dot"></span>Versão v<span id="appVersionLabelSetup">—</span></span></p>
       <p>Esta app guarda as suas leituras diretamente numa folha do Google Sheets. A ligação ainda não foi configurada.</p>
       <ol>
         <li>Crie uma folha vazia no Google Sheets.</li>
@@ -1131,7 +1152,7 @@
   <div class="fullscreen-overlay" id="loginScreen">
     <div class="overlay-card">
       <h2>🔧 Registo Técnico</h2>
-      <p style="font-family:var(--mono); font-size:10.5px; color:var(--ink-400); margin:-6px 0 14px;">Versão: <span id="appVersionLabel">—</span></p>
+      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin:-6px 0 14px;"><span class="app-version-badge"><span class="v-dot"></span>Versão v<span id="appVersionLabel">—</span></span></p>
       <p>Inicie sessão para registar as suas leituras.</p>
       <div class="login-seed-note" id="loginSeedNote" style="display:none">
         Primeira utilização: foi criado automaticamente o utilizador administrador <b>admin</b> com o PIN <b>1234</b>. Inicie sessão e altere-o o quanto antes na secção Utilizadores.
@@ -1142,6 +1163,26 @@
       <label class="field"><span class="lbl">PIN</span><input type="password" inputmode="numeric" id="login-pin" placeholder="••••"></label>
       <p class="login-hint" id="loginHint"></p>
       <button class="primary" id="btnLogin"><span class="spinner"></span><span class="lbl-text">Entrar</span></button>
+    </div>
+  </div>
+
+  <div class="fullscreen-overlay" id="lockScreen">
+    <div class="overlay-card" style="max-width:380px; text-align:center;">
+      <div style="font-size:36px; margin-bottom:6px;">🔒</div>
+      <h2 style="margin-bottom:4px;">Sessão Bloqueada</h2>
+      <p style="font-size:12.5px; color:var(--ink-400); margin:0 0 16px;">
+        Por segurança e proteção de dados, o ecrã foi bloqueado.
+      </p>
+      <div style="background:var(--paper); padding:10px 14px; border-radius:12px; border:1px solid var(--line); margin-bottom:14px; font-size:13px; font-weight:700; color:var(--petrol-900);">
+        👤 <span id="lockUserName">—</span>
+      </div>
+      <label class="field" style="text-align:left; margin-bottom:12px;">
+        <span class="lbl">Insira o seu PIN para desbloquear</span>
+        <input type="password" inputmode="numeric" id="lock-pin" placeholder="••••" style="text-align:center; font-size:18px; letter-spacing:4px;">
+      </label>
+      <p class="login-hint" id="lockHint" style="margin-bottom:12px;"></p>
+      <button class="primary" id="btnUnlock"><span class="spinner"></span><span class="lbl-text">Desbloquear</span></button>
+      <button type="button" class="link-edit" id="btnLockLogout" style="margin-top:14px; display:inline-block;">Sair e mudar de utilizador</button>
     </div>
   </div>
 </div>
@@ -1259,13 +1300,21 @@
     });
   }
 
-  // ---------- Cache local de registos ----------
+  // ---------- Cache local de registos e auditoria ----------
   const CACHE_TTL_MS = 60000;
+  const CACHE_STALE_MS = 25000;
   const dataStore = { general:{items:null,ts:0}, quarto:{items:null,ts:0}, temperatura:{items:null,ts:0} };
+
+  const memoCache = { cycles:null, cyclesKey:'', deltas:null, deltasKey:'' };
+  function invalidateMemo(){
+    memoCache.cycles = null; memoCache.cyclesKey = '';
+    memoCache.deltas = null; memoCache.deltasKey = '';
+  }
 
   function invalidateRecords(type){
     const s = dataStore[type];
     if(s){ s.items = null; s.ts = 0; }
+    invalidateMemo();
   }
   function persistStore(){
     try{ localStorage.setItem('bitacora_store', JSON.stringify({ general:dataStore.general, quarto:dataStore.quarto, temperatura:dataStore.temperatura })); }catch(e){}
@@ -1285,8 +1334,23 @@
   async function listRecords(type, opts){
     const forceFresh = opts && opts.fresh;
     const entry = dataStore[type];
-    const usable = entry.items && (Date.now() - entry.ts) < CACHE_TTL_MS;
-    if(!forceFresh && usable) return entry.items.slice();
+    const age = Date.now() - entry.ts;
+    const usable = entry.items && age < CACHE_TTL_MS;
+
+    if(!forceFresh && usable){
+      // Stale-while-revalidate em segundo plano se tiver mais de 25s
+      if(age > CACHE_STALE_MS && !entry.revalidating){
+        entry.revalidating = true;
+        apiGet({ action:'list', type }).then(r=>{
+          entry.items = r.records.map(d=> ({ key: d.id, data: d }));
+          entry.ts = Date.now();
+          entry.revalidating = false;
+          persistStore();
+        }).catch(()=>{ entry.revalidating = false; });
+      }
+      return entry.items.slice();
+    }
+
     try{
       const r = await apiGet({ action:'list', type });
       entry.items = r.records.map(d=> ({ key: d.id, data: d }));
@@ -1304,17 +1368,63 @@
 
   async function saveRecord(type, data){
     data.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
+    data.criadoPor = userWho;
+    data.criadoEm = todayStr() + ' ' + nowTimeStr();
+
     const r = await apiPost({ action:'save', type, data });
-    invalidateRecords(type);
+
+    // Atualização otimista imediata na cache
+    const entry = dataStore[type];
+    if(entry && entry.items){
+      entry.items.push({ key: data.id, data: Object.assign({}, data) });
+      entry.ts = Date.now();
+      persistStore();
+    } else {
+      invalidateRecords(type);
+    }
+    invalidateMemo();
     return r;
   }
+
   async function updateRecordApi(type, id, data){
+    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
+    data.modificadoPor = userWho;
+    data.modificadoEn = todayStr() + ' ' + nowTimeStr();
+    data.editado = 'Sim';
+
     await apiPost({ action:'update', type, id, data });
-    invalidateRecords(type);
+
+    // Atualização otimista imediata na cache
+    const entry = dataStore[type];
+    if(entry && entry.items){
+      const idx = entry.items.findIndex(it=> it.key === id || (it.data && it.data.id === id));
+      if(idx !== -1){
+        entry.items[idx] = { key: id, data: Object.assign({}, entry.items[idx].data, data, { id }) };
+        entry.ts = Date.now();
+        persistStore();
+      } else {
+        invalidateRecords(type);
+      }
+    } else {
+      invalidateRecords(type);
+    }
+    invalidateMemo();
   }
+
   async function deleteRecordApi(type, id){
     await apiPost({ action:'delete', type, id });
-    invalidateRecords(type);
+
+    // Remoção otimista imediata na cache
+    const entry = dataStore[type];
+    if(entry && entry.items){
+      entry.items = entry.items.filter(it=> it.key !== id && (!it.data || it.data.id !== id));
+      entry.ts = Date.now();
+      persistStore();
+    } else {
+      invalidateRecords(type);
+    }
+    invalidateMemo();
   }
 
   // ---------- Cache local de configurações + equipamentos ----------
@@ -1514,6 +1624,9 @@
 
   function doLogout(){
     closeOfficialPreview();
+    isAppLocked = false;
+    clearTimeout(idleTimer);
+    $('lockScreen').classList.remove('show');
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
@@ -1524,6 +1637,76 @@
   }
   $('btnLogout').addEventListener('click', doLogout);
   $('btnLogoutMain').addEventListener('click', doLogout);
+
+  // ---------- Bloqueio automático por inatividade & Bloqueio manual ----------
+  const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutos de inatividade
+  let idleTimer = null;
+  let isAppLocked = false;
+
+  function resetIdleTimer(){
+    if(!currentUser || isAppLocked) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(()=> {
+      lockApp();
+    }, IDLE_TIMEOUT_MS);
+  }
+
+  ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'].forEach(evt=>{
+    window.addEventListener(evt, resetIdleTimer, { passive: true });
+  });
+
+  function lockApp(){
+    if(!currentUser || isAppLocked) return;
+    isAppLocked = true;
+    clearTimeout(idleTimer);
+    const lockSc = $('lockScreen');
+    const uName = currentUser.nome || currentUser.nombre || currentUser.usuario || 'Utilizador';
+    $('lockUserName').textContent = uName;
+    $('lock-pin').value = '';
+    $('lockHint').textContent = '';
+    lockSc.classList.add('show');
+    setTimeout(()=> {
+      const pinInput = $('lock-pin');
+      if(pinInput) pinInput.focus();
+    }, 100);
+  }
+
+  async function unlockApp(){
+    const pin = $('lock-pin').value.trim();
+    if(!pin){
+      $('lockHint').textContent = 'Insira o seu PIN.';
+      return;
+    }
+    const btn = $('btnUnlock');
+    setLoading(btn, true);
+    $('lockHint').textContent = '';
+    try{
+      const r = await apiPost({ action:'login', usuario: currentUser.usuario, pin });
+      setToken(r.token);
+      currentUser = r.user;
+      rememberUser(r.user);
+      isAppLocked = false;
+      $('lockScreen').classList.remove('show');
+      $('lock-pin').value = '';
+      resetIdleTimer();
+      showToast('Sessão desbloqueada ✓');
+    }catch(e){
+      $('lockHint').textContent = e.message || 'PIN incorreto.';
+    }finally{
+      setLoading(btn, false);
+    }
+  }
+
+  $('btnUnlock').addEventListener('click', unlockApp);
+  $('lock-pin').addEventListener('keydown', e=>{
+    if(e.key === 'Enter') unlockApp();
+  });
+  $('btnLockScreen').addEventListener('click', lockApp);
+  $('btnLockLogout').addEventListener('click', ()=>{
+    isAppLocked = false;
+    $('lockScreen').classList.remove('show');
+    doLogout();
+  });
 
   $('btnChangeMyPin').addEventListener('click', async ()=>{
     const vals = await formDialog('Alterar o meu PIN', [
@@ -1560,6 +1743,7 @@
     $('viewerBannerTemp').style.display = viewer ? 'flex' : 'none';
     loadAlertsAdmin();
     loadTarifasAdmin();
+    resetIdleTimer();
     initMainApp();
   }
 
@@ -1787,11 +1971,15 @@
 
   function normRoom(n){ return String(n === undefined || n === null ? '' : n).trim(); }
 
-  // Agrupa todas as leituras de quartos em ciclos sequenciais
+  // Agrupa todas as leituras de quartos em ciclos sequenciais (com memoização)
   function groupQuartoRecordsIntoCycles(rawRecords, rList){
     const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
-    const setList = new Set(listNorm);
     const targetSize = listNorm.length || 40;
+
+    const cacheKey = (rawRecords ? rawRecords.length : 0) + '_' + (rawRecords && rawRecords.length ? (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'') : '') + '_' + targetSize;
+    if(memoCache.cycles && memoCache.cyclesKey === cacheKey){
+      return memoCache.cycles;
+    }
 
     // Ordenar cronologicamente ascendente
     const sorted = rawRecords.slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
@@ -1828,7 +2016,10 @@
     const activeCycleIndex = cycles.length + 1;
     const activeSummary = buildCycleSummary(activeCycleIndex, currentRecords, currentRoomsMap, targetSize, true);
 
-    return { completedCycles: cycles, currentCycle: activeSummary, allCycles: [...cycles, activeSummary] };
+    const result = { completedCycles: cycles, currentCycle: activeSummary, allCycles: [...cycles, activeSummary] };
+    memoCache.cycles = result;
+    memoCache.cyclesKey = cacheKey;
+    return result;
   }
 
   function buildCycleSummary(index, records, roomsMap, targetSize, isActive){
@@ -2603,6 +2794,8 @@
         delBtn = isAdminU ? `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
       }
       const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
+      const auditHtml = (d.modificadoPor || d.editado === 'Sim') ? `<div class="entry-audit-badge">✏️ Modificado por <b>${esc(d.modificadoPor||'—')}</b> (${esc(d.modificadoEn||'')})</div>` : '';
+
       if(it.type==='general'){
         return `<div class="entry">
           <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-general">Geral</span></div>
@@ -2621,6 +2814,7 @@
             ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
             ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
             ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
+            ${auditHtml}
           </div>
           ${actions}
         </div>`;
@@ -2633,6 +2827,7 @@
             ${entryItem('Temperatura', d.temperatura, '°C', bad)}
             ${entryItem('Dentro do intervalo', dispYesNo(d.dentroIntervalo), '', bad)}
             ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
+            ${auditHtml}
           </div>
           ${actions}
         </div>`;
@@ -2647,6 +2842,7 @@
             ${entryItem('pH fria', d.phFria, '', phWarn(d.phFria))}
             ${entryItem('Cloro livre fria', d.cloroFria, 'ppm', cloroWarn(d.cloroFria))}
             ${entryItem('Cloro total fria', d.cloroTotalFria, 'ppm')}
+            ${auditHtml}
           </div>
           ${actions}
         </div>`;
@@ -2885,11 +3081,21 @@
 
   async function buildGenWithDeltas(genAllRaw, baselines){
     const bl = baselines || await loadBaselines();
+    const cacheKey = (genAllRaw ? genAllRaw.length : 0) + '_' + (genAllRaw && genAllRaw.length ? (genAllRaw[0]?.data?.fecha||'') + (genAllRaw[genAllRaw.length-1]?.data?.fecha||'') : '') + '_' + (bl.aguaBaseline ? bl.aguaBaseline.valor : '') + '_' + (bl.elecBaseline ? bl.elecBaseline.valor : '');
+
+    if(memoCache.deltas && memoCache.deltasKey === cacheKey){
+      return memoCache.deltas;
+    }
+
     const synthetic = [];
     if(bl.aguaBaseline){ synthetic.push({ key:'baseline-agua', isBaseline:true, data:{ fecha: bl.aguaBaseline.fecha, hora:'00:00', agua: bl.aguaBaseline.valor } }); }
     if(bl.elecBaseline){ synthetic.push({ key:'baseline-elec', isBaseline:true, data:{ fecha: bl.elecBaseline.fecha, hora:'00:00', electricidad: bl.elecBaseline.valor } }); }
     const asc = [...synthetic, ...genAllRaw].sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-    return computeDeltas(asc);
+    const result = computeDeltas(asc);
+
+    memoCache.deltas = result;
+    memoCache.deltasKey = cacheKey;
+    return result;
   }
 
   function diffDays(fechaA, fechaB){
@@ -3034,6 +3240,7 @@
   });
 
   $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
+  if($('btnExecReportFromReports')) $('btnExecReportFromReports').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
 
   // ---------- Relatório específico: Quartos ----------
   async function renderReporteQuartos(desde, hasta){
@@ -4493,6 +4700,200 @@
     return d.toLocaleDateString('pt-PT', { month:'short' }).replace('.','') + '/' + String(y).slice(2);
   }
 
+  // ---------- Cálculo de dados do Resumo Executivo ----------
+  async function calculateExecutiveSummaryData(){
+    const [generalRaw, tempRaw, quartosRaw, tarifasEjec] = await Promise.all([
+      listRecords('general'),
+      listRecords('temperatura'),
+      listRecords('quarto'),
+      getTarifas()
+    ]);
+    const [desde, hasta] = rangoMesActual();
+    const genWithDeltas = await buildGenWithDeltas(generalRaw);
+    const inMonth = r => r.data.fecha >= desde && r.data.fecha <= hasta;
+    const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
+    const monthStats = statsForRange(genWithDeltas, desde, hasta);
+    const comp = complianceStatsRange(generalRaw, desde, hasta);
+
+    const [pDesde, pHasta] = monthRangeOffset(-1);
+    const prevMonthStats = statsForRange(genWithDeltas, pDesde, pHasta);
+
+    // Refrigeração
+    const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
+    const tempBad7 = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+    const tempMonth = tempRaw.filter(inMonth);
+    const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+
+    // Ciclo de quartos
+    const done = effectiveCycleDone().length;
+    const totalRooms = roomsList.length || 40;
+    const pending = Math.max(0, totalRooms - done);
+    const roomsPct = Math.min(100, Math.round((done / totalRooms) * 100));
+
+    // 1. Pilares do Score Global de Saúde Técnica (0-100%)
+    // Pilar A: Segurança Sanitária (AQS & Piscina) - Peso 35%
+    let aqsTotal = 0, aqsOk = 0, poolTotal = 0, poolOk = 0;
+    let minAqsRetorno = null, minAqsQuartos = null;
+    genMonth.forEach(r => {
+      const ret = parseFloat(r.data.retornoAqs);
+      const aqsQ = parseFloat(r.data.aqsQuartos);
+      const ph = parseFloat(r.data.phPiscina);
+      const cl = parseFloat(r.data.cloroLibre);
+      if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
+      if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
+      if(!isNaN(ph)){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
+      if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
+    });
+    const pilarSanitario = (aqsTotal + poolTotal) > 0 ? Math.round(((aqsOk + poolOk) / (aqsTotal + poolTotal)) * 100) : 100;
+
+    // Pilar B: Cadeia de Frio & HACCP - Peso 25%
+    const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 100;
+
+    // Pilar C: Eficiência & Cadência Operacional - Peso 20%
+    const pilarEficiencia = Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85));
+
+    // Pilar D: Manutenção Preventiva Quartos - Peso 20%
+    const pilarQuartos = roomsPct;
+
+    // Score Ponderado Global
+    const healthScore = Math.min(100, Math.max(0, Math.round(
+      (pilarSanitario * 0.35) +
+      (pilarFrio * 0.25) +
+      (pilarEficiencia * 0.20) +
+      (pilarQuartos * 0.20)
+    )));
+
+    let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
+    let scoreDesc = 'Todos os sistemas técnicos críticos operam com elevada fiabilidade, sem riscos de segurança ou conformidade identificados.';
+    if(healthScore < 65){
+      scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
+      scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
+    } else if(healthScore < 80){
+      scoreStatusClass = 'status-warn'; scoreBadgeText = 'Atenção'; scoreHeadline = 'Acompanhamento Recomendado';
+      scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS ou quartos.';
+    } else if(healthScore < 90){
+      scoreStatusClass = 'status-good'; scoreBadgeText = 'Conforme'; scoreHeadline = 'Operação Estável e Conforme';
+      scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança alimentar.';
+    }
+
+    // 2. Cockpit Financeiro & Projeção
+    const aguaVal = monthStats.aguaDeltaCount ? monthStats.aguaTotal : 0;
+    const elecVal = monthStats.elecDeltaCount ? monthStats.elecTotal : 0;
+    const costAgua = aguaVal * (tarifasEjec.agua || 0);
+    const costElec = elecVal * (tarifasEjec.elec || 0);
+    const costTotal = costAgua + costElec;
+
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = Math.min(now.getDate(), daysInMonth);
+    const projectedCost = daysElapsed > 0 ? (costTotal / daysElapsed) * daysInMonth : costTotal;
+    const dailyCost = daysElapsed > 0 ? costTotal / daysElapsed : 0;
+
+    const prevAgua = prevMonthStats.aguaDeltaCount ? prevMonthStats.aguaTotal : 0;
+    const prevElec = prevMonthStats.elecDeltaCount ? prevMonthStats.elecTotal : 0;
+    const prevTotalCost = (prevAgua * (tarifasEjec.agua || 0)) + (prevElec * (tarifasEjec.elec || 0));
+    let varCostPct = null;
+    if(prevTotalCost > 0){
+      varCostPct = ((projectedCost - prevTotalCost) / prevTotalCost) * 100;
+    }
+
+    const totalSplit = (costAgua + costElec) || 1;
+    const pctAguaSplit = Math.round((costAgua / totalSplit) * 100);
+    const pctElecSplit = 100 - pctAguaSplit;
+
+    // 3. Matriz de Decisões & Ações Prioritárias
+    const actionItems = [];
+
+    // AQS / Legionella Check
+    if(minAqsRetorno !== null && minAqsRetorno < DASH_THRESHOLDS.aqsMin){
+      actionItems.push({
+        type: 'crit', tag: 'AQS · Risco Legionella',
+        title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < 50.0°C)`,
+        desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
+        rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
+      });
+    }
+    if(minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsMin){
+      actionItems.push({
+        type: 'warn', tag: 'AQS · Conforto & Higiene',
+        title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C`,
+        desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo dos 50°C.',
+        rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
+      });
+    }
+
+    // Refrigeração Check
+    if(tempBad7.length > 0){
+      const equipNomes = [...new Set(tempBad7.map(r=>r.data.nome))].slice(0,3).join(', ');
+      actionItems.push({
+        type: 'crit', tag: 'HACCP · Cadeia de Frio',
+        title: `${tempBad7.length} leitura(s) fora do intervalo seguro nos últimos 7 dias`,
+        desc: `Equipamentos com desvio: ${esc(equipNomes)}. Risco de conservação e segurança alimentar.`,
+        rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
+      });
+    }
+
+    // Piscina Check
+    if(poolTotal > 0 && poolOk < poolTotal){
+      actionItems.push({
+        type: 'warn', tag: 'Qualidade da Água · Piscina',
+        title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
+        desc: 'Foram registados valores fora do intervalo regulamentar (pH 7.0–7.8 ou Cloro 0.5–3.0 ppm).',
+        rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
+      });
+    }
+
+    // Quartos Ciclo Check
+    if(pending > 0){
+      actionItems.push({
+        type: pending > 15 ? 'warn' : 'info', tag: 'Manutenção de Quartos',
+        title: `Ciclo de quartos a ${roomsPct}% (${done}/${totalRooms} concluídos)`,
+        desc: `Faltam ${pending} quartos para completar a amostragem trimestral de cloro e pH.`,
+        rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} turnos adicionais.`
+      });
+    }
+
+    // Cadência de Registos
+    if(comp.pct < 90){
+      actionItems.push({
+        type: 'warn', tag: 'Cadência Operacional',
+        title: `Taxa de cumprimento do registo diário em ${comp.pct}% (${comp.covered}/${comp.total} dias)`,
+        desc: 'Existem dias sem preenchimento do registo técnico obrigatório.',
+        rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
+      });
+    }
+
+    // Se tudo estiver OK
+    if(actionItems.length === 0){
+      actionItems.push({
+        type: 'ok', tag: 'Operação 100% Conforme',
+        title: 'Todas as instalações e sistemas em parâmetros nominais',
+        desc: 'AQS, Refrigeração, Piscinas e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
+        rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
+      });
+    }
+
+    // Sparklines para os KPIs
+    const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
+    const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
+
+    const months = await buildMonthlyHistory(6);
+
+    return {
+      generalRaw, tempRaw, quartosRaw, tarifasEjec, genWithDeltas,
+      desde, hasta, monthStats, comp, prevMonthStats,
+      temp7, tempBad7, tempMonth, tempBadMonth,
+      done, totalRooms, pending, roomsPct,
+      pilarSanitario, pilarFrio, pilarEficiencia, pilarQuartos, healthScore,
+      scoreStatusClass, scoreBadgeText, scoreHeadline, scoreDesc,
+      aqsTotal, aqsOk, poolTotal, poolOk,
+      aguaVal, elecVal, costAgua, costElec, costTotal,
+      daysInMonth, daysElapsed, projectedCost, dailyCost, varCostPct,
+      pctAguaSplit, pctElecSplit, actionItems,
+      aguaSpark, elecSpark, months
+    };
+  }
+
   // ---------- Render principal do Resumo Executivo ----------
   async function renderEjecutivo(){
     const output = $('ejecutivoOutput');
@@ -4501,230 +4902,58 @@
     output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
     <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
     try{
-      const [generalRaw, tempRaw, quartosRaw, tarifasEjec] = await Promise.all([
-        listRecords('general'),
-        listRecords('temperatura'),
-        listRecords('quarto'),
-        getTarifas()
-      ]);
-      const [desde, hasta] = rangoMesActual();
-      const genWithDeltas = await buildGenWithDeltas(generalRaw);
-      const inMonth = r => r.data.fecha >= desde && r.data.fecha <= hasta;
-      const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
-      const monthStats = statsForRange(genWithDeltas, desde, hasta);
-      const comp = complianceStatsRange(generalRaw, desde, hasta);
-
-      const [pDesde, pHasta] = monthRangeOffset(-1);
-      const prevMonthStats = statsForRange(genWithDeltas, pDesde, pHasta);
-
-      // Refrigeração
-      const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
-      const tempBad7 = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
-      const tempMonth = tempRaw.filter(inMonth);
-      const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
-
-      // Ciclo de quartos
-      const done = effectiveCycleDone().length;
-      const totalRooms = roomsList.length || 40;
-      const pending = Math.max(0, totalRooms - done);
-      const roomsPct = Math.min(100, Math.round((done / totalRooms) * 100));
-
-      // 1. Pilares do Score Global de Saúde Técnica (0-100%)
-      // Pilar A: Segurança Sanitária (AQS & Piscina) - Peso 35%
-      let aqsTotal = 0, aqsOk = 0, poolTotal = 0, poolOk = 0;
-      let minAqsRetorno = null, minAqsQuartos = null;
-      genMonth.forEach(r => {
-        const ret = parseFloat(r.data.retornoAqs);
-        const aqsQ = parseFloat(r.data.aqsQuartos);
-        const ph = parseFloat(r.data.phPiscina);
-        const cl = parseFloat(r.data.cloroLibre);
-        if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
-        if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
-        if(!isNaN(ph)){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
-        if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
-      });
-      const pilarSanitario = (aqsTotal + poolTotal) > 0 ? Math.round(((aqsOk + poolOk) / (aqsTotal + poolTotal)) * 100) : 100;
-
-      // Pilar B: Cadeia de Frio & HACCP - Peso 25%
-      const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 100;
-
-      // Pilar C: Eficiência & Cadência Operacional - Peso 20%
-      const pilarEficiencia = Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85));
-
-      // Pilar D: Manutenção Preventiva Quartos - Peso 20%
-      const pilarQuartos = roomsPct;
-
-      // Score Ponderado Global
-      const healthScore = Math.min(100, Math.max(0, Math.round(
-        (pilarSanitario * 0.35) +
-        (pilarFrio * 0.25) +
-        (pilarEficiencia * 0.20) +
-        (pilarQuartos * 0.20)
-      )));
-
-      let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
-      let scoreDesc = 'Todos os sistemas técnicos críticos operam com elevada fiabilidade, sem riscos de segurança ou conformidade identificados.';
-      if(healthScore < 65){
-        scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
-        scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
-      } else if(healthScore < 80){
-        scoreStatusClass = 'status-warn'; scoreBadgeText = 'Atenção'; scoreHeadline = 'Acompanhamento Recomendado';
-        scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS ou quartos.';
-      } else if(healthScore < 90){
-        scoreStatusClass = 'status-good'; scoreBadgeText = 'Conforme'; scoreHeadline = 'Operação Estável e Conforme';
-        scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança alimentar.';
-      }
-
-      // 2. Cockpit Financeiro & Projeção
-      const aguaVal = monthStats.aguaDeltaCount ? monthStats.aguaTotal : 0;
-      const elecVal = monthStats.elecDeltaCount ? monthStats.elecTotal : 0;
-      const costAgua = aguaVal * (tarifasEjec.agua || 0);
-      const costElec = elecVal * (tarifasEjec.elec || 0);
-      const costTotal = costAgua + costElec;
-
-      const now = new Date();
-      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-      const daysElapsed = Math.min(now.getDate(), daysInMonth);
-      const projectedCost = daysElapsed > 0 ? (costTotal / daysElapsed) * daysInMonth : costTotal;
-      const dailyCost = daysElapsed > 0 ? costTotal / daysElapsed : 0;
-
-      const prevAgua = prevMonthStats.aguaDeltaCount ? prevMonthStats.aguaTotal : 0;
-      const prevElec = prevMonthStats.elecDeltaCount ? prevMonthStats.elecTotal : 0;
-      const prevTotalCost = (prevAgua * (tarifasEjec.agua || 0)) + (prevElec * (tarifasEjec.elec || 0));
-      let varCostPct = null;
-      if(prevTotalCost > 0){
-        varCostPct = ((projectedCost - prevTotalCost) / prevTotalCost) * 100;
-      }
-
-      const totalSplit = (costAgua + costElec) || 1;
-      const pctAguaSplit = Math.round((costAgua / totalSplit) * 100);
-      const pctElecSplit = 100 - pctAguaSplit;
-
-      // 3. Matriz de Decisões & Ações Prioritárias
-      const actionItems = [];
-
-      // AQS / Legionella Check
-      if(minAqsRetorno !== null && minAqsRetorno < DASH_THRESHOLDS.aqsMin){
-        actionItems.push({
-          type: 'crit', tag: 'AQS · Risco Legionella',
-          title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < 50.0°C)`,
-          desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
-          rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
-        });
-      }
-      if(minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsMin){
-        actionItems.push({
-          type: 'warn', tag: 'AQS · Conforto & Higiene',
-          title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C`,
-          desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo dos 50°C.',
-          rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
-        });
-      }
-
-      // Refrigeração Check
-      if(tempBad7.length > 0){
-        const equipNomes = [...new Set(tempBad7.map(r=>r.data.nome))].slice(0,3).join(', ');
-        actionItems.push({
-          type: 'crit', tag: 'HACCP · Cadeia de Frio',
-          title: `${tempBad7.length} leitura(s) fora do intervalo seguro nos últimos 7 dias`,
-          desc: `Equipamentos com desvio: ${esc(equipNomes)}. Risco de conservação e segurança alimentar.`,
-          rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
-        });
-      }
-
-      // Piscina Check
-      if(poolTotal > 0 && poolOk < poolTotal){
-        actionItems.push({
-          type: 'warn', tag: 'Qualidade da Água · Piscina',
-          title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
-          desc: 'Foram registados valores fora do intervalo regulamentar (pH 7.0–7.8 ou Cloro 0.5–3.0 ppm).',
-          rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
-        });
-      }
-
-      // Quartos Ciclo Check
-      if(pending > 0){
-        actionItems.push({
-          type: pending > 15 ? 'warn' : 'info', tag: 'Manutenção de Quartos',
-          title: `Ciclo de quartos a ${roomsPct}% (${done}/${totalRooms} concluídos)`,
-          desc: `Faltam ${pending} quartos para completar a amostragem trimestral de cloro e pH.`,
-          rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} turnos adicionais.`
-        });
-      }
-
-      // Cadência de Registos
-      if(comp.pct < 90){
-        actionItems.push({
-          type: 'warn', tag: 'Cadência Operacional',
-          title: `Taxa de cumprimento do registo diário em ${comp.pct}% (${comp.covered}/${comp.total} dias)`,
-          desc: 'Existem dias sem preenchimento do registo técnico obrigatório.',
-          rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
-        });
-      }
-
-      // Se tudo estiver OK
-      if(actionItems.length === 0){
-        actionItems.push({
-          type: 'ok', tag: 'Operação 100% Conforme',
-          title: 'Todas as instalações e sistemas em parâmetros nominais',
-          desc: 'AQS, Refrigeração, Piscinas e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
-          rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
-        });
-      }
-
-      // Sparklines para os KPIs
-      const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
-      const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
+      const d = await calculateExecutiveSummaryData();
+      cachedExecMonths = d.months;
 
       // Scorecard HTML
       const scorecardHTML = `
         <div class="exec-score-card">
           <div class="exec-score-header">
             <h3 class="exec-score-title">Índice Global de Saúde Técnica & Conformidade</h3>
-            <span class="exec-score-badge ${scoreStatusClass}">${scoreBadgeText}</span>
+            <span class="exec-score-badge ${d.scoreStatusClass}">${d.scoreBadgeText}</span>
           </div>
           <div class="exec-score-hero">
-            <div class="exec-score-circle ${scoreStatusClass}">
-              <span class="exec-score-number">${healthScore}%</span>
+            <div class="exec-score-circle ${d.scoreStatusClass}">
+              <span class="exec-score-number">${d.healthScore}%</span>
               <span class="exec-score-unit">SCORE</span>
             </div>
             <div class="exec-score-text">
-              <div class="exec-score-headline">${scoreHeadline}</div>
-              <div class="exec-score-desc">${scoreDesc}</div>
+              <div class="exec-score-headline">${d.scoreHeadline}</div>
+              <div class="exec-score-desc">${d.scoreDesc}</div>
             </div>
           </div>
           <div class="exec-pillars-grid">
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>💧 Segurança AQS & Piscina</span>
-                <span class="exec-pillar-val" style="color:${pilarSanitario>=90?'var(--ok-500)':(pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}">${pilarSanitario}%</span>
+                <span class="exec-pillar-val" style="color:${d.pilarSanitario>=90?'var(--ok-500)':(d.pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarSanitario}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarSanitario}%; background:${pilarSanitario>=90?'var(--ok-500)':(pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">Legionella & Cloro/pH (${aqsOk+poolOk}/${aqsTotal+poolTotal||1} conformes)</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarSanitario}%; background:${d.pilarSanitario>=90?'var(--ok-500)':(d.pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">Legionella & Cloro/pH (${d.aqsOk+d.poolOk}/${d.aqsTotal+d.poolTotal||1} conformes)</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🧊 Cadeia de Frio (7 dias)</span>
-                <span class="exec-pillar-val" style="color:${pilarFrio>=95?'var(--ok-500)':(pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}">${pilarFrio}%</span>
+                <span class="exec-pillar-val" style="color:${d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}">${d.pilarFrio}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarFrio}%; background:${pilarFrio>=95?'var(--ok-500)':(pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">${tempBad7.length===0?'Zero desvios':tempBad7.length+' alerta(s) detetado(s)'}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">${d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)'}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>⚡ Eficiência & Registos</span>
-                <span class="exec-pillar-val" style="color:${pilarEficiencia>=90?'var(--ok-500)':(pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}">${pilarEficiencia}%</span>
+                <span class="exec-pillar-val" style="color:${d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}">${d.pilarEficiencia}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${pilarEficiencia}%; background:${pilarEficiencia>=90?'var(--ok-500)':(pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">${comp.covered}/${comp.total} dias registados no mês</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarEficiencia}%; background:${d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">${d.comp.covered}/${d.comp.total} dias registados no mês</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🛏️ Ciclo de Quartos</span>
-                <span class="exec-pillar-val" style="color:${roomsPct>=90?'var(--ok-500)':(roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}">${roomsPct}%</span>
+                <span class="exec-pillar-val" style="color:${d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}">${d.roomsPct}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${roomsPct}%; background:${roomsPct>=90?'var(--ok-500)':(roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}"></div></div>
-              <div class="exec-pillar-note">${done}/${totalRooms} quartos inspecionados</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.roomsPct}%; background:${d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}"></div></div>
+              <div class="exec-pillar-note">${d.done}/${d.totalRooms} quartos inspecionados</div>
             </div>
           </div>
         </div>
@@ -4735,35 +4964,35 @@
         <div class="exec-fin-card">
           <div class="exec-score-header">
             <h3 class="exec-score-title">Cockpit de Custos Energéticos & Projeção Mensal</h3>
-            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${daysElapsed} de ${daysInMonth} dias decorridos</span>
+            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${d.daysElapsed} de ${d.daysInMonth} dias decorridos</span>
           </div>
           <div class="exec-fin-grid">
             <div class="exec-fin-box">
               <div class="exec-fin-lab">Custo Acumulado no Mês</div>
-              <div class="exec-fin-val">${(costAgua||costElec)? (costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
-              <div class="exec-fin-sub">Média de ${dailyCost>0 ? dailyCost.toFixed(2)+' €/dia' : '—'}</div>
+              <div class="exec-fin-val">${(d.costAgua||d.costElec)? (d.costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+              <div class="exec-fin-sub">Média de ${d.dailyCost>0 ? d.dailyCost.toFixed(2)+' €/dia' : '—'}</div>
             </div>
             <div class="exec-fin-box accent">
               <div class="exec-fin-lab">Projeção Fecho do Mês</div>
-              <div class="exec-fin-val">${projectedCost>0 ? projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+              <div class="exec-fin-val">${d.projectedCost>0 ? d.projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
               <div class="exec-fin-sub">
-                ${varCostPct !== null ? `${varCostPct>0?'+':''}${varCostPct.toFixed(1)}% vs mês anterior (${prevTotalCost.toFixed(0)} €)` : 'Sem histórico anterior suficiente'}
+                ${d.varCostPct !== null ? `${d.varCostPct>0?'+':''}${d.varCostPct.toFixed(1)}% vs mês anterior` : 'Sem histórico anterior suficiente'}
               </div>
             </div>
           </div>
 
           <div class="exec-split-bar-wrap">
             <div class="exec-split-labels">
-              <span style="color:var(--aqua-500)">💧 Água: ${(costAgua||0).toFixed(2)} € (${pctAguaSplit}%)</span>
-              <span style="color:var(--petrol-700)">⚡ Luz: ${(costElec||0).toFixed(2)} € (${pctElecSplit}%)</span>
+              <span style="color:var(--aqua-500)">💧 Água: ${(d.costAgua||0).toFixed(2)} € (${d.pctAguaSplit}%)</span>
+              <span style="color:var(--petrol-700)">⚡ Luz: ${(d.costElec||0).toFixed(2)} € (${d.pctElecSplit}%)</span>
             </div>
             <div class="exec-split-track">
-              <div class="exec-split-seg-a" style="width:${pctAguaSplit}%"></div>
-              <div class="exec-split-seg-b" style="width:${pctElecSplit}%"></div>
+              <div class="exec-split-seg-a" style="width:${d.pctAguaSplit}%"></div>
+              <div class="exec-split-seg-b" style="width:${d.pctElecSplit}%"></div>
             </div>
             <div class="exec-split-legend">
-              <span>${aguaVal>0 ? fmtNum(aguaVal)+' m³ consumidos' : '0.00 m³'} (tarifa: ${tarifasEjec.agua?tarifasEjec.agua.toFixed(2)+'€/m³':'—'})</span>
-              <span>${elecVal>0 ? fmtNum(elecVal)+' kWh consumidos' : '0.0 kWh'} (tarifa: ${tarifasEjec.elec?tarifasEjec.elec.toFixed(3)+'€/kWh':'—'})</span>
+              <span>${d.aguaVal>0 ? fmtNum(d.aguaVal)+' m³ consumidos' : '0.00 m³'} (tarifa: ${d.tarifasEjec.agua?d.tarifasEjec.agua.toFixed(2)+'€/m³':'—'})</span>
+              <span>${d.elecVal>0 ? fmtNum(d.elecVal)+' kWh consumidos' : '0.0 kWh'} (tarifa: ${d.tarifasEjec.elec?d.tarifasEjec.elec.toFixed(3)+'€/kWh':'—'})</span>
             </div>
           </div>
         </div>
@@ -4775,7 +5004,7 @@
           <h3 class="exec-matrix-title">
             <span>🎯 Matriz de Decisão & Ações Prioritárias</span>
           </h3>
-          ${actionItems.map(item => `
+          ${d.actionItems.map(item => `
             <div class="exec-action-item ${item.type}">
               <div class="exec-action-head">
                 <span>${esc(item.title)}</span>
@@ -4790,16 +5019,13 @@
 
       // KPIs operacionais
       const kpis = `<div class="kpi-grid">
-        ${kpiCard('Cumprimento do mês', comp.pct+'%', comp.covered+'/'+comp.total+' dias com leitura', comp.pct>=90?'ok':(comp.pct>=70?'na':'bad'))}
-        ${kpiCard('Refrigeração — 7 dias', tempBad7.length===0?'✓ OK':tempBad7.length+' alerta(s)', tempBad7.length===0?'todas dentro do intervalo':'ver aba Refrigeração', tempBad7.length===0?'ok':'bad')}
-        ${kpiCard('Consumo água (mês)', (monthStats.aguaDeltaCount? fmtNum(monthStats.aguaTotal)+' m³':'—') + (monthStats.aguaDeltaCount?costTag(monthStats.aguaTotal, tarifasEjec.agua):''), monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', aguaSpark, CHART_COLORS.a)}
-        ${kpiCard('Consumo eletricidade (mês)', (monthStats.elecDeltaCount? fmtNum(monthStats.elecTotal)+' kWh':'—') + (monthStats.elecDeltaCount?costTag(monthStats.elecTotal, tarifasEjec.elec):''), monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', elecSpark, CHART_COLORS.b)}
+        ${kpiCard('Cumprimento do mês', d.comp.pct+'%', d.comp.covered+'/'+d.comp.total+' dias com leitura', d.comp.pct>=90?'ok':(d.comp.pct>=70?'na':'bad'))}
+        ${kpiCard('Refrigeração — 7 dias', d.tempBad7.length===0?'✓ OK':d.tempBad7.length+' alerta(s)', d.tempBad7.length===0?'todas dentro do intervalo':'ver aba Refrigeração', d.tempBad7.length===0?'ok':'bad')}
+        ${kpiCard('Consumo água (mês)', (d.monthStats.aguaDeltaCount? fmtNum(d.monthStats.aguaTotal)+' m³':'—') + (d.monthStats.aguaDeltaCount?costTag(d.monthStats.aguaTotal, d.tarifasEjec.agua):''), d.monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', d.aguaSpark, CHART_COLORS.a)}
+        ${kpiCard('Consumo eletricidade (mês)', (d.monthStats.elecDeltaCount? fmtNum(d.monthStats.elecTotal)+' kWh':'—') + (d.monthStats.elecDeltaCount?costTag(d.monthStats.elecTotal, d.tarifasEjec.elec):''), d.monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', d.elecSpark, CHART_COLORS.b)}
       </div>`;
 
-      $('ejecutivoPeriod').textContent = `Mês em curso · ${desde} a ${hasta} · atualizado às ${nowTimeStr()}`;
-
-      // Histórico mensal (6 meses)
-      cachedExecMonths = await buildMonthlyHistory(6);
+      $('ejecutivoPeriod').textContent = `Mês em curso · ${d.desde} a ${d.hasta} · atualizado às ${nowTimeStr()}`;
 
       const chartSwitcherHTML = `
         <div style="background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;">
@@ -4824,12 +5050,12 @@
         ${kpis}
         ${chartSwitcherHTML}
         <h3 class="report-heading" style="margin-top:24px">Calendário de Cumprimento de Registos</h3>
-        <div id="heatmapBox">${renderComplianceHeatmap(generalRaw, heatmapMonthOffset)}</div>
+        <div id="heatmapBox">${renderComplianceHeatmap(d.generalRaw, heatmapMonthOffset)}</div>
       `;
 
       renderExecInteractiveChart();
-      wireHeatmapNav(generalRaw);
-      wireExecEvents(cachedExecMonths, { desde, hasta, healthScore, costTotal, projectedCost, comp, done, totalRooms, tarifasEjec });
+      wireHeatmapNav(d.generalRaw);
+      wireExecEvents(cachedExecMonths, { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec });
 
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
@@ -4890,115 +5116,191 @@
 
     // Exportação CSV Executivo
     const btnCsv = $('btnExportExecCsv');
-    if(btnCsv){
-      btnCsv.onclick = () => {
-        if(!months || !months.length){ showToast('Sem dados para exportar'); return; }
-        let csv = 'Mes,Agua_m3,TarifaAgua_Eur_m3,CustoAgua_Eur,Elec_kWh,TarifaElec_Eur_kWh,CustoElec_Eur,CustoTotal_Eur,Cumprimento_Pct\n';
-        months.forEach(m => {
-          csv += [
-            m.label,
-            m.agua !== null ? m.agua.toFixed(2) : '',
-            execMeta.tarifasEjec.agua || '',
-            m.costAgua !== null ? m.costAgua.toFixed(2) : '',
-            m.elec !== null ? m.elec.toFixed(1) : '',
-            execMeta.tarifasEjec.elec || '',
-            m.costElec !== null ? m.costElec.toFixed(2) : '',
-            m.totalCost !== null ? m.totalCost.toFixed(2) : '',
-            m.compliance
-          ].map(csvSafe).join(',') + '\n';
-        });
-        const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `resumo_executivo_${todayStr()}.csv`;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('Resumo executivo exportado em CSV ✓');
-      };
-    }
+    if(btnCsv) btnCsv.onclick = () => exportExecutiveCsv(months, execMeta);
 
     // Impressão / Relatório Executivo
     const btnPrint = $('btnPrintExecReport');
-    if(btnPrint){
-      btnPrint.onclick = () => {
-        printExecutiveReport(months, execMeta);
-      };
+    if(btnPrint) btnPrint.onclick = (e) => generateExecutiveReport(e.currentTarget);
+  }
+
+  function buildExecutiveReport(d){
+    const monthRows = (d.months || []).map(m => `
+      <tr style="border-bottom:1px solid #ddd;">
+        <td style="padding:6px 8px; font-weight:700; border:1px solid #bbb;">${monthLabelFn(m.label)}</td>
+        <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.agua !== null ? fmtNum(m.agua) + ' m³' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costAgua !== null ? m.costAgua.toFixed(2)+' €' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.elec !== null ? fmtNum(m.elec) + ' kWh' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costElec !== null ? m.costElec.toFixed(2)+' €' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; font-weight:700; color:#1a3d3b; border:1px solid #bbb;">${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.compliance>=90?'#28704b':(m.compliance>=70?'#8a5f0f':'#8b3d1d')}; border:1px solid #bbb;">${m.compliance}%</td>
+      </tr>
+    `).join('');
+
+    const actionsHTML = d.actionItems.map(item => `
+      <div style="border-left:4px solid ${item.type==='crit'?'#c04828':(item.type==='warn'?'#b87d18':(item.type==='ok'?'#28704b':'#1b5568'))}; background:${item.type==='crit'?'#fde8e0':(item.type==='warn'?'#fef5e7':(item.type==='ok'?'#eaf6f0':'#e6f4f4'))}; border-radius:6px; padding:8px 12px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px;">
+          <b style="font-size:11.5px; color:#111;">${esc(item.title)}</b>
+          <span style="font-size:9px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:3px; background:${item.type==='crit'?'#c04828':(item.type==='warn'?'#b87d18':(item.type==='ok'?'#28704b':'#1b5568'))}; color:#fff;">${esc(item.tag)}</span>
+        </div>
+        <div style="font-size:10.5px; color:#333; margin-bottom:2px;">${esc(item.desc)}</div>
+        <div style="font-size:10px; font-weight:700; color:#1a3d3b;">${esc(item.rec)}</div>
+      </div>
+    `).join('');
+
+    return `<div class="off-doc">
+      <h1>Relatório Executivo de Gestão Técnica & Sustentabilidade</h1>
+      <div class="off-sub">Moon and Sun · Painel Estratégico para Tomada de Decisão e Direção de Operações</div>
+      <div class="off-meta">Período: ${d.desde} a ${d.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser ? currentUser.nombre : 'Técnico')} · App Registo Técnico v${APP_VERSION}</div>
+
+      <h2>1. Índice Global de Saúde Técnica & Conformidade (${d.healthScore}%)</h2>
+      <div style="display:grid; grid-template-columns:1fr 2fr; gap:12px; margin:8px 0 14px;">
+        <div style="border:1.5px solid #bbb; border-radius:10px; padding:12px; text-align:center; background:#fafcfb;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#555;">Score Global</div>
+          <div style="font-size:32px; font-weight:800; color:${d.healthScore>=90?'#28704b':(d.healthScore>=75?'#b87d18':'#c04828')};">${d.healthScore}%</div>
+          <div style="font-size:11px; font-weight:700; color:#222;">${esc(d.scoreBadgeText)} · ${esc(d.scoreHeadline)}</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
+            <div style="font-size:10px; color:#666; font-weight:600;">💧 Segurança AQS & Piscina</div>
+            <div style="font-size:16px; font-weight:700; color:${d.pilarSanitario>=90?'#28704b':'#c04828'};">${d.pilarSanitario}%</div>
+            <div style="font-size:9px; color:#777;">Legionella & Cloro/pH (${d.aqsOk+d.poolOk}/${d.aqsTotal+d.poolTotal||1} conformes)</div>
+          </div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
+            <div style="font-size:10px; color:#666; font-weight:600;">🧊 Cadeia de Frio HACCP</div>
+            <div style="font-size:16px; font-weight:700; color:${d.pilarFrio>=95?'#28704b':'#c04828'};">${d.pilarFrio}%</div>
+            <div style="font-size:9px; color:#777;">${d.tempBad7.length===0?'0 desvios nos últimos 7 dias':d.tempBad7.length+' alerta(s) de temperatura'}</div>
+          </div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
+            <div style="font-size:10px; color:#666; font-weight:600;">⚡ Cadência Operacional</div>
+            <div style="font-size:16px; font-weight:700; color:${d.pilarEficiencia>=90?'#28704b':'#b87d18'};">${d.pilarEficiencia}%</div>
+            <div style="font-size:9px; color:#777;">${d.comp.covered}/${d.comp.total} dias registados no mês</div>
+          </div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
+            <div style="font-size:10px; color:#666; font-weight:600;">🚪 Manutenção Quartos</div>
+            <div style="font-size:16px; font-weight:700; color:${d.roomsPct>=90?'#28704b':'#1b5568'};">${d.roomsPct}%</div>
+            <div style="font-size:9px; color:#777;">${d.done}/${d.totalRooms} quartos inspecionados</div>
+          </div>
+        </div>
+      </div>
+
+      <h2>2. Cockpit de Custos Energéticos & Projeção Mensal</h2>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:8px 0 14px;">
+        <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px;">
+          <div style="font-size:9.5px; color:#666; font-weight:700; text-transform:uppercase;">Despesa Atual</div>
+          <div style="font-size:18px; font-weight:800; color:#1a3d3b;">${(d.costAgua||d.costElec)? (d.costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+          <div style="font-size:9px; color:#666;">Média ${d.dailyCost>0 ? d.dailyCost.toFixed(2)+' €/dia' : '—'}</div>
+        </div>
+        <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px; background:#f4f9f8;">
+          <div style="font-size:9.5px; color:#1b5568; font-weight:700; text-transform:uppercase;">Projeção Fecho</div>
+          <div style="font-size:18px; font-weight:800; color:#1b5568;">${d.projectedCost>0 ? d.projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
+          <div style="font-size:9px; color:#555;">${d.varCostPct !== null ? `${d.varCostPct>0?'+':''}${d.varCostPct.toFixed(1)}% vs anterior` : 'Estimativa 30 dias'}</div>
+        </div>
+        <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px;">
+          <div style="font-size:9.5px; color:#22b8b0; font-weight:700; text-transform:uppercase;">💧 Consumo Água</div>
+          <div style="font-size:18px; font-weight:800; color:#1a3d3b;">${d.aguaVal>0 ? fmtNum(d.aguaVal)+' m³' : '—'}</div>
+          <div style="font-size:9px; color:#666;">${(d.costAgua||0).toFixed(2)} € (${d.pctAguaSplit}% do custo)</div>
+        </div>
+        <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px;">
+          <div style="font-size:9.5px; color:#1b5568; font-weight:700; text-transform:uppercase;">⚡ Consumo Luz</div>
+          <div style="font-size:18px; font-weight:800; color:#1a3d3b;">${d.elecVal>0 ? fmtNum(d.elecVal)+' kWh' : '—'}</div>
+          <div style="font-size:9px; color:#666;">${(d.costElec||0).toFixed(2)} € (${d.pctElecSplit}% do custo)</div>
+        </div>
+      </div>
+
+      <h2>3. Matriz de Decisão & Ações Prioritárias</h2>
+      <div style="margin:8px 0 14px;">
+        ${actionsHTML}
+      </div>
+
+      <h2>4. Histórico dos Últimos 6 Meses</h2>
+      <table style="width:100%; border-collapse:collapse; font-size:10px; margin:8px 0 14px;">
+        <thead>
+          <tr style="background:#f4f6f6; border-bottom:1.5px solid #222;">
+            <th style="padding:6px 8px; text-align:left; border:1px solid #bbb;">Mês</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Água (m³)</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Custo Água (€)</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Eletricidade (kWh)</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Custo Elet. (€)</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Custo Total (€)</th>
+            <th style="padding:6px 8px; text-align:right; border:1px solid #bbb;">Cumprimento (%)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${monthRows || '<tr><td colspan="7" style="text-align:center; padding:8px;">Sem dados históricos</td></tr>'}
+        </tbody>
+      </table>
+
+      <div class="off-sign">
+        <div>O Técnico Responsável</div>
+        <div>Direção / Gerência</div>
+      </div>
+    </div>`;
+  }
+
+  async function generateExecutiveReport(triggerBtn){
+    const btn = triggerBtn || $('btnExecReportFromReports') || $('btnPrintExecReport');
+    if(btn) setLoading(btn, true);
+    try{
+      const d = await calculateExecutiveSummaryData();
+      $('officialReport').innerHTML =
+        `<div class="off-toolbar-float">
+           <button class="b-print" id="btnOffDoPrint">🖨️ Imprimir / PDF</button>
+           <button class="b-close" id="btnOffClose">✕ Fechar</button>
+         </div>` +
+        buildExecutiveReport(d);
+      document.body.classList.add('previewing-official');
+      window.scrollTo(0,0);
+      $('btnOffDoPrint').addEventListener('click', ()=> window.print());
+      $('btnOffClose').addEventListener('click', closeOfficialPreview);
+    }catch(e){
+      showToast('⚠️ Não foi possível gerar o relatório executivo: ' + e.message, true);
+    }finally{
+      if(btn) setLoading(btn, false);
+    }
+  }
+
+  async function exportExecutiveCsv(customMonths, customMeta){
+    try{
+      let months = customMonths, tarifas = (customMeta && customMeta.tarifasEjec) || {};
+      if(!months || !months.length){
+        const d = await calculateExecutiveSummaryData();
+        months = d.months;
+        tarifas = d.tarifasEjec || {};
+      }
+      if(!months || !months.length){ showToast('Sem dados para exportar'); return; }
+      let csv = 'Mes,Agua_m3,TarifaAgua_Eur_m3,CustoAgua_Eur,Elec_kWh,TarifaElec_Eur_kWh,CustoElec_Eur,CustoTotal_Eur,Cumprimento_Pct\n';
+      months.forEach(m => {
+        csv += [
+          m.label,
+          m.agua !== null ? m.agua.toFixed(2) : '',
+          tarifas.agua || '',
+          m.costAgua !== null ? m.costAgua.toFixed(2) : '',
+          m.elec !== null ? m.elec.toFixed(1) : '',
+          tarifas.elec || '',
+          m.costElec !== null ? m.costElec.toFixed(2) : '',
+          m.totalCost !== null ? m.totalCost.toFixed(2) : '',
+          m.compliance
+        ].map(csvSafe).join(',') + '\n';
+      });
+      const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `resumo_executivo_${todayStr()}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Resumo executivo exportado em CSV ✓');
+    }catch(e){
+      showToast('⚠️ Erro ao exportar CSV: ' + e.message, true);
     }
   }
 
   function printExecutiveReport(months, meta){
-    const printDiv = $('officialReport');
-    if(!printDiv) return;
-
-    const html = `
-      <div class="off-page">
-        <div class="off-header">
-          <div class="off-title">Moon & Sun · Resumo Executivo de Manutenção & Sustentabilidade</div>
-          <div class="off-meta">Período: ${meta.desde} a ${meta.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser?currentUser.nombre:'Técnico')}</div>
-        </div>
-
-        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;">
-          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
-            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Score de Saúde</div>
-            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.healthScore}%</div>
-            <div style="font-size:9px; color:#666;">Conformidade Técnica Global</div>
-          </div>
-          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
-            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Despesa Atual</div>
-            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.costTotal.toFixed(2)} €</div>
-            <div style="font-size:9px; color:#666;">Água + Luz acumulado</div>
-          </div>
-          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
-            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Projeção Mês</div>
-            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.projectedCost.toFixed(2)} €</div>
-            <div style="font-size:9px; color:#666;">Estimativa fecho do mês</div>
-          </div>
-          <div style="border:1px solid #ddd; padding:10px; border-radius:8px;">
-            <div style="font-size:10px; font-weight:bold; color:#666; text-transform:uppercase;">Ciclo Quartos</div>
-            <div style="font-size:22px; font-weight:800; color:#1a3d3b;">${meta.done}/${meta.totalRooms}</div>
-            <div style="font-size:9px; color:#666;">Quartos inspecionados</div>
-          </div>
-        </div>
-
-        <h3 style="font-size:13px; font-weight:bold; margin:14px 0 8px; border-bottom:1px solid #333; padding-bottom:4px;">Histórico dos Últimos 6 Meses</h3>
-        <table class="off-table" style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:16px;">
-          <thead>
-            <tr style="background:#f4f6f6; border-bottom:1.5px solid #222;">
-              <th style="padding:6px; text-align:left;">Mês</th>
-              <th style="padding:6px; text-align:right;">Água (m³)</th>
-              <th style="padding:6px; text-align:right;">Custo Água (€)</th>
-              <th style="padding:6px; text-align:right;">Luz (kWh)</th>
-              <th style="padding:6px; text-align:right;">Custo Luz (€)</th>
-              <th style="padding:6px; text-align:right;">Custo Total (€)</th>
-              <th style="padding:6px; text-align:right;">Cumprimento (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${months.map(m => `
-              <tr style="border-bottom:1px solid #eee;">
-                <td style="padding:5px 6px; font-weight:bold;">${monthLabelFn(m.label)}</td>
-                <td style="padding:5px 6px; text-align:right;">${m.agua !== null ? m.agua.toFixed(2) : '—'}</td>
-                <td style="padding:5px 6px; text-align:right;">${m.costAgua !== null ? m.costAgua.toFixed(2)+' €' : '—'}</td>
-                <td style="padding:5px 6px; text-align:right;">${m.elec !== null ? m.elec.toFixed(1) : '—'}</td>
-                <td style="padding:5px 6px; text-align:right;">${m.costElec !== null ? m.costElec.toFixed(2)+' €' : '—'}</td>
-                <td style="padding:5px 6px; text-align:right; font-weight:bold;">${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
-                <td style="padding:5px 6px; text-align:right;">${m.compliance}%</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-
-        <div style="font-size:10px; color:#777; margin-top:20px; border-top:1px solid #ddd; padding-top:8px;">
-          Documento gerado automaticamente pelo Sistema de Gestão Técnica Moon & Sun. As leituras e custos baseiam-se nos registos efetuados na plataforma.
-        </div>
-      </div>
-    `;
-
-    printDiv.innerHTML = html;
-    window.print();
+    generateExecutiveReport($('btnPrintExecReport'));
   }
 
-  $('btnRefreshEjecutivo').addEventListener('click', ()=> renderEjecutivo());
+  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> renderEjecutivo());
+  if($('btnPrintExecReport')) $('btnPrintExecReport').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
+  if($('btnExportExecCsv')) $('btnExportExecCsv').addEventListener('click', ()=> exportExecutiveCsv());
 
   async function renderDashboard(forceFresh){
     const output = $('dashboardOutput');
