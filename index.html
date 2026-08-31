@@ -580,19 +580,90 @@
     font-weight:700; font-size:14px; margin-top:24px;
   }
   .logout-main:active{ background:var(--coral-100); }
+
+  /* Notificação e Gestão de Versão / Atualizações */
+  .update-banner{
+    display:none; align-items:center; justify-content:space-between; gap:12px;
+    background:linear-gradient(135deg, #0e3341 0%, #174b5d 100%);
+    color:#fff; border-bottom:2px solid var(--aqua-400); padding:10px 14px;
+    position:relative; z-index:30; animation:slideup .25s ease;
+    box-shadow:0 4px 12px rgba(10,37,48,.18);
+  }
+  .update-banner.show{ display:flex; }
+  .update-banner-left{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
+  .update-banner-icon{ font-size:20px; flex:0 0 auto; }
+  .update-banner-info{ display:flex; flex-direction:column; min-width:0; }
+  .update-banner-info strong{ font-size:12px; font-weight:700; color:#fff; line-height:1.3; }
+  .update-banner-info span{ font-size:10.5px; color:var(--aqua-400); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .update-banner-actions{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+  .btn-update-now{
+    background:var(--aqua-500); color:var(--petrol-950); border:none; border-radius:8px;
+    padding:6px 11px; font-family:var(--sans); font-size:11.5px; font-weight:700; cursor:pointer;
+    transition:.15s ease; white-space:nowrap;
+  }
+  .btn-update-now:hover{ background:var(--aqua-400); }
+  .btn-update-dismiss{
+    background:transparent; color:rgba(255,255,255,.6); border:none; padding:4px 7px;
+    font-size:13px; border-radius:6px; cursor:pointer;
+  }
+  .btn-update-dismiss:hover{ color:#fff; background:rgba(255,255,255,.1); }
+
   .app-footer-version{
     text-align:center; font-family:var(--mono); font-size:11px;
     color:var(--ink-600); margin:18px 0 0; display:flex; align-items:center; justify-content:center; gap:8px;
   }
   .app-version-badge{
     display:inline-flex; align-items:center; gap:6px;
-    background:#ffffff; border:1px solid var(--line); border-radius:20px;
-    padding:4px 12px; box-shadow:0 1px 4px rgba(10,37,48,.04);
+    background:#ffffff; border:1.5px solid var(--line); border-radius:20px;
+    padding:5px 12px; box-shadow:0 1px 4px rgba(10,37,48,.04);
     font-weight:600; color:var(--petrol-800); letter-spacing:.02em;
+    cursor:pointer; font-family:var(--mono); font-size:11px; transition:.15s ease;
   }
+  .app-version-badge:hover{ border-color:var(--aqua-500); transform:translateY(-1px); box-shadow:0 3px 8px rgba(10,37,48,.08); }
+  .app-version-badge:active{ transform:translateY(0); }
   .app-version-badge .v-dot{
-    width:6px; height:6px; border-radius:50%; background:var(--ok-500); display:inline-block;
+    width:7px; height:7px; border-radius:50%; background:var(--ok-500); display:inline-block;
+    transition:background .2s ease;
   }
+  .app-version-badge.warn .v-dot{ background:var(--amber-500); animation:pulse-dot 1.4s infinite; }
+  .app-version-badge.offline .v-dot{ background:var(--ice-500); }
+  .v-status-tag{
+    font-size:9.5px; padding:2px 6px; border-radius:10px; font-weight:700;
+    background:var(--ok-100); color:#28704b; display:inline-block; margin-left:2px;
+  }
+  .app-version-badge.warn .v-status-tag{ background:var(--amber-100); color:#8a5f0f; }
+  .app-version-badge.offline .v-status-tag{ background:var(--ice-100); color:#1f5f96; }
+
+  @keyframes pulse-dot{
+    0% { transform:scale(0.95); box-shadow:0 0 0 0 rgba(224,161,43,.7); }
+    70% { transform:scale(1.2); box-shadow:0 0 0 5px rgba(224,161,43,0); }
+    100% { transform:scale(0.95); box-shadow:0 0 0 0 rgba(224,161,43,0); }
+  }
+
+  /* Cartões do Modal de Versão */
+  .v-modal-compare{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;
+  }
+  .v-modal-box{
+    border:1.5px solid var(--line); border-radius:12px; padding:12px; background:var(--paper);
+  }
+  .v-modal-box.highlight{ border-color:var(--aqua-500); background:#fff; }
+  .v-modal-box.warn{ border-color:var(--amber-500); background:var(--amber-100); }
+  .v-modal-label{ font-family:var(--mono); font-size:10px; text-transform:uppercase; color:var(--ink-400); margin-bottom:4px; }
+  .v-modal-val{ font-family:var(--mono); font-size:13.5px; font-weight:700; color:var(--petrol-900); }
+  .v-modal-sub{ font-family:var(--mono); font-size:10px; color:var(--ink-600); margin-top:3px; }
+  .v-status-box{
+    padding:11px 13px; border-radius:10px; font-size:12.5px; line-height:1.45; margin-bottom:14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .v-status-box.ok{ background:var(--ok-100); color:#28704b; border:1px solid #b7e2cb; }
+  .v-status-box.warn{ background:var(--amber-100); color:#8a5f0f; border:1px solid #f2db9b; }
+  .v-status-box.offline{ background:var(--ice-100); color:#1f5f96; border:1px solid #c2dbf3; }
+  .v-changelog-list{ max-height:165px; overflow-y:auto; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; background:#fff; margin-bottom:14px; }
+  .v-change-entry{ margin-bottom:10px; padding-bottom:8px; border-bottom:1px dashed var(--line); }
+  .v-change-entry:last-child{ margin-bottom:0; padding-bottom:0; border-bottom:none; }
+  .v-change-title{ display:flex; justify-content:space-between; align-items:center; font-family:var(--mono); font-size:11px; font-weight:700; color:var(--petrol-900); margin-bottom:3px; }
+  .v-change-items{ font-size:11px; color:var(--ink-600); margin:0; padding-left:14px; line-height:1.45; }
 
   .modal-overlay{ display:none; position:fixed; inset:0; background:rgba(10,37,48,.55); z-index:100; align-items:flex-end; justify-content:center; }
   .modal-overlay.show{ display:flex; }
@@ -738,6 +809,20 @@
 </head>
 <body>
 <div id="app">
+
+  <div class="update-banner" id="updateBanner">
+    <div class="update-banner-left">
+      <span class="update-banner-icon">🚀</span>
+      <div class="update-banner-info">
+        <strong id="updateBannerTitle">Nova versão disponível!</strong>
+        <span id="updateBannerSub">Clique para atualizar para a versão mais recente</span>
+      </div>
+    </div>
+    <div class="update-banner-actions">
+      <button type="button" class="btn-update-now" id="btnUpdateNow">Atualizar agora</button>
+      <button type="button" class="btn-update-dismiss" id="btnUpdateDismiss" title="Dispensar aviso">✕</button>
+    </div>
+  </div>
 
   <div class="api-warning" id="apiWarning">⚠️ Não foi possível ligar ao Google Sheets. Verifique a sua ligação — os seus registos podem não ficar guardados.</div>
 
@@ -1189,7 +1274,11 @@
     <!-- Sessão e versão — sempre visíveis no final do conteúdo -->
     <button class="logout-main" id="btnLogoutMain">🚪 Terminar sessão</button>
     <div class="app-footer-version">
-      <span class="app-version-badge"><span class="v-dot"></span>Registo Técnico · v<span class="appVersionInline">—</span></span>
+      <button class="app-version-badge" id="btnOpenVersionModal" type="button" title="Clique para ver o estado da versão e procurar atualizações">
+        <span class="v-dot" id="vDotStatus"></span>
+        <span>Registo Técnico · <b class="appVersionInline">—</b></span>
+        <span class="v-status-tag" id="vStatusTag">✓ Atualizada</span>
+      </button>
     </div>
 
   </main>
@@ -1209,7 +1298,11 @@
   <div class="fullscreen-overlay" id="setupScreen">
     <div class="overlay-card">
       <h2>⚙️ Falta ligar o Google Sheets</h2>
-      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin:-6px 0 14px;"><span class="app-version-badge"><span class="v-dot"></span>Versão v<span id="appVersionLabelSetup">—</span></span></p>
+      <p style="margin:-6px 0 14px; text-align:center;">
+        <button class="app-version-badge" type="button" data-openversion="1" style="cursor:pointer;">
+          <span class="v-dot"></span>Versão v<span id="appVersionLabelSetup">—</span> · <span class="v-status-tag">Info de Versão</span>
+        </button>
+      </p>
       <p>Esta app guarda as suas leituras diretamente numa folha do Google Sheets. A ligação ainda não foi configurada.</p>
       <ol>
         <li>Crie uma folha vazia no Google Sheets.</li>
@@ -1224,7 +1317,11 @@
   <div class="fullscreen-overlay" id="loginScreen">
     <div class="overlay-card">
       <h2>🔧 Registo Técnico</h2>
-      <p style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin:-6px 0 14px;"><span class="app-version-badge"><span class="v-dot"></span>Versão v<span id="appVersionLabel">—</span></span></p>
+      <p style="margin:-6px 0 14px; text-align:center;">
+        <button class="app-version-badge" type="button" data-openversion="1" style="cursor:pointer;">
+          <span class="v-dot"></span>Versão v<span id="appVersionLabel">—</span> · <span class="v-status-tag" id="vStatusTagLogin">✓ Atualizada</span>
+        </button>
+      </p>
       <p>Inicie sessão para registar as suas leituras.</p>
       <div class="login-seed-note" id="loginSeedNote" style="display:none">
         Primeira utilização: foi criado automaticamente o utilizador administrador <b>admin</b> com o PIN <b>1234</b>. Inicie sessão e altere-o o quanto antes na secção Utilizadores.
@@ -1273,8 +1370,290 @@
   const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
   // =======================================================================
 
-  const APP_VERSION = '2026-08-27.6';
-  document.querySelectorAll('#appVersionLabel, #appVersionLabelSetup, .appVersionInline').forEach(el=> el.textContent = APP_VERSION);
+  // =======================================================================
+  // NOMENCLATURA E CONTROLO DE VERSÕES DA APLICAÇÃO
+  // =======================================================================
+  const APP_RELEASE = {
+    major: 3,
+    minor: 2,
+    patch: 0,
+    semver: '3.2.0',
+    build: '2026.08.31-R1',
+    buildDate: '2026-08-31',
+    channel: 'Produção (Oficial)',
+    get full() { return `v${this.semver} (${this.build})`; },
+    get label() { return `v${this.semver}`; },
+    get short() { return `v${this.semver} · ${this.buildDate}`; },
+    changelog: [
+      {
+        version: 'v3.2.0',
+        date: '2026-08-31',
+        tag: 'Versão Atual',
+        highlights: [
+          'Nomenclatura semântica e sistema de deteção em tempo real de versão ativa vs. servidor.',
+          'Módulo de Refrigeração: suporte para registo de vineras/garrafeiras com intervalo Mín e Máx.',
+          'Auditoria avançada de registos com rastreio de edições, eliminações e histórico de ciclos.'
+        ]
+      },
+      {
+        version: 'v3.1.0',
+        date: '2026-08-27',
+        tag: 'Estável',
+        highlights: [
+          'Painel Executivo Estratégico com pilares de prevenção HACCP e Legionella.',
+          'Exportação de relatórios técnicos mensais em formato oficial para impressão/PDF.',
+          'Gráficos de dispersão e correlação em tempo real D3.js (Cloro vs. pH).'
+        ]
+      },
+      {
+        version: 'v3.0.0',
+        date: '2026-08-20',
+        tag: 'Base',
+        highlights: [
+          'Arquitetura modular de dados com sincronização assíncrona ao Google Sheets.',
+          'Suporte PWA e Service Worker para operação contínua e tolerância a falhas offline.',
+          'Registo diário de instalações gerais, piscina, AQS e controlo de quartos.'
+        ]
+      }
+    ]
+  };
+
+  const APP_VERSION = APP_RELEASE.full;
+
+  let latestServerVersion = null;
+  let versionStatusState = 'ok'; // 'ok' | 'warn' | 'offline'
+
+  function parseSemver(v){
+    if(!v) return [0,0,0];
+    const clean = String(v).replace(/^v/i, '').split('-')[0].split('(')[0].trim();
+    const parts = clean.split('.').map(n => parseInt(n, 10) || 0);
+    while(parts.length < 3) parts.push(0);
+    return parts;
+  }
+
+  function compareSemver(vA, vB){
+    const a = parseSemver(vA);
+    const b = parseSemver(vB);
+    for(let i=0; i<3; i++){
+      if(a[i] > b[i]) return 1;
+      if(a[i] < b[i]) return -1;
+    }
+    return 0;
+  }
+
+  function renderVersionUI(){
+    document.querySelectorAll('.appVersionInline').forEach(el=> el.textContent = APP_RELEASE.label);
+    const vLabel = $('appVersionLabel'); if(vLabel) vLabel.textContent = APP_RELEASE.label;
+    const vSetup = $('appVersionLabelSetup'); if(vSetup) vSetup.textContent = APP_RELEASE.label;
+
+    const badge = $('btnOpenVersionModal');
+    const vTag = $('vStatusTag');
+    const vLoginTag = $('vStatusTagLogin');
+    const dot = $('vDotStatus');
+    const updateBanner = $('updateBanner');
+
+    if(versionStatusState === 'warn'){
+      if(badge){ badge.classList.add('warn'); badge.classList.remove('offline'); }
+      if(dot){ dot.style.background = 'var(--amber-500)'; }
+      if(vTag){ vTag.textContent = '⚠️ Nova Versão'; }
+      if(vLoginTag){ vLoginTag.textContent = '⚠️ Nova Versão'; }
+      if(updateBanner){
+        updateBanner.classList.add('show');
+        const sVer = latestServerVersion ? (latestServerVersion.semver || latestServerVersion.version) : '';
+        $('updateBannerTitle').textContent = sVer ? `Nova versão disponível (v${sVer})!` : 'Nova versão disponível da aplicação!';
+        $('updateBannerSub').textContent = 'O servidor possui uma atualização pronta. Clique para atualizar e limpar a cache.';
+      }
+    } else if(versionStatusState === 'offline'){
+      if(badge){ badge.classList.remove('warn'); badge.classList.add('offline'); }
+      if(dot){ dot.style.background = 'var(--ice-500)'; }
+      if(vTag){ vTag.textContent = 'Modo Offline'; }
+      if(vLoginTag){ vLoginTag.textContent = 'Modo Offline'; }
+      if(updateBanner) updateBanner.classList.remove('show');
+    } else {
+      if(badge){ badge.classList.remove('warn', 'offline'); }
+      if(dot){ dot.style.background = 'var(--ok-500)'; }
+      if(vTag){ vTag.textContent = '✓ Atualizada'; }
+      if(vLoginTag){ vLoginTag.textContent = '✓ Atualizada'; }
+      if(updateBanner) updateBanner.classList.remove('show');
+    }
+  }
+
+  async function checkAppVersion(manual){
+    try{
+      const res = await fetch('/api/version?t=' + Date.now(), {
+        cache: 'no-store',
+        headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' }
+      });
+      if(!res.ok) throw new Error('Status ' + res.status);
+      const data = await res.json();
+      latestServerVersion = data;
+
+      const semCmp = compareSemver(data.semver || data.version, APP_RELEASE.semver);
+      const isNewerBuild = data.build && data.build !== APP_RELEASE.build && semCmp >= 0;
+
+      if(semCmp > 0 || isNewerBuild){
+        versionStatusState = 'warn';
+        renderVersionUI();
+        if(manual){
+          showToast(`⚠️ Nova versão detetada: v${data.semver || data.version} (${data.build || ''}). Clique em Atualizar.`, true);
+        }
+      } else {
+        versionStatusState = 'ok';
+        renderVersionUI();
+        if(manual){
+          showToast(`✓ A sua versão (v${APP_RELEASE.semver}) está atualizada e coincide com o servidor.`);
+        }
+      }
+      return data;
+    }catch(e){
+      // Não foi possível contactar endpoint local (ex.: modo offline ou standalone direto)
+      versionStatusState = 'offline';
+      renderVersionUI();
+      if(manual){
+        showToast(`ℹ️ Modo Offline / PWA: a executar v${APP_RELEASE.semver} localmente.`);
+      }
+      return null;
+    }
+  }
+
+  async function forceAppUpdate(){
+    showToast('A atualizar aplicação e a limpar cache...', false);
+    try{
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for(const reg of regs){
+          if(reg.waiting){
+            reg.waiting.postMessage({ action:'skipWaiting' });
+          }
+          await reg.update().catch(()=>{});
+        }
+      }
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    }catch(e){}
+    setTimeout(()=>{
+      window.location.reload(true);
+    }, 400);
+  }
+
+  function openVersionModal(){
+    const overlay = $('modalOverlay');
+    const box = $('modalBox');
+    if(box) box.classList.remove('modal-wide');
+    $('modalTitle').textContent = 'Informações de Versão e Atualizações';
+    $('modalTextarea').style.display = 'none';
+    $('modalFormContainer').innerHTML = '';
+
+    const isUpdated = versionStatusState === 'ok';
+    const isWarn = versionStatusState === 'warn';
+    const isOffline = versionStatusState === 'offline';
+
+    const serverVerLabel = latestServerVersion ? `v${latestServerVersion.semver || latestServerVersion.version} (${latestServerVersion.build || ''})` : (isOffline ? 'Não contactável (Offline)' : 'A verificar…');
+
+    const statusHtml = isWarn
+      ? `<div class="v-status-box warn">
+           <span style="font-size:18px;">⚠️</span>
+           <div>
+             <strong>Versão Anterior em Execução</strong><br>
+             O servidor tem disponível uma versão mais recente (<b>${esc(latestServerVersion ? latestServerVersion.semver : '')}</b>). Recomenda-se atualizar para obter todas as melhorias e correções.
+           </div>
+         </div>`
+      : (isOffline
+        ? `<div class="v-status-box offline">
+             <span style="font-size:18px;">🌐</span>
+             <div>
+               <strong>Modo Offline / PWA Ativo</strong><br>
+               A executar a versão em cache local. Ligue-se à internet para sincronizar e verificar novidades.
+             </div>
+           </div>`
+        : `<div class="v-status-box ok">
+             <span style="font-size:18px;">✓</span>
+             <div>
+               <strong>Aplicação Totalmente Atualizada</strong><br>
+               Está a utilizar a última versão estável e compatível com todos os sistemas do hotel.
+             </div>
+           </div>`);
+
+    const changelogHtml = APP_RELEASE.changelog.map(c => `
+      <div class="v-change-entry">
+        <div class="v-change-title">
+          <span>${esc(c.version)} · ${esc(c.date)}</span>
+          <span style="font-size:9.5px; background:var(--aqua-100); color:var(--petrol-700); padding:2px 6px; border-radius:6px;">${esc(c.tag)}</span>
+        </div>
+        <ul class="v-change-items">
+          ${c.highlights.map(h => `<li>${esc(h)}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+
+    $('modalMsg').innerHTML = `
+      ${statusHtml}
+
+      <div class="v-modal-compare">
+        <div class="v-modal-box highlight">
+          <div class="v-modal-label">Versão Ativa no Navegador</div>
+          <div class="v-modal-val">v${esc(APP_RELEASE.semver)}</div>
+          <div class="v-modal-sub">Build ${esc(APP_RELEASE.build)}</div>
+          <div class="v-modal-sub">${esc(APP_RELEASE.buildDate)} · ${esc(APP_RELEASE.channel)}</div>
+        </div>
+        <div class="v-modal-box ${isWarn?'warn':''}">
+          <div class="v-modal-label">Versão no Servidor</div>
+          <div class="v-modal-val" id="modalServerVerVal">${esc(serverVerLabel)}</div>
+          <div class="v-modal-sub" id="modalServerVerSub">${latestServerVersion ? `${esc(latestServerVersion.buildDate || '')} · ${esc(latestServerVersion.channel || '')}` : (isOffline?'Cache PWA':'Servidor em nuvem')}</div>
+        </div>
+      </div>
+
+      <div style="font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase; color:var(--petrol-700); margin:12px 0 6px;">
+        📋 Histórico de Lançamentos
+      </div>
+      <div class="v-changelog-list">
+        ${changelogHtml}
+      </div>
+    `;
+
+    const actions = $('modalActions');
+    actions.innerHTML = '';
+
+    const btnCheck = document.createElement('button');
+    btnCheck.className = 'modal-btn-cancel';
+    btnCheck.innerHTML = '↻ Verificar Agora';
+    btnCheck.addEventListener('click', async ()=>{
+      btnCheck.disabled = true;
+      btnCheck.innerHTML = 'A verificar…';
+      await checkAppVersion(true);
+      btnCheck.disabled = false;
+      btnCheck.innerHTML = '↻ Verificar Agora';
+      openVersionModal();
+    });
+
+    const btnUpdate = document.createElement('button');
+    btnUpdate.className = 'modal-btn-confirm';
+    btnUpdate.style.background = isWarn ? 'var(--amber-500)' : 'var(--petrol-900)';
+    btnUpdate.innerHTML = isWarn ? '🚀 Atualizar Agora' : '⚡ Forçar Recarga e Limpar Cache';
+    btnUpdate.addEventListener('click', ()=>{
+      overlay.classList.remove('show');
+      forceAppUpdate();
+    });
+
+    const btnClose = document.createElement('button');
+    btnClose.className = 'modal-btn-cancel';
+    btnClose.textContent = 'Fechar';
+    btnClose.style.flex = '0 0 auto';
+    btnClose.style.minWidth = '75px';
+    btnClose.addEventListener('click', ()=>{
+      overlay.classList.remove('show');
+    });
+
+    actions.appendChild(btnCheck);
+    actions.appendChild(btnUpdate);
+    actions.appendChild(btnClose);
+
+    overlay.classList.add('show');
+  }
+
+  renderVersionUI();
 
   const CONFIG_OK = API_URL && API_URL.indexOf('http') === 0;
   if(!CONFIG_OK){ $('setupScreen').classList.add('show'); }
@@ -6782,7 +7161,27 @@
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
   }
 
+  // Eventos de Versão e Atualizações
+  $('btnOpenVersionModal') && $('btnOpenVersionModal').addEventListener('click', openVersionModal);
+  document.querySelectorAll('[data-openversion="1"]').forEach(btn => {
+    btn.addEventListener('click', (e)=>{ e.preventDefault(); openVersionModal(); });
+  });
+  $('btnUpdateNow') && $('btnUpdateNow').addEventListener('click', forceAppUpdate);
+  $('btnUpdateDismiss') && $('btnUpdateDismiss').addEventListener('click', ()=>{
+    const ub = $('updateBanner');
+    if(ub) ub.classList.remove('show');
+  });
+
+  window.addEventListener('focus', () => checkAppVersion(false));
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') checkAppVersion(false);
+  });
+
   (async function boot(){
+    renderVersionUI();
+    checkAppVersion(false);
+    setInterval(() => checkAppVersion(false), 5 * 60 * 1000);
+
     if(!CONFIG_OK) return;
     $('loginScreen').classList.add('show');
 
@@ -6805,8 +7204,27 @@
 })();
 </script>
 <script>
-  if('serviceWorker' in navigator && location.protocol === 'https:'){
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')){
+    window.addEventListener('load', async () => {
+      try{
+        const reg = await navigator.serviceWorker.register('./sw.js');
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if(!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+              // Nova versão do service worker pronta em background
+              const banner = document.getElementById('updateBanner');
+              if(banner) banner.classList.add('show');
+              const badge = document.getElementById('btnOpenVersionModal');
+              if(badge) badge.classList.add('warn');
+              const tag = document.getElementById('vStatusTag');
+              if(tag) tag.textContent = '⚠️ Nova Versão';
+            }
+          });
+        });
+      }catch(e){}
+    });
   }
 </script>
 </body>

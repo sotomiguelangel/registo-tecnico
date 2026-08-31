@@ -1,4 +1,4 @@
-const CACHE = 'registo-v18';
+const CACHE = 'registo-v3.2.0';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -15,10 +15,16 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('message', e => {
+  if (e.data && e.data.action === 'skipWaiting') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // La API de Google Sheets SIEMPRE va a la red (datos vivos + token)
-  if (url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) {
+  // As APIs de backend e Google Sheets NUNCA são servidas por cache estático
+  if (url.pathname.startsWith('/api/') || url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) {
     return;
   }
   if (e.request.method !== 'GET') return;

@@ -12,9 +12,34 @@ const PORT = 3000;
 app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
 app.use(express.static(__dirname));
 
+// Version info endpoint
+const APP_VERSION_DATA = {
+  name: 'Registo Técnico · Moon and Sun',
+  semver: '3.2.0',
+  build: '2026.08.31-R1',
+  buildDate: '2026-08-31',
+  channel: 'Produção (Oficial)',
+  full: 'v3.2.0 (Build 2026.08.31-R1)',
+  label: 'v3.2.0',
+  timestamp: Date.now()
+};
+
+app.get('/api/version', (req, res) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  res.json({
+    ...APP_VERSION_DATA,
+    serverTime: new Date().toISOString()
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', version: APP_VERSION_DATA.semver });
 });
 
 // Fallback to index.html for SPA routing
