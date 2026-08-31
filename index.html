@@ -2043,11 +2043,23 @@
   let selectedCycleIndex = 'current'; // 'current' | number
   let detectedCyclesList = [];
 
-  function normRoom(n){ return String(n === undefined || n === null ? '' : n).trim(); }
+  function normRoom(n){
+    if(n === undefined || n === null) return '';
+    let s = String(n).trim();
+    if(!s) return '';
+    const match = s.match(/(?:quarto|hab|room|q\.?)?\s*(\d+)/i);
+    if(match && match[1]){
+      let num = match[1];
+      if(num.length < 3) num = num.padStart(3, '0');
+      return num;
+    }
+    return s;
+  }
 
   // Agrupa todas as leituras de quartos em ciclos sequenciais (com memoização)
   function groupQuartoRecordsIntoCycles(rawRecords, rList){
     const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
+    const targetSet = new Set(listNorm);
     const targetSize = listNorm.length || 40;
 
     const cacheKey = (rawRecords ? rawRecords.length : 0) + '_' + (rawRecords && rawRecords.length ? (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'') : '') + '_' + targetSize;
@@ -2056,7 +2068,7 @@
     }
 
     // Ordenar cronologicamente ascendente
-    const sorted = rawRecords.slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+    const sorted = (rawRecords || []).slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
 
     const cycles = [];
     let currentRoomsMap = new Map(); // roomNum -> record
@@ -2066,11 +2078,9 @@
       const num = normRoom(r.data.numero);
       if(!num) return;
 
-      // Se este quarto já foi medido neste ciclo e ainda não cobrimos todos os quartos da lista,
-      // ou se o ciclo já atingiu o total de quartos da lista, consideramos fecho de ciclo
+      // Se este quarto já foi medido neste ciclo e o ciclo já atingiu o total de quartos da lista, fechar ciclo
       if(currentRoomsMap.has(num) && currentRoomsMap.size >= targetSize){
-        // Fechar ciclo
-        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize));
+        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false));
         currentRoomsMap = new Map();
         currentRecords = [];
       }
@@ -2080,7 +2090,7 @@
 
       if(currentRoomsMap.size >= targetSize){
         // Ciclo completo
-        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize));
+        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false));
         currentRoomsMap = new Map();
         currentRecords = [];
       }
@@ -2122,23 +2132,16 @@
 
   async function loadCycleDone(){
     try{
-      const v = await getConfigCached('cicloQuartosHechos');
-      if(v !== null && v !== undefined){
-        cycleDone = JSON.parse(v).map(normRoom).filter(Boolean);
-        if(JSON.stringify(cycleDone) !== String(v)){
-          try{ await apiPost({ action:'setConfig', key:'cicloQuartosHechos', value: JSON.stringify(cycleDone) }); invalidateConfig('cicloQuartosHechos'); }catch(e){}
-        }
-        return;
-      }
-    }catch(e){}
-
-    try{
       const existing = await listRecords('quarto');
-      const uniqueRooms = [...new Set(existing.map(r=> normRoom(r.data.numero)).filter(Boolean))];
-      const roomsNorm = roomsList.map(normRoom);
-      const coversFullCycle = roomsNorm.length > 0 && uniqueRooms.filter(n=> roomsNorm.includes(n)).length >= roomsNorm.length;
-      cycleDone = coversFullCycle ? [] : uniqueRooms;
-      await saveCycleDone();
+      const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+      if(grouped.currentCycle && grouped.currentCycle.doneCount > 0){
+        cycleDone = grouped.currentCycle.uniqueRooms;
+      } else if(grouped.completedCycles.length > 0){
+        cycleDone = grouped.completedCycles[grouped.completedCycles.length - 1].uniqueRooms;
+      } else {
+        cycleDone = [];
+      }
+      return;
     }catch(e){
       cycleDone = [];
     }
@@ -2175,7 +2178,9 @@
   async function recomputeCycleFromHistory(){
     const existing = await listRecords('quarto');
     const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
-    const activeDone = grouped.currentCycle.uniqueRooms;
+    const activeDone = (grouped.currentCycle && grouped.currentCycle.doneCount > 0)
+      ? grouped.currentCycle.uniqueRooms
+      : (grouped.completedCycles.length ? grouped.completedCycles[grouped.completedCycles.length - 1].uniqueRooms : []);
     const roomsNormalized = roomsList.map(normRoom);
     const matched = activeDone.filter(n=> roomsNormalized.includes(n));
     const unmatched = activeDone.filter(n=> !roomsNormalized.includes(n));
@@ -5129,42 +5134,56 @@
     const tempMonth = tempRaw.filter(inMonth);
     const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
 
-    // Ciclo de quartos
-    const done = effectiveCycleDone().length;
+    // Ciclo de quartos (calculado dinamicamente com base nas leituras reais)
+    const groupedQuartos = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
+    const activeCycle = groupedQuartos.currentCycle;
+    const latestCompleted = groupedQuartos.completedCycles.length ? groupedQuartos.completedCycles[groupedQuartos.completedCycles.length - 1] : null;
+    const displayCycle = (activeCycle && activeCycle.doneCount > 0) ? activeCycle : (latestCompleted || activeCycle);
+
     const totalRooms = roomsList.length || 40;
+    const done = displayCycle ? displayCycle.doneCount : 0;
     const pending = Math.max(0, totalRooms - done);
     const roomsPct = Math.min(100, Math.round((done / totalRooms) * 100));
 
     // 1. Pilares do Score Global de Saúde Técnica (0-100%)
-    // Pilar A: Segurança Sanitária (AQS & Piscina) - Peso 35%
-    let aqsTotal = 0, aqsOk = 0, poolTotal = 0, poolOk = 0;
+    // Pilar 1: Segurança AQS (Legionella & Temperaturas de Retorno/Quartos) - Peso 25%
+    let aqsTotal = 0, aqsOk = 0;
     let minAqsRetorno = null, minAqsQuartos = null;
     genMonth.forEach(r => {
       const ret = parseFloat(r.data.retornoAqs);
       const aqsQ = parseFloat(r.data.aqsQuartos);
+      if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
+      if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsQuartosMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
+    });
+    const pilarAqs = aqsTotal > 0 ? Math.round((aqsOk / aqsTotal) * 100) : 100;
+
+    // Pilar 2: Controlo e Segurança de Piscina (pH & Cloro Livre/Total) - Peso 20%
+    let poolTotal = 0, poolOk = 0;
+    genMonth.forEach(r => {
       const ph = parseFloat(r.data.phPiscina);
       const cl = parseFloat(r.data.cloroLibre);
-      if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
-      if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
+      const clTot = parseFloat(r.data.cloroTotal);
       if(!isNaN(ph)){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
       if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
+      if(!isNaN(clTot)){ poolTotal++; if(clTot <= DASH_THRESHOLDS.cloroTotalMax) poolOk++; }
     });
-    const pilarSanitario = (aqsTotal + poolTotal) > 0 ? Math.round(((aqsOk + poolOk) / (aqsTotal + poolTotal)) * 100) : 100;
+    const pilarPiscina = poolTotal > 0 ? Math.round((poolOk / poolTotal) * 100) : 100;
 
-    // Pilar B: Cadeia de Frio & HACCP - Peso 25%
+    // Pilar 3: Cadeia de Frio & HACCP (7 dias) - Peso 20%
     const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 100;
 
-    // Pilar C: Eficiência & Cadência Operacional - Peso 20%
+    // Pilar 4: Eficiência & Cadência Operacional - Peso 15%
     const pilarEficiencia = Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85));
 
-    // Pilar D: Manutenção Preventiva Quartos - Peso 20%
+    // Pilar 5: Manutenção Preventiva & Ciclo Quartos - Peso 20%
     const pilarQuartos = roomsPct;
 
-    // Score Ponderado Global
+    // Score Ponderado Global (100%)
     const healthScore = Math.min(100, Math.max(0, Math.round(
-      (pilarSanitario * 0.35) +
-      (pilarFrio * 0.25) +
-      (pilarEficiencia * 0.20) +
+      (pilarAqs * 0.25) +
+      (pilarPiscina * 0.20) +
+      (pilarFrio * 0.20) +
+      (pilarEficiencia * 0.15) +
       (pilarQuartos * 0.20)
     )));
 
@@ -5175,10 +5194,10 @@
       scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
     } else if(healthScore < 80){
       scoreStatusClass = 'status-warn'; scoreBadgeText = 'Atenção'; scoreHeadline = 'Acompanhamento Recomendado';
-      scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS ou quartos.';
+      scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS, piscina ou quartos.';
     } else if(healthScore < 90){
       scoreStatusClass = 'status-good'; scoreBadgeText = 'Conforme'; scoreHeadline = 'Operação Estável e Conforme';
-      scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança alimentar.';
+      scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança sanitária/alimentar.';
     }
 
     // 2. Cockpit Financeiro & Projeção
@@ -5212,18 +5231,28 @@
     // AQS / Legionella Check
     if(minAqsRetorno !== null && minAqsRetorno < DASH_THRESHOLDS.aqsMin){
       actionItems.push({
-        type: 'crit', tag: 'AQS · Risco Legionella',
-        title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < 50.0°C)`,
+        type: 'crit', tag: 'AQS · Prevenção Legionella',
+        title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < ${DASH_THRESHOLDS.aqsMin.toFixed(1)}°C)`,
         desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
         rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
       });
     }
-    if(minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsMin){
+    if(minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsQuartosMin){
       actionItems.push({
         type: 'warn', tag: 'AQS · Conforto & Higiene',
-        title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C`,
-        desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo dos 50°C.',
+        title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C (< ${DASH_THRESHOLDS.aqsQuartosMin.toFixed(1)}°C)`,
+        desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo do limiar de conforto térmico.',
         rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
+      });
+    }
+
+    // Piscina Check
+    if(poolTotal > 0 && poolOk < poolTotal){
+      actionItems.push({
+        type: 'warn', tag: 'Piscina · Qualidade da Água',
+        title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
+        desc: `Foram registados valores fora do intervalo regulamentar (pH ${DASH_THRESHOLDS.phMin}–${DASH_THRESHOLDS.phMax} ou Cloro ${DASH_THRESHOLDS.cloroMin}–${DASH_THRESHOLDS.cloroMax} ppm).`,
+        rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
       });
     }
 
@@ -5235,16 +5264,6 @@
         title: `${tempBad7.length} leitura(s) fora do intervalo seguro nos últimos 7 dias`,
         desc: `Equipamentos com desvio: ${esc(equipNomes)}. Risco de conservação e segurança alimentar.`,
         rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
-      });
-    }
-
-    // Piscina Check
-    if(poolTotal > 0 && poolOk < poolTotal){
-      actionItems.push({
-        type: 'warn', tag: 'Qualidade da Água · Piscina',
-        title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
-        desc: 'Foram registados valores fora do intervalo regulamentar (pH 7.0–7.8 ou Cloro 0.5–3.0 ppm).',
-        rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
       });
     }
 
@@ -5273,7 +5292,7 @@
       actionItems.push({
         type: 'ok', tag: 'Operação 100% Conforme',
         title: 'Todas as instalações e sistemas em parâmetros nominais',
-        desc: 'AQS, Refrigeração, Piscinas e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
+        desc: 'AQS, Piscinas, Refrigeração, Quartos e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
         rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
       });
     }
@@ -5288,8 +5307,8 @@
       generalRaw, tempRaw, quartosRaw, tarifasEjec, genWithDeltas,
       desde, hasta, monthStats, comp, prevMonthStats,
       temp7, tempBad7, tempMonth, tempBadMonth,
-      done, totalRooms, pending, roomsPct,
-      pilarSanitario, pilarFrio, pilarEficiencia, pilarQuartos, healthScore,
+      done, totalRooms, pending, roomsPct, displayCycle,
+      pilarAqs, pilarPiscina, pilarFrio, pilarEficiencia, pilarQuartos, healthScore,
       scoreStatusClass, scoreBadgeText, scoreHeadline, scoreDesc,
       aqsTotal, aqsOk, poolTotal, poolOk,
       aguaVal, elecVal, costAgua, costElec, costTotal,
@@ -5310,7 +5329,7 @@
       const d = await calculateExecutiveSummaryData();
       cachedExecMonths = d.months;
 
-      // Scorecard HTML
+      // Scorecard HTML (5 pilares separados: AQS, Piscina, Frio, Cadência, Quartos)
       const scorecardHTML = `
         <div class="exec-score-card">
           <div class="exec-score-header">
@@ -5327,14 +5346,22 @@
               <div class="exec-score-desc">${d.scoreDesc}</div>
             </div>
           </div>
-          <div class="exec-pillars-grid">
+          <div class="exec-pillars-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
-                <span>💧 Segurança AQS & Piscina</span>
-                <span class="exec-pillar-val" style="color:${d.pilarSanitario>=90?'var(--ok-500)':(d.pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarSanitario}%</span>
+                <span>🔥 Segurança AQS</span>
+                <span class="exec-pillar-val" style="color:${d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarAqs}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarSanitario}%; background:${d.pilarSanitario>=90?'var(--ok-500)':(d.pilarSanitario>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">Legionella & Cloro/pH (${d.aqsOk+d.poolOk}/${d.aqsTotal+d.poolTotal||1} conformes)</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarAqs}%; background:${d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">Legionella (${d.aqsOk}/${d.aqsTotal||1} conformes ≥ ${DASH_THRESHOLDS.aqsMin}°C)</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🏊 Controlo Piscina</span>
+                <span class="exec-pillar-val" style="color:${d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarPiscina}%</span>
+              </div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarPiscina}%; background:${d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
+              <div class="exec-pillar-note">pH & Cloro (${d.poolOk}/${d.poolTotal||1} conformes)</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
@@ -5564,26 +5591,31 @@
           <div style="font-size:32px; font-weight:800; color:${d.healthScore>=90?'#28704b':(d.healthScore>=75?'#b87d18':'#c04828')};">${d.healthScore}%</div>
           <div style="font-size:11px; font-weight:700; color:#222;">${esc(d.scoreBadgeText)} · ${esc(d.scoreHeadline)}</div>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
-            <div style="font-size:10px; color:#666; font-weight:600;">💧 Segurança AQS & Piscina</div>
-            <div style="font-size:16px; font-weight:700; color:${d.pilarSanitario>=90?'#28704b':'#c04828'};">${d.pilarSanitario}%</div>
-            <div style="font-size:9px; color:#777;">Legionella & Cloro/pH (${d.aqsOk+d.poolOk}/${d.aqsTotal+d.poolTotal||1} conformes)</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;">
+          <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
+            <div style="font-size:9.5px; color:#666; font-weight:600;">🔥 Segurança AQS</div>
+            <div style="font-size:15px; font-weight:700; color:${d.pilarAqs>=90?'#28704b':'#c04828'};">${d.pilarAqs}%</div>
+            <div style="font-size:8.5px; color:#777;">Legionella (${d.aqsOk}/${d.aqsTotal||1} conformes)</div>
           </div>
-          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
-            <div style="font-size:10px; color:#666; font-weight:600;">🧊 Cadeia de Frio HACCP</div>
-            <div style="font-size:16px; font-weight:700; color:${d.pilarFrio>=95?'#28704b':'#c04828'};">${d.pilarFrio}%</div>
-            <div style="font-size:9px; color:#777;">${d.tempBad7.length===0?'0 desvios nos últimos 7 dias':d.tempBad7.length+' alerta(s) de temperatura'}</div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
+            <div style="font-size:9.5px; color:#666; font-weight:600;">🏊 Controlo Piscina</div>
+            <div style="font-size:15px; font-weight:700; color:${d.pilarPiscina>=90?'#28704b':'#c04828'};">${d.pilarPiscina}%</div>
+            <div style="font-size:8.5px; color:#777;">pH/Cloro (${d.poolOk}/${d.poolTotal||1} conformes)</div>
           </div>
-          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
-            <div style="font-size:10px; color:#666; font-weight:600;">⚡ Cadência Operacional</div>
-            <div style="font-size:16px; font-weight:700; color:${d.pilarEficiencia>=90?'#28704b':'#b87d18'};">${d.pilarEficiencia}%</div>
-            <div style="font-size:9px; color:#777;">${d.comp.covered}/${d.comp.total} dias registados no mês</div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
+            <div style="font-size:9.5px; color:#666; font-weight:600;">🧊 Cadeia de Frio HACCP</div>
+            <div style="font-size:15px; font-weight:700; color:${d.pilarFrio>=95?'#28704b':'#c04828'};">${d.pilarFrio}%</div>
+            <div style="font-size:8.5px; color:#777;">${d.tempBad7.length===0?'0 desvios (7 dias)':d.tempBad7.length+' alerta(s)'}</div>
           </div>
-          <div style="border:1px solid #ddd; border-radius:8px; padding:8px 10px; background:#fff;">
-            <div style="font-size:10px; color:#666; font-weight:600;">🚪 Manutenção Quartos</div>
-            <div style="font-size:16px; font-weight:700; color:${d.roomsPct>=90?'#28704b':'#1b5568'};">${d.roomsPct}%</div>
-            <div style="font-size:9px; color:#777;">${d.done}/${d.totalRooms} quartos inspecionados</div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
+            <div style="font-size:9.5px; color:#666; font-weight:600;">⚡ Cadência Operacional</div>
+            <div style="font-size:15px; font-weight:700; color:${d.pilarEficiencia>=90?'#28704b':'#b87d18'};">${d.pilarEficiencia}%</div>
+            <div style="font-size:8.5px; color:#777;">${d.comp.covered}/${d.comp.total} dias registados</div>
+          </div>
+          <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
+            <div style="font-size:9.5px; color:#666; font-weight:600;">🛏️ Ciclo de Quartos</div>
+            <div style="font-size:15px; font-weight:700; color:${d.roomsPct>=90?'#28704b':'#1b5568'};">${d.roomsPct}%</div>
+            <div style="font-size:8.5px; color:#777;">${d.done}/${d.totalRooms} quartos inspecionados</div>
           </div>
         </div>
       </div>
@@ -5811,15 +5843,24 @@
         }
       }catch(e){}
 
-      const done = effectiveCycleDone().length, pending = Math.max(0, roomsList.length - done);
-      if(pending > 0) alerts.push(`${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'} no ciclo atual.`);
+      const groupedQuartosDash = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
+      const activeCycleDash = groupedQuartosDash.currentCycle;
+      const latestCompletedDash = groupedQuartosDash.completedCycles.length ? groupedQuartosDash.completedCycles[groupedQuartosDash.completedCycles.length - 1] : null;
+      const displayCycleDash = (activeCycleDash && activeCycleDash.doneCount > 0) ? activeCycleDash : (latestCompletedDash || activeCycleDash);
+
+      const totalRoomsDash = roomsList.length || 40;
+      const done = displayCycleDash ? displayCycleDash.doneCount : 0;
+      const pending = Math.max(0, totalRoomsDash - done);
+      if(pending > 0 && !(displayCycleDash && displayCycleDash.isCompleted)) {
+        alerts.push(`${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'} no ciclo atual.`);
+      }
       const latestGeneral = latestByDate(generalRaw);
       const staleDays = latestGeneral ? daysFromToday(latestGeneral.data.fecha) : null;
       if(staleDays !== null && staleDays > 1) alerts.push(`A última leitura geral tem ${staleDays} dias (${latestGeneral.data.fecha}).`);
 
       const prevAgua = prevConsumption.aguaDeltaCount ? prevConsumption.aguaTotal : null;
       const prevElec = prevConsumption.elecDeltaCount ? prevConsumption.elecTotal : null;
-      const pctDone = roomsList.length ? Math.round(done / roomsList.length * 100) : 0;
+      const pctDone = totalRoomsDash ? Math.round(done / totalRoomsDash * 100) : 0;
       const tempOk = tempBad.length === 0;
       const tarifasDash = await getTarifas();
 
@@ -5899,10 +5940,10 @@
 
         <h2 class="report-heading">Cobertura e alertas</h2>
         <div class="dashboard-card" style="margin-bottom:10px">
-          <div class="lab">Ciclo de quartos</div>
-          <div class="value">${done} / ${roomsList.length}</div>
+          <div class="lab">Ciclo de quartos ${displayCycleDash && displayCycleDash.isCompleted ? '· Concluído ✓' : (displayCycleDash && displayCycleDash.isActive ? '· Em curso' : '')}</div>
+          <div class="value">${done} / ${totalRoomsDash}</div>
           <div class="progress-track"><div class="progress-fill" style="width:${pctDone}%"></div></div>
-          <div class="meta">${pending} pendente${pending===1?'':'s'} · ${quartos.length} leitura${quartos.length===1?'':'s'} registada${quartos.length===1?'':'s'} este mês</div>
+          <div class="meta">${pending === 0 ? 'Ciclo 100% completo' : `${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'}`} · ${displayCycleDash ? displayCycleDash.label : ''}</div>
         </div>
         ${alerts.length ? alerts.map(a=>`<div class="dashboard-alert">⚠ ${esc(a)}</div>`).join('') : '<div class="dashboard-ok">✓ Sem alertas operacionais com os limites configurados.</div>'}
 
