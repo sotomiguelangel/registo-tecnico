@@ -717,19 +717,26 @@
     width:15px; height:15px; accent-color:var(--petrol-900); margin:0; cursor:pointer;
   }
 
+  .modal-wide{
+    max-width: 760px !important;
+    width: 95% !important;
+  }
+
   @media print{
+    @page { size: A4 portrait; margin: 8mm 6mm; }
+    html, body { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
     body.previewing-official #app{ display:none !important; }
-    body.previewing-official #officialReport{ display:block !important; background:#fff; padding:0; }
+    body.previewing-official #officialReport{ display:block !important; background:#fff !important; padding:0 !important; margin:0 !important; }
     body.previewing-official .off-toolbar-float{ display:none !important; }
-    body.previewing-official .off-doc{ padding:8mm 6mm; }
+    body.previewing-official .off-doc{ padding:6mm 4mm !important; margin:0 !important; }
     .off-doc, .off-doc *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-    body{ background:#fff; }
-    #app{ max-width:100%; }
-    main{ padding:0; }
+    #app{ max-width:100% !important; }
+    main{ padding:0 !important; }
     body:not(.previewing-official) header.top, body:not(.previewing-official) nav.tabs,
     body:not(.previewing-official) .period-toggle, body:not(.previewing-official) .custom-range,
     body:not(.previewing-official) .report-actions, body:not(.previewing-official) .official-toolbar,
     body:not(.previewing-official) #view-general, body:not(.previewing-official) #view-quarto,
+    body:not(.previewing-official) #view-temperatura, body:not(.previewing-official) #view-ejecutivo,
     body:not(.previewing-official) #view-historial, body:not(.previewing-official) #view-usuarios { display:none !important; }
   }
 </style>
@@ -950,13 +957,22 @@
     <!-- REFRIGERAÇÃO -->
     <section class="view" id="view-temperatura">
       <p class="section-title ice">🧊 Controlo semanal · Refrigeração</p>
-      <div class="edit-banner" id="editBannerTemp">✏️ A editar uma leitura existente — ao guardar será atualizado (apenas administrador).</div>
+      <div class="edit-banner" id="editBannerTemp">✏️ A editar uma leitura existente — ao guardar será atualizada com auditoria.</div>
       <div class="edit-banner" id="viewerBannerTemp" style="background:var(--ice-100); color:#1f5f96;">👁 Perfil de visualização — pode consultar, mas não registar temperaturas.</div>
 
       <div class="card">
-        <div class="subgroup-title ice">Controlo da semana <span style="text-transform:none; font-weight:400; color:var(--ink-400)" id="tempWeekRange"></span></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+          <div class="subgroup-title ice" style="margin:0">Controlo Semanal <span style="text-transform:none; font-weight:400; color:var(--ink-400)" id="tempWeekRange"></span></div>
+          <button class="cycle-btn" id="btnViewTempCycleHistory" type="button" style="padding:6px 12px; font-size:12px;">📋 Histórico de Ciclos</button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; background:var(--paper); padding:8px 12px; border-radius:10px; border:1px solid var(--line);">
+          <span style="font-size:11.5px; font-weight:700; color:var(--petrol-900); white-space:nowrap;">Ciclo / Semana:</span>
+          <select id="tempWeekSelect" style="padding:6px 10px; border-radius:8px; border:1px solid var(--line); font-size:12px; font-family:var(--mono); flex:1; background:#fff;"></select>
+        </div>
+
         <div id="tempWeekBox"><div class="empty" style="padding:12px 0">A carregar…</div></div>
-        <div style="display:flex; gap:16px; margin-top:8px;">
+        <div style="display:flex; gap:12px; margin-top:10px; flex-wrap:wrap;">
           <button class="link-edit ice" id="btnRefreshTempWeek" type="button">Atualizar controlo semanal</button>
           <button class="link-edit ice" id="btnEquipAdmin" type="button" style="display:none">⚙️ Gerir equipamentos</button>
         </div>
@@ -991,7 +1007,7 @@
       <p style="font-size:10.5px; color:var(--ink-400); margin-top:10px; line-height:1.5; font-family:var(--mono)">
         Frigorífico/Vinhera → temperatura POSITIVA · Congelador → temperatura NEGATIVA.
         O sistema valida o sinal e o intervalo do equipamento ao guardar.
-        Modificar ou eliminar leituras é exclusivo do administrador (fica na Auditoria).
+        Modificar ou eliminar leituras é registado na Auditoria.
       </p>
     </section>
 
@@ -1080,6 +1096,63 @@
           Deixe em branco para não mostrar o custo estimado. É apenas informativo — não substitui a fatura real.
         </p>
         <button class="primary" id="btnSaveTarifas"><span class="lbl-text">Guardar tarifas</span></button>
+      </div>
+
+      <div class="card" id="parametrosAdminCard" style="display:none; margin-top:20px;">
+        <div class="subgroup-title" style="color:var(--petrol-700)">⚙️ Valores de Referência e Limites Técnicos</div>
+        <p style="font-size:11px; color:var(--ink-400); margin:0 0 14px; line-height:1.5;">
+          Configure os intervalos regulamentares aceitáveis (DGS / HACCP / Controlo Sanitário). Valores fora destes limites ativam avisos visuais no painel, histórico e relatórios.
+        </p>
+
+        <div style="font-size:12px; font-weight:700; color:var(--aqua-700); margin-bottom:8px; border-bottom:1px solid var(--line); padding-bottom:4px;">🏊 Piscina & Controlo Geral</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">pH Mínimo</span><input type="number" step="0.1" min="0" max="14" id="cfg_phMin" placeholder="7.0"></label>
+          <label class="field"><span class="lbl">pH Máximo</span><input type="number" step="0.1" min="0" max="14" id="cfg_phMax" placeholder="7.8"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Livre Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroMin" placeholder="0.5"></label>
+          <label class="field"><span class="lbl">Cloro Livre Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroMax" placeholder="3.0"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Total Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroTotalMax" placeholder="5.0"></label>
+          <div></div>
+        </div>
+
+        <div style="font-size:12px; font-weight:700; color:var(--coral-700); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">🔥 Retorno AQS & Quartos (Prevenção Legionella)</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Retorno AQS Mín. <span class="unit">(°C)</span></span><input type="number" step="0.5" min="20" max="80" id="cfg_aqsMin" placeholder="45.0"></label>
+          <label class="field"><span class="lbl">AQS Quartos Mín. <span class="unit">(°C)</span></span><input type="number" step="0.5" min="20" max="80" id="cfg_aqsQuartosMin" placeholder="45.0"></label>
+        </div>
+
+        <div style="font-size:12px; font-weight:700; color:var(--amber-700); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">🚿 Quartos · Água Quente</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">pH Quente Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMin" placeholder="7.0"></label>
+          <label class="field"><span class="lbl">pH Quente Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMax" placeholder="7.8"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Livre Quente Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroCalMin" placeholder="0.5"></label>
+          <label class="field"><span class="lbl">Cloro Livre Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroCalMax" placeholder="3.0"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Total Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroTotalCalMax" placeholder="5.0"></label>
+          <div></div>
+        </div>
+
+        <div style="font-size:12px; font-weight:700; color:var(--ice-500); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">❄️ Quartos · Água Fria</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">pH Frio Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMin" placeholder="7.0"></label>
+          <label class="field"><span class="lbl">pH Frio Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMax" placeholder="7.8"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Livre Frio Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroFriaMin" placeholder="0.5"></label>
+          <label class="field"><span class="lbl">Cloro Livre Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroFriaMax" placeholder="3.0"></label>
+        </div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Cloro Total Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroTotalFriaMax" placeholder="5.0"></label>
+          <div></div>
+        </div>
+
+        <button class="primary" id="btnSaveParametros" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Guardar valores de referência</span></button>
       </div>
 
       <p class="section-title" style="margin-top:26px">Utilizadores existentes</p>
@@ -1743,6 +1816,7 @@
     $('viewerBannerTemp').style.display = viewer ? 'flex' : 'none';
     loadAlertsAdmin();
     loadTarifasAdmin();
+    loadParametrosAdmin();
     resetIdleTimer();
     initMainApp();
   }
@@ -1758,7 +1832,7 @@
       if(btn.dataset.view === 'historial') renderHistorial();
       if(btn.dataset.view === 'quarto') renderRoomGrid();
       if(btn.dataset.view === 'temperatura'){ renderTempView(); }
-      if(btn.dataset.view === 'usuarios') renderUsersList();
+      if(btn.dataset.view === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
       if(btn.dataset.view === 'dashboard') renderDashboard();
       if(btn.dataset.view === 'ejecutivo') renderEjecutivo();
     });
@@ -2523,15 +2597,26 @@
     document.querySelectorAll('.room-chip').forEach(c=>{ c.classList.toggle('selected', normRoom(c.dataset.room) === selectedRoom); });
   });
 
-  // ---------- Verificação de intervalos (referencial) ----------
-  function phWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<7.0 || n>7.8); }
-  function cloroWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<0.5 || n>3.0); }
+  // ---------- Verificação de intervalos (referenciais configuráveis) ----------
+  function phWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.phMin || n>DASH_THRESHOLDS.phMax); }
+  function cloroWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.cloroMin || n>DASH_THRESHOLDS.cloroMax); }
+  function cloroTotalWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n>DASH_THRESHOLDS.cloroTotalMax); }
+  function retornoAqsWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.aqsMin); }
+  function aqsQuartosWarn(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.aqsQuartosMin); }
+
+  function phWarnCal(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.phCalMin || n>DASH_THRESHOLDS.phCalMax); }
+  function phWarnFria(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.phFriaMin || n>DASH_THRESHOLDS.phFriaMax); }
+  function cloroWarnCal(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.cloroCalMin || n>DASH_THRESHOLDS.cloroCalMax); }
+  function cloroWarnFria(v){ const n=parseFloat(v); return !isNaN(n) && (n<DASH_THRESHOLDS.cloroFriaMin || n>DASH_THRESHOLDS.cloroFriaMax); }
+  function cloroTotalWarnCal(v){ const n=parseFloat(v); return !isNaN(n) && (n>DASH_THRESHOLDS.cloroTotalCalMax); }
+  function cloroTotalWarnFria(v){ const n=parseFloat(v); return !isNaN(n) && (n>DASH_THRESHOLDS.cloroTotalFriaMax); }
 
   // =========================================================
-  // REFRIGERAÇÃO
+  // REFRIGERAÇÃO — CICLOS, EQUIPAMENTOS E LEITURAS
   // =========================================================
   let editingTempId = null;
   let selectedEquipId = '';
+  let selectedTempWeekOffset = 0;
 
   function resetTempEditState(){
     editingTempId = null;
@@ -2548,7 +2633,7 @@
   });
 
   function selectedEquip(){
-    return equipamentos.find(e=> e.id === selectedEquipId) || null;
+    return equipamentos.find(e=> String(e.id) === String(selectedEquipId)) || null;
   }
 
   function selectEquip(id){
@@ -2559,7 +2644,7 @@
       banner.classList.add('show');
       $('tempSelName').textContent = `${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
       $('tempSelRange').textContent = `— intervalo ${eq.min} a ${eq.max} °C`;
-      const neg = eq.tipo === 'Congelador';
+      const neg = String(eq.tipo).toLowerCase().includes('congelador');
       $('tempSignHint').innerHTML = neg
         ? `Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`
         : `${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo ${esc(eq.min)} a ${esc(eq.max)} °C).`;
@@ -2580,10 +2665,50 @@
   $('btnTempDeselect').addEventListener('click', deselectEquip);
   $('t-equipamento').addEventListener('change', ()=> selectEquip($('t-equipamento').value));
 
+  function getWeekRangeOffset(offsetWeeks = 0){
+    const d = new Date();
+    d.setDate(d.getDate() - (offsetWeeks * 7));
+    const day = (d.getDay() + 6) % 7; // Monday = 0
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - day);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return {
+      desde: fmt(monday),
+      hasta: fmt(sunday),
+      label: offsetWeeks === 0
+        ? `Semana atual (${fmt(monday)} a ${fmt(sunday)})`
+        : (offsetWeeks === 1
+          ? `Semana anterior (${fmt(monday)} a ${fmt(sunday)})`
+          : `Semana (${fmt(monday)} a ${fmt(sunday)})`)
+    };
+  }
+
+  function initTempWeekSelect(){
+    const sel = $('tempWeekSelect');
+    if(!sel) return;
+    const currentVal = sel.value || '0';
+    let opts = '';
+    for(let i=0; i<12; i++){
+      const wr = getWeekRangeOffset(i);
+      opts += `<option value="${i}">${wr.label}</option>`;
+    }
+    sel.innerHTML = opts;
+    sel.value = currentVal;
+  }
+
+  if($('tempWeekSelect')){
+    $('tempWeekSelect').addEventListener('change', (e)=>{
+      selectedTempWeekOffset = parseInt(e.target.value || '0', 10);
+      renderTempWeek();
+    });
+  }
+
   async function renderTempView(){
     try{
       await loadEquipamentos();
       renderEquipSelect();
+      initTempWeekSelect();
       await renderTempWeek();
     }catch(e){
       $('tempWeekBox').innerHTML = `<div class="empty" style="padding:12px 0">⚠ ${esc(e.message)}</div>`;
@@ -2608,97 +2733,392 @@
     const box = $('tempWeekBox');
     try{
       await loadEquipamentos();
-      const r = await apiGet({ action:'temperaturaStatus' });
-      const st = r.status;
-      $('tempWeekRange').textContent = `(${st.desde} a ${st.hasta})`;
-      if(!st.items.length){
-        box.innerHTML = `<div class="empty" style="padding:12px 0">Ainda não há equipamentos criados.${isAdmin() ? ' Use "⚙️ Gerir equipamentos" acima para criar os seus 18 equipamentos.' : ''}</div>`;
-      } else {
-        box.innerHTML = `
-          <div style="font-family:var(--mono); font-size:11px; color:var(--ink-600); margin-bottom:8px;">
-            Medidos: <b style="color:${st.faltam ? '#8a5f0f' : '#28704b'}">${st.medidos}/${st.total}</b>${st.faltam ? ` · faltam ${st.faltam}` : ' · ✓ semana completa'}
-          </div>
-          ${st.items.map(i=>`
-            <div class="week-card">
-              <div style="min-width:0">
-                <div class="wn">${esc(i.nome)} <span style="font-weight:400; color:var(--ink-400); font-size:11px;">(${esc(i.tipo)})</span></div>
-                <div class="wm">${esc(i.ubicacao || '—')} · última: ${i.ultima ? esc(i.ultima.fecha) + ' ' + esc(i.ultima.hora) + ' → ' + esc(i.ultima.temperatura) + ' °C' + (i.ultima.dentro==='Não' ? ' ⚠' : '') : 'nunca medido'}</div>
-              </div>
-              <span class="week-pill ${i.medidoSemana ? 'ok' : 'pend'}">${i.medidoSemana ? '✓ medido' : 'pendente'}</span>
-            </div>`).join('')}
-        `;
+      initTempWeekSelect();
+      const wr = getWeekRangeOffset(selectedTempWeekOffset);
+      $('tempWeekRange').textContent = `(${wr.desde} a ${wr.hasta})`;
+
+      const allTempRecords = await listRecords('temperatura');
+      const weekRecords = allTempRecords.filter(r=> r.data.fecha >= wr.desde && r.data.fecha <= wr.hasta);
+
+      const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
+      if(!ativos.length){
+        box.innerHTML = `<div class="empty" style="padding:12px 0">Ainda não há equipamentos criados.${isAdmin() ? ' Use "⚙️ Gerir equipamentos" para configurar os equipamentos de frio.' : ''}</div>`;
+        return;
       }
+
+      let medidosCount = 0;
+      let alertasCount = 0;
+
+      const cardsHtml = ativos.map(eq => {
+        // Encontra a leitura mais recente deste equipamento na semana
+        const eqReadings = weekRecords.filter(r => String(r.data.equipamentoId) === String(eq.id) || String(r.data.nome).trim().toLowerCase() === String(eq.nome).trim().toLowerCase());
+        const hasReading = eqReadings.length > 0;
+        let lastReading = null;
+        let isBad = false;
+
+        if(hasReading){
+          medidosCount++;
+          lastReading = eqReadings.sort((a,b)=> (b.data.fecha+b.data.hora).localeCompare(a.data.fecha+a.data.hora))[0];
+          const tempVal = parseFloat(lastReading.data.temperatura);
+          const minVal = parseFloat(eq.min), maxVal = parseFloat(eq.max);
+          if((!isNaN(minVal) && !isNaN(tempVal) && tempVal < minVal) || (!isNaN(maxVal) && !isNaN(tempVal) && tempVal > maxVal) || String(lastReading.data.dentroIntervalo) === 'Não'){
+            isBad = true;
+            alertasCount++;
+          }
+        }
+
+        return `
+          <div class="week-card" style="display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:var(--paper); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+              <div style="min-width:0; flex:1;">
+                <div class="wn" style="font-weight:700; font-size:13.5px; color:var(--petrol-900); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <span>${esc(eq.nome)}</span>
+                  <span style="font-weight:600; color:var(--ice-500); font-size:11px; background:var(--ice-100); padding:1px 6px; border-radius:4px;">${esc(eq.tipo)}</span>
+                </div>
+                <div class="wm" style="font-size:11px; color:var(--ink-600); margin-top:2px; font-family:var(--mono);">
+                  ${esc(eq.ubicacao || 'Sem localização')} · Intervalo: <b>${esc(String(eq.min))} a ${esc(String(eq.max))} °C</b>
+                </div>
+              </div>
+              <span class="week-pill ${hasReading ? (isBad ? 'bad' : 'ok') : 'pend'}" style="white-space:nowrap;">
+                ${hasReading ? (isBad ? `⚠️ ${esc(lastReading.data.temperatura)} °C` : `✓ ${esc(lastReading.data.temperatura)} °C`) : 'Pendente'}
+              </span>
+            </div>
+
+            ${hasReading ? `
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; background:#fff; padding:7px 10px; border-radius:8px; border:1px solid var(--line); font-size:11.5px; margin-top:2px;">
+                <div style="font-family:var(--mono); color:var(--ink-600); line-height:1.4;">
+                  📅 <b>${esc(lastReading.data.fecha)}</b> ${esc(lastReading.data.hora)} · 👤 ${esc(lastReading.data.usuario || '—')}
+                  ${isBad ? ' · <span style="color:var(--coral-500); font-weight:700;">⚠️ Fora do intervalo!</span>' : ''}
+                  ${lastReading.data.observacoes ? `<br><span style="color:#8a5f0f;">📝 ${esc(lastReading.data.observacoes)}</span>` : ''}
+                  ${(lastReading.data.modificadoPor || lastReading.data.editado === 'Sim') ? `<br><span style="color:var(--ink-400); font-size:10px;">✏️ Editado por ${esc(lastReading.data.modificadoPor || '—')}</span>` : ''}
+                </div>
+                <button type="button" class="cycle-btn" data-edittempreg="${esc(lastReading.data.id)}" style="padding:4px 9px; font-size:11px; font-weight:700; color:#1f5f96; background:#e8f2fa; border:1px solid #c2dcf0;">✏️ Modificar leitura</button>
+              </div>
+            ` : `
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
+                <span style="font-size:11px; color:var(--ink-400); font-style:italic;">Sem leitura registada neste ciclo</span>
+                ${!isViewer() ? `<button type="button" class="cycle-btn primary" data-medireq="${esc(eq.id)}" style="padding:4px 9px; font-size:11px;">➕ Registar leitura</button>` : ''}
+              </div>
+            `}
+
+            ${isAdmin() ? `
+              <div style="display:flex; justify-content:flex-end; border-top:1px dashed var(--line); padding-top:4px; margin-top:4px;">
+                <button type="button" class="link-edit" data-editequipchar="${esc(eq.id)}" style="font-size:10.5px; color:var(--ink-400); background:none; border:none; cursor:pointer; padding:0;">⚙️ Modificar características do equipamento</button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      const totalCount = ativos.length;
+      const faltamCount = totalCount - medidosCount;
+      const pct = Math.round((medidosCount / (totalCount || 1)) * 100);
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--ink-600); margin-bottom:12px; background:var(--paper); padding:8px 12px; border-radius:8px; border:1px solid var(--line);">
+          <div>
+            Medidos no ciclo: <b style="color:${faltamCount ? '#8a5f0f' : '#28704b'}">${medidosCount} / ${totalCount} (${pct}%)</b>
+            ${faltamCount ? ` · <span style="color:#8a5f0f">faltam ${faltamCount}</span>` : ' · <span style="color:#28704b">✓ ciclo completo</span>'}
+          </div>
+          ${alertasCount > 0 ? `<div style="color:var(--coral-500); font-weight:700;">⚠️ ${alertasCount} fora do intervalo</div>` : '<div style="color:#28704b; font-weight:600;">✓ Todas conformes</div>'}
+        </div>
+        ${cardsHtml}
+      `;
+
+      // Delegated clicks inside tempWeekBox
+      box.querySelectorAll('button[data-edittempreg]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.edittempreg;
+          const all = await listRecords('temperatura');
+          const rec = all.find(r => String(r.data.id) === String(id) || String(r.key) === String(id));
+          if(rec) startEditTempRecord(rec.data);
+        });
+      });
+
+      box.querySelectorAll('button[data-medireq]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const eqId = btn.dataset.medireq;
+          $('t-equipamento').value = eqId;
+          selectEquip(eqId);
+          $('t-fecha').value = wr.desde;
+          $('t-temperatura').focus();
+          $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      });
+
+      box.querySelectorAll('button[data-editequipchar]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          editEquipamento(btn.dataset.editequipchar);
+        });
+      });
+
     }catch(e){
-      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠ Erro ao carregar: ${esc(e.message)}<br><br><b>Verifique que o backend está desplegado na v4.7 ("Nova versão" no Apps Script).</b></div>`;
+      box.innerHTML = `<div class="empty" style="padding:12px 0">⚠️ Erro ao carregar ciclo: ${esc(e.message)}</div>`;
     }
   }
   $('btnRefreshTempWeek').addEventListener('click', ()=> renderTempWeek());
 
-  // Gestão de equipamentos (apenas admin) — permite criar vários seguidos
+  function startEditTempRecord(readingData){
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
+    resetTempEditState();
+    editingTempId = readingData.id;
+    loadEquipamentos().then(()=>{
+      renderEquipSelect();
+      $('t-equipamento').value = readingData.equipamentoId || '';
+      selectEquip(readingData.equipamentoId || '');
+    });
+    $('t-fecha').value = readingData.fecha || todayStr();
+    $('t-hora').value = readingData.hora || nowTimeStr();
+    $('t-temperatura').value = readingData.temperatura || '';
+    $('t-observacoes').value = readingData.observacoes || '';
+    $('editBannerTemp').classList.add('show');
+    $('btnCancelEditTemp').style.display = '';
+    $('btnSaveTemp').querySelector('.lbl-text').textContent = 'Atualizar leitura de temperatura';
+    switchToTab('temperatura');
+    $('t-temperatura').focus();
+    $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast(`A editar leitura de ${readingData.nome || 'equipamento'} — modifique e guarde ✓`);
+  }
+
+  // Histórico de Ciclos Semanais de Refrigeração
+  async function openTempCycleHistoryDialog(){
+    try{
+      await loadEquipamentos();
+      const allTemp = await listRecords('temperatura');
+      const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
+      const totalEquips = ativos.length || 1;
+
+      let rowsHtml = '';
+      for(let w = 0; w < 16; w++){
+        const wr = getWeekRangeOffset(w);
+        const inWeek = allTemp.filter(r => r.data.fecha >= wr.desde && r.data.fecha <= wr.hasta);
+        const equipIdsMedidos = new Set();
+        let desvios = 0;
+
+        inWeek.forEach(r => {
+          if(r.data.equipamentoId) equipIdsMedidos.add(String(r.data.equipamentoId));
+          const eq = equipamentos.find(e => String(e.id) === String(r.data.equipamentoId));
+          const t = parseFloat(r.data.temperatura);
+          if(eq && !isNaN(t)){
+            if(t < eq.min || t > eq.max || String(r.data.dentroIntervalo) === 'Não') desvios++;
+          }
+        });
+
+        const medidos = equipIdsMedidos.size;
+        const pct = Math.round((medidos / totalEquips) * 100);
+        const isComplete = medidos >= totalEquips;
+
+        rowsHtml += `
+          <tr style="border-bottom:1px solid var(--line);">
+            <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">
+              ${w === 0 ? '🟢 Esta semana' : (w === 1 ? 'Semana anterior' : `Semana W-${w}`)}
+              <div style="font-size:10.5px; font-weight:400; color:var(--ink-400); font-family:var(--mono);">${wr.desde} a ${wr.hasta}</div>
+            </td>
+            <td style="padding:8px 10px; text-align:center; font-family:var(--mono);">${medidos} / ${totalEquips}</td>
+            <td style="padding:8px 10px; text-align:center; font-weight:700; color:${isComplete ? '#28704b' : (pct >= 50 ? '#8a5f0f' : '#8b3d1d')};">${pct}%</td>
+            <td style="padding:8px 10px; text-align:center;">
+              ${desvios > 0 ? `<span style="color:var(--coral-500); font-weight:700;">⚠️ ${desvios}</span>` : '<span style="color:#28704b;">0</span>'}
+            </td>
+            <td style="padding:8px 10px; text-align:right; white-space:nowrap;">
+              <button type="button" class="cycle-btn" data-pickweek="${w}" style="padding:4px 8px; font-size:11px;">Ver ciclo</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      const modalHtml = `
+        <div style="max-height:60vh; overflow-y:auto; border:1px solid var(--line); border-radius:10px; margin-bottom:12px;">
+          <table class="report" style="width:100%; margin:0;">
+            <thead>
+              <tr>
+                <th style="padding:8px 10px;">Ciclo Semanal</th>
+                <th style="padding:8px 10px; text-align:center;">Medidos</th>
+                <th style="padding:8px 10px; text-align:center;">Conformidade</th>
+                <th style="padding:8px 10px; text-align:center;">Desvios</th>
+                <th style="padding:8px 10px; text-align:right;">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      const box = $('modalBox');
+      if(box) box.classList.add('modal-wide');
+
+      // Hook click on pick week before opening or attach in dialog
+      setTimeout(()=>{
+        document.querySelectorAll('button[data-pickweek]').forEach(b => {
+          b.addEventListener('click', ()=>{
+            const offset = parseInt(b.dataset.pickweek, 10);
+            selectedTempWeekOffset = offset;
+            if($('tempWeekSelect')) $('tempWeekSelect').value = String(offset);
+            closeModal();
+            renderTempWeek();
+            showToast(`A apresentar ${getWeekRangeOffset(offset).label}`);
+          });
+        });
+      }, 50);
+
+      await confirmDialog('📋 Histórico de Ciclos Semanais — Refrigeração', modalHtml, 'Fechar', '');
+      if(box) box.classList.remove('modal-wide');
+    }catch(e){
+      showToast('⚠️ Erro ao carregar histórico de ciclos: ' + e.message, true);
+    }
+  }
+  if($('btnViewTempCycleHistory')) $('btnViewTempCycleHistory').addEventListener('click', openTempCycleHistoryDialog);
+
+  // Gestão Completa de Equipamentos (Admin)
   async function openEquipAdmin(){
     if(!isAdmin()){ showToast('Apenas o administrador pode gerir equipamentos', true); return; }
     try{
       await loadEquipamentos(true);
-    }catch(e){ /* segue com o que houver em cache */ }
-    const list = equipamentos.map(e=> `• ${e.nome} — ${e.tipo} — ${e.ubicacao||'sem ubicacao'} [${e.min} a ${e.max} °C]${isNoVal(e.ativo)?' (INATIVO)':''}`).join('\n') || '(nenhum equipamento criado ainda)';
+    }catch(e){}
+
+    const listHtml = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <span style="font-size:12px; color:var(--ink-600);">Total: <b>${equipamentos.length}</b> equipamentos</span>
+        <button type="button" id="btnAdminAddEquip" class="cycle-btn primary" style="padding:6px 12px; font-size:12px;">➕ Adicionar Novo Equipamento</button>
+      </div>
+      <div style="max-height:55vh; overflow-y:auto; margin-bottom:12px; border:1px solid var(--line); border-radius:10px;">
+        <table class="report" style="width:100%; margin:0;">
+          <thead>
+            <tr>
+              <th style="padding:8px 10px;">Equipamento</th>
+              <th style="padding:8px 10px;">Tipo</th>
+              <th style="padding:8px 10px;">Localização</th>
+              <th style="padding:8px 10px;">Intervalo (°C)</th>
+              <th style="padding:8px 10px;">Estado</th>
+              <th style="padding:8px 10px; text-align:right;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${!equipamentos.length ? '<tr><td colspan="6" style="padding:14px; text-align:center; color:var(--ink-400);">Nenhum equipamento registado.</td></tr>' : equipamentos.map(eq => {
+              const inativo = isNoVal(eq.ativo);
+              return `
+                <tr style="${inativo ? 'opacity:0.6; background:#f9f9f9;' : ''}">
+                  <td style="padding:8px 10px; font-weight:700;">${esc(eq.nome)}</td>
+                  <td style="padding:8px 10px;">${esc(eq.tipo)}</td>
+                  <td style="padding:8px 10px; font-size:11.5px; color:var(--ink-600);">${esc(eq.ubicacao||'—')}</td>
+                  <td style="padding:8px 10px; font-family:var(--mono); font-size:11.5px;">${esc(String(eq.min))} a ${esc(String(eq.max))} °C</td>
+                  <td style="padding:8px 10px;">${inativo ? '<span style="color:var(--coral-500); font-weight:700; font-size:11px;">Inativo</span>' : '<span style="color:#28704b; font-weight:700; font-size:11px;">✓ Ativo</span>'}</td>
+                  <td style="padding:8px 10px; text-align:right; white-space:nowrap;">
+                    <button type="button" class="cycle-btn" data-editeqid="${esc(eq.id)}" style="padding:4px 8px; font-size:11px; margin-right:4px;">✏️ Modificar</button>
+                    <button type="button" class="cycle-btn" data-toggleqid="${esc(eq.id)}" style="padding:4px 8px; font-size:11px; margin-right:4px;">${inativo ? 'Ativar' : 'Desativar'}</button>
+                    <button type="button" class="cycle-btn" data-deleqid="${esc(eq.id)}" style="padding:4px 8px; font-size:11px; color:var(--coral-500);">Eliminar</button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const box = $('modalBox');
+    if(box) box.classList.add('modal-wide');
+
+    setTimeout(()=>{
+      const addBtn = $('btnAdminAddEquip');
+      if(addBtn) addBtn.onclick = () => { closeModal(); setTimeout(addNewEquipamentoDialog, 50); };
+
+      document.querySelectorAll('button[data-editeqid]').forEach(b => {
+        b.onclick = () => { closeModal(); setTimeout(()=> editEquipamento(b.dataset.editeqid), 50); };
+      });
+      document.querySelectorAll('button[data-toggleqid]').forEach(b => {
+        b.onclick = async () => {
+          const eq = equipamentos.find(e => String(e.id) === String(b.dataset.toggleqid));
+          if(!eq) return;
+          const novoAtivo = isNoVal(eq.ativo) ? 'Sim' : 'Não';
+          await apiPost({ action:'saveEquipamento', data: Object.assign({}, eq, { ativo: novoAtivo }) });
+          invalidateEquipamentos();
+          closeModal();
+          showToast(`Equipamento "${eq.nome}" ${novoAtivo === 'Sim' ? 'ativado' : 'desativado'} ✓`);
+          await renderTempView();
+        };
+      });
+      document.querySelectorAll('button[data-deleqid]').forEach(b => {
+        b.onclick = () => { closeModal(); setTimeout(()=> deleteEquipamentoById(b.dataset.deleqid), 50); };
+      });
+    }, 50);
+
+    await confirmDialog('⚙️ Gestão de Equipamentos de Refrigeração', listHtml, 'Fechar', '');
+    if(box) box.classList.remove('modal-wide');
+  }
+  $('btnEquipAdmin').addEventListener('click', openEquipAdmin);
+
+  async function addNewEquipamentoDialog(){
     const vals = await formDialog(
-      'Adicionar equipamento',
+      'Adicionar Novo Equipamento de Refrigeração',
       [
-        { id:'nome', label:'Nome do equipamento', placeholder:'Ex.: Frigorifico Cozinha 1', value:'' },
-        { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', placeholder:'Frigorifico', value:'' },
-        { id:'ubicacao', label:'Ubicacao', placeholder:'Ex.: Cozinha — zona quente', value:'' },
-        { id:'min', label:'Min °C (vazio = por defeito do tipo)', placeholder:'ex.: 0', value:'' },
-        { id:'max', label:'Max °C (vazio = por defeito do tipo)', placeholder:'ex.: 8', value:'' }
+        { id:'nome', label:'Nome do Equipamento', placeholder:'Ex.: Frigorífico Cozinha 1', value:'' },
+        { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira)', placeholder:'Frigorífico', value:'' },
+        { id:'ubicacao', label:'Localização / Ubicação', placeholder:'Ex.: Cozinha — bancada fria', value:'' },
+        { id:'min', label:'Temperatura Mínima (°C)', placeholder:'Ex.: 0 ou -22', value:'' },
+        { id:'max', label:'Temperatura Máxima (°C)', placeholder:'Ex.: 5 ou -18', value:'' }
       ],
-      'Adicionar equipamento'
+      'Criar Equipamento'
     );
-    if(!vals) return; // cancelou
+    if(!vals) return;
     if(!vals.nome || !vals.tipo){
-      showToast('Preencha nome e tipo para adicionar', true);
+      showToast('Nome e Tipo são obrigatórios', true);
       return;
     }
     try{
       await apiPost({ action:'saveEquipamento', data:{ nome: vals.nome, tipo: vals.tipo, ubicacao: vals.ubicacao, min: vals.min, max: vals.max } });
-      showToast(`Equipamento "${vals.nome}" criado ✓`, false);
+      showToast(`Equipamento "${vals.nome}" criado com sucesso ✓`);
       invalidateEquipamentos();
-      renderEquipSelect();
-      renderTempWeek();
-      // Reabre o diálogo já com a lista atualizada (permite criar vários seguidos)
-      setTimeout(()=> openEquipAdmin(), 100);
+      await renderTempView();
     }catch(e){
-      showToast('⚠️ Não foi possível criar: ' + e.message, true);
+      showToast('⚠️ Não foi possível criar equipamento: ' + e.message, true);
     }
   }
-  $('btnEquipAdmin').addEventListener('click', openEquipAdmin);
 
   async function editEquipamento(id){
-    const eq = equipamentos.find(e=> e.id === id);
+    const eq = equipamentos.find(e=> String(e.id) === String(id));
     if(!eq) return;
-    const vals = await formDialog('Editar equipamento', [
-      { id:'nome', label:'Nome', value: eq.nome },
-      { id:'tipo', label:'Tipo (Frigorifico / Congelador / Vinhera)', value: eq.tipo },
-      { id:'ubicacao', label:'Ubicacao', value: eq.ubicacao || '' },
-      { id:'min', label:'Min °C', value: eq.min },
-      { id:'max', label:'Max °C', value: eq.max }
-    ], 'Guardar');
+    const vals = await formDialog('Modificar Características do Equipamento', [
+      { id:'nome', label:'Nome do Equipamento', value: eq.nome },
+      { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira)', value: eq.tipo },
+      { id:'ubicacao', label:'Localização / Ubicação', value: eq.ubicacao || '' },
+      { id:'min', label:'Temperatura Mínima (°C)', value: eq.min },
+      { id:'max', label:'Temperatura Máxima (°C)', value: eq.max }
+    ], 'Guardar Características');
     if(!vals) return;
+    if(!vals.nome || !vals.tipo){
+      showToast('Nome e Tipo são obrigatórios', true);
+      return;
+    }
     try{
-      await apiPost({ action:'saveEquipamento', data:{ id: eq.id, nome: vals.nome, tipo: vals.tipo, ubicacao: vals.ubicacao, min: vals.min, max: vals.max, ativo: eq.ativo } });
-      showToast('Equipamento atualizado ✓');
+      await apiPost({
+        action:'saveEquipamento',
+        data:{
+          id: eq.id,
+          nome: vals.nome,
+          tipo: vals.tipo,
+          ubicacao: vals.ubicacao,
+          min: vals.min,
+          max: vals.max,
+          ativo: eq.ativo
+        }
+      });
+      showToast(`Equipamento "${vals.nome}" atualizado ✓`);
       invalidateEquipamentos();
-      renderTempView();
+      await renderTempView();
     }catch(e){ showToast('⚠️ ' + e.message, true); }
   }
 
   async function deleteEquipamentoById(id){
-    const eq = equipamentos.find(e=> e.id === id);
-    const ok = await confirmDialog('Eliminar equipamento', `Eliminar "${eq ? eq.nome : id}"? As leituras já gravadas mantêm-se (com o nome copiado), mas deixará de aparecer na lista para novas medições.`, 'Eliminar', 'Cancelar');
+    const eq = equipamentos.find(e=> String(e.id) === String(id));
+    const ok = await confirmDialog('Eliminar Equipamento', `Eliminar "${eq ? eq.nome : id}"? As medições anteriores mantêm-se guardadas na base de dados, mas deixará de aparecer para novas leituras.`, 'Eliminar', 'Cancelar');
     if(!ok) return;
     try{
       await apiPost({ action:'deleteEquipamento', id });
-      showToast('Equipamento eliminado');
+      showToast('Equipamento eliminado ✓');
       invalidateEquipamentos();
-      renderTempView();
+      await renderTempView();
     }catch(e){ showToast('⚠️ ' + e.message, true); }
   }
 
@@ -2736,7 +3156,7 @@
       $('t-hora').value = nowTimeStr();
       deselectEquip();
       refreshChips();
-      renderTempWeek();
+      await renderTempWeek();
     }catch(e){
       showToast('⚠️ Não foi possível guardar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
@@ -2787,7 +3207,7 @@
       const d = it.data;
       let editBtn = '', delBtn = '';
       if(it.type === 'temperatura'){
-        if(isAdminU) editBtn = `<button class="edit" data-edit="${idx}">Editar</button>`;
+        if(canEdit) editBtn = `<button class="edit" data-edit="${idx}">Editar</button>`;
         if(isAdminU) delBtn = `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}">Eliminar</button>`;
       } else {
         editBtn = canEdit ? `<button class="edit" data-edit="${idx}">Editar</button>` : '';
@@ -2803,13 +3223,13 @@
           <div class="entry-grid">
             ${entryItem('Água', d.agua, 'm³')}
             ${entryItem('Elet.', d.electricidad, 'kWh')}
-            ${entryItem('Retorno AQS', d.retornoAqs, '°C')}
-            ${entryItem('AQS Quartos', d.aqsQuartos, '°C')}
+            ${entryItem('Retorno AQS', d.retornoAqs, '°C', retornoAqsWarn(d.retornoAqs))}
+            ${entryItem('AQS Quartos', d.aqsQuartos, '°C', aqsQuartosWarn(d.aqsQuartos))}
             ${entryItem('Estado piscina', d.estadoPiscina, '')}
             ${entryItem('Temp. piscina', d.tempPiscina, '°C')}
             ${entryItem('pH', d.phPiscina, '', phWarn(d.phPiscina))}
             ${entryItem('Cloro livre', d.cloroLibre, 'ppm', cloroWarn(d.cloroLibre))}
-            ${entryItem('Cloro total', d.cloroTotal, 'ppm')}
+            ${entryItem('Cloro total', d.cloroTotal, 'ppm', cloroTotalWarn(d.cloroTotal))}
             ${entryItem('Pré-filtro', dispYesNo(d.lavadoPrefiltro), '')}
             ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
             ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
@@ -2836,12 +3256,12 @@
           <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-quarto">Quarto ${esc(d.numero)}</span></div>
           <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
           <div class="entry-grid">
-            ${entryItem('pH quente', d.phCaliente, '', phWarn(d.phCaliente))}
-            ${entryItem('Cloro livre quente', d.cloroCaliente, 'ppm', cloroWarn(d.cloroCaliente))}
-            ${entryItem('Cloro total quente', d.cloroTotalCaliente, 'ppm')}
-            ${entryItem('pH fria', d.phFria, '', phWarn(d.phFria))}
-            ${entryItem('Cloro livre fria', d.cloroFria, 'ppm', cloroWarn(d.cloroFria))}
-            ${entryItem('Cloro total fria', d.cloroTotalFria, 'ppm')}
+            ${entryItem('pH quente', d.phCaliente, '', phWarnCal(d.phCaliente))}
+            ${entryItem('Cloro livre quente', d.cloroCaliente, 'ppm', cloroWarnCal(d.cloroCaliente))}
+            ${entryItem('Cloro total quente', d.cloroTotalCaliente, 'ppm', cloroTotalWarnCal(d.cloroTotalCaliente))}
+            ${entryItem('pH fria', d.phFria, '', phWarnFria(d.phFria))}
+            ${entryItem('Cloro livre fria', d.cloroFria, 'ppm', cloroWarnFria(d.cloroFria))}
+            ${entryItem('Cloro total fria', d.cloroTotalFria, 'ppm', cloroTotalWarnFria(d.cloroTotalFria))}
             ${auditHtml}
           </div>
           ${actions}
@@ -2892,24 +3312,9 @@
   let lastHistorialItems = [];
 
   function startEditRecord(it){
+    if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     if(it.type === 'temperatura'){
-      if(!isAdmin()){ showToast('Modificar temperaturas é exclusivo do administrador', true); return; }
-      const d = it.data;
-      resetTempEditState();
-      editingTempId = d.id;
-      loadEquipamentos().then(()=>{
-        renderEquipSelect();
-        $('t-equipamento').value = d.equipamentoId || '';
-        selectEquip($('t-equipamento').value);
-      });
-      $('t-fecha').value = d.fecha || todayStr();
-      $('t-hora').value = d.hora || nowTimeStr();
-      $('t-temperatura').value = d.temperatura || '';
-      $('t-observacoes').value = d.observacoes || '';
-      $('editBannerTemp').classList.add('show');
-      $('btnCancelEditTemp').style.display = '';
-      $('btnSaveTemp').querySelector('.lbl-text').textContent = 'Atualizar leitura';
-      switchToTab('temperatura');
+      startEditTempRecord(it.data);
       return;
     }
     if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
@@ -5873,6 +6278,110 @@
     }catch(e){ showToast('⚠️ ' + e.message, true); }
   });
 
+  // ---------- Valores de Referência Técnicos (DGS / HACCP / AQS) ----------
+  async function syncThresholdsFromConfig(){
+    try{
+      await loadConfigSnapshot();
+      const getNum = (k, def) => {
+        const c = configStore[k];
+        if(c && c.value !== undefined && c.value !== null && String(c.value).trim() !== ''){
+          const n = parseFloat(c.value);
+          if(!isNaN(n)) return n;
+        }
+        return def;
+      };
+      DASH_THRESHOLDS.phMin = getNum('ref_phMin', 7.0);
+      DASH_THRESHOLDS.phMax = getNum('ref_phMax', 7.8);
+      DASH_THRESHOLDS.cloroMin = getNum('ref_cloroMin', 0.5);
+      DASH_THRESHOLDS.cloroMax = getNum('ref_cloroMax', 3.0);
+      DASH_THRESHOLDS.cloroTotalMax = getNum('ref_cloroTotalMax', 5.0);
+      DASH_THRESHOLDS.aqsMin = getNum('ref_aqsMin', 45.0);
+      DASH_THRESHOLDS.aqsQuartosMin = getNum('ref_aqsQuartosMin', 45.0);
+
+      DASH_THRESHOLDS.phCalMin = getNum('ref_phCalMin', 7.0);
+      DASH_THRESHOLDS.phCalMax = getNum('ref_phCalMax', 7.8);
+      DASH_THRESHOLDS.cloroCalMin = getNum('ref_cloroCalMin', 0.5);
+      DASH_THRESHOLDS.cloroCalMax = getNum('ref_cloroCalMax', 3.0);
+      DASH_THRESHOLDS.cloroTotalCalMax = getNum('ref_cloroTotalCalMax', 5.0);
+
+      DASH_THRESHOLDS.phFriaMin = getNum('ref_phFriaMin', 7.0);
+      DASH_THRESHOLDS.phFriaMax = getNum('ref_phFriaMax', 7.8);
+      DASH_THRESHOLDS.cloroFriaMin = getNum('ref_cloroFriaMin', 0.5);
+      DASH_THRESHOLDS.cloroFriaMax = getNum('ref_cloroFriaMax', 3.0);
+      DASH_THRESHOLDS.cloroTotalFriaMax = getNum('ref_cloroTotalFriaMax', 5.0);
+    }catch(e){}
+  }
+
+  async function loadParametrosAdmin(){
+    const card = $('parametrosAdminCard');
+    if(!card) return;
+    if(!isAdmin()){ card.style.display = 'none'; return; }
+    card.style.display = '';
+    try{
+      await syncThresholdsFromConfig();
+      if($('cfg_phMin')) $('cfg_phMin').value = DASH_THRESHOLDS.phMin;
+      if($('cfg_phMax')) $('cfg_phMax').value = DASH_THRESHOLDS.phMax;
+      if($('cfg_cloroMin')) $('cfg_cloroMin').value = DASH_THRESHOLDS.cloroMin;
+      if($('cfg_cloroMax')) $('cfg_cloroMax').value = DASH_THRESHOLDS.cloroMax;
+      if($('cfg_cloroTotalMax')) $('cfg_cloroTotalMax').value = DASH_THRESHOLDS.cloroTotalMax;
+      if($('cfg_aqsMin')) $('cfg_aqsMin').value = DASH_THRESHOLDS.aqsMin;
+      if($('cfg_aqsQuartosMin')) $('cfg_aqsQuartosMin').value = DASH_THRESHOLDS.aqsQuartosMin;
+
+      if($('cfg_phCalMin')) $('cfg_phCalMin').value = DASH_THRESHOLDS.phCalMin;
+      if($('cfg_phCalMax')) $('cfg_phCalMax').value = DASH_THRESHOLDS.phCalMax;
+      if($('cfg_cloroCalMin')) $('cfg_cloroCalMin').value = DASH_THRESHOLDS.cloroCalMin;
+      if($('cfg_cloroCalMax')) $('cfg_cloroCalMax').value = DASH_THRESHOLDS.cloroCalMax;
+      if($('cfg_cloroTotalCalMax')) $('cfg_cloroTotalCalMax').value = DASH_THRESHOLDS.cloroTotalCalMax;
+
+      if($('cfg_phFriaMin')) $('cfg_phFriaMin').value = DASH_THRESHOLDS.phFriaMin;
+      if($('cfg_phFriaMax')) $('cfg_phFriaMax').value = DASH_THRESHOLDS.phFriaMax;
+      if($('cfg_cloroFriaMin')) $('cfg_cloroFriaMin').value = DASH_THRESHOLDS.cloroFriaMin;
+      if($('cfg_cloroFriaMax')) $('cfg_cloroFriaMax').value = DASH_THRESHOLDS.cloroFriaMax;
+      if($('cfg_cloroTotalFriaMax')) $('cfg_cloroTotalFriaMax').value = DASH_THRESHOLDS.cloroTotalFriaMax;
+    }catch(e){}
+  }
+
+  $('btnSaveParametros') && $('btnSaveParametros').addEventListener('click', async ()=>{
+    const btn = $('btnSaveParametros');
+    setLoading(btn, true);
+    try{
+      const map = {
+        ref_phMin: $('cfg_phMin') ? $('cfg_phMin').value.trim() : '',
+        ref_phMax: $('cfg_phMax') ? $('cfg_phMax').value.trim() : '',
+        ref_cloroMin: $('cfg_cloroMin') ? $('cfg_cloroMin').value.trim() : '',
+        ref_cloroMax: $('cfg_cloroMax') ? $('cfg_cloroMax').value.trim() : '',
+        ref_cloroTotalMax: $('cfg_cloroTotalMax') ? $('cfg_cloroTotalMax').value.trim() : '',
+        ref_aqsMin: $('cfg_aqsMin') ? $('cfg_aqsMin').value.trim() : '',
+        ref_aqsQuartosMin: $('cfg_aqsQuartosMin') ? $('cfg_aqsQuartosMin').value.trim() : '',
+        ref_phCalMin: $('cfg_phCalMin') ? $('cfg_phCalMin').value.trim() : '',
+        ref_phCalMax: $('cfg_phCalMax') ? $('cfg_phCalMax').value.trim() : '',
+        ref_cloroCalMin: $('cfg_cloroCalMin') ? $('cfg_cloroCalMin').value.trim() : '',
+        ref_cloroCalMax: $('cfg_cloroCalMax') ? $('cfg_cloroCalMax').value.trim() : '',
+        ref_cloroTotalCalMax: $('cfg_cloroTotalCalMax') ? $('cfg_cloroTotalCalMax').value.trim() : '',
+        ref_phFriaMin: $('cfg_phFriaMin') ? $('cfg_phFriaMin').value.trim() : '',
+        ref_phFriaMax: $('cfg_phFriaMax') ? $('cfg_phFriaMax').value.trim() : '',
+        ref_cloroFriaMin: $('cfg_cloroFriaMin') ? $('cfg_cloroFriaMin').value.trim() : '',
+        ref_cloroFriaMax: $('cfg_cloroFriaMax') ? $('cfg_cloroFriaMax').value.trim() : '',
+        ref_cloroTotalFriaMax: $('cfg_cloroTotalFriaMax') ? $('cfg_cloroTotalFriaMax').value.trim() : ''
+      };
+      for(const k of Object.keys(map)){
+        const val = map[k];
+        if(val !== undefined && val !== null){
+          await apiPost({ action:'setConfig', key: k, value: val });
+          invalidateConfig(k);
+        }
+      }
+      await syncThresholdsFromConfig();
+      showToast('Parâmetros de referência guardados com sucesso ✓');
+      refreshChips();
+      renderHistorial(false);
+    }catch(e){
+      showToast('⚠️ Erro ao guardar parâmetros: ' + e.message, true);
+    }finally{
+      setLoading(btn, false);
+    }
+  });
+
   async function getTarifas(){
     let agua = null, elec = null;
     try{ const v = await getConfigCached('tarifaAgua'); if(v!==null && v!==undefined && String(v).trim()!==''){ const n = parseFloat(v); if(!isNaN(n) && n>0) agua = n; } }catch(e){}
@@ -6073,6 +6582,7 @@
       preloadedBoot = null;
     }
     await loadConfigSnapshot();
+    await syncThresholdsFromConfig();
     await Promise.all([ loadRooms(), loadCycleDone(), loadEquipamentos().catch(()=>{}) ]);
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
   }
