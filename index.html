@@ -1403,28 +1403,27 @@
   const APP_RELEASE = {
     major: 3,
     minor: 2,
-    patch: 0,
-    semver: '3.2.0',
-    build: '2026.08.31-R1',
+    patch: 1,
+    semver: '3.2.1',
+    build: '2026.08.31-R2',
     buildDate: '2026-08-31',
     channel: 'Produção (Oficial)',
     get full() { return `v${this.semver} (${this.build})`; },
     get label() { return `v${this.semver}`; },
     get short() { return `v${this.semver} · ${this.buildDate}`; },
-    changelog: [
+        changelog: [
       {
-        version: 'v3.2.0',
+        version: 'v3.2.1',
         date: '2026-08-31',
         tag: 'Versão Atual',
         highlights: [
-          'Nomenclatura semântica e sistema de deteção em tempo real de versão ativa vs. servidor.',
-          'Módulo de Refrigeração: suporte para registo de vineras/garrafeiras com intervalo Mín e Máx.',
-          'Auditoria avançada de registos com rastreio de edições, eliminações e histórico de ciclos.'
+          'Corrigido: seletor de ciclos anteriores em Refrigeração e Quartos deixou de responder.',
+          'Corrigido: modal de detalhe/edição de quarto em ciclos passados voltou a funcionar.'
         ]
       },
       {
-        version: 'v3.1.0',
-        date: '2026-08-27',
+        version: 'v3.2.0',
+        date: '2026-08-31',
         tag: 'Estável',
         highlights: [
           'Painel Executivo Estratégico com pilares de prevenção HACCP e Legionella.',
@@ -1954,6 +1953,15 @@
   function setLoading(btn, loading){ btn.disabled = loading; btn.classList.toggle('loading', loading); }
 
   // ---------- Modais ----------
+  function closeModal(){
+    const overlay = $('modalOverlay');
+    if(overlay) overlay.classList.remove('show');
+    const box = $('modalBox');
+    if(box) box.classList.remove('modal-wide');
+    const msgEl = $('modalMsg');
+    if(msgEl) msgEl.innerHTML = '';
+  }
+
   function confirmDialog(title, msg, confirmLabel, cancelLabel){
     return new Promise(resolve=>{
       const overlay = $('modalOverlay');
@@ -2225,7 +2233,7 @@
       views.forEach(v=> $('view-'+v).classList.remove('active'));
       $('view-'+btn.dataset.view).classList.add('active');
       if(btn.dataset.view === 'historial') renderHistorial();
-      if(btn.dataset.view === 'quarto') renderRoomGrid();
+            if(btn.dataset.view === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
       if(btn.dataset.view === 'temperatura'){ renderTempView(); }
       if(btn.dataset.view === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
       if(btn.dataset.view === 'dashboard') renderDashboard();
@@ -7250,4 +7258,6 @@
 </script>
 </body>
 </html>
+
+
 
