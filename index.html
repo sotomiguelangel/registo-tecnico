@@ -1405,20 +1405,21 @@
     minor: 2,
     patch: 1,
     semver: '3.2.1',
-    build: '2026.08.31-R2',
-    buildDate: '2026-08-31',
+    build: '2026.09.01-R1',
+    buildDate: '2026-09-01',
     channel: 'Produção (Oficial)',
     get full() { return `v${this.semver} (${this.build})`; },
     get label() { return `v${this.semver}`; },
     get short() { return `v${this.semver} · ${this.buildDate}`; },
-        changelog: [
+    changelog: [
       {
         version: 'v3.2.1',
-        date: '2026-08-31',
+        date: '2026-09-01',
         tag: 'Versão Atual',
         highlights: [
-          'Corrigido: seletor de ciclos anteriores em Refrigeração e Quartos deixou de responder.',
-          'Corrigido: modal de detalhe/edição de quarto em ciclos passados voltou a funcionar.'
+          'Corrigida a verificação de versão para sincronização imediata sem congelamento.',
+          'Recuperada a navegação em ciclos anteriores de Quartos com consulta e edição direta de leituras passadas.',
+          'Melhorada a deteção automática de fecho de ciclos de quartos mesmo com medições parciais.'
         ]
       },
       {
@@ -1551,7 +1552,8 @@
           if(reg.waiting){
             reg.waiting.postMessage({ action:'skipWaiting' });
           }
-          await reg.update().catch(()=>{});
+          try { await reg.update(); } catch(e){}
+          try { await reg.unregister(); } catch(e){}
         }
       }
       if('caches' in window){
@@ -1560,8 +1562,12 @@
       }
     }catch(e){}
     setTimeout(()=>{
-      window.location.reload(true);
-    }, 400);
+      try {
+        window.location.href = window.location.pathname + '?_t=' + Date.now();
+      } catch(e) {
+        window.location.reload();
+      }
+    }, 300);
   }
 
   function openVersionModal(){
@@ -2484,18 +2490,25 @@
     }
 
     // Ordenar cronologicamente ascendente
-    const sorted = (rawRecords || []).slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+    const sorted = (rawRecords || []).slice().sort((a,b)=> {
+      const fA = (a.data?.fecha || '') + ' ' + (a.data?.hora || '');
+      const fB = (b.data?.fecha || '') + ' ' + (b.data?.hora || '');
+      return fA.localeCompare(fB);
+    });
 
     const cycles = [];
     let currentRoomsMap = new Map(); // roomNum -> record
     let currentRecords = [];
 
+    // Limiar mínimo para fechar ciclo ao detetar quarto repetido
+    const minThresholdForCycleWrap = Math.min(8, Math.max(4, Math.floor(targetSize * 0.25)));
+
     sorted.forEach(r=>{
-      const num = normRoom(r.data.numero);
+      const num = normRoom(r.data?.numero);
       if(!num) return;
 
-      // Se este quarto já foi medido neste ciclo e o ciclo já atingiu o total de quartos da lista, fechar ciclo
-      if(currentRoomsMap.has(num) && currentRoomsMap.size >= targetSize){
+      // Se este quarto já foi medido neste ciclo e o ciclo já tem uma quantidade representativa de quartos, fecha ciclo anterior
+      if(currentRoomsMap.has(num) && (currentRoomsMap.size >= targetSize || currentRoomsMap.size >= minThresholdForCycleWrap)){
         cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false));
         currentRoomsMap = new Map();
         currentRecords = [];
@@ -2667,11 +2680,15 @@
       });
     }
     select.innerHTML = html;
+    if(selectedCycleIndex !== 'current' && !detectedCyclesList.some(c=> String(c.index) === String(selectedCycleIndex))){
+      selectedCycleIndex = 'current';
+    }
     select.value = selectedCycleIndex === 'current' ? 'current' : String(selectedCycleIndex);
   }
 
   async function renderRoomGrid(){
     const grid = $('roomGrid');
+    if(!grid) return;
     const existing = await listRecords('quarto');
     const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
     detectedCyclesList = grouped.allCycles;
@@ -2682,13 +2699,17 @@
       const idx = parseInt(selectedCycleIndex, 10);
       const found = detectedCyclesList.find(c=> c.index === idx);
       if(found) targetCycle = found;
+      else {
+        targetCycle = grouped.currentCycle;
+        selectedCycleIndex = 'current';
+      }
     }
 
-    const cycleRoomsMap = targetCycle.roomsMap || new Map();
-    const doneSet = new Set(targetCycle.uniqueRooms || (isViewingPast ? [] : effectiveCycleDone()));
+    const cycleRoomsMap = targetCycle ? (targetCycle.roomsMap || new Map()) : new Map();
+    const doneSet = new Set(targetCycle ? (targetCycle.uniqueRooms || (isViewingPast ? [] : effectiveCycleDone())) : []);
 
     $('roomsTotalCount').textContent = roomsList.length;
-    $('roomsDoneCount').textContent = targetCycle.doneCount || doneSet.size;
+    $('roomsDoneCount').textContent = targetCycle ? (targetCycle.doneCount || doneSet.size) : doneSet.size;
     const hint = $('roomsCycleTotalHint');
     if(hint) hint.textContent = roomsList.length;
 
@@ -2700,7 +2721,7 @@
     const expText = $('cycleExplanationText');
     if(expText){
       if(isViewingPast){
-        expText.innerHTML = `⚠️ A visualizar o <b>Ciclo #${targetCycle.index}</b> (concluído entre ${targetCycle.fechaInicio} e ${targetCycle.fechaFin}). Pode clicar em qualquer quarto medido para <b>consultar ou retificar a leitura</b> deste ciclo.`;
+        expText.innerHTML = `⚠️ A visualizar o <b>Ciclo #${targetCycle.index}</b> (${targetCycle.fechaInicio} a ${targetCycle.fechaFin} · ${targetCycle.doneCount}/${targetCycle.totalRooms} quartos). Pode clicar em qualquer quarto medido para <b>consultar ou retificar a leitura</b> desse ciclo.`;
       } else {
         expText.innerHTML = `O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">${roomsList.length}</span> quartos — não por data. Pode tocar num quarto já medido para <b>consultar ou modificar o seu valor</b> caso necessário.`;
       }
@@ -2736,7 +2757,22 @@
         }
 
         if(isViewingPast){
-          showToast(`O quarto ${roomNum} não teve leitura no Ciclo #${targetCycle.index}.`, true);
+          const canAdd = !isViewer();
+          const ok = await confirmDialog(
+            `Quarto ${roomNum} · Ciclo #${targetCycle.index}`,
+            `O quarto ${roomNum} não teve leitura registada no Ciclo #${targetCycle.index} (${targetCycle.fechaInicio} a ${targetCycle.fechaFin}).\n\nDeseja carregar este quarto no formulário para registar uma leitura?`,
+            canAdd ? 'Registar leitura' : 'Fechar',
+            canAdd ? 'Cancelar' : ''
+          );
+          if(ok && canAdd){
+            selectRoom(roomNum);
+            if(targetCycle.fechaFin && targetCycle.fechaFin !== '—'){
+              $('q-fecha').value = targetCycle.fechaFin;
+            }
+            const form = $('selectedRoomBanner') || $('q-numero');
+            if(form) form.scrollIntoView({ behavior:'smooth', block:'center' });
+            showToast(`Quarto ${roomNum} selecionado`);
+          }
           return;
         }
 
@@ -2749,13 +2785,13 @@
   // Modal com detalhe da leitura do quarto no ciclo com opção de edição direta
   async function openRoomDetailAndEditDialog(rec, cycle){
     const d = rec.data;
-    const num = d.numero;
+    const num = normRoom(d.numero);
     const canModify = !isViewer();
 
-    const title = `Quarto ${num} · Ciclo #${cycle.index}`;
+    const title = `Quarto ${num} · ${cycle.isActive ? 'Ciclo Atual' : 'Ciclo #' + cycle.index}`;
     const htmlBody = `
       <div style="font-family:var(--mono); font-size:11.5px; color:var(--ink-400); margin-bottom:12px;">
-        📅 Registado em ${d.fecha} às ${d.hora} por 👤 <b>${esc(d.usuario || 'Técnico')}</b>
+        📅 Registado em ${esc(d.fecha || '—')} às ${esc(d.hora || '—')} por 👤 <b>${esc(d.usuario || 'Técnico')}</b>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:var(--paper); padding:12px; border-radius:12px; border:1px solid var(--line); margin-bottom:14px;">
         <div>
@@ -2771,8 +2807,8 @@
           <div style="font-size:12px;">Cloro total: <b>${nz(d.cloroTotalFria)} ppm</b></div>
         </div>
       </div>
-      <p style="font-size:12px; color:var(--ink-600); margin:0 0 14px; line-height:1.4;">
-        Este quarto já tem leitura gravada neste ciclo. Se necessário, pode carregar estes dados no formulário abaixo para corrigir ou atualizar qualquer parâmetro.
+      <p style="font-size:12px; color:var(--ink-600); margin:0 0 4px; line-height:1.4;">
+        ${canModify ? 'Clique em <b>Carregar no Formulário</b> para corrigir ou atualizar qualquer valor deste quarto.' : 'Informação gravada na folha de cálculo oficial.'}
       </p>
     `;
 
@@ -3916,10 +3952,18 @@
       $('q-phFria').value = d.phFria || '';
       $('q-cloroFria').value = d.cloroFria || '';
       $('q-cloroTotalFria').value = d.cloroTotalFria || '';
-      $('editBannerQuarto').classList.add('show');
+      const banner = $('editBannerQuarto');
+      if(banner){
+        banner.innerHTML = `✏️ A editar a leitura do Quarto <b>${esc(d.numero)}</b> (${esc(d.fecha)} às ${esc(d.hora)}) — ao guardar será atualizada.`;
+        banner.classList.add('show');
+      }
       $('btnCancelEditQuarto').style.display = '';
-      $('btnSaveQuarto').querySelector('.lbl-text').textContent = 'Atualizar leitura de quarto';
+      $('btnSaveQuarto').querySelector('.lbl-text').textContent = `Atualizar leitura do quarto ${d.numero}`;
       switchToTab('quarto');
+      setTimeout(()=>{
+        const target = $('selectedRoomBanner') || $('q-numero') || $('q-fecha');
+        if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
+      }, 100);
     }
     showToast('Dados carregados para edição — modifique e guarde');
   }

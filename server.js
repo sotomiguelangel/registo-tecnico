@@ -15,12 +15,12 @@ app.use(express.static(__dirname));
 // Version info endpoint
 const APP_VERSION_DATA = {
   name: 'Registo Técnico · Moon and Sun',
-  semver: '3.2.0',
-  build: '2026.08.31-R1',
-  buildDate: '2026-08-31',
+  semver: '3.2.1',
+  build: '2026.09.01-R1',
+  buildDate: '2026-09-01',
   channel: 'Produção (Oficial)',
-  full: 'v3.2.0 (Build 2026.08.31-R1)',
-  label: 'v3.2.0',
+  full: 'v3.2.1 (Build 2026.09.01-R1)',
+  label: 'v3.2.1',
   timestamp: Date.now()
 };
 
