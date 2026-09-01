@@ -1946,16 +1946,6 @@
     catch(e){ $('apiWarning').classList.add('show'); return false; }
   }
 
-  // ---------- Toast ----------
-  let toastTimer;
-  function showToast(msg, isErr){
-    const t = $('toast');
-    t.textContent = msg;
-    t.classList.toggle('err', !!isErr);
-    t.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(()=> t.classList.remove('show'), isErr ? 3600 : 2200);
-  }
   function setLoading(btn, loading){ btn.disabled = loading; btn.classList.toggle('loading', loading); }
 
   // ---------- Modais ----------
