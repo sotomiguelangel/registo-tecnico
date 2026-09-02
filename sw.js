@@ -1,58 +1,19 @@
-const CACHE = 'registo-v3.2.2';
-const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
-
+// Desativação automática de caches e desregisto do Service Worker
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.registration.unregister())
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('message', e => {
-  if (e.data && e.data.action === 'skipWaiting') {
-    self.skipWaiting();
-  }
-});
-
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  // As APIs de backend e Google Sheets NUNCA são servidas por cache estático
-  if (url.pathname.startsWith('/api/') || url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) {
-    return;
-  }
-  if (e.request.method !== 'GET') return;
-
-  // Para navegação e HTML: Estratégia Network First com fallback para cache offline
-  if (e.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('index.html')) {
-    e.respondWith(
-      fetch(e.request).then(res => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => caches.match(e.request))
-    );
-    return;
-  }
-
-  e.respondWith(
-    caches.match(e.request).then(hit => {
-      const net = fetch(e.request).then(res => {
-        if (res && res.ok && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, copy));
-        }
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
-  );
+  // Pass-through direto sem cache
+  return;
 });
+
