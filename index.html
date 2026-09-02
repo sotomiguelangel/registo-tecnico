@@ -2,6 +2,34 @@
 <html lang="pt-PT">
 <head>
 <meta charset="UTF-8">
+<script>
+  // Garantir que window.fetch suporta atribuição sem erro em iframes/sandboxes
+  (function() {
+    try {
+      var rawFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch.bind(window) : null;
+      var _fetch = rawFetch;
+      var propDesc = {
+        get: function() { return _fetch; },
+        set: function(val) { _fetch = val; },
+        configurable: true,
+        enumerable: true
+      };
+      if (typeof window !== 'undefined') {
+        Object.defineProperty(window, 'fetch', propDesc);
+      }
+      if (typeof Window !== 'undefined' && Window.prototype) {
+        try {
+          Object.defineProperty(Window.prototype, 'fetch', propDesc);
+        } catch(e) {}
+      }
+      if (typeof globalThis !== 'undefined' && globalThis !== window) {
+        try {
+          Object.defineProperty(globalThis, 'fetch', propDesc);
+        } catch(e) {}
+      }
+    } catch(e) {}
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Registo Técnico · Moon and Sun</title>
 <meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
