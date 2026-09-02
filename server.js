@@ -8,6 +8,18 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Disable caching for HTML and Service Worker so updates are immediate
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('sw.js')) {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+  }
+  next();
+});
+
 // Serve static assets and node_modules
 app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
 app.use(express.static(__dirname));

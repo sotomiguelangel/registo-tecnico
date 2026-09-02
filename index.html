@@ -5,11 +5,19 @@
 <script>
   // Intercetor global para prevenir erros de atribuição a 'fetch' apenas com getter em sandboxes/iframes
   (function() {
-    // 1. Ouvinte global de captura para interceptar e suprimir o erro 'Cannot set property fetch'
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+
+    // 1. Ouvinte global de captura e console.error para suprimir e neutralizar 'Cannot set property fetch'
+    function isFetchGetterError(msg) {
+      if (!msg) return false;
+      var str = (typeof msg === 'string') ? msg : ((msg.message || msg.stack || '') + '');
+      var s = str.toLowerCase();
+      return (s.indexOf('cannot set property fetch') !== -1 || (s.indexOf('fetch') !== -1 && s.indexOf('only a getter') !== -1));
+    }
+
+    try {
       window.addEventListener('error', function(ev) {
-        var msg = (ev && (ev.message || (ev.error && ev.error.message))) || '';
-        if (typeof msg === 'string' && msg.toLowerCase().indexOf('cannot set property fetch') !== -1) {
+        if (isFetchGetterError(ev && (ev.message || (ev.error && ev.error.message)))) {
           if (ev.preventDefault) ev.preventDefault();
           if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
           return true;
@@ -18,69 +26,132 @@
 
       var prevOnError = window.onerror;
       window.onerror = function(msg) {
-        if (typeof msg === 'string' && msg.toLowerCase().indexOf('cannot set property fetch') !== -1) {
+        if (isFetchGetterError(msg)) {
           return true;
         }
         if (typeof prevOnError === 'function') {
           return prevOnError.apply(this, arguments);
         }
       };
-    }
 
-    // 2. Tentar definir acessor com getter e setter em Window.prototype, window e globalThis
+      if (typeof console !== 'undefined' && console.error) {
+        var prevConsoleError = console.error;
+        console.error = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isFetchGetterError(arguments[i])) return;
+          }
+          return prevConsoleError.apply(this, arguments);
+        };
+      }
+    } catch(e) {}
+
+    // 2. Corrigir todos os protótipos na cadeia de protótipos de window para garantir que 'fetch' tem setter
     try {
-      var currentFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch.bind(window) : null;
-      var propDesc = {
-        get: function() { return currentFetch; },
-        set: function(fn) { currentFetch = fn; },
+      var initialFetch = (typeof window.fetch === 'function') ? window.fetch.bind(window) : null;
+      var _fetchStore = initialFetch;
+
+      var accessorDesc = {
+        get: function() { return _fetchStore; },
+        set: function(fn) { _fetchStore = fn; },
         configurable: true,
         enumerable: true
       };
 
+      // Percorrer a cadeia inteira de protótipos do Window
+      var curr = window;
+      while (curr) {
+        try {
+          var d = Object.getOwnPropertyDescriptor(curr, 'fetch');
+          if (d) {
+            if (d.get && !d.set) {
+              Object.defineProperty(curr, 'fetch', accessorDesc);
+            } else if (d.writable === false) {
+              Object.defineProperty(curr, 'fetch', { value: initialFetch, writable: true, configurable: true, enumerable: true });
+            }
+          }
+        } catch(e) {}
+        try {
+          curr = Object.getPrototypeOf(curr);
+        } catch(e) { break; }
+      }
+
+      // Tentar definir diretamente em Window.prototype se existir
       if (typeof Window !== 'undefined' && Window.prototype) {
         try {
-          var desc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-          if (!desc || desc.configurable) {
-            Object.defineProperty(Window.prototype, 'fetch', propDesc);
-          }
+          Object.defineProperty(Window.prototype, 'fetch', accessorDesc);
         } catch(e) {}
       }
 
-      if (typeof window !== 'undefined') {
+      // Tentar definir diretamente em window
+      try {
+        Object.defineProperty(window, 'fetch', accessorDesc);
+      } catch(e) {
         try {
-          var wDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
-          if (!wDesc || wDesc.configurable) {
-            Object.defineProperty(window, 'fetch', propDesc);
-          }
-        } catch(e) {}
+          Object.defineProperty(window, 'fetch', {
+            value: initialFetch,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e2) {}
       }
 
+      // Tentar definir em globalThis
       if (typeof globalThis !== 'undefined' && globalThis !== window) {
         try {
-          var gDesc = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
-          if (!gDesc || gDesc.configurable) {
-            Object.defineProperty(globalThis, 'fetch', propDesc);
-          }
+          Object.defineProperty(globalThis, 'fetch', accessorDesc);
         } catch(e) {}
       }
     } catch(e) {}
 
-    // 3. Garantir que funções de ciclo de vida globais como refreshConsumoResumen estão sempre definidas
+    // 3. Garantir que funções de ciclo de vida globais estão definidas e acessíveis
     var noopAsync = async function() {};
-    if (typeof window !== 'undefined') {
-      window.refreshConsumoResumen = window.refreshConsumoResumen || noopAsync;
-      window.renderDashboard = window.renderDashboard || noopAsync;
-      window.renderEjecutivo = window.renderEjecutivo || noopAsync;
-      window.renderRoomGrid = window.renderRoomGrid || noopAsync;
-      window.refreshChips = window.refreshChips || noopAsync;
-      window.initMainApp = window.initMainApp || noopAsync;
+    window.refreshConsumoResumen = window.refreshConsumoResumen || noopAsync;
+    window.renderDashboard = window.renderDashboard || noopAsync;
+    window.renderEjecutivo = window.renderEjecutivo || noopAsync;
+    window.renderRoomGrid = window.renderRoomGrid || noopAsync;
+    window.refreshChips = window.refreshChips || noopAsync;
+    window.initMainApp = window.initMainApp || noopAsync;
+
+    if (typeof globalThis !== 'undefined') {
+      globalThis.refreshConsumoResumen = globalThis.refreshConsumoResumen || window.refreshConsumoResumen;
+      globalThis.renderDashboard = globalThis.renderDashboard || window.renderDashboard;
+      globalThis.renderEjecutivo = globalThis.renderEjecutivo || window.renderEjecutivo;
+      globalThis.renderRoomGrid = globalThis.renderRoomGrid || window.renderRoomGrid;
+      globalThis.refreshChips = globalThis.refreshChips || window.refreshChips;
+      globalThis.initMainApp = globalThis.initMainApp || window.initMainApp;
     }
   })();
 
-  // Variável global em nível de script para garantir que 'refreshConsumoResumen' nunca cause ReferenceError
+  // Declarações globais em nível de script para garantir que nenhum ReferenceError ocorra
   var refreshConsumoResumen = function() {
     if (typeof window !== 'undefined' && typeof window.refreshConsumoResumen === 'function' && window.refreshConsumoResumen !== refreshConsumoResumen) {
       return window.refreshConsumoResumen.apply(this, arguments);
+    }
+  };
+  var renderDashboard = function() {
+    if (typeof window !== 'undefined' && typeof window.renderDashboard === 'function' && window.renderDashboard !== renderDashboard) {
+      return window.renderDashboard.apply(this, arguments);
+    }
+  };
+  var renderEjecutivo = function() {
+    if (typeof window !== 'undefined' && typeof window.renderEjecutivo === 'function' && window.renderEjecutivo !== renderEjecutivo) {
+      return window.renderEjecutivo.apply(this, arguments);
+    }
+  };
+  var renderRoomGrid = function() {
+    if (typeof window !== 'undefined' && typeof window.renderRoomGrid === 'function' && window.renderRoomGrid !== renderRoomGrid) {
+      return window.renderRoomGrid.apply(this, arguments);
+    }
+  };
+  var refreshChips = function() {
+    if (typeof window !== 'undefined' && typeof window.refreshChips === 'function' && window.refreshChips !== refreshChips) {
+      return window.refreshChips.apply(this, arguments);
+    }
+  };
+  var initMainApp = function() {
+    if (typeof window !== 'undefined' && typeof window.initMainApp === 'function' && window.initMainApp !== initMainApp) {
+      return window.initMainApp.apply(this, arguments);
     }
   };
 </script>
@@ -2363,6 +2434,9 @@
   }
   if (typeof window !== 'undefined') {
     window.refreshConsumoResumen = refreshConsumoResumen;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.refreshConsumoResumen = refreshConsumoResumen;
   }
 
   let lastConsumoDetail = [];
@@ -7319,6 +7393,13 @@
     window.renderEjecutivo = renderEjecutivo;
     window.renderRoomGrid = renderRoomGrid;
     window.refreshChips = refreshChips;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.initMainApp = initMainApp;
+    globalThis.renderDashboard = renderDashboard;
+    globalThis.renderEjecutivo = renderEjecutivo;
+    globalThis.renderRoomGrid = renderRoomGrid;
+    globalThis.refreshChips = refreshChips;
   }
 
   // Eventos de Versão e Atualizações
