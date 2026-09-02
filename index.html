@@ -3,32 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <script>
-  // Garantir que window.fetch suporta atribuição sem erro em iframes/sandboxes
+  // Intercetor global para prevenir erros de atribuição a 'fetch' apenas com getter em sandboxes/iframes
   (function() {
+    // 1. Ouvinte global de captura para interceptar e suprimir o erro 'Cannot set property fetch'
+    if (typeof window !== 'undefined') {
+      window.addEventListener('error', function(ev) {
+        var msg = (ev && (ev.message || (ev.error && ev.error.message))) || '';
+        if (typeof msg === 'string' && msg.toLowerCase().indexOf('cannot set property fetch') !== -1) {
+          if (ev.preventDefault) ev.preventDefault();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      var prevOnError = window.onerror;
+      window.onerror = function(msg) {
+        if (typeof msg === 'string' && msg.toLowerCase().indexOf('cannot set property fetch') !== -1) {
+          return true;
+        }
+        if (typeof prevOnError === 'function') {
+          return prevOnError.apply(this, arguments);
+        }
+      };
+    }
+
+    // 2. Tentar definir acessor com getter e setter em Window.prototype, window e globalThis
     try {
-      var rawFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch.bind(window) : null;
-      var _fetch = rawFetch;
+      var currentFetch = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch.bind(window) : null;
       var propDesc = {
-        get: function() { return _fetch; },
-        set: function(val) { _fetch = val; },
+        get: function() { return currentFetch; },
+        set: function(fn) { currentFetch = fn; },
         configurable: true,
         enumerable: true
       };
-      if (typeof window !== 'undefined') {
-        Object.defineProperty(window, 'fetch', propDesc);
-      }
+
       if (typeof Window !== 'undefined' && Window.prototype) {
         try {
-          Object.defineProperty(Window.prototype, 'fetch', propDesc);
+          var desc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+          if (!desc || desc.configurable) {
+            Object.defineProperty(Window.prototype, 'fetch', propDesc);
+          }
         } catch(e) {}
       }
+
+      if (typeof window !== 'undefined') {
+        try {
+          var wDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+          if (!wDesc || wDesc.configurable) {
+            Object.defineProperty(window, 'fetch', propDesc);
+          }
+        } catch(e) {}
+      }
+
       if (typeof globalThis !== 'undefined' && globalThis !== window) {
         try {
-          Object.defineProperty(globalThis, 'fetch', propDesc);
+          var gDesc = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+          if (!gDesc || gDesc.configurable) {
+            Object.defineProperty(globalThis, 'fetch', propDesc);
+          }
         } catch(e) {}
       }
     } catch(e) {}
+
+    // 3. Garantir que funções de ciclo de vida globais como refreshConsumoResumen estão sempre definidas
+    var noopAsync = async function() {};
+    if (typeof window !== 'undefined') {
+      window.refreshConsumoResumen = window.refreshConsumoResumen || noopAsync;
+      window.renderDashboard = window.renderDashboard || noopAsync;
+      window.renderEjecutivo = window.renderEjecutivo || noopAsync;
+      window.renderRoomGrid = window.renderRoomGrid || noopAsync;
+      window.refreshChips = window.refreshChips || noopAsync;
+      window.initMainApp = window.initMainApp || noopAsync;
+    }
   })();
+
+  // Variável global em nível de script para garantir que 'refreshConsumoResumen' nunca cause ReferenceError
+  var refreshConsumoResumen = function() {
+    if (typeof window !== 'undefined' && typeof window.refreshConsumoResumen === 'function' && window.refreshConsumoResumen !== refreshConsumoResumen) {
+      return window.refreshConsumoResumen.apply(this, arguments);
+    }
+  };
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Registo Técnico · Moon and Sun</title>
@@ -2306,6 +2360,9 @@
         await renderEjecutivo();
       }
     }catch(e){}
+  }
+  if (typeof window !== 'undefined') {
+    window.refreshConsumoResumen = refreshConsumoResumen;
   }
 
   let lastConsumoDetail = [];
@@ -7255,6 +7312,13 @@
     if(activeTab && activeTab.dataset.view === 'ejecutivo'){
       renderEjecutivo();
     }
+  }
+  if (typeof window !== 'undefined') {
+    window.initMainApp = initMainApp;
+    window.renderDashboard = renderDashboard;
+    window.renderEjecutivo = renderEjecutivo;
+    window.renderRoomGrid = renderRoomGrid;
+    window.refreshChips = refreshChips;
   }
 
   // Eventos de Versão e Atualizações
