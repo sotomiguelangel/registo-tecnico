@@ -855,8 +855,8 @@
 
   <nav class="tabs">
     <button data-view="dashboard">Painel</button>
-    <button data-view="ejecutivo">Executivo</button>
-    <button data-view="general" class="active">Geral</button>
+    <button data-view="ejecutivo" class="active">Executivo</button>
+    <button data-view="general">Geral</button>
     <button data-view="quarto">Quarto</button>
     <button data-view="temperatura">Refrigeração</button>
     <button data-view="historial">Histórico</button>
@@ -874,7 +874,7 @@
       <div id="dashboardOutput"><div class="empty"><span class="glyph">◌</span>Abra o painel para carregar os indicadores.</div></div>
     </section>
 
-    <section class="view" id="view-ejecutivo">
+    <section class="view active" id="view-ejecutivo">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
         <div>
           <p class="section-title" style="margin-bottom:2px">Painel Executivo & Tomada de Decisão</p>
@@ -891,7 +891,7 @@
       <div id="ejecutivoOutput"><div class="empty"><span class="glyph">◌</span>Abra o resumo para carregar os indicadores.</div></div>
     </section>
 
-    <section class="view active" id="view-general">
+    <section class="view" id="view-general">
       <p class="section-title">Controlo diário · Instalações</p>
       <div class="edit-banner" id="editBannerGeneral">✏️ A editar um registo existente — ao guardar será atualizado, não será criado um novo.</div>
       <div class="edit-banner" id="viewerBannerGeneral" style="background:var(--aqua-100); color:var(--petrol-700);">👁 Perfil de visualização — pode consultar tudo, mas não modificar registos.</div>
@@ -2217,23 +2217,32 @@
     loadTarifasAdmin();
     loadParametrosAdmin();
     resetIdleTimer();
+    switchToTab('ejecutivo');
     initMainApp();
   }
 
   // ---------- Separadores ----------
   const views = ['dashboard','ejecutivo','general','quarto','temperatura','historial','reportes','usuarios','importar'];
+
+  function switchToTab(viewName){
+    document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
+    views.forEach(v=> {
+      const el = $('view-'+v);
+      if(el) el.classList.remove('active');
+    });
+    const target = $('view-'+viewName);
+    if(target) target.classList.add('active');
+    if(viewName === 'historial') renderHistorial();
+    if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
+    if(viewName === 'temperatura') renderTempView();
+    if(viewName === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
+    if(viewName === 'dashboard') renderDashboard();
+    if(viewName === 'ejecutivo') renderEjecutivo();
+  }
+
   document.querySelectorAll('nav.tabs button[data-view]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      views.forEach(v=> $('view-'+v).classList.remove('active'));
-      $('view-'+btn.dataset.view).classList.add('active');
-      if(btn.dataset.view === 'historial') renderHistorial();
-            if(btn.dataset.view === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
-      if(btn.dataset.view === 'temperatura'){ renderTempView(); }
-      if(btn.dataset.view === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
-      if(btn.dataset.view === 'dashboard') renderDashboard();
-      if(btn.dataset.view === 'ejecutivo') renderEjecutivo();
+      switchToTab(btn.dataset.view);
     });
   });
 
@@ -3956,14 +3965,6 @@
       }, 100);
     }
     showToast('Dados carregados para edição — modifique e guarde');
-  }
-
-  function switchToTab(viewName){
-    document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
-    views.forEach(v=> $('view-'+v).classList.remove('active'));
-    $('view-'+viewName).classList.add('active');
-    if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
-    if(viewName === 'temperatura') renderTempView();
   }
 
   function entryItem(label, value, unit, warn){
@@ -7222,6 +7223,10 @@
     await syncThresholdsFromConfig();
     await Promise.all([ loadRooms(), loadCycleDone(), loadEquipamentos().catch(()=>{}) ]);
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen() ]);
+    const activeTab = document.querySelector('nav.tabs button.active');
+    if(activeTab && activeTab.dataset.view === 'ejecutivo'){
+      renderEjecutivo();
+    }
   }
 
   // Eventos de Versão e Atualizações
