@@ -74,74 +74,43 @@
 
     // Descritor com getter e setter que permite livre reatribuição de window.fetch
     var accessorDesc = {
-      get: function() { return _activeFetch; },
+      get: function() { return _activeFetch || _nativeFetch; },
       set: function(fn) { _activeFetch = fn; },
       configurable: true,
       enumerable: true
     };
 
-    // Percorrer a cadeia inteira de protótipos de Window para garantir setter ou writable
-    var curr = window;
-    while (curr) {
+    function applyAccessor(target) {
+      if (!target) return;
       try {
-        var d = Object.getOwnPropertyDescriptor(curr, 'fetch');
-        if (d && d.configurable) {
-          try { delete curr.fetch; } catch(e) {}
-          try { Object.defineProperty(curr, 'fetch', accessorDesc); } catch(e) {}
+        var d = Object.getOwnPropertyDescriptor(target, 'fetch');
+        if (!d || d.configurable) {
+          try { delete target.fetch; } catch(e) {}
+          try { Object.defineProperty(target, 'fetch', accessorDesc); } catch(e) {}
         }
       } catch(e) {}
+    }
+
+    // Aplicar diretamente em window
+    applyAccessor(window);
+
+    // Aplicar em Window.prototype se disponível
+    if (typeof Window !== 'undefined' && Window.prototype) {
+      applyAccessor(Window.prototype);
+    }
+
+    // Percorrer a cadeia inteira de protótipos de Window para garantir setter em toda a hierarquia
+    var curr = window;
+    while (curr) {
+      applyAccessor(curr);
       try {
         curr = Object.getPrototypeOf(curr);
       } catch(e) { break; }
     }
 
-    // Tentar definir em Window.prototype
-    if (typeof Window !== 'undefined' && Window.prototype) {
-      try { delete Window.prototype.fetch; } catch(e) {}
-      try {
-        Object.defineProperty(Window.prototype, 'fetch', accessorDesc);
-      } catch(e) {
-        try {
-          Object.defineProperty(Window.prototype, 'fetch', {
-            value: _nativeFetch,
-            writable: true,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e2) {}
-      }
-    }
-
-    // Tentar definir diretamente em window
-    try { delete window.fetch; } catch(e) {}
-    try {
-      Object.defineProperty(window, 'fetch', accessorDesc);
-    } catch(e) {
-      try {
-        Object.defineProperty(window, 'fetch', {
-          value: _nativeFetch,
-          writable: true,
-          configurable: true,
-          enumerable: true
-        });
-      } catch(e2) {}
-    }
-
-    // Tentar definir em globalThis
+    // Aplicar em globalThis
     if (typeof globalThis !== 'undefined' && globalThis !== window) {
-      try { delete globalThis.fetch; } catch(e) {}
-      try {
-        Object.defineProperty(globalThis, 'fetch', accessorDesc);
-      } catch(e) {
-        try {
-          Object.defineProperty(globalThis, 'fetch', {
-            value: _nativeFetch,
-            writable: true,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e2) {}
-      }
+      applyAccessor(globalThis);
     }
   })();
 
@@ -221,7 +190,9 @@
 <script src="/node_modules/d3/dist/d3.min.js"></script>
 <script>
   if (typeof d3 === 'undefined') {
-    document.write('<script src="https://d3js.org/d3.v7.min.js"><\/script>');
+    var _d3s = document.createElement('script');
+    _d3s.src = 'https://d3js.org/d3.v7.min.js';
+    document.head.appendChild(_d3s);
   }
 </script>
 <style>
@@ -510,6 +481,7 @@
   .exec-score-badge.status-good{ background:var(--aqua-100); color:var(--petrol-700); border:1px solid var(--aqua-500); }
   .exec-score-badge.status-warn{ background:var(--amber-100); color:#8a5f0f; border:1px solid var(--amber-500); }
   .exec-score-badge.status-bad{ background:var(--coral-100); color:#8b3d1d; border:1px solid var(--coral-500); }
+  .exec-score-badge.status-zero{ background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
 
   .exec-score-hero{ display:flex; align-items:center; gap:20px; margin-bottom:16px; }
   .exec-score-circle{
@@ -519,6 +491,8 @@
   .exec-score-circle.status-good{ border-color:var(--aqua-500); }
   .exec-score-circle.status-warn{ border-color:var(--amber-500); }
   .exec-score-circle.status-bad{ border-color:var(--coral-500); }
+  .exec-score-circle.status-zero{ border-color:#cbd5e1; background:#f8fafc; }
+  .exec-score-circle.status-zero .exec-score-number{ color:#64748b; }
   .exec-score-number{ font-family:var(--mono); font-size:22px; font-weight:800; color:var(--petrol-900); line-height:1; }
   .exec-score-unit{ font-family:var(--mono); font-size:9.5px; font-weight:600; color:var(--ink-400); margin-top:2px; }
   .exec-score-text{ flex:1; }
@@ -569,12 +543,14 @@
   .exec-action-item.warn{ background:var(--amber-100); border-color:var(--amber-500); color:#8a5f0f; }
   .exec-action-item.info{ background:var(--aqua-100); border-color:var(--petrol-700); color:var(--petrol-900); }
   .exec-action-item.ok{ background:var(--ok-100); border-color:var(--ok-500); color:#28704b; }
+  .exec-action-item.info-zero{ background:#f8fafc; border-color:#94a3b8; color:#475569; }
   .exec-action-head{ display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:12.5px; }
   .exec-action-tag{ font-family:var(--mono); font-size:9.5px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:4px; }
   .exec-action-item.crit .exec-action-tag{ background:var(--coral-500); color:#fff; }
   .exec-action-item.warn .exec-action-tag{ background:var(--amber-500); color:#fff; }
   .exec-action-item.info .exec-action-tag{ background:var(--petrol-700); color:#fff; }
   .exec-action-item.ok .exec-action-tag{ background:var(--ok-500); color:#fff; }
+  .exec-action-item.info-zero .exec-action-tag{ background:#94a3b8; color:#fff; }
   .exec-action-body{ font-size:12px; line-height:1.45; color:var(--ink-700); }
   .exec-action-rec{ font-family:var(--sans); font-size:11.5px; font-weight:600; margin-top:2px; }
 
@@ -588,10 +564,13 @@
   .kpi-card.st-bad{ border-top:5px solid var(--coral-500); background:var(--coral-100); }
   .kpi-card.st-bad .kpi-val{ color:var(--coral-500); }
   .kpi-card.st-na{ opacity:.7; }
+  .kpi-card.st-zero{ border-top:5px solid #cbd5e1; background:var(--card); }
+  .kpi-card.st-zero .kpi-val{ color:#64748b; }
   .kpi-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
   .kpi-card.st-ok .kpi-dot{ background:var(--ok-500); }
   .kpi-card.st-bad .kpi-dot{ background:var(--coral-500); }
   .kpi-card.st-na .kpi-dot{ background:var(--ink-400); }
+  .kpi-card.st-zero .kpi-dot{ background:#94a3b8; }
 
   .spark{ display:block; margin-top:6px; overflow:visible; }
   .spark polyline{ fill:none; stroke-width:2; }
@@ -628,6 +607,8 @@
   .dashboard-card.alert{ border-color:var(--coral-500); background:var(--coral-100); }
   .dashboard-card.alert .value{ color:var(--coral-500); }
   .dashboard-card.ice{ background:var(--ice-100); border-color:var(--ice-500); }
+  .dashboard-card.zero{ background:var(--paper); border-color:var(--line); }
+  .dashboard-card.zero .value{ color:var(--ink-500); }
   .dashboard-alert{ border-left:4px solid var(--coral-500); background:var(--coral-100); border-radius:8px; padding:10px 12px; font-size:12.5px; color:#8b3d1d; margin-bottom:8px; line-height:1.4; }
   .dashboard-ok{ border-left:4px solid var(--ok-500); background:var(--ok-100); border-radius:8px; padding:10px 12px; font-size:12.5px; color:#28704b; margin-bottom:8px; }
   .dashboard-chart{ width:100%; height:auto; display:block; margin:0 0 18px; overflow:visible; }
@@ -662,6 +643,7 @@
   .trend-badge.flat{ background:var(--aqua-100); color:var(--petrol-700); }
   .progress-track{ height:8px; border-radius:6px; background:var(--line); overflow:hidden; margin-top:8px; }
   .progress-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,var(--aqua-500),var(--ok-500)); transition:width .5s ease; }
+  .progress-fill.zero{ background:var(--line) !important; }
   .seg-toggle{ display:flex; gap:6px; margin:0 0 10px; }
   .seg-toggle button{ flex:1; padding:8px 6px; border-radius:9px; border:1.5px solid var(--line); background:#fff; font-size:12px; font-weight:700; color:var(--ink-600); cursor:pointer; }
   .seg-toggle button.active{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
@@ -676,6 +658,8 @@
   .dashboard-card.st-bad{ border-top:4px solid var(--coral-500); background:var(--coral-100); }
   .dashboard-card.st-bad .value{ color:var(--coral-500); }
   .dashboard-card.st-na{ opacity:.75; }
+  .dashboard-card.st-zero{ border-top:4px solid #cbd5e1; }
+  .dashboard-card.st-zero .value{ color:var(--ink-500); }
   .dashboard-card .st-dot{
     display:inline-block; width:16px; height:16px; border-radius:50%;
     font-size:10px; font-weight:700; line-height:16px; text-align:center;
@@ -684,6 +668,7 @@
   .dashboard-card.st-ok .st-dot{ background:var(--ok-500); color:#fff; }
   .dashboard-card.st-bad .st-dot{ background:var(--coral-500); color:#fff; }
   .dashboard-card.st-na .st-dot{ background:var(--ink-400); color:#fff; }
+  .dashboard-card.st-zero .st-dot{ background:#94a3b8; color:#fff; }
   .op-banner{ border-radius:14px; padding:14px 16px; margin-bottom:16px; border:1.5px solid; }
   .op-banner.op-ok{ background:var(--ok-100); border-color:var(--ok-500); }
   .op-banner.op-bad{ background:var(--coral-100); border-color:var(--coral-500); }
@@ -1309,12 +1294,15 @@
 
     <section class="view" id="view-historial">
       <p class="section-title">Histórico de registos</p>
-      <div class="filter-row">
+      <div class="filter-row" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
         <select id="histFiltroTipo">
-          <option value="all">Todos</option>
+          <option value="all">Todos os tipos</option>
           <option value="general">Apenas gerais</option>
           <option value="quarto">Apenas quartos</option>
           <option value="temperatura">Apenas refrigeração</option>
+        </select>
+        <select id="histFiltroMes">
+          <option value="all">Todos os meses (histórico)</option>
         </select>
         <select id="histFiltroOrden">
           <option value="desc">Mais recente primeiro</option>
@@ -1334,6 +1322,7 @@
       <div class="period-toggle">
         <button data-periodo="semana" class="active">Esta semana</button>
         <button data-periodo="mes">Este mês</button>
+        <button data-periodo="mes_anterior">Mês anterior</button>
         <button data-periodo="custom">Intervalo</button>
       </div>
       <div class="custom-range" id="customRange">
@@ -1573,6 +1562,31 @@
 
 <script>
 (function(){
+  // Expor e sincronizar funções de ciclo de vida globais logo no início da execução
+  if (typeof _realRefreshConsumoResumen !== 'undefined') _realRefreshConsumoResumen = refreshConsumoResumen;
+  if (typeof _realRenderDashboard !== 'undefined') _realRenderDashboard = renderDashboard;
+  if (typeof _realRenderEjecutivo !== 'undefined') _realRenderEjecutivo = renderEjecutivo;
+  if (typeof _realRenderRoomGrid !== 'undefined') _realRenderRoomGrid = renderRoomGrid;
+  if (typeof _realRefreshChips !== 'undefined') _realRefreshChips = refreshChips;
+  if (typeof _realInitMainApp !== 'undefined') _realInitMainApp = initMainApp;
+
+  if (typeof window !== 'undefined') {
+    window.refreshConsumoResumen = refreshConsumoResumen;
+    window.renderDashboard = renderDashboard;
+    window.renderEjecutivo = renderEjecutivo;
+    window.renderRoomGrid = renderRoomGrid;
+    window.refreshChips = refreshChips;
+    window.initMainApp = initMainApp;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.refreshConsumoResumen = refreshConsumoResumen;
+    globalThis.renderDashboard = renderDashboard;
+    globalThis.renderEjecutivo = renderEjecutivo;
+    globalThis.renderRoomGrid = renderRoomGrid;
+    globalThis.refreshChips = refreshChips;
+    globalThis.initMainApp = initMainApp;
+  }
+
   const $ = (id) => document.getElementById(id);
   const pad = n => String(n).padStart(2,'0');
   const esc = s => String(s === undefined || s === null ? '' : s)
@@ -2696,13 +2710,13 @@
     return s;
   }
 
-  // Agrupa todas as leituras de quartos em ciclos sequenciais (com memoização)
+  // Agrupa todas as leituras de quartos em ciclos sequenciais com transição mensal para histórico
   function groupQuartoRecordsIntoCycles(rawRecords, rList){
     const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
-    const targetSet = new Set(listNorm);
     const targetSize = listNorm.length || 40;
+    const currentMonthPrefix = todayStr().slice(0, 7); // Ex: "2026-09"
 
-    const cacheKey = (rawRecords ? rawRecords.length : 0) + '_' + (rawRecords && rawRecords.length ? (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'') : '') + '_' + targetSize;
+    const cacheKey = (rawRecords ? rawRecords.length : 0) + '_' + currentMonthPrefix + '_' + targetSize + '_' + (rawRecords && rawRecords.length ? (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'') : '');
     if(memoCache.cycles && memoCache.cyclesKey === cacheKey){
       return memoCache.cycles;
     }
@@ -2717,6 +2731,7 @@
     const cycles = [];
     let currentRoomsMap = new Map(); // roomNum -> record
     let currentRecords = [];
+    let currentMonth = null;
 
     // Limiar mínimo para fechar ciclo ao detetar quarto repetido
     const minThresholdForCycleWrap = Math.min(8, Math.max(4, Math.floor(targetSize * 0.25)));
@@ -2724,28 +2739,45 @@
     sorted.forEach(r=>{
       const num = normRoom(r.data?.numero);
       if(!num) return;
+      const recDate = r.data?.fecha || '';
+      const recMonth = recDate.slice(0, 7);
 
-      // Se este quarto já foi medido neste ciclo e o ciclo já tem uma quantidade representativa de quartos, fecha ciclo anterior
-      if(currentRoomsMap.has(num) && (currentRoomsMap.size >= targetSize || currentRoomsMap.size >= minThresholdForCycleWrap)){
-        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false));
-        currentRoomsMap = new Map();
-        currentRecords = [];
+      const monthChanged = currentMonth !== null && recMonth && recMonth !== currentMonth;
+      const roomRepeated = currentRoomsMap.has(num) && (currentRoomsMap.size >= targetSize || currentRoomsMap.size >= minThresholdForCycleWrap);
+      const isTargetReached = currentRoomsMap.size >= targetSize;
+
+      // Se o mês mudou relativamente aos registos acumulados ou o ciclo atingiu a totalidade/repetição
+      if(monthChanged || roomRepeated || isTargetReached){
+        if(currentRecords.length > 0){
+          cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
+          currentRoomsMap = new Map();
+          currentRecords = [];
+        }
       }
 
+      currentMonth = recMonth || currentMonth;
       currentRoomsMap.set(num, r);
       currentRecords.push(r);
 
       if(currentRoomsMap.size >= targetSize){
-        // Ciclo completo
-        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false));
+        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
         currentRoomsMap = new Map();
         currentRecords = [];
       }
     });
 
-    // O que sobra é o ciclo em curso
+    // Se os registos acumulados pertencem a um mês anterior ao mês atual em curso:
+    // passam a histórico (ciclo finalizado), e o novo mês inicia a zero!
+    if(currentRecords.length > 0 && currentMonth && currentMonth < currentMonthPrefix){
+      cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
+      currentRoomsMap = new Map();
+      currentRecords = [];
+      currentMonth = currentMonthPrefix;
+    }
+
+    // Ciclo ativo correspondente ao mês atual em curso
     const activeCycleIndex = cycles.length + 1;
-    const activeSummary = buildCycleSummary(activeCycleIndex, currentRecords, currentRoomsMap, targetSize, true);
+    const activeSummary = buildCycleSummary(activeCycleIndex, currentRecords, currentRoomsMap, targetSize, true, currentMonth || currentMonthPrefix);
 
     const result = { completedCycles: cycles, currentCycle: activeSummary, allCycles: [...cycles, activeSummary] };
     memoCache.cycles = result;
@@ -2753,7 +2785,7 @@
     return result;
   }
 
-  function buildCycleSummary(index, records, roomsMap, targetSize, isActive){
+  function buildCycleSummary(index, records, roomsMap, targetSize, isActive, monthKey){
     const uniqueRooms = Array.from(roomsMap.keys());
     let fechaInicio = '—', fechaFin = '—';
     if(records.length){
@@ -2762,9 +2794,27 @@
       fechaFin = sorted[sorted.length - 1].data.fecha;
     }
     const isCompleted = uniqueRooms.length >= targetSize;
+    let monthLabel = '';
+    if(monthKey){
+      const parts = monthKey.split('-');
+      if(parts.length === 2){
+        const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+        if(!isNaN(y) && !isNaN(m)){
+          const d = new Date(y, m - 1, 1);
+          monthLabel = d.toLocaleDateString('pt-PT', { month:'long', year:'numeric' });
+        }
+      }
+    }
+    const periodLabel = monthLabel ? monthLabel : (fechaInicio !== '—' ? `${fechaInicio} a ${fechaFin}` : 'sem datas');
+    const label = isActive
+      ? `Mês Atual (${monthLabel || 'em curso'}) · ${uniqueRooms.length}/${targetSize} medidos`
+      : `Ciclo #${index} · ${periodLabel} (${uniqueRooms.length}/${targetSize})`;
+
     return {
       index,
-      label: isActive ? `Ciclo Atual #${index} (em curso)` : `Ciclo #${index} (${fechaInicio} a ${fechaFin})`,
+      label,
+      monthKey: monthKey || '',
+      monthLabel,
       fechaInicio,
       fechaFin,
       totalRooms: targetSize,
@@ -2781,13 +2831,7 @@
     try{
       const existing = await listRecords('quarto');
       const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
-      if(grouped.currentCycle && grouped.currentCycle.doneCount > 0){
-        cycleDone = grouped.currentCycle.uniqueRooms;
-      } else if(grouped.completedCycles.length > 0){
-        cycleDone = grouped.completedCycles[grouped.completedCycles.length - 1].uniqueRooms;
-      } else {
-        cycleDone = [];
-      }
+      cycleDone = grouped.currentCycle ? grouped.currentCycle.uniqueRooms : [];
       return;
     }catch(e){
       cycleDone = [];
@@ -3567,13 +3611,17 @@
       const faltamCount = totalCount - medidosCount;
       const pct = Math.round((medidosCount / (totalCount || 1)) * 100);
 
+      const isZeroProg = medidosCount === 0;
       box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--ink-600); margin-bottom:12px; background:var(--paper); padding:8px 12px; border-radius:8px; border:1px solid var(--line);">
           <div>
-            Medidos no ciclo: <b style="color:${faltamCount ? '#8a5f0f' : '#28704b'}">${medidosCount} / ${totalCount} (${pct}%)</b>
-            ${faltamCount ? ` · <span style="color:#8a5f0f">faltam ${faltamCount}</span>` : ' · <span style="color:#28704b">✓ ciclo completo</span>'}
+            Medidos no ciclo: <b style="color:${isZeroProg ? 'var(--ink-500)' : (faltamCount ? '#8a5f0f' : '#28704b')}">${medidosCount} / ${totalCount} (${pct}%)</b>
+            ${isZeroProg ? ' · <span style="color:var(--ink-400)">início de ciclo (a aguardar leituras)</span>' : (faltamCount ? ` · <span style="color:#8a5f0f">faltam ${faltamCount}</span>` : ' · <span style="color:#28704b">✓ ciclo completo</span>')}
           </div>
-          ${alertasCount > 0 ? `<div style="color:var(--coral-500); font-weight:700;">⚠️ ${alertasCount} fora do intervalo</div>` : '<div style="color:#28704b; font-weight:600;">✓ Todas conformes</div>'}
+          ${isZeroProg
+            ? '<div style="color:var(--ink-400); font-weight:600;">◌ Sem medições no ciclo (0% avanço)</div>'
+            : (alertasCount > 0 ? `<div style="color:var(--coral-500); font-weight:700;">⚠️ ${alertasCount} fora do intervalo</div>` : '<div style="color:#28704b; font-weight:600;">✓ Todas conformes</div>')
+          }
         </div>
         ${cardsHtml}
       `;
@@ -3684,16 +3732,18 @@
         const pct = Math.round((medidos / totalEquips) * 100);
         const isComplete = medidos >= totalEquips;
 
+        const zeroState = medidos === 0;
+        const colorPct = zeroState ? 'var(--ink-400)' : (isComplete ? '#28704b' : (pct >= 50 ? '#8a5f0f' : '#8b3d1d'));
         rowsHtml += `
           <tr style="border-bottom:1px solid var(--line);">
             <td style="padding:8px 10px; font-weight:700; white-space:nowrap;">
-              ${w === 0 ? '🟢 Esta semana' : (w === 1 ? 'Semana anterior' : `Semana W-${w}`)}
+              ${w === 0 ? (zeroState ? '⚪ Esta semana (início)' : '🟢 Esta semana') : (w === 1 ? 'Semana anterior' : `Semana W-${w}`)}
               <div style="font-size:10.5px; font-weight:400; color:var(--ink-400); font-family:var(--mono);">${wr.desde} a ${wr.hasta}</div>
             </td>
             <td style="padding:8px 10px; text-align:center; font-family:var(--mono);">${medidos} / ${totalEquips}</td>
-            <td style="padding:8px 10px; text-align:center; font-weight:700; color:${isComplete ? '#28704b' : (pct >= 50 ? '#8a5f0f' : '#8b3d1d')};">${pct}%</td>
+            <td style="padding:8px 10px; text-align:center; font-weight:700; color:${colorPct};">${pct}%</td>
             <td style="padding:8px 10px; text-align:center;">
-              ${desvios > 0 ? `<span style="color:var(--coral-500); font-weight:700;">⚠️ ${desvios}</span>` : '<span style="color:#28704b;">0</span>'}
+              ${zeroState ? '<span style="color:var(--ink-400);">—</span>' : (desvios > 0 ? `<span style="color:var(--coral-500); font-weight:700;">⚠️ ${desvios}</span>` : '<span style="color:#28704b;">0</span>')}
             </td>
             <td style="padding:8px 10px; text-align:right; white-space:nowrap;">
               <button type="button" class="cycle-btn" data-pickweek="${w}" style="padding:4px 8px; font-size:11px;">Ver ciclo</button>
@@ -3983,6 +4033,14 @@
   const HIST_PAGE_SIZE = 50;
   let histVisibleCount = HIST_PAGE_SIZE;
 
+  function formatMonthName(ym){
+    if(!ym || ym.length < 7) return ym;
+    const [y, m] = ym.split('-').map(Number);
+    const d = new Date(y, m-1, 1);
+    const monthName = d.toLocaleDateString('pt-PT', { month:'long' });
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1) + ' ' + y;
+  }
+
   async function renderHistorial(refetch){
     const list = $('histList');
     const tipo = $('histFiltroTipo').value;
@@ -4009,16 +4067,46 @@
       });
       lastHistorialItems = items;
       histVisibleCount = HIST_PAGE_SIZE;
+
+      // Populate month filter dropdown with available months in data
+      const selectMes = $('histFiltroMes');
+      if(selectMes){
+        const currentSel = selectMes.value || 'all';
+        const monthsSet = new Set();
+        items.forEach(r => {
+          if(r.data && r.data.fecha && r.data.fecha.length >= 7){
+            monthsSet.add(r.data.fecha.slice(0, 7));
+          }
+        });
+        const currentMonthKey = todayStr().slice(0, 7);
+        const sortedMonths = Array.from(monthsSet).sort().reverse();
+        let optHtml = '<option value="all">Todos os meses (histórico completo)</option>';
+        sortedMonths.forEach(ym => {
+          const isCurr = ym === currentMonthKey;
+          optHtml += `<option value="${ym}" ${ym===currentSel?'selected':''}>${formatMonthName(ym)}${isCurr ? ' (mês atual)' : ' (arquivado)'}</option>`;
+        });
+        selectMes.innerHTML = optHtml;
+        if(currentSel && (currentSel === 'all' || monthsSet.has(currentSel))){
+          selectMes.value = currentSel;
+        }
+      }
     }
 
-    if(items.length===0){
-      list.innerHTML = `<div class="empty"><span class="glyph">◌</span>Ainda não há registos guardados.</div>`;
+    const selectMes = $('histFiltroMes');
+    const chosenMonth = selectMes ? selectMes.value : 'all';
+    let filteredItems = items;
+    if(chosenMonth !== 'all'){
+      filteredItems = items.filter(it => it.data && it.data.fecha && it.data.fecha.startsWith(chosenMonth));
+    }
+
+    if(filteredItems.length===0){
+      list.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não existem registos para o período selecionado (${chosenMonth !== 'all' ? formatMonthName(chosenMonth) : 'geral'}).</div>`;
       return;
     }
 
     const isAdminU = isAdmin();
     const canEdit = currentUser && currentUser.rol !== 'visualizador';
-    const visible = items.slice(0, histVisibleCount);
+    const visible = filteredItems.slice(0, histVisibleCount);
 
     let html = visible.map((it,idx)=>{
       const d = it.data;
@@ -4086,7 +4174,7 @@
       }
     }).join('');
 
-    const restantes = items.length - visible.length;
+    const restantes = filteredItems.length - visible.length;
     if(restantes > 0){
       html += `<button class="primary" id="btnHistMore" style="margin-top:8px"><span class="lbl-text">Ver mais — faltam ${restantes}</span></button>`;
     }
@@ -4100,8 +4188,8 @@
 
     list.querySelectorAll('button[data-edit]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const it = lastHistorialItems[Number(btn.dataset.edit)];
-        startEditRecord(it);
+        const it = visible[Number(btn.dataset.edit)];
+        if(it) startEditRecord(it);
       });
     });
     list.querySelectorAll('button[data-del]').forEach(btn=>{
@@ -4192,6 +4280,7 @@
   }
   $('histFiltroTipo').addEventListener('change', ()=> renderHistorial());
   $('histFiltroOrden').addEventListener('change', ()=> renderHistorial());
+  if($('histFiltroMes')) $('histFiltroMes').addEventListener('change', ()=> renderHistorial(false));
 
   // ---------- Utilizadores (apenas admin) ----------
   async function renderUsersList(){
@@ -4419,6 +4508,12 @@
     const ultimo = new Date(d.getFullYear(), d.getMonth()+1, 0);
     return [fmt(primero), fmt(ultimo)];
   }
+  function rangoMesAnterior(){
+    const d = new Date();
+    const primero = new Date(d.getFullYear(), d.getMonth()-1, 1);
+    const ultimo = new Date(d.getFullYear(), d.getMonth(), 0);
+    return [fmt(primero), fmt(ultimo)];
+  }
   function fmt(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 
   function avg(arr){ const nums = arr.map(v=>parseFloat(v)).filter(n=>!isNaN(n)); if(!nums.length) return null; return (nums.reduce((a,b)=>a+b,0)/nums.length); }
@@ -4430,6 +4525,7 @@
     let desde, hasta;
     if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
     else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
+    else if(periodoActual==='mes_anterior'){ [desde,hasta] = rangoMesAnterior(); }
     else{
       desde = $('rep-desde').value; hasta = $('rep-hasta').value;
       if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
@@ -5883,7 +5979,7 @@
       total++;
       if(set.has(fmt(d))) covered++;
     }
-    return { total, covered, pct: total ? Math.round(covered/total*100) : 100 };
+    return { total, covered, pct: (total > 0 && covered > 0) ? Math.round(covered/total*100) : 0 };
   }
 
   function monthRangeOffset(offsetMonths){
@@ -5953,8 +6049,7 @@
     // Ciclo de quartos (calculado dinamicamente com base nas leituras reais)
     const groupedQuartos = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
     const activeCycle = groupedQuartos.currentCycle;
-    const latestCompleted = groupedQuartos.completedCycles.length ? groupedQuartos.completedCycles[groupedQuartos.completedCycles.length - 1] : null;
-    const displayCycle = (activeCycle && activeCycle.doneCount > 0) ? activeCycle : (latestCompleted || activeCycle);
+    const displayCycle = activeCycle;
 
     const totalRooms = roomsList.length || 40;
     const done = displayCycle ? displayCycle.doneCount : 0;
@@ -5971,7 +6066,7 @@
       if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
       if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsQuartosMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
     });
-    const pilarAqs = aqsTotal > 0 ? Math.round((aqsOk / aqsTotal) * 100) : 100;
+    const pilarAqs = aqsTotal > 0 ? Math.round((aqsOk / aqsTotal) * 100) : 0;
 
     // Pilar 2: Controlo e Segurança de Piscina (pH & Cloro Livre/Total) - Peso 20%
     let poolTotal = 0, poolOk = 0;
@@ -5983,29 +6078,34 @@
       if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
       if(!isNaN(clTot)){ poolTotal++; if(clTot <= DASH_THRESHOLDS.cloroTotalMax) poolOk++; }
     });
-    const pilarPiscina = poolTotal > 0 ? Math.round((poolOk / poolTotal) * 100) : 100;
+    const pilarPiscina = poolTotal > 0 ? Math.round((poolOk / poolTotal) * 100) : 0;
 
     // Pilar 3: Cadeia de Frio & HACCP (7 dias) - Peso 20%
-    const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 100;
+    const pilarFrio = temp7.length > 0 ? Math.round(((temp7.length - tempBad7.length) / temp7.length) * 100) : 0;
 
     // Pilar 4: Eficiência & Cadência Operacional - Peso 15%
-    const pilarEficiencia = Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85));
+    const pilarEficiencia = (comp.total > 0 && comp.covered > 0) ? Math.round(comp.pct * (monthStats.aguaNegatives===0 && monthStats.elecNegatives===0 ? 1 : 0.85)) : 0;
 
     // Pilar 5: Manutenção Preventiva & Ciclo Quartos - Peso 20%
     const pilarQuartos = roomsPct;
 
+    const hasAnyData = (aqsTotal > 0) || (poolTotal > 0) || (temp7.length > 0) || (comp.covered > 0) || (done > 0);
+
     // Score Ponderado Global (100%)
-    const healthScore = Math.min(100, Math.max(0, Math.round(
+    const healthScore = hasAnyData ? Math.min(100, Math.max(0, Math.round(
       (pilarAqs * 0.25) +
       (pilarPiscina * 0.20) +
       (pilarFrio * 0.20) +
       (pilarEficiencia * 0.15) +
       (pilarQuartos * 0.20)
-    )));
+    ))) : 0;
 
     let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
     let scoreDesc = 'Todos os sistemas técnicos críticos operam com elevada fiabilidade, sem riscos de segurança ou conformidade identificados.';
-    if(healthScore < 65){
+    if(!hasAnyData || healthScore === 0){
+      scoreStatusClass = 'status-zero'; scoreBadgeText = 'Início de Mês (0%)'; scoreHeadline = 'Aguardando Primeiras Leituras';
+      scoreDesc = 'O mês atual iniciou a zero. Os indicadores de AQS, Piscina, Refrigeração e Quartos serão calculados à medida que as rondas técnicas forem efetuadas.';
+    } else if(healthScore < 65){
       scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
       scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
     } else if(healthScore < 80){
@@ -6166,42 +6266,42 @@
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🔥 Segurança AQS</span>
-                <span class="exec-pillar-val" style="color:${d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarAqs}%</span>
+                <span class="exec-pillar-val" style="color:${d.aqsTotal===0?'var(--ink-400)':(d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarAqs}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarAqs}%; background:${d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">Legionella (${d.aqsOk}/${d.aqsTotal||1} conformes ≥ ${DASH_THRESHOLDS.aqsMin}°C)</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarAqs}%; background:${d.aqsTotal===0?'var(--line)':(d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
+              <div class="exec-pillar-note">${d.aqsTotal===0 ? 'Aguardando leituras de AQS (0%)' : `Legionella (${d.aqsOk}/${d.aqsTotal} conformes ≥ ${DASH_THRESHOLDS.aqsMin}°C)`}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🏊 Controlo Piscina</span>
-                <span class="exec-pillar-val" style="color:${d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)')}">${d.pilarPiscina}%</span>
+                <span class="exec-pillar-val" style="color:${d.poolTotal===0?'var(--ink-400)':(d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarPiscina}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarPiscina}%; background:${d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">pH & Cloro (${d.poolOk}/${d.poolTotal||1} conformes)</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarPiscina}%; background:${d.poolTotal===0?'var(--line)':(d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
+              <div class="exec-pillar-note">${d.poolTotal===0 ? 'Aguardando leituras de piscina (0%)' : `pH & Cloro (${d.poolOk}/${d.poolTotal} conformes)`}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🧊 Cadeia de Frio (7 dias)</span>
-                <span class="exec-pillar-val" style="color:${d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}">${d.pilarFrio}%</span>
+                <span class="exec-pillar-val" style="color:${d.temp7.length===0?'var(--ink-400)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarFrio}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">${d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)'}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${d.temp7.length===0?'var(--line)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
+              <div class="exec-pillar-note">${d.temp7.length===0?'Sem leituras nos últimos 7 dias (0%)':(d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)')}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>⚡ Eficiência & Registos</span>
-                <span class="exec-pillar-val" style="color:${d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}">${d.pilarEficiencia}%</span>
+                <span class="exec-pillar-val" style="color:${(d.comp.total===0||d.comp.covered===0)?'var(--ink-400)':(d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarEficiencia}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarEficiencia}%; background:${d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)')}"></div></div>
-              <div class="exec-pillar-note">${d.comp.covered}/${d.comp.total} dias registados no mês</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarEficiencia}%; background:${(d.comp.total===0||d.comp.covered===0)?'var(--line)':(d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
+              <div class="exec-pillar-note">${(d.comp.total===0||d.comp.covered===0)?'Início de mês (0 dias registados)':d.comp.covered+'/'+d.comp.total+' dias registados no mês'}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
                 <span>🛏️ Ciclo de Quartos</span>
-                <span class="exec-pillar-val" style="color:${d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}">${d.roomsPct}%</span>
+                <span class="exec-pillar-val" style="color:${d.done===0?'var(--ink-400)':(d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--amber-500)':'var(--ink-600)'))}">${d.roomsPct}%</span>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.roomsPct}%; background:${d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--aqua-500)':'var(--ink-600)')}"></div></div>
-              <div class="exec-pillar-note">${d.done}/${d.totalRooms} quartos inspecionados</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.roomsPct}%; background:${d.done===0?'var(--line)':(d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--amber-500)':'var(--ink-600)'))}"></div></div>
+              <div class="exec-pillar-note">${d.done===0?'0 quartos inspecionados este mês':d.done+'/'+d.totalRooms+' quartos inspecionados'}</div>
             </div>
           </div>
         </div>
@@ -6266,9 +6366,11 @@
       `;
 
       // KPIs operacionais
+      const compZero = d.comp.pct === 0 || d.comp.covered === 0;
+      const tempZero = d.temp7.length === 0;
       const kpis = `<div class="kpi-grid">
-        ${kpiCard('Cumprimento do mês', d.comp.pct+'%', d.comp.covered+'/'+d.comp.total+' dias com leitura', d.comp.pct>=90?'ok':(d.comp.pct>=70?'na':'bad'))}
-        ${kpiCard('Refrigeração — 7 dias', d.tempBad7.length===0?'✓ OK':d.tempBad7.length+' alerta(s)', d.tempBad7.length===0?'todas dentro do intervalo':'ver aba Refrigeração', d.tempBad7.length===0?'ok':'bad')}
+        ${kpiCard('Cumprimento do mês', d.comp.pct+'%', compZero ? '0 dias registados (início de mês)' : (d.comp.covered+'/'+d.comp.total+' dias com leitura'), compZero ? 'zero' : (d.comp.pct>=90?'ok':(d.comp.pct>=70?'na':'bad')))}
+        ${kpiCard('Refrigeração — 7 dias', tempZero ? 'Sem medições' : (d.tempBad7.length===0?'✓ OK':d.tempBad7.length+' alerta(s)'), tempZero ? 'início de período (0% avanço)' : (d.tempBad7.length===0?'todas dentro do intervalo':'ver aba Refrigeração'), tempZero ? 'zero' : (d.tempBad7.length===0?'ok':'bad'))}
         ${kpiCard('Consumo água (mês)', (d.monthStats.aguaDeltaCount? fmtNum(d.monthStats.aguaTotal)+' m³':'—') + (d.monthStats.aguaDeltaCount?costTag(d.monthStats.aguaTotal, d.tarifasEjec.agua):''), d.monthStats.aguaDeltaCount?'':'sem dados suficientes', 'na', d.aguaSpark, CHART_COLORS.a)}
         ${kpiCard('Consumo eletricidade (mês)', (d.monthStats.elecDeltaCount? fmtNum(d.monthStats.elecTotal)+' kWh':'—') + (d.monthStats.elecDeltaCount?costTag(d.monthStats.elecTotal, d.tarifasEjec.elec):''), d.monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', d.elecSpark, CHART_COLORS.b)}
       </div>`;
@@ -6379,8 +6481,8 @@
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costAgua !== null ? m.costAgua.toFixed(2)+' €' : '—'}</td>
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.elec !== null ? fmtNum(m.elec) + ' kWh' : '—'}</td>
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costElec !== null ? m.costElec.toFixed(2)+' €' : '—'}</td>
-        <td style="padding:6px 8px; text-align:right; font-weight:700; color:#1a3d3b; border:1px solid #bbb;">${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
-        <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.compliance>=90?'#28704b':(m.compliance>=70?'#8a5f0f':'#8b3d1d')}; border:1px solid #bbb;">${m.compliance}%</td>
+        <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.compliance===0 ? '#64748b' : (m.compliance>=90?'#28704b':(m.compliance>=70?'#8a5f0f':'#8b3d1d'))}; border:1px solid #bbb;">${m.compliance}%</td>
       </tr>
     `).join('');
 
@@ -6404,33 +6506,33 @@
       <div style="display:grid; grid-template-columns:1fr 2fr; gap:12px; margin:8px 0 14px;">
         <div style="border:1.5px solid #bbb; border-radius:10px; padding:12px; text-align:center; background:#fafcfb;">
           <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#555;">Score Global</div>
-          <div style="font-size:32px; font-weight:800; color:${d.healthScore>=90?'#28704b':(d.healthScore>=75?'#b87d18':'#c04828')};">${d.healthScore}%</div>
+          <div style="font-size:32px; font-weight:800; color:${d.healthScore===0 ? '#64748b' : (d.healthScore>=90?'#28704b':(d.healthScore>=75?'#b87d18':'#c04828'))};">${d.healthScore}%</div>
           <div style="font-size:11px; font-weight:700; color:#222;">${esc(d.scoreBadgeText)} · ${esc(d.scoreHeadline)}</div>
         </div>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px;">
           <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
             <div style="font-size:9.5px; color:#666; font-weight:600;">🔥 Segurança AQS</div>
-            <div style="font-size:15px; font-weight:700; color:${d.pilarAqs>=90?'#28704b':'#c04828'};">${d.pilarAqs}%</div>
-            <div style="font-size:8.5px; color:#777;">Legionella (${d.aqsOk}/${d.aqsTotal||1} conformes)</div>
+            <div style="font-size:15px; font-weight:700; color:${d.aqsTotal===0 ? '#64748b' : (d.pilarAqs>=90?'#28704b':'#c04828')};">${d.pilarAqs}%</div>
+            <div style="font-size:8.5px; color:#777;">Legionella (${d.aqsTotal===0 ? '0' : d.aqsOk}/${d.aqsTotal} conformes)</div>
           </div>
           <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
             <div style="font-size:9.5px; color:#666; font-weight:600;">🏊 Controlo Piscina</div>
-            <div style="font-size:15px; font-weight:700; color:${d.pilarPiscina>=90?'#28704b':'#c04828'};">${d.pilarPiscina}%</div>
-            <div style="font-size:8.5px; color:#777;">pH/Cloro (${d.poolOk}/${d.poolTotal||1} conformes)</div>
+            <div style="font-size:15px; font-weight:700; color:${d.poolTotal===0 ? '#64748b' : (d.pilarPiscina>=90?'#28704b':'#c04828')};">${d.pilarPiscina}%</div>
+            <div style="font-size:8.5px; color:#777;">pH/Cloro (${d.poolTotal===0 ? '0' : d.poolOk}/${d.poolTotal} conformes)</div>
           </div>
           <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
             <div style="font-size:9.5px; color:#666; font-weight:600;">🧊 Cadeia de Frio HACCP</div>
-            <div style="font-size:15px; font-weight:700; color:${d.pilarFrio>=95?'#28704b':'#c04828'};">${d.pilarFrio}%</div>
-            <div style="font-size:8.5px; color:#777;">${d.tempBad7.length===0?'0 desvios (7 dias)':d.tempBad7.length+' alerta(s)'}</div>
+            <div style="font-size:15px; font-weight:700; color:${d.temp7.length===0 ? '#64748b' : (d.pilarFrio>=95?'#28704b':'#c04828')};">${d.pilarFrio}%</div>
+            <div style="font-size:8.5px; color:#777;">${d.temp7.length===0 ? 'Sem leituras (0%)' : (d.tempBad7.length===0?'0 desvios (7 dias)':d.tempBad7.length+' alerta(s)')}</div>
           </div>
           <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
             <div style="font-size:9.5px; color:#666; font-weight:600;">⚡ Cadência Operacional</div>
-            <div style="font-size:15px; font-weight:700; color:${d.pilarEficiencia>=90?'#28704b':'#b87d18'};">${d.pilarEficiencia}%</div>
+            <div style="font-size:15px; font-weight:700; color:${(d.comp.total===0||d.comp.covered===0) ? '#64748b' : (d.pilarEficiencia>=90?'#28704b':'#b87d18')};">${d.pilarEficiencia}%</div>
             <div style="font-size:8.5px; color:#777;">${d.comp.covered}/${d.comp.total} dias registados</div>
           </div>
           <div style="border:1px solid #ddd; border-radius:8px; padding:6px 8px; background:#fff;">
             <div style="font-size:9.5px; color:#666; font-weight:600;">🛏️ Ciclo de Quartos</div>
-            <div style="font-size:15px; font-weight:700; color:${d.roomsPct>=90?'#28704b':'#1b5568'};">${d.roomsPct}%</div>
+            <div style="font-size:15px; font-weight:700; color:${d.done===0 ? '#64748b' : (d.roomsPct>=90?'#28704b':'#1b5568')};">${d.roomsPct}%</div>
             <div style="font-size:8.5px; color:#777;">${d.done}/${d.totalRooms} quartos inspecionados</div>
           </div>
         </div>
@@ -6661,8 +6763,7 @@
 
       const groupedQuartosDash = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
       const activeCycleDash = groupedQuartosDash.currentCycle;
-      const latestCompletedDash = groupedQuartosDash.completedCycles.length ? groupedQuartosDash.completedCycles[groupedQuartosDash.completedCycles.length - 1] : null;
-      const displayCycleDash = (activeCycleDash && activeCycleDash.doneCount > 0) ? activeCycleDash : (latestCompletedDash || activeCycleDash);
+      const displayCycleDash = activeCycleDash;
 
       const totalRoomsDash = roomsList.length || 40;
       const done = displayCycleDash ? displayCycleDash.doneCount : 0;
@@ -6711,15 +6812,15 @@
 
         <h2 class="report-heading">🧊 Refrigeração · últimos 7 dias</h2>
         <div class="dashboard-grid">
-          <div class="dashboard-card ${tempOk ? 'good' : 'alert'}">
+          <div class="dashboard-card ${temp7.length === 0 ? 'zero' : (tempOk ? 'good' : 'alert')}">
             <div class="lab">Temperaturas fora do intervalo</div>
             <div class="value">${tempBad.length}</div>
-            <div class="meta">${tempOk ? '✓ todas dentro do intervalo' : [...new Set(tempBad.map(r=>r.data.nome))].slice(0,3).join(' · ')}</div>
+            <div class="meta">${temp7.length === 0 ? 'Sem leituras nos últimos 7 dias (0% de avanço)' : (tempOk ? '✓ todas dentro do intervalo' : [...new Set(tempBad.map(r=>r.data.nome))].slice(0,3).join(' · '))}</div>
           </div>
-          <div class="dashboard-card ice">
+          <div class="dashboard-card ${temps.length === 0 ? 'zero' : 'ice'}">
             <div class="lab">Leituras de refrigeração (7 dias)</div>
             <div class="value">${temp7.length}</div>
-            <div class="meta">${temps.length} este mês · ver aba Refrigeração para o controlo semanal</div>
+            <div class="meta">${temps.length === 0 ? '0 este mês · início de período' : temps.length + ' este mês · ver aba Refrigeração para o controlo semanal'}</div>
           </div>
         </div>
 
@@ -6755,11 +6856,11 @@
         </div>
 
         <h2 class="report-heading">Cobertura e alertas</h2>
-        <div class="dashboard-card" style="margin-bottom:10px">
-          <div class="lab">Ciclo de quartos ${displayCycleDash && displayCycleDash.isCompleted ? '· Concluído ✓' : (displayCycleDash && displayCycleDash.isActive ? '· Em curso' : '')}</div>
+        <div class="dashboard-card ${pctDone===0?'zero':''}" style="margin-bottom:10px">
+          <div class="lab">Ciclo de quartos ${done === 0 ? '· Início de mês (0%)' : (displayCycleDash && displayCycleDash.isCompleted ? '· Concluído ✓' : (displayCycleDash && displayCycleDash.isActive ? '· Em curso' : ''))}</div>
           <div class="value">${done} / ${totalRoomsDash}</div>
-          <div class="progress-track"><div class="progress-fill" style="width:${pctDone}%"></div></div>
-          <div class="meta">${pending === 0 ? 'Ciclo 100% completo' : `${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'}`} · ${displayCycleDash ? displayCycleDash.label : ''}</div>
+          <div class="progress-track"><div class="progress-fill ${pctDone===0?'zero':''}" style="width:${pctDone}%"></div></div>
+          <div class="meta">${done === 0 ? `0 quartos inspecionados este mês (0% de avanço) · Faltam ${pending} quartos` : (pending === 0 ? 'Ciclo 100% completo' : `${pending} quarto${pending===1?'':'s'} pendente${pending===1?'':'s'}`)} · ${displayCycleDash ? displayCycleDash.label : ''}</div>
         </div>
         ${alerts.length ? alerts.map(a=>`<div class="dashboard-alert">⚠ ${esc(a)}</div>`).join('') : '<div class="dashboard-ok">✓ Sem alertas operacionais com os limites configurados.</div>'}
 
@@ -7276,20 +7377,23 @@
       const key = fmt(d); total++;
       if(days.has(key)) covered++; else missing.push(key);
     }
-    return { total, covered, missing, pct: total ? Math.round(covered/total*100) : 100 };
+    return { total, covered, missing, pct: (total > 0 && covered > 0) ? Math.round(covered/total*100) : 0 };
   }
 
   function renderComplianceBox(generalRaw){
     const c = complianceStats(generalRaw);
-    const tone = c.pct >= 90 ? 'good' : (c.pct >= 70 ? '' : 'alert');
+    const isZero = c.pct === 0 || c.covered === 0;
+    const tone = isZero ? 'zero' : (c.pct >= 90 ? 'good' : (c.pct >= 70 ? '' : 'alert'));
     return `<h2 class="report-heading">Cumprimento legal · mês em curso</h2>
     <div class="dashboard-card ${tone}" style="margin-bottom:10px">
       <div class="lab">Dias com leitura registada</div>
       <div class="value">${c.covered} / ${c.total} <span style="font-size:12px">(${c.pct}%)</span></div>
-      <div class="progress-track"><div class="progress-fill" style="width:${c.pct}%"></div></div>
-      <div class="meta">${c.missing.length
-        ? 'Sem registo: ' + esc(c.missing.slice(-6).join(', ')) + (c.missing.length>6?` +${c.missing.length-6} mais`:'')
-        : '✓ Todos os dias com leitura — 100% em conformidade'}</div>
+      <div class="progress-track"><div class="progress-fill ${isZero ? 'zero' : ''}" style="width:${c.pct}%"></div></div>
+      <div class="meta">${isZero
+        ? 'Início de mês: ainda sem leituras diárias registadas neste período (0% de avanço).'
+        : (c.missing.length
+          ? 'Sem registo: ' + esc(c.missing.slice(-6).join(', ')) + (c.missing.length>6?` +${c.missing.length-6} mais`:'')
+          : '✓ Todos os dias com leitura — 100% em conformidade')}</div>
     </div>`;
   }
 
