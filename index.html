@@ -247,6 +247,22 @@
   }
   .status-chip b{display:block; font-size:14px; color:#fff; font-weight:600;}
 
+  .status-chip.sync-chip{
+    cursor:pointer; display:flex; flex-direction:column; justify-content:center;
+    transition:background .2s ease, border-color .2s ease;
+  }
+  .status-chip.sync-chip:hover{ background:rgba(255,255,255,.16); }
+  .sync-status-row{ display:flex; align-items:center; gap:6px; font-size:11px; }
+  .sync-dot{
+    width:8px; height:8px; border-radius:50%; display:inline-block;
+    transition:all .3s ease;
+  }
+  .sync-dot.ok{ background:var(--ok-500); box-shadow:0 0 6px rgba(62,164,114,.7); }
+  .sync-dot.syncing{ background:var(--aqua-400); animation:sync-spin 1.2s infinite ease-in-out; }
+  .sync-dot.pending{ background:var(--amber-500); animation:sync-pulse 1.4s infinite; }
+  @keyframes sync-pulse{ 0%{ transform:scale(0.9); opacity:0.7; } 50%{ transform:scale(1.25); opacity:1; } 100%{ transform:scale(0.9); opacity:0.7; } }
+  @keyframes sync-spin{ 0%{ transform:scale(1); opacity:0.6; } 50%{ transform:scale(1.3); opacity:1; } 100%{ transform:scale(1); opacity:0.6; } }
+
   nav.tabs{
     display:flex; margin:-26px 14px 0; position:relative; z-index:2; background:var(--card);
     border-radius:14px; padding:5px; box-shadow:0 10px 30px -12px rgba(10,37,48,.35); overflow-x:auto;
@@ -1047,6 +1063,13 @@
       <div class="status-chip"><b id="chipQuarto">0</b>leituras de quartos</div>
       <div class="status-chip"><b id="chipTemp">0</b>leituras refrig.</div>
       <div class="status-chip"><b id="chipHoy">0</b>hoje</div>
+      <div class="status-chip sync-chip" id="chipSyncStatus" title="Estado da sincronização com Google Sheets (clique para sincronizar)" role="button" tabindex="0">
+        <div class="sync-status-row">
+          <span class="sync-dot ok" id="syncDot"></span>
+          <span id="syncText" style="font-weight:700; color:#fff;">Sincronizado ✓</span>
+        </div>
+        <span style="font-size:9.5px; color:rgba(255,255,255,.65); margin-top:2px;">Google Sheets</span>
+      </div>
     </div>
   </header>
 
@@ -1631,10 +1654,25 @@
   function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
   function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-  async function safeFetch(url, opts){
+  async function safeFetch(url, opts, timeoutMs = 16000){
     const fn = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch : (typeof fetch === 'function' ? fetch : null);
     if(!fn) throw new Error('API fetch não disponível neste navegador.');
-    return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
+
+    if(opts && opts.signal){
+      return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(()=>{
+      controller.abort(new Error('Tempo limite da ligação esgotado (' + Math.round(timeoutMs/1000) + 's)'));
+    }, timeoutMs);
+
+    try{
+      const mergedOpts = Object.assign({}, opts, { signal: controller.signal });
+      return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, mergedOpts);
+    }finally{
+      clearTimeout(timer);
+    }
   }
 
   // ---------- Toast ----------
@@ -1661,19 +1699,30 @@
   const APP_RELEASE = {
     major: 3,
     minor: 2,
-    patch: 1,
-    semver: '3.2.1',
-    build: '2026.09.01-R1',
-    buildDate: '2026-09-01',
+    patch: 2,
+    semver: '3.2.2',
+    build: '2026.09.03-R1',
+    buildDate: '2026-09-03',
     channel: 'Produção (Oficial)',
     get full() { return `v${this.semver} (${this.build})`; },
     get label() { return `v${this.semver}`; },
     get short() { return `v${this.semver} · ${this.buildDate}`; },
     changelog: [
       {
+        version: 'v3.2.2',
+        date: '2026-09-03',
+        tag: 'Versão Atual',
+        highlights: [
+          'Gravação ultrarrápida Local-First: elimina totalmente o congelamento da app ao guardar registos.',
+          'Fila de sincronização assíncrona com envio sequencial transparente para o Google Sheets.',
+          'Indicador visual de estado de sincronização em tempo real na barra de estado superior.',
+          'Otimização completa em Controlo Diário (água, eletricidade, retorno AQS, AQS quartos, piscina), Quartos e Refrigeração.'
+        ]
+      },
+      {
         version: 'v3.2.1',
         date: '2026-09-01',
-        tag: 'Versão Atual',
+        tag: 'Estável',
         highlights: [
           'Corrigida a verificação de versão para sincronização imediata sem congelamento.',
           'Recuperada a navegação em ciclos anteriores de Quartos com consulta e edição direta de leituras passadas.',
@@ -1972,14 +2021,14 @@
   }
 
   async function withRetry(fn, retries, delayMs){
-    retries = retries === undefined ? 2 : retries;
-    delayMs = delayMs === undefined ? 700 : delayMs;
+    retries = retries === undefined ? 1 : retries;
+    delayMs = delayMs === undefined ? 600 : delayMs;
     let lastErr;
     for(let i=0; i<=retries; i++){
       try{ return await fn(); }
       catch(e){
         lastErr = e;
-        if(e && e.auth) break;
+        if(e && (e.auth || e.name === 'AbortError')) break;
         if(i < retries) await new Promise(r=> setTimeout(r, delayMs * (i+1)));
       }
     }
@@ -1991,7 +2040,7 @@
       const url = new URL(API_URL);
       Object.keys(params).forEach(k=> url.searchParams.set(k, params[k]));
       const tk = getToken(); if(tk) url.searchParams.set('token', tk);
-      const res = await safeFetch(url.toString());
+      const res = await safeFetch(url.toString(), {}, 16000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -2015,7 +2064,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
-      });
+      }, 16000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -2030,6 +2079,114 @@
       return json;
     });
   }
+
+  // ---------- Fila de Sincronização em Segundo Plano (Local-First / Resiliente) ----------
+  const SYNC_QUEUE_KEY = 'bitacora_sync_queue';
+  let syncQueue = [];
+  let isSyncingQueue = false;
+  let syncTimer = null;
+
+  function loadSyncQueue(){
+    try{
+      const raw = localStorage.getItem(SYNC_QUEUE_KEY);
+      syncQueue = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(syncQueue)) syncQueue = [];
+    }catch(e){
+      syncQueue = [];
+    }
+  }
+
+  function persistSyncQueue(){
+    try{
+      localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(syncQueue));
+    }catch(e){}
+    updateSyncStatusUI();
+  }
+
+  function enqueueSync(item){
+    item.qid = 'sq_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    item.queuedAt = Date.now();
+    item.attempts = 0;
+    syncQueue.push(item);
+    persistSyncQueue();
+    triggerSyncQueue(40);
+    return item;
+  }
+
+  function updateSyncStatusUI(){
+    const chip = $('chipSyncStatus');
+    const dot = $('syncDot');
+    const text = $('syncText');
+    if(!chip || !text) return;
+
+    const count = syncQueue.length;
+    if(count === 0){
+      chip.className = 'status-chip sync-chip ok';
+      if(dot) dot.className = 'sync-dot ok';
+      text.textContent = 'Sincronizado ✓';
+      chip.title = 'Todos os registos estão sincronizados com o Google Sheets.';
+    } else if(isSyncingQueue){
+      chip.className = 'status-chip sync-chip syncing';
+      if(dot) dot.className = 'sync-dot syncing';
+      text.textContent = `A sincronizar (${count})…`;
+      chip.title = `A enviar ${count} registo(s) para o Google Sheets em segundo plano…`;
+    } else {
+      chip.className = 'status-chip sync-chip pending';
+      if(dot) dot.className = 'sync-dot pending';
+      text.textContent = `${count} pendente${count>1?'s':''}`;
+      chip.title = `${count} registo(s) guardado(s) localmente aguardando envio. Clique para tentar agora.`;
+    }
+  }
+
+  function triggerSyncQueue(delayMs = 200){
+    if(syncTimer) clearTimeout(syncTimer);
+    syncTimer = setTimeout(()=>{
+      processSyncQueue().catch(e => console.warn('Aviso no processamento da fila de sincronização:', e));
+    }, delayMs);
+  }
+
+  async function processSyncQueue(){
+    if(isSyncingQueue) return;
+    if(!syncQueue.length){
+      updateSyncStatusUI();
+      return;
+    }
+    if(!API_URL || API_URL.indexOf('http') !== 0) return;
+
+    isSyncingQueue = true;
+    updateSyncStatusUI();
+
+    try{
+      while(syncQueue.length > 0){
+        const item = syncQueue[0];
+        try{
+          await apiPost(item.payload);
+          // Enviado com sucesso: remove da fila e persiste
+          syncQueue.shift();
+          persistSyncQueue();
+        }catch(err){
+          console.warn('Tentativa de sincronização falhada para item:', item, err);
+          item.attempts = (item.attempts || 0) + 1;
+          item.lastError = err.message || String(err);
+          persistSyncQueue();
+
+          if(err && err.auth){
+            break; // Parar se a sessão expirou
+          }
+
+          // Agendar nova tentativa com backoff exponencial suave
+          const backoff = Math.min(30000, 2500 * Math.pow(1.5, Math.min(item.attempts, 5)));
+          triggerSyncQueue(backoff);
+          break;
+        }
+      }
+    }finally{
+      isSyncingQueue = false;
+      updateSyncStatusUI();
+    }
+  }
+
+  loadSyncQueue();
 
   // ---------- Cache local de registos e auditoria ----------
   const CACHE_TTL_MS = 60000;
@@ -2062,6 +2219,39 @@
   }
   restoreStore();
 
+  function mergeServerRecordsWithPending(type, serverRecordsRaw){
+    const entry = dataStore[type];
+    if(!entry) return;
+    const serverRecords = (serverRecordsRaw || []).map(d => ({ key: d.id, data: d }));
+
+    const pendingSaves = syncQueue
+      .filter(q => q.type === type && q.action === 'save' && q.payload && q.payload.data)
+      .map(q => ({ key: q.payload.data.id, data: q.payload.data }));
+    const pendingDeletes = new Set(
+      syncQueue.filter(q => q.type === type && q.action === 'delete').map(q => q.recordId)
+    );
+    const pendingUpdatesMap = new Map(
+      syncQueue.filter(q => q.type === type && q.action === 'update' && q.payload && q.payload.data)
+        .map(q => [q.recordId, q.payload.data])
+    );
+
+    let merged = serverRecords.filter(it => !pendingDeletes.has(it.key));
+    merged = merged.map(it => {
+      if(pendingUpdatesMap.has(it.key)){
+        return { key: it.key, data: Object.assign({}, it.data, pendingUpdatesMap.get(it.key)) };
+      }
+      return it;
+    });
+
+    pendingSaves.forEach(ps => {
+      if(!merged.some(m => m.key === ps.key)){
+        merged.push(ps);
+      }
+    });
+
+    entry.items = merged;
+  }
+
   async function listRecords(type, opts){
     const forceFresh = opts && opts.fresh;
     const entry = dataStore[type];
@@ -2073,7 +2263,7 @@
       if(age > CACHE_STALE_MS && !entry.revalidating){
         entry.revalidating = true;
         apiGet({ action:'list', type }).then(r=>{
-          entry.items = r.records.map(d=> ({ key: d.id, data: d }));
+          mergeServerRecordsWithPending(type, r.records);
           entry.ts = Date.now();
           entry.revalidating = false;
           persistStore();
@@ -2084,13 +2274,12 @@
 
     try{
       const r = await apiGet({ action:'list', type });
-      entry.items = r.records.map(d=> ({ key: d.id, data: d }));
+      mergeServerRecordsWithPending(type, r.records);
       entry.ts = Date.now();
       persistStore();
       return entry.items.slice();
     }catch(e){
       if(entry.items){
-        showToast('Sem ligação — a mostrar dados guardados (podem estar desatualizados)', true);
         return entry.items.slice();
       }
       throw e;
@@ -2098,24 +2287,40 @@
   }
 
   async function saveRecord(type, data){
-    data.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
-    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
-    data.criadoPor = userWho;
-    data.criadoEm = todayStr() + ' ' + nowTimeStr();
-
-    const r = await apiPost({ action:'save', type, data });
-
-    // Atualização otimista imediata na cache
-    const entry = dataStore[type];
-    if(entry && entry.items){
-      entry.items.push({ key: data.id, data: Object.assign({}, data) });
-      entry.ts = Date.now();
-      persistStore();
-    } else {
-      invalidateRecords(type);
+    if(!data.id){
+      data.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     }
+    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
+    if(!data.criadoPor) data.criadoPor = userWho;
+    if(!data.criadoEm) data.criadoEm = todayStr() + ' ' + nowTimeStr();
+
+    // 1. Atualização otimista imediata na cache local (0 ms de espera)
+    let entry = dataStore[type];
+    if(!entry){
+      dataStore[type] = { items: [], ts: Date.now() };
+      entry = dataStore[type];
+    }
+    if(!entry.items) entry.items = [];
+
+    const existingIdx = entry.items.findIndex(it => (it.key === data.id || (it.data && it.data.id === data.id)));
+    if(existingIdx >= 0){
+      entry.items[existingIdx] = { key: data.id, data: Object.assign({}, data) };
+    } else {
+      entry.items.push({ key: data.id, data: Object.assign({}, data) });
+    }
+    entry.ts = Date.now();
+    persistStore();
     invalidateMemo();
-    return r;
+
+    // 2. Colocar na fila de sincronização em segundo plano
+    enqueueSync({
+      action: 'save',
+      type,
+      recordId: data.id,
+      payload: { action: 'save', type, data }
+    });
+
+    return { ok: true, id: data.id, dentroIntervalo: data.dentroIntervalo, record: data };
   }
 
   async function updateRecordApi(type, id, data){
@@ -2124,9 +2329,7 @@
     data.modificadoEn = todayStr() + ' ' + nowTimeStr();
     data.editado = 'Sim';
 
-    await apiPost({ action:'update', type, id, data });
-
-    // Atualização otimista imediata na cache
+    // 1. Atualização otimista imediata na cache
     const entry = dataStore[type];
     if(entry && entry.items){
       const idx = entry.items.findIndex(it=> it.key === id || (it.data && it.data.id === id));
@@ -2134,28 +2337,40 @@
         entry.items[idx] = { key: id, data: Object.assign({}, entry.items[idx].data, data, { id }) };
         entry.ts = Date.now();
         persistStore();
-      } else {
-        invalidateRecords(type);
       }
-    } else {
-      invalidateRecords(type);
     }
     invalidateMemo();
+
+    // 2. Enfileirar envio assíncrono
+    enqueueSync({
+      action: 'update',
+      type,
+      recordId: id,
+      payload: { action:'update', type, id, data }
+    });
+
+    return { ok: true };
   }
 
   async function deleteRecordApi(type, id){
-    await apiPost({ action:'delete', type, id });
-
-    // Remoção otimista imediata na cache
+    // 1. Remoção otimista imediata na cache
     const entry = dataStore[type];
     if(entry && entry.items){
       entry.items = entry.items.filter(it=> it.key !== id && (!it.data || it.data.id !== id));
       entry.ts = Date.now();
       persistStore();
-    } else {
-      invalidateRecords(type);
     }
     invalidateMemo();
+
+    // 2. Enfileirar remoção assíncrona
+    enqueueSync({
+      action: 'delete',
+      type,
+      recordId: id,
+      payload: { action:'delete', type, id }
+    });
+
+    return { ok: true };
   }
 
   // ---------- Cache local de configurações + equipamentos ----------
@@ -2635,28 +2850,35 @@
     };
     if(!data.fecha){ showToast('Indique a data'); return; }
 
+    if(!editingGeneralId){
+      const cached = (dataStore.general && dataStore.general.items) ? dataStore.general.items : [];
+      const existingToday = cached.filter(r => r.data && r.data.fecha === data.fecha);
+      if(existingToday.length){
+        const ultima = existingToday.sort((a,b)=> (a.data.hora||'').localeCompare(b.data.hora||'')).slice(-1)[0];
+        const horaStr = ultima.data && ultima.data.hora ? ultima.data.hora : '';
+        const ok = await confirmDialog('Já existe um registo hoje', `Guardou um registo geral hoje${horaStr ? ' às ' + horaStr : ''}.\nQuer guardar este como uma leitura adicional do mesmo dia?`, 'Guardar na mesma');
+        if(!ok) return;
+      }
+    }
+
     setLoading(btn, true);
     try{
       if(editingGeneralId){
         await updateRecordApi('general', editingGeneralId, data);
-        showToast('Registo geral atualizado ✓');
+        showToast('✓ Registo geral atualizado');
         resetGeneralEditState();
       } else {
-        const existingToday = (await listRecords('general')).filter(r=> r.data.fecha === data.fecha);
-        if(existingToday.length){
-          const ultima = existingToday.sort((a,b)=> (a.data.hora||'').localeCompare(b.data.hora||'')).slice(-1)[0];
-          const ok = await confirmDialog('Já existe um registo hoje', `Guardou um registo geral hoje às ${ultima.data.hora}.\nQuer guardar este como uma leitura adicional do mesmo dia?`, 'Guardar na mesma');
-          if(!ok){ setLoading(btn, false); return; }
-        }
         await saveRecord('general', data);
-        showToast('Registo geral guardado na folha ✓');
+        showToast('✓ Registo geral guardado localmente · a sincronizar');
       }
       ['g-agua','g-electricidad','g-retornoAqs','g-aqsQuartos','g-estadoPiscina','g-tempPiscina','g-phPiscina','g-cloroLibre','g-cloroTotal','g-observacoes'].forEach(id=> $(id).value='');
       ['g-lavadoPrefiltro','g-lavadoFiltroArena','g-limpiezaSkimmer'].forEach(id=> $(id).checked=false);
       $('g-hora').value = nowTimeStr();
       refreshChips();
+      refreshConsumoResumen();
+      updateActivePeriodUI().catch(()=>{});
     }catch(e){
-      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
+      showToast('⚠️ Erro ao guardar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
@@ -2694,32 +2916,35 @@
       cloroTotalFria: $('q-cloroTotalFria').value,
     };
 
+    if(!editingQuartoId){
+      if(effectiveCycleDone().includes(numero)){
+        const ok = await confirmDialog('Quarto já medido neste ciclo', `O quarto ${numero} já está registado no ciclo atual (ainda não estão completos os ${roomsList.length} quartos).\nQuer guardar uma nova leitura na mesma?`, 'Guardar na mesma');
+        if(!ok) return;
+      }
+    }
+
     setLoading(btn, true);
     try{
       if(editingQuartoId){
         await updateRecordApi('quarto', editingQuartoId, data);
-        showToast(`Leitura do quarto ${numero} atualizada ✓`);
+        showToast(`✓ Leitura do quarto ${numero} atualizada`);
         resetQuartoEditState();
       } else {
-        if(effectiveCycleDone().includes(numero)){
-          const ok = await confirmDialog('Quarto já medido neste ciclo', `O quarto ${numero} já está registado no ciclo atual (ainda não estão completos os ${roomsList.length} quartos).\nQuer guardar uma nova leitura na mesma?`, 'Guardar na mesma');
-          if(!ok){ setLoading(btn, false); return; }
-        }
         await saveRecord('quarto', data);
-        const cycleJustCompleted = await markRoomDoneInCycle(numero);
+        const cycleJustCompleted = markRoomDoneInCycle(numero);
         if(cycleJustCompleted){
           showToast(`🎉 Ciclo completo! Já foram medidos os ${roomsList.length} quartos. O ciclo reinicia.`);
         } else {
-          showToast(`Leitura do quarto ${numero} guardada na folha ✓`);
+          showToast(`✓ Leitura do quarto ${numero} guardada`);
         }
       }
       ['q-numero','q-phCaliente','q-cloroCaliente','q-cloroTotalCaliente','q-phFria','q-cloroFria','q-cloroTotalFria'].forEach(id=> $(id).value='');
       $('q-hora').value = nowTimeStr();
       selectRoom('');
-      await renderRoomGrid();
+      renderRoomGrid();
       refreshChips();
     }catch(e){
-      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
+      showToast('⚠️ Erro ao guardar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
@@ -2870,17 +3095,22 @@
       cycleDone = [];
     }
   }
-  async function saveCycleDone(){
+  function saveCycleDone(){
     try{
-      await apiPost({ action:'setConfig', key:'cicloQuartosHechos', value: JSON.stringify(cycleDone) });
-      invalidateConfig('cicloQuartosHechos');
+      localStorage.setItem('bitacora_cicloQuartosHechos', JSON.stringify(cycleDone));
     }catch(e){}
+    configStore['cicloQuartosHechos'] = { value: JSON.stringify(cycleDone), ts: Date.now() };
+    enqueueSync({
+      action: 'setConfig',
+      key: 'cicloQuartosHechos',
+      payload: { action:'setConfig', key:'cicloQuartosHechos', value: JSON.stringify(cycleDone) }
+    });
   }
   function effectiveCycleDone(){
     const validSet = new Set(roomsList.map(normRoom));
     return cycleDone.map(normRoom).filter(n=> n && validSet.has(n));
   }
-  async function markRoomDoneInCycle(numero){
+  function markRoomDoneInCycle(numero){
     numero = normRoom(numero);
     if(!cycleDone.map(normRoom).includes(numero)) cycleDone.push(numero);
     const done = effectiveCycleDone();
@@ -2888,14 +3118,14 @@
     if(cycleJustCompleted){
       cycleDone = [];
     }
-    await saveCycleDone();
+    saveCycleDone();
     return cycleJustCompleted;
   }
-  async function unmarkRoomFromCycle(numero){
+  function unmarkRoomFromCycle(numero){
     numero = normRoom(numero);
     if(cycleDone.map(normRoom).includes(numero)){
       cycleDone = cycleDone.map(normRoom).filter(n=> n!==numero);
-      await saveCycleDone();
+      saveCycleDone();
     }
   }
 
@@ -4039,14 +4269,14 @@
     try{
       if(editingTempId){
         await updateRecordApi('temperatura', editingTempId, data);
-        showToast('Leitura de temperatura atualizada ✓');
+        showToast('✓ Leitura de temperatura atualizada');
         resetTempEditState();
       } else {
         const r = await saveRecord('temperatura', data);
         if(parsed.isBad || (r && r.dentroIntervalo === 'Não')){
           showToast(`⚠️ Guardada (${tempStr} °C), mas FORA do intervalo de referência (${eq.min} a ${eq.max} °C)`, true);
         } else {
-          showToast(`Temperatura ${vin ? 'da vinheira' : ''} guardada na folha ✓`);
+          showToast(`✓ Temperatura ${vin ? 'da vinheira' : ''} guardada`);
         }
       }
       $('t-temperatura').value = '';
@@ -4056,9 +4286,9 @@
       $('t-hora').value = nowTimeStr();
       deselectEquip();
       refreshChips();
-      await renderTempWeek();
+      renderTempWeek();
     }catch(e){
-      showToast('⚠️ Não foi possível guardar: ' + e.message, true);
+      showToast('⚠️ Erro ao guardar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
@@ -8256,7 +8486,7 @@
         ['general','quarto','temperatura'].forEach(t=>{
           const list = preloadedBoot.records && preloadedBoot.records[t];
           if(list){
-            dataStore[t].items = list.map(d=> ({ key: d.id, data: d }));
+            mergeServerRecordsWithPending(t, list);
             dataStore[t].ts = Date.now();
           }
         });
@@ -8276,6 +8506,8 @@
     if(activeTab && activeTab.dataset.view === 'ejecutivo'){
       renderEjecutivo();
     }
+    updateSyncStatusUI();
+    triggerSyncQueue(400);
   }
   _realInitMainApp = initMainApp;
   _realRenderDashboard = renderDashboard;
@@ -8302,6 +8534,30 @@
     globalThis.openFechosHistoricoModal = openFechosHistoricoModal;
     globalThis.executeFechoMensal = executeFechoMensal;
   }
+
+  // Interação e sincronização com o chip de sincronização
+  const syncChipEl = $('chipSyncStatus');
+  if(syncChipEl){
+    syncChipEl.addEventListener('click', ()=>{
+      if(syncQueue.length === 0){
+        showToast('Todos os registos estão sincronizados com a folha Google Sheets ✓');
+      } else {
+        showToast(`A sincronizar ${syncQueue.length} registo(s) pendente(s)…`);
+        triggerSyncQueue(10);
+      }
+    });
+    syncChipEl.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        syncChipEl.click();
+      }
+    });
+  }
+
+  window.addEventListener('online', ()=>{
+    showToast('Ligação de rede detetada · a sincronizar dados…');
+    triggerSyncQueue(100);
+  });
 
   // Eventos de Versão e Atualizações
   $('btnOpenVersionModal') && $('btnOpenVersionModal').addEventListener('click', openVersionModal);
