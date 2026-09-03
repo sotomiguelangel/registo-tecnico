@@ -21,7 +21,7 @@
     }
   } catch(e) {}
 
-  // 2. Intercetor global para prevenir e absorver erros de atribuição a 'fetch' apenas com getter
+  // 2. Intercetor global para prevenir e neutralizar erros de atribuição a 'fetch' apenas com getter
   (function() {
     if (typeof window === 'undefined') return;
 
@@ -31,6 +31,9 @@
         _nativeFetch = window.fetch.bind(window);
       }
     } catch(e) {}
+    if (!_nativeFetch && typeof fetch === 'function') {
+      try { _nativeFetch = fetch; } catch(e) {}
+    }
 
     var _activeFetch = _nativeFetch;
 
@@ -44,7 +47,8 @@
     // Ouvinte global em fase de captura para neutralizar Uncaught TypeError de fetch
     try {
       window.addEventListener('error', function(ev) {
-        if (isFetchGetterError(ev && (ev.message || (ev.error && ev.error.message)))) {
+        var msg = ev ? (ev.message || (ev.error && ev.error.message)) : '';
+        if (isFetchGetterError(msg) || isFetchGetterError(ev && ev.error)) {
           if (ev.preventDefault) ev.preventDefault();
           if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
           return true;
@@ -72,101 +76,129 @@
       }
     } catch(e) {}
 
-    // Descritor com getter e setter que permite livre reatribuição de window.fetch
-    var accessorDesc = {
-      get: function() { return _activeFetch || _nativeFetch; },
-      set: function(fn) { _activeFetch = fn; },
-      configurable: true,
-      enumerable: true
-    };
-
-    function applyAccessor(target) {
-      if (!target) return;
+    // 1. Tornar window.fetch uma propriedade gravável diretamente (data property)
+    // Desta forma, qualquer script estrito que execute 'window.fetch = fn' nunca invoca getters do protótipo
+    try {
+      Object.defineProperty(window, 'fetch', {
+        value: function() {
+          var targetFn = _activeFetch || _nativeFetch;
+          return targetFn.apply(this, arguments);
+        },
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+    } catch(e) {
       try {
-        var d = Object.getOwnPropertyDescriptor(target, 'fetch');
-        if (!d || d.configurable) {
-          try { delete target.fetch; } catch(e) {}
-          try { Object.defineProperty(target, 'fetch', accessorDesc); } catch(e) {}
-        }
-      } catch(e) {}
+        Object.defineProperty(window, 'fetch', {
+          get: function() { return _activeFetch || _nativeFetch; },
+          set: function(fn) { _activeFetch = fn; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch(e2) {}
     }
 
-    // Aplicar diretamente em window
-    applyAccessor(window);
+    // 2. Garantir setter em toda a cadeia de protótipos de Window
+    try {
+      var proto = typeof Window !== 'undefined' ? Window.prototype : (typeof window !== 'undefined' ? Object.getPrototypeOf(window) : null);
+      while (proto && proto !== Object.prototype) {
+        try {
+          var desc = Object.getOwnPropertyDescriptor(proto, 'fetch');
+          if (desc && desc.configurable) {
+            Object.defineProperty(proto, 'fetch', {
+              get: function() { return _activeFetch || _nativeFetch; },
+              set: function(fn) {
+                _activeFetch = fn;
+                try {
+                  Object.defineProperty(window, 'fetch', {
+                    value: fn,
+                    writable: true,
+                    configurable: true,
+                    enumerable: true
+                  });
+                } catch(err) {
+                  try { window.fetch = fn; } catch(err2) {}
+                }
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch(e) {}
+        proto = Object.getPrototypeOf(proto);
+      }
+    } catch(e) {}
 
-    // Aplicar em Window.prototype se disponível
-    if (typeof Window !== 'undefined' && Window.prototype) {
-      applyAccessor(Window.prototype);
-    }
-
-    // Percorrer a cadeia inteira de protótipos de Window para garantir setter em toda a hierarquia
-    var curr = window;
-    while (curr) {
-      applyAccessor(curr);
-      try {
-        curr = Object.getPrototypeOf(curr);
-      } catch(e) { break; }
-    }
-
-    // Aplicar em globalThis
+    // 3. Garantir consistência em globalThis
     if (typeof globalThis !== 'undefined' && globalThis !== window) {
-      applyAccessor(globalThis);
+      try {
+        Object.defineProperty(globalThis, 'fetch', {
+          value: function() {
+            var targetFn = _activeFetch || _nativeFetch;
+            return targetFn.apply(this, arguments);
+          },
+          writable: true,
+          configurable: true,
+          enumerable: true
+        });
+      } catch(e) {}
     }
   })();
 
-  // 3. Funções globais de ciclo de vida pré-inicializadas para que nunca ocorra ReferenceError
+  // 3. Funções globais de ciclo de vida pré-inicializadas no escopo global (evita qualquer ReferenceError)
   var _realRefreshConsumoResumen = null;
-  var refreshConsumoResumen = async function() {
+  async function refreshConsumoResumen() {
     if (typeof _realRefreshConsumoResumen === 'function') {
       return _realRefreshConsumoResumen.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.refreshConsumoResumen = refreshConsumoResumen;
 
   var _realRenderDashboard = null;
-  var renderDashboard = async function() {
+  async function renderDashboard() {
     if (typeof _realRenderDashboard === 'function') {
       return _realRenderDashboard.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.renderDashboard = renderDashboard;
 
   var _realRenderEjecutivo = null;
-  var renderEjecutivo = async function() {
+  async function renderEjecutivo() {
     if (typeof _realRenderEjecutivo === 'function') {
       return _realRenderEjecutivo.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.renderEjecutivo = renderEjecutivo;
 
   var _realRenderRoomGrid = null;
-  var renderRoomGrid = async function() {
+  async function renderRoomGrid() {
     if (typeof _realRenderRoomGrid === 'function') {
       return _realRenderRoomGrid.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.renderRoomGrid = renderRoomGrid;
 
   var _realRefreshChips = null;
-  var refreshChips = async function() {
+  async function refreshChips() {
     if (typeof _realRefreshChips === 'function') {
       return _realRefreshChips.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.refreshChips = refreshChips;
 
   var _realInitMainApp = null;
-  var initMainApp = async function() {
+  async function initMainApp() {
     if (typeof _realInitMainApp === 'function') {
       return _realInitMainApp.apply(this, arguments);
     }
     return Promise.resolve();
-  };
+  }
   window.initMainApp = initMainApp;
 
   if (typeof globalThis !== 'undefined') {
@@ -8514,12 +8546,14 @@
   _realRenderEjecutivo = renderEjecutivo;
   _realRenderRoomGrid = renderRoomGrid;
   _realRefreshChips = refreshChips;
+  _realRefreshConsumoResumen = refreshConsumoResumen;
   if (typeof window !== 'undefined') {
     window.initMainApp = initMainApp;
     window.renderDashboard = renderDashboard;
     window.renderEjecutivo = renderEjecutivo;
     window.renderRoomGrid = renderRoomGrid;
     window.refreshChips = refreshChips;
+    window.refreshConsumoResumen = refreshConsumoResumen;
     window.openFechoMensalModal = openFechoMensalModal;
     window.openFechosHistoricoModal = openFechosHistoricoModal;
     window.executeFechoMensal = executeFechoMensal;
@@ -8530,6 +8564,7 @@
     globalThis.renderEjecutivo = renderEjecutivo;
     globalThis.renderRoomGrid = renderRoomGrid;
     globalThis.refreshChips = refreshChips;
+    globalThis.refreshConsumoResumen = refreshConsumoResumen;
     globalThis.openFechoMensalModal = openFechoMensalModal;
     globalThis.openFechosHistoricoModal = openFechosHistoricoModal;
     globalThis.executeFechoMensal = executeFechoMensal;
