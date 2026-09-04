@@ -2296,10 +2296,27 @@
   const CACHE_STALE_MS = 25000;
   const dataStore = { general:{items:null,ts:0}, quarto:{items:null,ts:0}, temperatura:{items:null,ts:0} };
 
+  // Cache de renderização de painéis (evita recálculos pesados e chamadas de rede ao alternar separadores)
+  let cachedDashboardData = null;
+  let cachedDashboardTimestamp = 0;
+  let cachedEjecutivoData = null;
+  let cachedEjecutivoTimestamp = 0;
+  let cachedExecPeriodText = '';
+  let cachedExecMeta = null;
+  let cachedHistorialData = null;
+  let cachedHistorialTimestamp = 0;
+  let lastHistorialItems = [];
+
+  const CACHE_MAX_AGE = 5 * 60 * 1000; // 5 minutos de idade máxima antes de considerar stale
+
   const memoCache = { cycles:null, cyclesKey:'', deltas:null, deltasKey:'' };
   function invalidateMemo(){
     memoCache.cycles = null; memoCache.cyclesKey = '';
     memoCache.deltas = null; memoCache.deltasKey = '';
+    cachedDashboardData = null; cachedDashboardTimestamp = 0;
+    cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0;
+    cachedHistorialData = null; cachedHistorialTimestamp = 0;
+    lastHistorialItems = [];
   }
 
   function invalidateRecords(type){
@@ -2650,6 +2667,9 @@
     }catch(e){}
   }
 
+  // Variável global para controlar se já verificámos a sessão
+  let sessionChecked = false;
+
   $('btnLogin').addEventListener('click', async ()=>{
     const usuario = $('login-usuario').value.trim();
     const pin = $('login-pin').value.trim();
@@ -2664,6 +2684,7 @@
       if(r.boot) preloadedBoot = r.boot;
       $('loginScreen').classList.remove('show');
       $('login-pin').value = '';
+      sessionChecked = true;
       onLoggedIn();
     }catch(e){
       $('loginHint').textContent = e.message;
@@ -2681,6 +2702,7 @@
     $('loginScreen').classList.add('show');
     $('login-pin').value = '';
     $('loginHint').textContent = '';
+    sessionChecked = false;
     window.scrollTo(0,0);
   }
   $('btnLogout').addEventListener('click', doLogout);
@@ -2809,7 +2831,7 @@
     const target = $('view-'+viewName);
     if(target) target.classList.add('active');
     if(viewName === 'general') updateActivePeriodUI();
-    if(viewName === 'historial') renderHistorial();
+    if(viewName === 'historial') renderHistorial(false).catch(()=>{});
     if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
     if(viewName === 'temperatura') renderTempView();
     if(viewName === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
@@ -5636,8 +5658,6 @@
     });
   }
 
-  let lastHistorialItems = [];
-
   function startEditRecord(it){
     if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
     if(it.type === 'temperatura'){
@@ -7786,6 +7806,24 @@
   async function renderEjecutivo(forcedDesde, forcedHasta){
     const output = $('ejecutivoOutput');
     const button = $('btnRefreshEjecutivo');
+
+    const now = Date.now();
+    const isStale = (now - cachedEjecutivoTimestamp) > CACHE_MAX_AGE;
+    const hasCache = cachedEjecutivoData !== null;
+
+    if(!forcedDesde && !forcedHasta && hasCache && !isStale){
+      if(output) output.innerHTML = cachedEjecutivoData;
+      const periodLabel = $('ejecutivoPeriod');
+      if(periodLabel && cachedExecPeriodText) periodLabel.textContent = cachedExecPeriodText;
+      mountCharts(output);
+      renderExecInteractiveChart();
+      if(cachedExecMeta){
+        wireHeatmapNav(cachedExecMeta.generalRaw);
+        wireExecEvents(cachedExecMonths, cachedExecMeta);
+      }
+      return;
+    }
+
     setLoading(button, true);
     output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
     <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
@@ -7801,10 +7839,12 @@
       }
       const d = await calculateExecutiveSummaryData(desde, hasta);
       cachedExecMonths = d.months;
+      cachedExecMeta = { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw };
 
       const periodLabel = $('ejecutivoPeriod');
       if(periodLabel){
         periodLabel.textContent = `Período de Análise: ${d.desde} a ${d.hasta} ${d.isCurrentMonth ? '(Mês em curso)' : '(Mês anterior)'}`;
+        cachedExecPeriodText = periodLabel.textContent;
       }
 
       // Scorecard HTML (5 pilares separados: AQS, Piscina, Frio, Cadência, Quartos)
@@ -7967,8 +8007,12 @@
 
       renderExecInteractiveChart();
       wireHeatmapNav(d.generalRaw);
-      wireExecEvents(cachedExecMonths, { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec });
+      wireExecEvents(cachedExecMonths, { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw });
 
+      if(output && output.innerHTML){
+        cachedEjecutivoData = output.innerHTML;
+        cachedEjecutivoTimestamp = Date.now();
+      }
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
     }finally{ setLoading(button, false); }
@@ -8030,7 +8074,7 @@
     const selMonth = $('execMonthSelect');
     if(selMonth && !selMonth.dataset.bound){
       selMonth.dataset.bound = '1';
-      selMonth.onchange = () => renderEjecutivo();
+      selMonth.onchange = () => { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; renderEjecutivo(); };
     }
 
     // Exportação CSV Executivo
@@ -8303,13 +8347,69 @@
     generateExecutiveReport($('btnPrintExecReport'));
   }
 
-  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> renderEjecutivo());
+  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; renderEjecutivo(); });
   if($('btnPrintExecReport')) $('btnPrintExecReport').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
   if($('btnExportExecCsv')) $('btnExportExecCsv').addEventListener('click', ()=> exportExecutiveCsv());
+
+  function wireDashboardEvents(){
+    const btnBase = $('btnSetBaseline');
+    if(btnBase && !btnBase.dataset.bound){
+      btnBase.dataset.bound = '1';
+      btnBase.addEventListener('click', openBaselineDialog);
+    }
+    const btnDashFecho = $('btnDashFechoMensal');
+    if(btnDashFecho && !btnDashFecho.dataset.bound){
+      btnDashFecho.dataset.bound = '1';
+      btnDashFecho.addEventListener('click', () => openFechoMensalModal());
+    }
+    const btnToggle = $('btnToggleConsumoDetail');
+    if(btnToggle && !btnToggle.dataset.bound){
+      btnToggle.dataset.bound = '1';
+      btnToggle.addEventListener('click', ()=>{
+        const el = $('consumoDetailTable');
+        if(!el) return;
+        const showing = el.style.display !== 'none';
+        el.style.display = showing ? 'none' : 'block';
+        btnToggle.textContent = showing ? 'Ver detalhe do cálculo' : 'Ocultar detalhe do cálculo';
+      });
+    }
+    const segAgua = $('segAgua');
+    if(segAgua && !segAgua.dataset.bound){
+      segAgua.dataset.bound = '1';
+      segAgua.addEventListener('click', ()=>{
+        dailyMetric = 'agua';
+        $('segAgua').classList.add('active'); $('segElec').classList.remove('active');
+        renderDailyChartBox();
+      });
+    }
+    const segElec = $('segElec');
+    if(segElec && !segElec.dataset.bound){
+      segElec.dataset.bound = '1';
+      segElec.addEventListener('click', ()=>{
+        dailyMetric = 'elec';
+        $('segElec').classList.add('active'); $('segAgua').classList.remove('active');
+        renderDailyChartBox();
+      });
+    }
+  }
 
   async function renderDashboard(forceFresh){
     const output = $('dashboardOutput');
     const button = $('btnRefreshDashboard');
+
+    // Verificar cache em memória
+    const now = Date.now();
+    const isStale = (now - cachedDashboardTimestamp) > CACHE_MAX_AGE;
+    const hasCache = cachedDashboardData !== null;
+
+    if(!forceFresh && hasCache && !isStale){
+      if(output) output.innerHTML = cachedDashboardData;
+      mountCharts(output);
+      if($('dailyChartBox')) renderDailyChartBox();
+      wireDashboardEvents();
+      return;
+    }
+
     setLoading(button, true);
     output.innerHTML = `
       <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
@@ -8534,34 +8634,12 @@
       mountCharts(output);
       renderDailyChartBox();
       initD3Scatter(generalRaw, quartosRaw);
+      wireDashboardEvents();
 
-      const btnBase = $('btnSetBaseline');
-      if(btnBase) btnBase.addEventListener('click', openBaselineDialog);
-
-      const btnDashFecho = $('btnDashFechoMensal');
-      if(btnDashFecho) btnDashFecho.addEventListener('click', () => openFechoMensalModal());
-
-      const btnToggle = $('btnToggleConsumoDetail');
-      if(btnToggle){
-        btnToggle.addEventListener('click', ()=>{
-          const el = $('consumoDetailTable');
-          if(!el) return;
-          const showing = el.style.display !== 'none';
-          el.style.display = showing ? 'none' : 'block';
-          btnToggle.textContent = showing ? 'Ver detalhe do cálculo' : 'Ocultar detalhe do cálculo';
-        });
+      if(output && output.innerHTML){
+        cachedDashboardData = output.innerHTML;
+        cachedDashboardTimestamp = Date.now();
       }
-
-      $('segAgua').addEventListener('click', ()=>{
-        dailyMetric = 'agua';
-        $('segAgua').classList.add('active'); $('segElec').classList.remove('active');
-        renderDailyChartBox();
-      });
-      $('segElec').addEventListener('click', ()=>{
-        dailyMetric = 'elec';
-        $('segElec').classList.add('active'); $('segAgua').classList.remove('active');
-        renderDailyChartBox();
-      });
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o painel.<br>${esc(e.message)}</div>`;
     }finally{ setLoading(button, false); }
@@ -9328,21 +9406,39 @@
     setInterval(() => checkAppVersion(false), 5 * 60 * 1000);
 
     if(!CONFIG_OK) return;
-    $('loginScreen').classList.add('show');
 
-    const saved = recallUser();
-    if(saved && getToken()){
-      currentUser = saved;
+    // Verificar se já temos sessão válida
+    const savedToken = getToken();
+    const savedUser = recallUser();
+
+    if(savedToken && savedUser && !sessionChecked){
       try{
         const r = await apiGet({ action:'bootstrap' });
-        currentUser = r.user;
-        rememberUser(r.user);
-        if(r.config || r.records) preloadedBoot = { config:r.config, records:r.records, equipamentos:r.equipamentos };
+        currentUser = r.user || savedUser;
+        rememberUser(currentUser);
+
+        if(r.config || r.records) {
+          preloadedBoot = {
+            config: r.config,
+            records: r.records,
+            equipamentos: r.equipamentos
+          };
+        }
+
         $('loginScreen').classList.remove('show');
+        sessionChecked = true;
         onLoggedIn();
         return;
-      }catch(e){}
+      }catch(e){
+        console.log('Sessão expirada ou inválida, a solicitar novo login...');
+        setToken(null);
+        rememberUser(null);
+        currentUser = null;
+        sessionChecked = false;
+      }
     }
+
+    $('loginScreen').classList.add('show');
     refreshSeedNote();
     checkApiHealth();
   })();
