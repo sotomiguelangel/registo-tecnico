@@ -4614,184 +4614,217 @@
       showToast('O seu perfil é apenas de visualização — não pode efetuar fecho mensal', true);
       return;
     }
+
+    console.log('🔒 openFechoMensalModal chamado com:', targetMesKey);
+
     const overlay = $('modalOverlay');
     const box = $('modalBox');
     if(box) box.classList.add('modal-wide');
 
     $('modalTitle').textContent = '🔒 Fecho Mensal · Instalações e Refrigeração';
     const msgEl = $('modalMsg');
-    msgEl.innerHTML = `<div class="empty" style="padding:16px 0">A carregar dados do período…</div>`;
+    msgEl.innerHTML = `<div class="empty" style="padding:16px 0">⏳ A carregar dados do período…</div>`;
     $('modalTextarea').style.display = 'none';
     $('modalFormContainer').innerHTML = '';
     const actions = $('modalActions'); actions.innerHTML = '';
     overlay.classList.add('show');
 
-    // Discover all months available in data
-    const [genRaw, tpRaw, quRaw] = await Promise.all([
-      listRecords('general'),
-      listRecords('temperatura'),
-      listRecords('quarto')
-    ]);
-    const monthsSet = new Set();
-    [...genRaw, ...tpRaw, ...quRaw].forEach(r => {
-      if(r.data && r.data.fecha && r.data.fecha.length >= 7){
-        monthsSet.add(r.data.fecha.slice(0, 7));
+    try{
+      let mesParaFechar = targetMesKey;
+      if(!mesParaFechar){
+        const d = new Date();
+        const prevMonthDate = new Date(d.getFullYear(), d.getMonth()-1, 1);
+        mesParaFechar = `${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth()+1)}`;
       }
-    });
-    // Ensure current month and previous month are present
-    const d = new Date();
-    const currKey = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
-    const prevDate = new Date(d.getFullYear(), d.getMonth()-1, 1);
-    const prevKey = `${prevDate.getFullYear()}-${pad(prevDate.getMonth()+1)}`;
-    monthsSet.add(currKey);
-    monthsSet.add(prevKey);
+      console.log('📅 Mês a fechar:', mesParaFechar);
 
-    const sortedMonths = Array.from(monthsSet).sort().reverse();
-    const fechos = await loadFechosMensais();
-    const fechoMap = {};
-    fechos.forEach(f => { fechoMap[f.mesKey] = f; });
-
-    let defaultMonth = targetMesKey;
-    if(!defaultMonth){
-      const prevHasRecords = genRaw.some(r => r.data && r.data.fecha && r.data.fecha.startsWith(prevKey));
-      if(prevHasRecords && !fechoMap[prevKey]){
-        defaultMonth = prevKey;
-      } else {
-        defaultMonth = currKey;
-      }
-    }
-
-    async function renderModalContent(selectedMonth){
-      msgEl.innerHTML = `<div class="empty" style="padding:16px 0">A calcular fecho para ${formatMonthName(selectedMonth)}…</div>`;
-      const summary = await calculateMonthSummary(selectedMonth);
-      const existingFecho = fechoMap[selectedMonth];
-
-      let monthOptionsHtml = '';
-      sortedMonths.forEach(m => {
-        const isMClosed = !!fechoMap[m];
-        const isMCurr = m === currKey;
-        let tag = isMClosed ? ' [Fechado]' : (isMCurr ? ' [Mês atual]' : ' [Pendente]');
-        monthOptionsHtml += `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${formatMonthName(m)}${tag}</option>`;
+      // Descobrir todos os meses com dados registados
+      const [genRaw, tpRaw, quRaw] = await Promise.all([
+        listRecords('general'),
+        listRecords('temperatura'),
+        listRecords('quarto')
+      ]);
+      const monthsSet = new Set();
+      [...genRaw, ...tpRaw, ...quRaw].forEach(r => {
+        if(r.data && r.data.fecha && r.data.fecha.length >= 7){
+          monthsSet.add(r.data.fecha.slice(0, 7));
+        }
       });
 
-      const html = `
-        <div style="font-size:12.5px; color:var(--ink-600); margin-bottom:12px; line-height:1.45;">
-          O fecho mensal consolida as leituras operacionais, arquiva o período no histórico consultável e <b>reinicia os contadores de consumo e registos a zero</b> para o mês seguinte.
-        </div>
+      const d = new Date();
+      const currKey = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+      const prevDate = new Date(d.getFullYear(), d.getMonth()-1, 1);
+      const prevKey = `${prevDate.getFullYear()}-${pad(prevDate.getMonth()+1)}`;
+      monthsSet.add(currKey);
+      monthsSet.add(prevKey);
+      if(targetMesKey) monthsSet.add(targetMesKey);
+      monthsSet.add(mesParaFechar);
 
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:var(--paper); padding:10px 12px; border-radius:12px; border:1px solid var(--line);">
-          <label style="font-size:12px; font-weight:700; color:var(--petrol-900); white-space:nowrap;" for="fechoMonthSelector">Mês a Fechar:</label>
-          <select id="fechoMonthSelector" style="padding:6px 10px; border-radius:8px; border:1px solid var(--line); font-size:13px; font-family:var(--mono); flex:1; background:#fff; font-weight:700;">
-            ${monthOptionsHtml}
-          </select>
-        </div>
+      const sortedMonths = Array.from(monthsSet).sort().reverse();
+      const fechos = await loadFechosMensais();
+      const fechoMap = {};
+      fechos.forEach(f => { fechoMap[f.mesKey] = f; });
 
-        ${existingFecho ? `
-          <div style="background:var(--amber-100); border:1px solid var(--amber-500); border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#8a5f0f;">
-            ⚠️ <b>Este mês já foi fechado anteriormente</b> em ${esc(existingFecho.dataFecho)} por ${esc(existingFecho.fechadoPor)}. Ao confirmar, os dados consolidados serão atualizados.
-          </div>
-        ` : ''}
-
-        <!-- Painel Instalações -->
-        <div style="background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:800; color:var(--petrol-900); text-transform:uppercase; letter-spacing:0.04em;">🔧 Controlo Diário · Instalações</div>
-            <span class="week-pill ${summary.generalCount > 0 ? 'ok' : 'pending'}" style="font-size:10px; padding:2px 8px;">${summary.generalCount} dias registados</span>
-          </div>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-family:var(--mono); font-size:11.5px; margin-bottom:8px;">
-            <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
-              <span style="color:var(--ink-400); font-size:10px; display:block;">CONSUMO TOTAL ÁGUA</span>
-              <span style="font-size:14px; font-weight:800; color:var(--petrol-900);">${(summary.aguaConsumoTotal||0).toFixed(2)} m³</span>
-            </div>
-            <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
-              <span style="color:var(--ink-400); font-size:10px; display:block;">CONSUMO TOTAL ELETRICIDADE</span>
-              <span style="font-size:14px; font-weight:800; color:var(--petrol-900);">${(summary.elecConsumoTotal||0).toFixed(2)} kWh</span>
-            </div>
-          </div>
-
-          <div style="background:#f0f7fc; border:1px solid #c2dbf3; border-radius:10px; padding:8px 12px; margin-bottom:8px; font-family:var(--mono); font-size:11px; color:#1f5f96; line-height:1.45;">
-            <b>Transição de Linha Base para o novo mês:</b><br>
-            • Contador Água final: <b>${summary.ultimaLeituraAgua !== null ? summary.ultimaLeituraAgua.toFixed(2) + ' m³' : '—'}</b><br>
-            • Contador Eletricidade final: <b>${summary.ultimaLeituraElec !== null ? summary.ultimaLeituraElec.toFixed(2) + ' kWh' : '—'}</b><br>
-            <span style="color:var(--ink-600); font-size:10.5px;">Estes valores de contador serão gravados como Linha Base de início para o próximo período, reiniciando o consumo acumulado do novo mês a <b>0.00 m³</b> e <b>0.00 kWh</b>.</span>
-          </div>
-
-          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--ink-600); border-top:1px dashed var(--line); padding-top:6px;">
-            <span>Piscina: <b>${summary.piscinaAvgPh ? summary.piscinaAvgPh.toFixed(2) : '—'} pH</b> · <b>${summary.piscinaAvgCloro ? summary.piscinaAvgCloro.toFixed(2) : '—'} ppm Cl</b></span>
-            <span>Retorno AQS médio: <b>${summary.aqsAvgRetorno ? summary.aqsAvgRetorno.toFixed(1) + ' °C' : '—'}</b></span>
-          </div>
-        </div>
-
-        <!-- Painel Refrigeração -->
-        <div style="background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:12px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:800; color:var(--petrol-900); text-transform:uppercase; letter-spacing:0.04em;">🧊 Controlo Semanal · Refrigeração (HACCP)</div>
-            <span class="week-pill ${summary.tempCompliancePct >= 90 ? 'ok' : (summary.tempCount === 0 ? 'zero' : 'pending')}" style="font-size:10px; padding:2px 8px;">
-              ${summary.tempCompliancePct}% conformidade
-            </span>
-          </div>
-          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-family:var(--mono); font-size:11px; text-align:center;">
-            <div style="background:var(--paper); padding:6px; border-radius:8px; border:1px solid var(--line);">
-              <div style="color:var(--ink-400); font-size:9.5px;">TOTAL LEITURAS</div>
-              <div style="font-weight:800; font-size:13px; color:var(--petrol-900);">${summary.tempCount}</div>
-            </div>
-            <div style="background:#eef7f0; padding:6px; border-radius:8px; border:1px solid #b7e2cb;">
-              <div style="color:#28704b; font-size:9.5px;">CONFORMES</div>
-              <div style="font-weight:800; font-size:13px; color:#28704b;">${summary.tempConformes}</div>
-            </div>
-            <div style="background:${summary.tempDesvios > 0 ? '#fde8e0' : 'var(--paper)'}; padding:6px; border-radius:8px; border:1px solid ${summary.tempDesvios > 0 ? '#f29074' : 'var(--line)'};">
-              <div style="color:${summary.tempDesvios > 0 ? '#8b3d1d' : 'var(--ink-400)'}; font-size:9.5px;">DESVIOS</div>
-              <div style="font-weight:800; font-size:13px; color:${summary.tempDesvios > 0 ? '#8b3d1d' : 'var(--ink-600)'};">${summary.tempDesvios}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Observações -->
-        <div>
-          <label style="font-size:11.5px; font-weight:700; color:var(--petrol-900); display:block; margin-bottom:4px;" for="fechoObsInput">Observações / Notas de Encerramento (opcional):</label>
-          <textarea id="fechoObsInput" placeholder="Ex.: Mês fechado em conformidade. Equipamentos de frio calibrados e sem anomalias nas bombas." style="width:100%; min-height:55px; border-radius:10px; border:1.5px solid var(--line); padding:8px 10px; font-family:var(--sans); font-size:12px; resize:vertical;">${existingFecho && existingFecho.observacoes ? esc(existingFecho.observacoes) : ''}</textarea>
-        </div>
-      `;
-
-      msgEl.innerHTML = html;
-
-      const sel = $('fechoMonthSelector');
-      if(sel){
-        sel.onchange = () => renderModalContent(sel.value);
+      let defaultMonth = mesParaFechar;
+      if(!sortedMonths.includes(defaultMonth)){
+        defaultMonth = currKey;
+      }
+      const isCurrClosed = fechos.some(f => f.mesKey === currKey);
+      if(!targetMesKey && isCurrClosed && sortedMonths.includes(prevKey)){
+        defaultMonth = prevKey;
       }
 
+      async function renderModalContent(selectedMonth){
+        msgEl.innerHTML = `<div class="empty" style="padding:16px 0">⏳ A calcular fecho para ${formatMonthName(selectedMonth)}…</div>`;
+        const summary = await calculateMonthSummary(selectedMonth);
+        const existingFecho = fechoMap[selectedMonth];
+
+        let monthOptionsHtml = '';
+        sortedMonths.forEach(m => {
+          const isMClosed = !!fechoMap[m];
+          const isMCurr = m === currKey;
+          let tag = isMClosed ? ' [Fechado]' : (isMCurr ? ' [Mês atual]' : ' [Pendente]');
+          monthOptionsHtml += `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${formatMonthName(m)}${tag}</option>`;
+        });
+
+        const html = `
+          <div style="font-size:12.5px; color:var(--ink-600); margin-bottom:12px; line-height:1.45;">
+            <b>Fecho Mensal</b><br>
+            O fecho mensal consolida as leituras operacionais, arquiva o período no histórico consultável e <b>reinicia os contadores de consumo e registos a zero</b> para o mês seguinte.
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; background:var(--paper); padding:10px 12px; border-radius:12px; border:1px solid var(--line);">
+            <label style="font-size:12px; font-weight:700; color:var(--petrol-900); white-space:nowrap;" for="fechoMonthSelector">Mês a Fechar:</label>
+            <select id="fechoMonthSelector" style="padding:6px 10px; border-radius:8px; border:1px solid var(--line); font-size:13px; font-family:var(--mono); flex:1; background:#fff; font-weight:700;">
+              ${monthOptionsHtml}
+            </select>
+          </div>
+
+          ${existingFecho ? `
+            <div style="background:var(--amber-100); border:1px solid var(--amber-500); border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#8a5f0f;">
+              ⚠️ <b>Este mês já foi fechado anteriormente</b> em ${esc(existingFecho.dataFecho)} por ${esc(existingFecho.fechadoPor)}. Ao confirmar, os dados consolidados serão atualizados.
+            </div>
+          ` : ''}
+
+          <!-- Painel Instalações -->
+          <div style="background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="font-size:12px; font-weight:800; color:var(--petrol-900); text-transform:uppercase; letter-spacing:0.04em;">🔧 Controlo Diário · Instalações</div>
+              <span class="week-pill ${summary.generalCount > 0 ? 'ok' : 'pending'}" style="font-size:10px; padding:2px 8px;">${summary.generalCount} dias registados</span>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-family:var(--mono); font-size:11.5px; margin-bottom:8px;">
+              <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+                <span style="color:var(--ink-400); font-size:10px; display:block;">CONSUMO TOTAL ÁGUA</span>
+                <span style="font-size:14px; font-weight:800; color:var(--petrol-900);">${(summary.aguaConsumoTotal||0).toFixed(2)} m³</span>
+              </div>
+              <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+                <span style="color:var(--ink-400); font-size:10px; display:block;">CONSUMO TOTAL ELETRICIDADE</span>
+                <span style="font-size:14px; font-weight:800; color:var(--petrol-900);">${(summary.elecConsumoTotal||0).toFixed(2)} kWh</span>
+              </div>
+            </div>
+
+            <div style="background:#f0f7fc; border:1px solid #c2dbf3; border-radius:10px; padding:8px 12px; margin-bottom:8px; font-family:var(--mono); font-size:11px; color:#1f5f96; line-height:1.45;">
+              <b>Transição de Linha Base para o novo mês:</b><br>
+              • Contador Água final: <b>${summary.ultimaLeituraAgua !== null ? summary.ultimaLeituraAgua.toFixed(2) + ' m³' : '—'}</b><br>
+              • Contador Eletricidade final: <b>${summary.ultimaLeituraElec !== null ? summary.ultimaLeituraElec.toFixed(2) + ' kWh' : '—'}</b><br>
+              <span style="color:var(--ink-600); font-size:10.5px;">Estes valores de contador serão gravados como Linha Base de início para o próximo período, reiniciando o consumo acumulado do novo mês a <b>0.00 m³</b> e <b>0.00 kWh</b>.</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--ink-600); border-top:1px dashed var(--line); padding-top:6px;">
+              <span>Piscina: <b>${summary.piscinaAvgPh ? summary.piscinaAvgPh.toFixed(2) : '—'} pH</b> · <b>${summary.piscinaAvgCloro ? summary.piscinaAvgCloro.toFixed(2) : '—'} ppm Cl</b></span>
+              <span>Retorno AQS médio: <b>${summary.aqsAvgRetorno ? summary.aqsAvgRetorno.toFixed(1) + ' °C' : '—'}</b></span>
+            </div>
+          </div>
+
+          <!-- Painel Refrigeração -->
+          <div style="background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <div style="font-size:12px; font-weight:800; color:var(--petrol-900); text-transform:uppercase; letter-spacing:0.04em;">🧊 Controlo Semanal · Refrigeração (HACCP)</div>
+              <span class="week-pill ${summary.tempCompliancePct >= 90 ? 'ok' : (summary.tempCount === 0 ? 'zero' : 'pending')}" style="font-size:10px; padding:2px 8px;">
+                ${summary.tempCompliancePct}% conformidade
+              </span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-family:var(--mono); font-size:11px; text-align:center;">
+              <div style="background:var(--paper); padding:6px; border-radius:8px; border:1px solid var(--line);">
+                <div style="color:var(--ink-400); font-size:9.5px;">TOTAL LEITURAS</div>
+                <div style="font-weight:800; font-size:13px; color:var(--petrol-900);">${summary.tempCount}</div>
+              </div>
+              <div style="background:#eef7f0; padding:6px; border-radius:8px; border:1px solid #b7e2cb;">
+                <div style="color:#28704b; font-size:9.5px;">CONFORMES</div>
+                <div style="font-weight:800; font-size:13px; color:#28704b;">${summary.tempConformes}</div>
+              </div>
+              <div style="background:${summary.tempDesvios > 0 ? '#fde8e0' : 'var(--paper)'}; padding:6px; border-radius:8px; border:1px solid ${summary.tempDesvios > 0 ? '#f29074' : 'var(--line)'};">
+                <div style="color:${summary.tempDesvios > 0 ? '#8b3d1d' : 'var(--ink-400)'}; font-size:9.5px;">DESVIOS</div>
+                <div style="font-weight:800; font-size:13px; color:${summary.tempDesvios > 0 ? '#8b3d1d' : 'var(--ink-600)'};">${summary.tempDesvios}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Observações -->
+          <div>
+            <label style="font-size:11.5px; font-weight:700; color:var(--petrol-900); display:block; margin-bottom:4px;" for="fechoObsInput">Observações / Notas de Encerramento (opcional):</label>
+            <textarea id="fechoObsInput" placeholder="Ex.: Mês fechado em conformidade. Equipamentos de frio calibrados e sem anomalias nas bombas." style="width:100%; min-height:55px; border-radius:10px; border:1.5px solid var(--line); padding:8px 10px; font-family:var(--sans); font-size:12px; resize:vertical;">${existingFecho && existingFecho.observacoes ? esc(existingFecho.observacoes) : ''}</textarea>
+          </div>
+        `;
+
+        msgEl.innerHTML = html;
+
+        const sel = $('fechoMonthSelector');
+        if(sel){
+          sel.onchange = () => renderModalContent(sel.value);
+        }
+
+        actions.innerHTML = '';
+        const btnCancel = document.createElement('button');
+        btnCancel.className = 'modal-btn-cancel';
+        btnCancel.textContent = 'Cancelar';
+        btnCancel.onclick = () => {
+          overlay.classList.remove('show');
+          if(box) box.classList.remove('modal-wide');
+          msgEl.innerHTML = '';
+        };
+
+        const btnConfirm = document.createElement('button');
+        btnConfirm.className = 'modal-btn-confirm';
+        btnConfirm.innerHTML = '🔒 Confirmar Fecho e Reiniciar Contadores a Zero';
+        btnConfirm.onclick = async () => {
+          const obs = $('fechoObsInput') ? $('fechoObsInput').value.trim() : '';
+          btnConfirm.disabled = true;
+          btnConfirm.innerHTML = '<span class="spinner" style="display:inline-block; vertical-align:middle; margin-right:6px;"></span>A fechar mês e a reiniciar contadores…';
+          try{
+            overlay.classList.remove('show');
+            if(box) box.classList.remove('modal-wide');
+            msgEl.innerHTML = '';
+            console.log('🔒 A executar fecho para:', selectedMonth);
+            await executeFechoMensal(selectedMonth, obs);
+            const noticeEl = $('genPendingClosingNotice');
+            if(noticeEl) noticeEl.style.display = 'none';
+          }catch(e){
+            console.error('Erro no fecho:', e);
+            showToast('⚠️ Erro ao efetuar fecho mensal: ' + e.message, true);
+          }
+        };
+
+        actions.appendChild(btnCancel);
+        actions.appendChild(btnConfirm);
+      }
+
+      await renderModalContent(defaultMonth);
+
+    }catch(e){
+      console.error('Erro ao carregar fecho:', e);
+      msgEl.innerHTML = `<div class="empty" style="padding:16px 0">⚠️ Erro ao carregar: ${esc(e.message)}</div>`;
       actions.innerHTML = '';
-      const btnCancel = document.createElement('button');
-      btnCancel.className = 'modal-btn-cancel';
-      btnCancel.textContent = 'Cancelar';
-      btnCancel.onclick = () => {
+      const btnClose = document.createElement('button');
+      btnClose.className = 'modal-btn-cancel';
+      btnClose.textContent = 'Fechar';
+      btnClose.onclick = () => {
         overlay.classList.remove('show');
         if(box) box.classList.remove('modal-wide');
         msgEl.innerHTML = '';
       };
-
-      const btnConfirm = document.createElement('button');
-      btnConfirm.className = 'modal-btn-confirm';
-      btnConfirm.innerHTML = '🔒 Confirmar Fecho e Reiniciar Contadores a Zero';
-      btnConfirm.onclick = async () => {
-        const obs = $('fechoObsInput') ? $('fechoObsInput').value.trim() : '';
-        btnConfirm.disabled = true;
-        btnConfirm.innerHTML = '<span class="spinner" style="display:inline-block; vertical-align:middle; margin-right:6px;"></span>A fechar mês e a reiniciar contadores…';
-        try{
-          overlay.classList.remove('show');
-          if(box) box.classList.remove('modal-wide');
-          msgEl.innerHTML = '';
-          await executeFechoMensal(selectedMonth, obs);
-        }catch(e){
-          showToast('⚠️ Erro ao efetuar fecho mensal: ' + e.message, true);
-        }
-      };
-
-      actions.appendChild(btnCancel);
-      actions.appendChild(btnConfirm);
+      actions.appendChild(btnClose);
     }
-
-    await renderModalContent(defaultMonth);
   }
 
   async function openFechosHistoricoModal(){
@@ -5066,22 +5099,29 @@
           noticeEl.style.display = 'block';
           if(noticeTextEl){
             noticeTextEl.innerHTML = `
-              O mês de <b>${prevMonthName}</b> tem 
-              <b>${prevRecords.length} registo(s)</b> pendentes de consolidação formal.<br>
-              <span style="font-size:11px; color:var(--ink-600)">
-              • Recomendamos fazer o fecho para oficializar os dados<br>
-              • Pode fazer agora ou mais tarde, não há urgência<br>
-              • O sistema continua a funcionar normalmente
+              🚨 <b>Fecho pendente do mês de ${prevMonthName}</b><br>
+              <span style="font-size:11.5px; color:var(--ink-600); font-weight:400;">
+              O mês de ${prevMonthName} tem <b>${prevRecords.length} registo(s)</b> 
+              que ainda não foram consolidados formalmente.<br><br>
+              Deseja fazer o fecho agora ou pode fazer mais tarde — 
+              não há urgência, o sistema funciona normalmente.
               </span>
             `;
           }
           const btnNotice = $('btnNoticeClosePrev');
           if(btnNotice){
-            btnNotice.onclick = () => openFechoMensalModal(prevMonthKey);
+            btnNotice.onclick = null;
+            btnNotice.addEventListener('click', function(e){
+              if(e) e.preventDefault();
+              console.log('🔒 Abriendo fecho para:', prevMonthKey);
+              openFechoMensalModal(prevMonthKey);
+            });
+            btnNotice.style.display = 'inline-flex';
           }
         }
       }
     }catch(e){
+      console.error('Erro ao verificar fecho pendente:', e);
       if(noticeEl) noticeEl.style.display = 'none';
     }
   }
