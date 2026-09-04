@@ -3093,76 +3093,98 @@
     return s;
   }
 
-  // Agrupa todas as leituras de quartos em ciclos sequenciais com transição mensal para histórico
+  // ========== CORREÇÃO DO CICLO DE QUARTOS ==========
+
+  // Agrupa TODOS os registos de quartos num ciclo contínuo
+  // O ciclo completa-se apenas quando se atingem os 'targetSize' quartos (40), NÃO por semana nem por mês
   function groupQuartoRecordsIntoCycles(rawRecords, rList){
     const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
     const targetSize = listNorm.length || 40;
-    const currentMonthPrefix = todayStr().slice(0, 7); // Ex: "2026-09"
 
-    const cacheKey = (rawRecords ? rawRecords.length : 0) + '_' + currentMonthPrefix + '_' + targetSize + '_' + (rawRecords && rawRecords.length ? (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'') : '');
+    const currentMonthKey = todayStr().slice(0, 7);
+    const monthLabel = formatMonthName(currentMonthKey);
+
+    // Se não há registos, devolver ciclo vazio
+    if(!rawRecords || rawRecords.length === 0){
+      const emptyCycle = {
+        index: 1,
+        label: `Ciclo em curso (0/${targetSize})`,
+        monthKey: currentMonthKey,
+        monthLabel: monthLabel,
+        fechaInicio: '—',
+        fechaFin: '—',
+        totalRooms: targetSize,
+        doneCount: 0,
+        isCompleted: false,
+        isActive: true,
+        records: [],
+        roomsMap: new Map(),
+        uniqueRooms: []
+      };
+      return {
+        completedCycles: [],
+        currentCycle: emptyCycle,
+        allCycles: [emptyCycle]
+      };
+    }
+
+    const cacheKey = (rawRecords.length) + '_' + targetSize + '_' + (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'');
     if(memoCache.cycles && memoCache.cyclesKey === cacheKey){
       return memoCache.cycles;
     }
 
     // Ordenar cronologicamente ascendente
-    const sorted = (rawRecords || []).slice().sort((a,b)=> {
+    const sorted = rawRecords.slice().sort((a,b)=> {
       const fA = (a.data?.fecha || '') + ' ' + (a.data?.hora || '');
       const fB = (b.data?.fecha || '') + ' ' + (b.data?.hora || '');
       return fA.localeCompare(fB);
     });
 
-    const cycles = [];
-    let currentRoomsMap = new Map(); // roomNum -> record
-    let currentRecords = [];
-    let currentMonth = null;
-
-    // Limiar mínimo para fechar ciclo ao detetar quarto repetido
-    const minThresholdForCycleWrap = Math.min(8, Math.max(4, Math.floor(targetSize * 0.25)));
-
+    // Criar mapa de quartos medidos com a sua última leitura
+    const roomsMap = new Map(); // roomNum -> último registo
     sorted.forEach(r=>{
       const num = normRoom(r.data?.numero);
       if(!num) return;
-      const recDate = r.data?.fecha || '';
-      const recMonth = recDate.slice(0, 7);
-
-      const monthChanged = currentMonth !== null && recMonth && recMonth !== currentMonth;
-      const roomRepeated = currentRoomsMap.has(num) && (currentRoomsMap.size >= targetSize || currentRoomsMap.size >= minThresholdForCycleWrap);
-      const isTargetReached = currentRoomsMap.size >= targetSize;
-
-      // Se o mês mudou relativamente aos registos acumulados ou o ciclo atingiu a totalidade/repetição
-      if(monthChanged || roomRepeated || isTargetReached){
-        if(currentRecords.length > 0){
-          cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
-          currentRoomsMap = new Map();
-          currentRecords = [];
-        }
-      }
-
-      currentMonth = recMonth || currentMonth;
-      currentRoomsMap.set(num, r);
-      currentRecords.push(r);
-
-      if(currentRoomsMap.size >= targetSize){
-        cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
-        currentRoomsMap = new Map();
-        currentRecords = [];
-      }
+      roomsMap.set(num, r);
     });
 
-    // Se os registos acumulados pertencem a um mês anterior ao mês atual em curso:
-    // passam a histórico (ciclo finalizado), e o novo mês inicia a zero!
-    if(currentRecords.length > 0 && currentMonth && currentMonth < currentMonthPrefix){
-      cycles.push(buildCycleSummary(cycles.length + 1, currentRecords, currentRoomsMap, targetSize, false, currentMonth));
-      currentRoomsMap = new Map();
-      currentRecords = [];
-      currentMonth = currentMonthPrefix;
+    const uniqueRooms = Array.from(roomsMap.keys());
+    const isCompleted = uniqueRooms.length >= targetSize;
+
+    let fechaInicio = '—', fechaFin = '—';
+    if(sorted.length > 0){
+      const first = sorted[0].data;
+      const last = sorted[sorted.length - 1].data;
+      fechaInicio = first?.fecha || '—';
+      fechaFin = last?.fecha || '—';
     }
 
-    // Ciclo ativo correspondente ao mês atual em curso
-    const activeCycleIndex = cycles.length + 1;
-    const activeSummary = buildCycleSummary(activeCycleIndex, currentRecords, currentRoomsMap, targetSize, true, currentMonth || currentMonthPrefix);
+    const label = isCompleted
+      ? `Ciclo completo (${uniqueRooms.length}/${targetSize}) ✓`
+      : `Ciclo em curso (${uniqueRooms.length}/${targetSize})`;
 
-    const result = { completedCycles: cycles, currentCycle: activeSummary, allCycles: [...cycles, activeSummary] };
+    const currentCycle = {
+      index: 1,
+      label: label,
+      monthKey: currentMonthKey,
+      monthLabel: monthLabel,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin,
+      totalRooms: targetSize,
+      doneCount: uniqueRooms.length,
+      isCompleted: isCompleted,
+      isActive: true,
+      records: sorted,
+      roomsMap: roomsMap,
+      uniqueRooms: uniqueRooms
+    };
+
+    const result = {
+      completedCycles: [],
+      currentCycle: currentCycle,
+      allCycles: [currentCycle]
+    };
+
     memoCache.cycles = result;
     memoCache.cyclesKey = cacheKey;
     return result;
@@ -3177,26 +3199,16 @@
       fechaFin = sorted[sorted.length - 1].data.fecha;
     }
     const isCompleted = uniqueRooms.length >= targetSize;
-    let monthLabel = '';
-    if(monthKey){
-      const parts = monthKey.split('-');
-      if(parts.length === 2){
-        const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
-        if(!isNaN(y) && !isNaN(m)){
-          const d = new Date(y, m - 1, 1);
-          monthLabel = d.toLocaleDateString('pt-PT', { month:'long', year:'numeric' });
-        }
-      }
-    }
-    const periodLabel = monthLabel ? monthLabel : (fechaInicio !== '—' ? `${fechaInicio} a ${fechaFin}` : 'sem datas');
-    const label = isActive
-      ? `Mês Atual (${monthLabel || 'em curso'}) · ${uniqueRooms.length}/${targetSize} medidos`
-      : `Ciclo #${index} · ${periodLabel} (${uniqueRooms.length}/${targetSize})`;
+    const currentMonthKey = monthKey || todayStr().slice(0, 7);
+    const monthLabel = formatMonthName(currentMonthKey);
+    const label = isCompleted
+      ? `Ciclo completo (${uniqueRooms.length}/${targetSize}) ✓`
+      : `Ciclo em curso (${uniqueRooms.length}/${targetSize})`;
 
     return {
       index,
       label,
-      monthKey: monthKey || '',
+      monthKey: currentMonthKey,
       monthLabel,
       fechaInicio,
       fechaFin,
@@ -3205,47 +3217,62 @@
       isCompleted,
       isActive: !!isActive,
       records,
-      roomsMap, // roomNum -> record
+      roomsMap,
       uniqueRooms
     };
   }
 
   async function loadCycleDone(){
     try{
+      const stored = localStorage.getItem('bitacora_cicloQuartosHechos');
+      if(stored){
+        const parsed = JSON.parse(stored);
+        if(Array.isArray(parsed)){
+          cycleDone = parsed;
+          return;
+        }
+      }
       const existing = await listRecords('quarto');
       const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
       cycleDone = grouped.currentCycle ? grouped.currentCycle.uniqueRooms : [];
-      return;
     }catch(e){
       cycleDone = [];
     }
   }
+
+  // Guardar o progresso do ciclo localmente
   function saveCycleDone(){
     try{
       localStorage.setItem('bitacora_cicloQuartosHechos', JSON.stringify(cycleDone));
     }catch(e){}
-    configStore['cicloQuartosHechos'] = { value: JSON.stringify(cycleDone), ts: Date.now() };
-    enqueueSync({
-      action: 'setConfig',
-      key: 'cicloQuartosHechos',
-      payload: { action:'setConfig', key:'cicloQuartosHechos', value: JSON.stringify(cycleDone) }
-    });
+    configStore['cicloQuartosHechos'] = { 
+      value: JSON.stringify(cycleDone), 
+      ts: Date.now() 
+    };
   }
+
+  // Obter os quartos já medidos no ciclo atual
   function effectiveCycleDone(){
     const validSet = new Set(roomsList.map(normRoom));
     return cycleDone.map(normRoom).filter(n=> n && validSet.has(n));
   }
+
+  // Marcar um quarto como concluído
   function markRoomDoneInCycle(numero){
     numero = normRoom(numero);
-    if(!cycleDone.map(normRoom).includes(numero)) cycleDone.push(numero);
+    if(!cycleDone.map(normRoom).includes(numero)){
+      cycleDone.push(numero);
+    }
     const done = effectiveCycleDone();
-    const cycleJustCompleted = roomsList.length > 0 && done.length >= roomsList.length;
+    const targetSize = roomsList.length || 40;
+    const cycleJustCompleted = done.length >= targetSize;
     if(cycleJustCompleted){
       cycleDone = [];
     }
     saveCycleDone();
     return cycleJustCompleted;
   }
+
   function unmarkRoomFromCycle(numero){
     numero = normRoom(numero);
     if(cycleDone.map(normRoom).includes(numero)){
@@ -3254,27 +3281,39 @@
     }
   }
 
+  // Recalcular o ciclo a partir do histórico
   async function recomputeCycleFromHistory(){
     const existing = await listRecords('quarto');
-    const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
-    const activeDone = (grouped.currentCycle && grouped.currentCycle.doneCount > 0)
-      ? grouped.currentCycle.uniqueRooms
-      : (grouped.completedCycles.length ? grouped.completedCycles[grouped.completedCycles.length - 1].uniqueRooms : []);
-    const roomsNormalized = roomsList.map(normRoom);
-    const matched = activeDone.filter(n=> roomsNormalized.includes(n));
-    const unmatched = activeDone.filter(n=> !roomsNormalized.includes(n));
-    const coversFullCycle = roomsNormalized.length > 0 && matched.length >= roomsNormalized.length;
-    cycleDone = coversFullCycle ? [] : matched;
-    await saveCycleDone();
+    
+    // Contar quartos que têm registo
+    const roomsWithRecords = new Set();
+    existing.forEach(r => {
+      const num = normRoom(r.data?.numero);
+      if(num) roomsWithRecords.add(num);
+    });
+    
+    const listNormalized = roomsList.map(normRoom);
+    const validSet = new Set(listNormalized);
+    
+    const matched = Array.from(roomsWithRecords).filter(n => validSet.has(n));
+    const unmatched = Array.from(roomsWithRecords).filter(n => !validSet.has(n));
+    
+    cycleDone = matched;
+    saveCycleDone();
+    
     await updateCycleSelectorOptions();
     await renderRoomGrid();
-    let msg = `Ciclo atual recalculado: ${matched.length}/${roomsList.length} quartos detetados (${grouped.completedCycles.length} ciclos anteriores concluídos)`;
-    if(matched.length){ msg += ` (${matched.slice(0,10).join(', ')}${matched.length>10?'…':''})`; }
+    
+    let msg = `Progresso do ciclo: ${matched.length}/${roomsList.length} quartos medidos`;
+    if(matched.length){
+      msg += ` (${matched.slice(0,10).join(', ')}${matched.length>10?'…':''})`;
+    }
     showToast(msg);
-    if(unmatched.length){
+    
+    if(unmatched.length > 0){
       await confirmDialog(
-        'Números sem correspondência',
-        `Há ${unmatched.length} valor(es) de "quarto" nos seus registos que não correspondem a nenhum número da lista atual:\n${unmatched.slice(0,15).join(', ')}${unmatched.length>15?'…':''}\n\nVerifique esses registos no Histórico — provavelmente têm um formato diferente (espaços, maiúsculas, etc.).`,
+        'Quartos fora da lista',
+        `Existem ${unmatched.length} registo(s) de quartos que não correspondem à lista atual:\n${unmatched.slice(0,15).join(', ')}${unmatched.length>15?'…':''}`,
         'Compreendido', 'Fechar'
       );
     }
