@@ -697,7 +697,7 @@
   .heatmap-cell.hc-none{ background:#eef2f1; color:var(--ink-400); }
   .heatmap-cell.hc-ok{ background:var(--ok-500); color:#fff; }
   .heatmap-cell.hc-bad{ background:var(--coral-500); color:#fff; }
-  .heatmap-cell.hc-future{ background:transparent; border:1px dashed var(--line); color:var(--ink-400); }
+  .heatmap-cell.hc-future{ background:rgba(56,189,248,0.1); border:1px dashed rgba(56,189,248,0.5); color:var(--ink-400); }
   .heatmap-legend{ display:flex; gap:12px; margin-top:10px; font-family:var(--mono); font-size:10px; color:var(--ink-600); }
   .heatmap-legend span{ display:flex; align-items:center; gap:5px; }
   .heatmap-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
@@ -7416,19 +7416,16 @@
   // ---------- Heatmap de cumprimento (mês calendário) ----------
   let heatmapMonthOffset = 0;
 
+  /**
+   * Determina o estado de um dia para o calendário de cumprimento
+   * Se existe pelo menos um registo para o dia → 'ok' (verde)
+   * Se não há registos → 'none' (cinzento)
+   */
   function dayStatusFromRecords(recordsForDay){
-    if(!recordsForDay.length) return 'none';
-    const bad = recordsForDay.some(r=>{
-      const ph = parseFloat(r.data.phPiscina);
-      const cl = parseFloat(r.data.cloroLibre);
-      const ret = parseFloat(r.data.retornoAqs);
-      const aqs = parseFloat(r.data.aqsQuartos);
-      return (!isNaN(ph) && (ph < DASH_THRESHOLDS.phMin || ph > DASH_THRESHOLDS.phMax)) ||
-             (!isNaN(cl) && (cl < DASH_THRESHOLDS.cloroMin || cl > DASH_THRESHOLDS.cloroMax)) ||
-             (!isNaN(ret) && ret < DASH_THRESHOLDS.aqsMin) ||
-             (!isNaN(aqs) && aqs < DASH_THRESHOLDS.aqsMin);
-    });
-    return bad ? 'bad' : 'ok';
+    if(recordsForDay && recordsForDay.length > 0) {
+      return 'ok';
+    }
+    return 'none';
   }
 
   function renderComplianceHeatmap(generalRaw, monthOffset){
@@ -7470,9 +7467,9 @@
         ${cells.join('')}
       </div>
       <div class="heatmap-legend">
-        <span><i style="background:var(--ok-500)"></i>Dentro do intervalo</span>
-        <span><i style="background:var(--coral-500)"></i>Fora do intervalo</span>
+        <span><i style="background:var(--ok-500)"></i>Com registo</span>
         <span><i style="background:#eef2f1"></i>Sem registo</span>
+        <span><i style="background:rgba(56,189,248,0.12); border:1px dashed rgba(56,189,248,0.6)"></i>Futuro</span>
       </div>
     </div>`;
   }
