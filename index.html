@@ -7485,17 +7485,23 @@
 
   // ---------- Histórico mensal (6-12 meses) ----------
   function complianceStatsRange(generalRaw, desde, hasta){
-    const set = new Set(generalRaw.filter(r=> r.data.fecha>=desde && r.data.fecha<=hasta).map(r=> r.data.fecha));
-    const start = new Date(desde+'T00:00:00');
-    const end = new Date(hasta+'T00:00:00');
-    const today = new Date(); today.setHours(0,0,0,0);
-    const cappedEnd = end > today ? today : end;
-    let total=0, covered=0;
-    for(let d=new Date(start); d<=cappedEnd; d.setDate(d.getDate()+1)){
+    const set = new Set(generalRaw.filter(r=> r.data.fecha >= desde && r.data.fecha <= hasta).map(r=> r.data.fecha));
+    const start = new Date(desde + 'T00:00:00');
+    const endDate = new Date(hasta + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Mínimo entre a data 'hasta' e hoje para não contar dias futuros
+    const end = endDate > today ? today : endDate;
+    
+    let total = 0, covered = 0;
+    for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
+      const key = fmt(d);
       total++;
-      if(set.has(fmt(d))) covered++;
+      if(set.has(key)) covered++;
     }
-    return { total, covered, pct: (total > 0 && covered > 0) ? Math.round(covered/total*100) : 0 };
+    
+    return { total, covered, pct: (total > 0 && covered > 0) ? Math.round(covered / total * 100) : 0 };
   }
 
   function monthRangeOffset(offsetMonths){
@@ -9024,13 +9030,38 @@
   function complianceStats(generalRaw){
     const [desde] = rangoMesActual();
     const days = new Set(generalRaw.filter(r=> r.data.fecha >= desde).map(r=> r.data.fecha));
-    const end = new Date(); end.setDate(end.getDate()-1);
-    let total=0, covered=0; const missing=[];
-    for(let d=new Date(desde+'T00:00:00'); d<=end; d.setDate(d.getDate()+1)){
-      const key = fmt(d); total++;
-      if(days.has(key)) covered++; else missing.push(key);
+    
+    // Usar hoje sem incluir dias futuros
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Determinar limites do mês atual
+    const datePart = desde.split('-');
+    const monthStart = new Date(Number(datePart[0]), parseInt(datePart[1], 10) - 1, 1);
+    const monthEnd = new Date(Number(datePart[0]), parseInt(datePart[1], 10), 0);
+    
+    // Mínimo entre o fim do mês e hoje (para não contar dias futuros)
+    const end = monthEnd < today ? monthEnd : today;
+    
+    let total = 0, covered = 0;
+    const missing = [];
+    
+    for (let d = new Date(monthStart); d <= end; d.setDate(d.getDate() + 1)) {
+      const key = fmt(d);
+      total++;
+      if (days.has(key)) {
+        covered++;
+      } else {
+        missing.push(key);
+      }
     }
-    return { total, covered, missing, pct: (total > 0 && covered > 0) ? Math.round(covered/total*100) : 0 };
+    
+    return { 
+      total, 
+      covered, 
+      missing, 
+      pct: (total > 0 && covered > 0) ? Math.round(covered / total * 100) : 0 
+    };
   }
 
   function renderComplianceBox(generalRaw){
