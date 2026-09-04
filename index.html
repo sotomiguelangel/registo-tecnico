@@ -4476,6 +4476,101 @@
     }
   }
 
+  // ========== FUNCIONES DE BASELINE FALTANTES ==========
+
+  /**
+   * Obtiene el valor de baseline (lectura inicial) para un mes específico
+   * @param {string} tipo - 'agua' o 'electricidad'
+   * @param {string} mesKey - Clave del mes en formato 'YYYY-MM'
+   * @returns {Promise<{valor: number, fecha: string}|null>}
+   */
+  async function getBaselineForMonth(tipo, mesKey){
+    try {
+      // 1. Si existe un fecho registrado del mes anterior, su lectura final es la línea base de este mes
+      if(mesKey){
+        try{
+          const [y, m] = mesKey.split('-').map(Number);
+          const prevDate = new Date(y, m - 2, 1);
+          const prevKey = `${prevDate.getFullYear()}-${pad(prevDate.getMonth()+1)}`;
+          const fechos = await loadFechosMensais();
+          const prevFecho = fechos.find(f => f.mesKey === prevKey);
+          if(prevFecho){
+            const val = tipo === 'agua' ? prevFecho.ultimaLeituraAgua : prevFecho.ultimaLeituraElec;
+            if(val !== null && val !== undefined && !isNaN(Number(val))){
+              return { valor: parseFloat(val), fecha: `${mesKey}-01` };
+            }
+          }
+        }catch(err){
+          console.warn('getBaselineForMonth from fechos error:', err);
+        }
+      }
+
+      const configKey = tipo === 'agua' ? 'baselineAgua' : 'baselineElectricidad';
+      
+      // Primero verificar en el configStore local
+      const stored = configStore[configKey];
+      if(stored && stored.value){
+        const parsed = JSON.parse(stored.value);
+        if(parsed && parsed.valor !== undefined && parsed.fecha){
+          return { valor: parseFloat(parsed.valor), fecha: parsed.fecha };
+        }
+      }
+      
+      // Si no está en cache, obtener de la API
+      const r = await apiGet({ action:'getConfig', key: configKey });
+      if(r && r.value){
+        const parsed = JSON.parse(r.value);
+        // Actualizar el cache local
+        configStore[configKey] = { value: r.value, ts: Date.now() };
+        if(parsed && parsed.valor !== undefined && parsed.fecha){
+          return { valor: parseFloat(parsed.valor), fecha: parsed.fecha };
+        }
+      }
+      return null;
+    } catch(e) {
+      console.warn('getBaselineForMonth error:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Guarda el valor de baseline para un mes específico
+   * @param {string} tipo - 'agua' o 'electricidad'
+   * @param {string} mesKey - Clave del mes en formato 'YYYY-MM'
+   * @param {number} valor - Valor del contador
+   * @param {string} fecha - Fecha de la lectura
+   */
+  async function saveBaselineForMonth(tipo, mesKey, valor, fecha){
+    try {
+      const configKey = tipo === 'agua' ? 'baselineAgua' : 'baselineElectricidad';
+      const data = JSON.stringify({ valor: String(valor), fecha: fecha });
+      
+      // Guardar en API
+      await apiPost({ action:'setConfig', key: configKey, value: data });
+      
+      // Actualizar cache local
+      configStore[configKey] = { value: data, ts: Date.now() };
+      
+      console.log(`✅ Baseline de ${tipo} guardado para ${mesKey}: ${valor} (${fecha})`);
+      return true;
+    } catch(e) {
+      console.error('saveBaselineForMonth error:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Limpia todo el cache de datos
+   */
+  function clearDataStoreCache(){
+    dataStore.general = { items: null, ts: 0 };
+    dataStore.quarto = { items: null, ts: 0 };
+    dataStore.temperatura = { items: null, ts: 0 };
+    invalidateMemo();
+    persistStore();
+    console.log('🗑️ Cache de datos limpiado');
+  }
+
   async function calculateMonthSummary(mesKey){
     const [dIni, dFim] = rangoMesEspecifico(mesKey);
     const [genRaw, tpRaw, quRaw] = await Promise.all([
