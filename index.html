@@ -499,6 +499,64 @@
   table.report td.tbad{ color:var(--coral-500); font-weight:700; }
   .table-scroll{ overflow-x:auto; margin:0 -18px; padding:0 18px; }
 
+  /* ---------- Virtualização de Listas e Tabelas (Alta Performance) ---------- */
+  .vlist-container{ display:flex; flex-direction:column; gap:10px; width:100%; margin-top:4px; }
+  .vlist-toolbar, .vtable-toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:8px 12px;
+  }
+  .vlist-badge, .vtable-badge{
+    font-family:var(--mono); font-size:11px; font-weight:700; color:var(--petrol-800);
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .vlist-badge .v-pill, .vtable-badge .v-pill{
+    background:var(--aqua-100); color:var(--petrol-900); padding:2px 7px; border-radius:10px; font-size:10px;
+  }
+  .vlist-search-wrap, .vtable-search-wrap{
+    display:flex; align-items:center; gap:6px; flex:1; min-width:180px; max-width:320px;
+  }
+  .vlist-search-input, .vtable-search-input{
+    width:100%; padding:6px 10px; border-radius:8px; border:1px solid var(--line);
+    font-family:var(--sans); font-size:12px; background:#fff; color:var(--ink-900);
+  }
+  .vlist-search-input:focus, .vtable-search-input:focus{
+    outline:none; border-color:var(--aqua-500); box-shadow:0 0 0 2px rgba(62,164,164,.15);
+  }
+  .vlist-btn-top{
+    background:#fff; border:1px solid var(--line); border-radius:8px; padding:5px 9px;
+    font-family:var(--mono); font-size:11px; font-weight:700; color:var(--petrol-800);
+    cursor:pointer; display:inline-flex; align-items:center; gap:4px;
+  }
+  .vlist-btn-top:hover{ background:var(--aqua-100); }
+
+  .vlist-viewport{
+    max-height:680px; overflow-y:auto; overflow-x:hidden; position:relative;
+    border-radius:14px; border:1px solid var(--line); background:#fcfdfe;
+    padding:10px 10px 0; -webkit-overflow-scrolling:touch;
+  }
+  .vlist-spacer{ position:relative; width:100%; pointer-events:none; }
+  .vlist-content{
+    position:absolute; top:0; left:0; right:0; width:100%;
+    display:flex; flex-direction:column; gap:10px; will-change:transform;
+  }
+
+  .vtable-container{ margin:14px 0 18px; display:flex; flex-direction:column; gap:8px; }
+  .vtable-viewport{
+    max-height:460px; overflow:auto; position:relative;
+    border:1px solid var(--line); border-radius:12px; background:#fff;
+    -webkit-overflow-scrolling:touch;
+  }
+  .vtable-viewport table.report{
+    margin-top:0; border-collapse:separate; border-spacing:0; width:100%;
+  }
+  .vtable-viewport table.report thead th{
+    position:sticky; top:0; z-index:10; background:#f8fafb;
+    border-bottom:2px solid var(--line); box-shadow:0 1px 2px rgba(0,0,0,.04);
+  }
+  .vtable-spacer-row td{
+    padding:0 !important; border:none !important; height:0; line-height:0; font-size:0;
+  }
+
   .stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
   .stat-box{ background:var(--aqua-100); border-radius:12px; padding:12px 14px; }
   .stat-box.alt{ background:var(--amber-100); }
@@ -749,6 +807,7 @@
   }
   .off-toolbar-float button{ flex:1; padding:13px; border-radius:10px; border:none; font-weight:700; font-size:14px; cursor:pointer; }
   .off-toolbar-float .b-print{ background:var(--ok-500); color:#fff; }
+  .off-toolbar-float .b-newwin{ background:var(--petrol-700); color:#fff; }
   .off-toolbar-float .b-close{ background:#fff; color:var(--ink-600); }
   .off-doc{ font-family:var(--sans); color:#111; background:#fff; padding:28px 22px; }
   .off-doc h1{ font-size:17px; margin:0 0 2px; }
@@ -1047,8 +1106,14 @@
     body:not(.previewing-official) .period-toggle, body:not(.previewing-official) .custom-range,
     body:not(.previewing-official) .report-actions, body:not(.previewing-official) .official-toolbar,
     body:not(.previewing-official) #view-general, body:not(.previewing-official) #view-quarto,
-    body:not(.previewing-official) #view-temperatura, body:not(.previewing-official) #view-ejecutivo,
+    body:not(.previewing-official) #view-temperatura,
     body:not(.previewing-official) #view-historial, body:not(.previewing-official) #view-usuarios { display:none !important; }
+    body:not(.previewing-official) #view-ejecutivo .exec-toolbar{ display:none !important; }
+    .vlist-viewport, .vtable-viewport{ max-height:none !important; overflow:visible !important; border:none !important; }
+    .vlist-toolbar, .vtable-toolbar, .vlist-btn-top{ display:none !important; }
+    .vlist-spacer{ height:auto !important; }
+    .vlist-content{ position:static !important; transform:none !important; }
+    .vtable-spacer-row{ display:none !important; }
   }
 </style>
 </head>
@@ -1134,7 +1199,13 @@
         </div>
       </div>
       <div class="exec-toolbar" id="execToolbar">
-        <button class="primary" id="btnRefreshEjecutivo" style="margin:0; padding:9px 14px; font-size:12.5px;"><span class="spinner"></span><span class="lbl-text">↻ Atualizar</span></button>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <select id="execMonthSelect" aria-label="Mês de análise executivo" style="padding:8px 12px; font-size:12.5px; border-radius:10px; border:1.5px solid var(--line); background:#fff; font-weight:700; color:var(--petrol-900); cursor:pointer;">
+            <option value="current">📅 Mês em curso</option>
+            <option value="prev">📅 Mês anterior</option>
+          </select>
+          <button class="primary" id="btnRefreshEjecutivo" style="margin:0; padding:9px 14px; font-size:12.5px;"><span class="spinner"></span><span class="lbl-text">↻ Atualizar</span></button>
+        </div>
         <div class="exec-actions">
           <button class="exec-btn-action" id="btnExportExecCsv" type="button">📥 Exportar CSV</button>
           <button class="exec-btn-action primary-action" id="btnPrintExecReport" type="button">🖨️ Relatório Executivo</button>
@@ -4964,6 +5035,454 @@
     }
   }
 
+  // ==========================================================================
+  // ---------- MOTOR DE VIRTUALIZAÇÃO (HISTÓRICO E RELATÓRIOS) -------------
+  // ==========================================================================
+  const activeVirtualInstances = [];
+
+  function registerVirtualInstance(inst){
+    const idx = activeVirtualInstances.findIndex(x => x.id === inst.id);
+    if(idx >= 0){
+      try{ if(activeVirtualInstances[idx].destroy) activeVirtualInstances[idx].destroy(); }catch(e){}
+      activeVirtualInstances.splice(idx, 1);
+    }
+    activeVirtualInstances.push(inst);
+  }
+
+  function expandAllVirtualForPrint(){
+    activeVirtualInstances.forEach(inst => {
+      try{ if(inst.expandForPrint) inst.expandForPrint(); }catch(e){}
+    });
+  }
+
+  function restoreAllVirtualAfterPrint(){
+    activeVirtualInstances.forEach(inst => {
+      try{ if(inst.restoreAfterPrint) inst.restoreAfterPrint(); }catch(e){}
+    });
+  }
+
+  window.addEventListener('beforeprint', expandAllVirtualForPrint);
+  window.addEventListener('afterprint', restoreAllVirtualAfterPrint);
+
+  function triggerPrintWithAllRows(){
+    expandAllVirtualForPrint();
+    setTimeout(()=>{
+      window.print();
+      setTimeout(restoreAllVirtualAfterPrint, 500);
+    }, 120);
+  }
+
+  function renderHistEntryCard(it, canEdit, isAdminU){
+    const d = it.data;
+    let editBtn = '', delBtn = '';
+    if(it.type === 'temperatura'){
+      if(canEdit) editBtn = `<button class="edit" data-edit-id="${esc(d.id)}">Editar</button>`;
+      if(isAdminU) delBtn = `<button class="del" data-del-id="${esc(d.id)}" data-type="${it.type}">Eliminar</button>`;
+    } else {
+      editBtn = canEdit ? `<button class="edit" data-edit-id="${esc(d.id)}">Editar</button>` : '';
+      delBtn = isAdminU ? `<button class="del" data-del-id="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
+    }
+    const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
+    const auditHtml = (d.modificadoPor || d.editado === 'Sim') ? `<div class="entry-audit-badge">✏️ Modificado por <b>${esc(d.modificadoPor||'—')}</b> (${esc(d.modificadoEn||'')})</div>` : '';
+
+    if(it.type==='general'){
+      return `<div class="entry" data-id="${esc(d.id)}">
+        <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-general">Geral</span></div>
+        <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
+        <div class="entry-grid">
+          ${entryItem('Água', d.agua, 'm³')}
+          ${entryItem('Elet.', d.electricidad, 'kWh')}
+          ${entryItem('Retorno AQS', d.retornoAqs, '°C', retornoAqsWarn(d.retornoAqs))}
+          ${entryItem('AQS Quartos', d.aqsQuartos, '°C', aqsQuartosWarn(d.aqsQuartos))}
+          ${entryItem('Estado piscina', d.estadoPiscina, '')}
+          ${entryItem('Temp. piscina', d.tempPiscina, '°C')}
+          ${entryItem('pH', d.phPiscina, '', phWarn(d.phPiscina))}
+          ${entryItem('Cloro livre', d.cloroLibre, 'ppm', cloroWarn(d.cloroLibre))}
+          ${entryItem('Cloro total', d.cloroTotal, 'ppm', cloroTotalWarn(d.cloroTotal))}
+          ${entryItem('Pré-filtro', dispYesNo(d.lavadoPrefiltro), '')}
+          ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
+          ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
+          ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
+          ${auditHtml}
+        </div>
+        ${actions}
+      </div>`;
+    } else if(it.type==='temperatura'){
+      const bad = String(d.dentroIntervalo) === 'Não';
+      return `<div class="entry" data-id="${esc(d.id)}">
+        <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-temp ${bad?'bad':''}">🧊 ${esc(d.nome || '—')}</span></div>
+        <div class="entry-user">👤 ${esc(d.usuario || '—')} · ${esc(d.tipo || '')}${d.ubicacao ? ' · ' + esc(d.ubicacao) : ''}</div>
+        <div class="entry-grid">
+          ${entryItem('Temperatura', d.temperatura, '°C', bad)}
+          ${entryItem('Dentro do intervalo', dispYesNo(d.dentroIntervalo), '', bad)}
+          ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
+          ${auditHtml}
+        </div>
+        ${actions}
+      </div>`;
+    } else {
+      return `<div class="entry" data-id="${esc(d.id)}">
+        <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-quarto">Quarto ${esc(d.numero)}</span></div>
+        <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
+        <div class="entry-grid">
+          ${entryItem('pH quente', d.phCaliente, '', phWarnCal(d.phCaliente))}
+          ${entryItem('Cloro livre quente', d.cloroCaliente, 'ppm', cloroWarnCal(d.cloroCaliente))}
+          ${entryItem('Cloro total quente', d.cloroTotalCaliente, 'ppm', cloroTotalWarnCal(d.cloroTotalCaliente))}
+          ${entryItem('pH fria', d.phFria, '', phWarnFria(d.phFria))}
+          ${entryItem('Cloro livre fria', d.cloroFria, 'ppm', cloroWarnFria(d.cloroFria))}
+          ${entryItem('Cloro total fria', d.cloroTotalFria, 'ppm', cloroTotalWarnFria(d.cloroTotalFria))}
+          ${auditHtml}
+        </div>
+        ${actions}
+      </div>`;
+    }
+  }
+
+  function initVirtualCardList(containerId, opts){
+    const container = typeof containerId === 'string' ? $(containerId) : containerId;
+    if(!container) return;
+
+    const allItems = opts.items || [];
+    const estimatedHeight = opts.estimatedHeight || 175;
+    const renderCard = opts.renderCard;
+    const searchFn = opts.searchFn || (() => true);
+
+    if(allItems.length === 0){
+      container.innerHTML = opts.emptyHtml || '<div class="empty"><span class="glyph">◌</span>Não existem registos.</div>';
+      registerVirtualInstance({ id: containerId, expandForPrint: ()=>{}, restoreAfterPrint: ()=>{} });
+      return;
+    }
+
+    let activeItems = allItems.slice();
+    let isPrinting = false;
+    let query = '';
+
+    if(allItems.length <= 12){
+      container.innerHTML = `
+        <div class="vlist-container">
+          <div class="vlist-toolbar">
+            <div class="vlist-badge">📋 <b>${allItems.length}</b> registo${allItems.length===1?'':'s'}</div>
+          </div>
+          <div class="vlist-direct" id="${containerId}_direct" style="display:flex; flex-direction:column; gap:10px;">
+            ${allItems.map((it, idx) => renderCard(it, idx)).join('')}
+          </div>
+        </div>
+      `;
+      setupCardEventDelegation(container, allItems, opts.onEdit, opts.onDelete);
+      registerVirtualInstance({ id: containerId, expandForPrint: ()=>{}, restoreAfterPrint: ()=>{} });
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="vlist-container">
+        <div class="vlist-toolbar">
+          <div class="vlist-badge">
+            📋 <b id="${containerId}_count">${activeItems.length}</b> registo${activeItems.length===1?'':'s'}
+            <span class="v-pill">Virtualização Ativa · 60 FPS</span>
+          </div>
+          <div class="vlist-search-wrap">
+            <input type="text" class="vlist-search-input" id="${containerId}_search" placeholder="🔍 Filtrar histórico em tempo real..." value="${esc(query)}" />
+          </div>
+          <button type="button" class="vlist-btn-top" id="${containerId}_btnTop" title="Voltar ao topo">⬆️ Topo</button>
+        </div>
+        <div class="vlist-viewport" id="${containerId}_viewport">
+          <div class="vlist-spacer" id="${containerId}_spacer"></div>
+          <div class="vlist-content" id="${containerId}_content"></div>
+        </div>
+      </div>
+    `;
+
+    const viewport = $(`${containerId}_viewport`);
+    const spacer = $(`${containerId}_spacer`);
+    const content = $(`${containerId}_content`);
+    const countEl = $(`${containerId}_count`);
+    const searchInput = $(`${containerId}_search`);
+    const btnTop = $(`${containerId}_btnTop`);
+
+    let lastStartIndex = -1;
+    let lastEndIndex = -1;
+    let ticking = false;
+
+    function renderVirtual(force = false){
+      if(isPrinting) return;
+      if(!viewport || !spacer || !content) return;
+
+      const total = activeItems.length;
+      if(total === 0){
+        spacer.style.height = '0px';
+        content.style.transform = 'none';
+        content.innerHTML = '<div class="empty" style="padding:24px 0;"><span class="glyph">🔍</span>Nenhum registo corresponde ao filtro aplicado.</div>';
+        return;
+      }
+
+      const totalHeight = total * estimatedHeight;
+      spacer.style.height = totalHeight + 'px';
+
+      const scrollTop = viewport.scrollTop;
+      const clientH = viewport.clientHeight || 650;
+      const buffer = 4;
+      const startIndex = Math.max(0, Math.floor(scrollTop / estimatedHeight) - buffer);
+      const endIndex = Math.min(total, Math.ceil((scrollTop + clientH) / estimatedHeight) + buffer);
+
+      if(!force && startIndex === lastStartIndex && endIndex === lastEndIndex){
+        return;
+      }
+
+      lastStartIndex = startIndex;
+      lastEndIndex = endIndex;
+
+      const offsetY = startIndex * estimatedHeight;
+      content.style.transform = `translateY(${offsetY}px)`;
+      const slice = activeItems.slice(startIndex, endIndex);
+      content.innerHTML = slice.map((it, idx) => renderCard(it, startIndex + idx)).join('');
+    }
+
+    function onScroll(){
+      if(!ticking){
+        window.requestAnimationFrame(() => {
+          renderVirtual();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }
+
+    viewport.addEventListener('scroll', onScroll, { passive: true });
+
+    if(btnTop){
+      btnTop.addEventListener('click', () => {
+        viewport.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    if(searchInput){
+      searchInput.addEventListener('input', (e) => {
+        query = (e.target.value || '').trim().toLowerCase();
+        if(!query){
+          activeItems = allItems.slice();
+        } else {
+          activeItems = allItems.filter(it => searchFn(it, query));
+        }
+        if(countEl) countEl.textContent = activeItems.length;
+        viewport.scrollTop = 0;
+        lastStartIndex = -1;
+        lastEndIndex = -1;
+        renderVirtual(true);
+      });
+    }
+
+    setupCardEventDelegation(viewport, allItems, opts.onEdit, opts.onDelete);
+
+    renderVirtual(true);
+
+    registerVirtualInstance({
+      id: containerId,
+      expandForPrint: () => {
+        isPrinting = true;
+        if(spacer) spacer.style.height = 'auto';
+        if(content){
+          content.style.transform = 'none';
+          content.style.position = 'static';
+          content.innerHTML = activeItems.map((it, idx) => renderCard(it, idx)).join('');
+        }
+      },
+      restoreAfterPrint: () => {
+        isPrinting = false;
+        if(content){
+          content.style.position = 'absolute';
+        }
+        lastStartIndex = -1;
+        lastEndIndex = -1;
+        renderVirtual(true);
+      },
+      destroy: () => {
+        viewport.removeEventListener('scroll', onScroll);
+      }
+    });
+  }
+
+  function setupCardEventDelegation(container, allItems, onEdit, onDelete){
+    container.addEventListener('click', (e) => {
+      const editBtn = e.target.closest('button[data-edit-id]');
+      if(editBtn){
+        const id = editBtn.dataset.editId;
+        if(onEdit) onEdit(id);
+        return;
+      }
+      const delBtn = e.target.closest('button[data-del-id]');
+      if(delBtn){
+        const id = delBtn.dataset.delId;
+        const type = delBtn.dataset.type;
+        const num = delBtn.dataset.numero;
+        if(onDelete) onDelete(id, type, num);
+        return;
+      }
+    });
+  }
+
+  function initVirtualTable(containerId, opts){
+    const container = typeof containerId === 'string' ? $(containerId) : containerId;
+    if(!container) return;
+
+    const allItems = opts.items || [];
+    const theadHtml = opts.theadHtml || '';
+    const rowRenderer = opts.rowRenderer;
+    const searchFn = opts.searchFn || (() => true);
+    const rowHeight = opts.rowHeight || 36;
+    const maxHeight = opts.maxHeight || 460;
+    const title = opts.title || '';
+
+    const colCount = Math.max(1, (theadHtml.match(/<th\b/gi) || []).length);
+
+    if(allItems.length === 0){
+      container.innerHTML = `
+        ${title ? `<h2 class="report-heading">${esc(title)}</h2>` : ''}
+        <div class="empty" style="padding:16px 0">Sem dados para apresentar no período.</div>
+      `;
+      registerVirtualInstance({ id: containerId, expandForPrint: ()=>{}, restoreAfterPrint: ()=>{} });
+      return;
+    }
+
+    let activeItems = allItems.slice();
+    let isPrinting = false;
+    let query = '';
+
+    if(allItems.length <= 25){
+      container.innerHTML = `
+        ${title ? `<h2 class="report-heading">${esc(title)}</h2>` : ''}
+        <div class="table-scroll">
+          <table class="report">
+            <thead>${theadHtml}</thead>
+            <tbody>
+              ${allItems.map((it, idx) => rowRenderer(it, idx)).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      registerVirtualInstance({ id: containerId, expandForPrint: ()=>{}, restoreAfterPrint: ()=>{} });
+      return;
+    }
+
+    container.innerHTML = `
+      ${title ? `<h2 class="report-heading">${esc(title)}</h2>` : ''}
+      <div class="vtable-container">
+        <div class="vtable-toolbar">
+          <span class="vtable-badge">
+            📊 <b id="${containerId}_count">${activeItems.length}</b> registos
+            <span class="v-pill">Virtualizado · 60 FPS</span>
+          </span>
+          <div class="vtable-search-wrap">
+            <input type="text" class="vtable-search-input" id="${containerId}_search" placeholder="🔍 Filtrar tabela..." value="${esc(query)}" />
+          </div>
+        </div>
+        <div class="vtable-viewport" id="${containerId}_viewport" style="max-height:${maxHeight}px;">
+          <table class="report">
+            <thead>${theadHtml}</thead>
+            <tbody id="${containerId}_tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    const viewport = $(`${containerId}_viewport`);
+    const tbody = $(`${containerId}_tbody`);
+    const countEl = $(`${containerId}_count`);
+    const searchInput = $(`${containerId}_search`);
+
+    let lastStartIndex = -1;
+    let lastEndIndex = -1;
+    let ticking = false;
+
+    function renderVirtualSlice(force = false){
+      if(isPrinting) return;
+      if(!viewport || !tbody) return;
+
+      const total = activeItems.length;
+      if(total === 0){
+        tbody.innerHTML = `<tr style="color:var(--ink-400); text-align:center;"><td colspan="${colCount}" style="padding:22px 0;">Nenhum registo corresponde ao filtro aplicado.</td></tr>`;
+        return;
+      }
+
+      const scrollTop = viewport.scrollTop;
+      const clientH = viewport.clientHeight || maxHeight;
+      const buffer = 8;
+      const visibleCount = Math.ceil(clientH / rowHeight);
+      const startIndex = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+      const endIndex = Math.min(total, startIndex + visibleCount + (buffer * 2));
+
+      if(!force && startIndex === lastStartIndex && endIndex === lastEndIndex){
+        return;
+      }
+
+      lastStartIndex = startIndex;
+      lastEndIndex = endIndex;
+
+      const topH = startIndex * rowHeight;
+      const bottomH = Math.max(0, (total - endIndex) * rowHeight);
+
+      let rowsHtml = '';
+      if(topH > 0){
+        rowsHtml += `<tr class="vtable-spacer-row" style="height:${topH}px"><td colspan="${colCount}" style="padding:0; border:none;"></td></tr>`;
+      }
+      for(let i = startIndex; i < endIndex; i++){
+        rowsHtml += rowRenderer(activeItems[i], i);
+      }
+      if(bottomH > 0){
+        rowsHtml += `<tr class="vtable-spacer-row" style="height:${bottomH}px"><td colspan="${colCount}" style="padding:0; border:none;"></td></tr>`;
+      }
+      tbody.innerHTML = rowsHtml;
+    }
+
+    function onScroll(){
+      if(!ticking){
+        window.requestAnimationFrame(() => {
+          renderVirtualSlice();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }
+
+    viewport.addEventListener('scroll', onScroll, { passive: true });
+
+    if(searchInput){
+      searchInput.addEventListener('input', (e) => {
+        query = (e.target.value || '').trim().toLowerCase();
+        if(!query){
+          activeItems = allItems.slice();
+        } else {
+          activeItems = allItems.filter(it => searchFn(it, query));
+        }
+        if(countEl) countEl.textContent = activeItems.length;
+        viewport.scrollTop = 0;
+        lastStartIndex = -1;
+        lastEndIndex = -1;
+        renderVirtualSlice(true);
+      });
+    }
+
+    renderVirtualSlice(true);
+
+    registerVirtualInstance({
+      id: containerId,
+      expandForPrint: () => {
+        isPrinting = true;
+        if(tbody){
+          tbody.innerHTML = activeItems.map((it, idx) => rowRenderer(it, idx)).join('');
+        }
+      },
+      restoreAfterPrint: () => {
+        isPrinting = false;
+        lastStartIndex = -1;
+        lastEndIndex = -1;
+        renderVirtualSlice(true);
+      },
+      destroy: () => {
+        viewport.removeEventListener('scroll', onScroll);
+      }
+    });
+  }
+
   async function renderHistorial(refetch){
     const list = $('histList');
     const tipo = $('histFiltroTipo').value;
@@ -5081,111 +5600,39 @@
 
     const isAdminU = isAdmin();
     const canEdit = currentUser && currentUser.rol !== 'visualizador';
-    const visible = filteredItems.slice(0, histVisibleCount);
 
-    let html = visible.map((it,idx)=>{
-      const d = it.data;
-      let editBtn = '', delBtn = '';
-      if(it.type === 'temperatura'){
-        if(canEdit) editBtn = `<button class="edit" data-edit="${idx}">Editar</button>`;
-        if(isAdminU) delBtn = `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}">Eliminar</button>`;
-      } else {
-        editBtn = canEdit ? `<button class="edit" data-edit="${idx}">Editar</button>` : '';
-        delBtn = isAdminU ? `<button class="del" data-del="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
-      }
-      const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
-      const auditHtml = (d.modificadoPor || d.editado === 'Sim') ? `<div class="entry-audit-badge">✏️ Modificado por <b>${esc(d.modificadoPor||'—')}</b> (${esc(d.modificadoEn||'')})</div>` : '';
-
-      if(it.type==='general'){
-        return `<div class="entry">
-          <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-general">Geral</span></div>
-          <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
-          <div class="entry-grid">
-            ${entryItem('Água', d.agua, 'm³')}
-            ${entryItem('Elet.', d.electricidad, 'kWh')}
-            ${entryItem('Retorno AQS', d.retornoAqs, '°C', retornoAqsWarn(d.retornoAqs))}
-            ${entryItem('AQS Quartos', d.aqsQuartos, '°C', aqsQuartosWarn(d.aqsQuartos))}
-            ${entryItem('Estado piscina', d.estadoPiscina, '')}
-            ${entryItem('Temp. piscina', d.tempPiscina, '°C')}
-            ${entryItem('pH', d.phPiscina, '', phWarn(d.phPiscina))}
-            ${entryItem('Cloro livre', d.cloroLibre, 'ppm', cloroWarn(d.cloroLibre))}
-            ${entryItem('Cloro total', d.cloroTotal, 'ppm', cloroTotalWarn(d.cloroTotal))}
-            ${entryItem('Pré-filtro', dispYesNo(d.lavadoPrefiltro), '')}
-            ${entryItem('Filtro de areia', dispYesNo(d.lavadoFiltroArena), '')}
-            ${entryItem('Skimmer', dispYesNo(d.limpiezaSkimmer), '')}
-            ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
-            ${auditHtml}
-          </div>
-          ${actions}
-        </div>`;
-      } else if(it.type==='temperatura'){
-        const bad = String(d.dentroIntervalo) === 'Não';
-        return `<div class="entry">
-          <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-temp ${bad?'bad':''}">🧊 ${esc(d.nome || '—')}</span></div>
-          <div class="entry-user">👤 ${esc(d.usuario || '—')} · ${esc(d.tipo || '')}${d.ubicacao ? ' · ' + esc(d.ubicacao) : ''}</div>
-          <div class="entry-grid">
-            ${entryItem('Temperatura', d.temperatura, '°C', bad)}
-            ${entryItem('Dentro do intervalo', dispYesNo(d.dentroIntervalo), '', bad)}
-            ${d.observacoes ? `<div style="grid-column:1/-1; font-size:12px; background:var(--amber-100); border-radius:8px; padding:8px 10px; color:#8a5f0f;">📝 ${esc(d.observacoes)}</div>` : ''}
-            ${auditHtml}
-          </div>
-          ${actions}
-        </div>`;
-      } else {
-        return `<div class="entry">
-          <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-quarto">Quarto ${esc(d.numero)}</span></div>
-          <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
-          <div class="entry-grid">
-            ${entryItem('pH quente', d.phCaliente, '', phWarnCal(d.phCaliente))}
-            ${entryItem('Cloro livre quente', d.cloroCaliente, 'ppm', cloroWarnCal(d.cloroCaliente))}
-            ${entryItem('Cloro total quente', d.cloroTotalCaliente, 'ppm', cloroTotalWarnCal(d.cloroTotalCaliente))}
-            ${entryItem('pH fria', d.phFria, '', phWarnFria(d.phFria))}
-            ${entryItem('Cloro livre fria', d.cloroFria, 'ppm', cloroWarnFria(d.cloroFria))}
-            ${entryItem('Cloro total fria', d.cloroTotalFria, 'ppm', cloroTotalWarnFria(d.cloroTotalFria))}
-            ${auditHtml}
-          </div>
-          ${actions}
-        </div>`;
-      }
-    }).join('');
-
-    const restantes = filteredItems.length - visible.length;
-    if(restantes > 0){
-      html += `<button class="primary" id="btnHistMore" style="margin-top:8px"><span class="lbl-text">Ver mais — faltam ${restantes}</span></button>`;
-    }
-    list.innerHTML = html;
-
-    const moreBtn = $('btnHistMore');
-    if(moreBtn) moreBtn.addEventListener('click', ()=>{
-      histVisibleCount += HIST_PAGE_SIZE;
-      renderHistorial(false);
-    });
-
-    list.querySelectorAll('button[data-edit]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const it = visible[Number(btn.dataset.edit)];
+    initVirtualCardList('histList', {
+      items: filteredItems,
+      renderCard: (it) => renderHistEntryCard(it, canEdit, isAdminU),
+      estimatedHeight: 175,
+      searchFn: (it, q) => {
+        const d = it.data || {};
+        const txt = `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''} ${d.nome||''} ${d.observacoes||''} ${it.type||''}`.toLowerCase();
+        return txt.includes(q);
+      },
+      emptyHtml: `<div class="empty"><span class="glyph">◌</span>Não existem registos para o período selecionado (${chosenMonth !== 'all' ? formatMonthName(chosenMonth) : 'geral'}).</div>`,
+      onEdit: (id) => {
+        const it = filteredItems.find(x => (x.data && x.data.id === id) || x.key === id);
         if(it) startEditRecord(it);
-      });
-    });
-    list.querySelectorAll('button[data-del]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
+      },
+      onDelete: async (id, type, numero) => {
         const ok = await confirmDialog('Eliminar registo', 'Tem a certeza de que quer eliminar este registo? Esta ação não pode ser anulada.', 'Eliminar', 'Cancelar');
         if(!ok) return;
         try{
-          await deleteRecordApi(btn.dataset.type, btn.dataset.del);
-          if(btn.dataset.type === 'quarto' && btn.dataset.numero){
-            const remaining = (await listRecords('quarto')).filter(r=> normRoom(r.data.numero) === btn.dataset.numero);
+          await deleteRecordApi(type, id);
+          if(type === 'quarto' && numero){
+            const remaining = (await listRecords('quarto')).filter(r=> normRoom(r.data.numero) === numero);
             if(remaining.length === 0){
-              await unmarkRoomFromCycle(btn.dataset.numero);
+              await unmarkRoomFromCycle(numero);
               renderRoomGrid();
             }
           }
           showToast('Registo eliminado (ficou registado na Auditoria)');
           renderHistorial();
           refreshChips();
-          if(btn.dataset.type === 'temperatura') renderTempWeek();
+          if(type === 'temperatura') renderTempWeek();
         }catch(e){ showToast('⚠️ Não foi possível eliminar: ' + e.message, true); }
-      });
+      }
     });
   }
 
@@ -5526,18 +5973,42 @@
         const tp = tpAllRaw.filter(r=> inRange(r.data)).sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
 
         const periodStats = statsForRange(genWithDeltas, desde, hasta);
-        const [mDesde, mHasta] = rangoMesActual();
-        const monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
+        let monthStats = null;
+        if(periodoActual === 'semana'){
+          const [mDesde, mHasta] = rangoMesActual();
+          monthStats = statsForRange(genWithDeltas, mDesde, mHasta);
+        }
 
-        await renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats);
+        await renderReporte(desde, hasta, genPeriod, qu, tp, periodStats, monthStats, periodoActual);
       }
     }catch(e){
       showToast('⚠️ Não foi possível gerar o relatório: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
-  $('btnOfficialReport').addEventListener('click', ()=> generateOfficialReport());
-  if($('btnExecReportFromReports')) $('btnExecReportFromReports').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
+  $('btnOfficialReport').addEventListener('click', ()=>{
+    let desde, hasta;
+    if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
+    else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
+    else if(periodoActual==='mes_anterior'){ [desde,hasta] = rangoMesAnterior(); }
+    else{
+      desde = $('rep-desde').value; hasta = $('rep-hasta').value;
+      if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
+    }
+    generateOfficialReport(desde, hasta);
+  });
+
+  if($('btnExecReportFromReports')) $('btnExecReportFromReports').addEventListener('click', (e)=>{
+    let desde, hasta;
+    if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
+    else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
+    else if(periodoActual==='mes_anterior'){ [desde,hasta] = rangoMesAnterior(); }
+    else{
+      desde = $('rep-desde').value; hasta = $('rep-hasta').value;
+      if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
+    }
+    generateExecutiveReport(e.currentTarget, desde, hasta);
+  });
 
   // ---------- Relatório específico: Quartos ----------
   async function renderReporteQuartos(desde, hasta){
@@ -5596,16 +6067,7 @@
     });
     html += `</tbody></table></div>`;
 
-    html += `<h2 class="report-heading">Detalhe de leituras (${desde} → ${hasta})</h2>
-      <div class="table-scroll"><table class="report"><thead><tr>
-        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Quarto</th><th>pH qu.</th><th>Cl.livre qu.</th><th>Cl.total qu.</th><th>pH fr.</th><th>Cl.livre fr.</th><th>Cl.total fr.</th>
-      </tr></thead><tbody>`;
-    qu.forEach(r=>{
-      const d = r.data;
-      const bad = phWarn(d.phCaliente) || phWarn(d.phFria) || cloroWarn(d.cloroCaliente) || cloroWarn(d.cloroFria);
-      html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
-    });
-    html += `</tbody></table></div>`;
+    html += `<div id="repQuartosDetailTableBox"></div>`;
 
     html += `<div class="report-actions">
       <button class="btn-csv" id="btnExportCsvQuarto">Exportar CSV</button>
@@ -5613,8 +6075,28 @@
     </div>`;
 
     out.innerHTML = html;
+
+    initVirtualTable('repQuartosDetailTableBox', {
+      title: `Detalhe de leituras (${desde} → ${hasta})`,
+      theadHtml: `<tr>
+        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Quarto</th><th>pH qu.</th><th>Cl.livre qu.</th><th>Cl.total qu.</th><th>pH fr.</th><th>Cl.livre fr.</th><th>Cl.total fr.</th>
+      </tr>`,
+      items: qu,
+      rowRenderer: (r) => {
+        const d = r.data;
+        const bad = phWarn(d.phCaliente) || phWarn(d.phFria) || cloroWarn(d.cloroCaliente) || cloroWarn(d.cloroFria);
+        return `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
+      },
+      searchFn: (r, q) => {
+        const d = r.data || {};
+        return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''}`.toLowerCase().includes(q);
+      },
+      rowHeight: 36,
+      maxHeight: 460
+    });
+
     $('btnExportCsvQuarto').addEventListener('click', ()=> exportCsvQuartos(desde, hasta, qu));
-    $('btnPrintQuarto').addEventListener('click', ()=> window.print());
+    $('btnPrintQuarto').addEventListener('click', triggerPrintWithAllRows);
   }
 
   function exportCsvQuartos(desde, hasta, qu){
@@ -5702,16 +6184,7 @@
     html += `</tbody></table></div>`;
 
     if(tp.length){
-      html += `<h2 class="report-heading">Detalhe de leituras (${desde} → ${hasta})</h2>
-        <div class="table-scroll"><table class="report"><thead><tr>
-          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Estado</th><th>Obs.</th>
-        </tr></thead><tbody>`;
-      tp.forEach(r=>{
-        const d = r.data;
-        const bad = String(d.dentroIntervalo) === 'Não';
-        html += `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td>${nz(d.temperatura)}</td><td>${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
-      });
-      html += `</tbody></table></div>`;
+      html += `<div id="repTempDetailTableBox"></div>`;
     }
 
     html += `<div class="report-actions">
@@ -5720,8 +6193,30 @@
     </div>`;
 
     out.innerHTML = html;
+
+    if(tp.length){
+      initVirtualTable('repTempDetailTableBox', {
+        title: `Detalhe de leituras (${desde} → ${hasta})`,
+        theadHtml: `<tr>
+          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Estado</th><th>Obs.</th>
+        </tr>`,
+        items: tp,
+        rowRenderer: (r) => {
+          const d = r.data;
+          const bad = String(d.dentroIntervalo) === 'Não';
+          return `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td>${nz(d.temperatura)}</td><td>${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+        },
+        searchFn: (r, q) => {
+          const d = r.data || {};
+          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.nome||''} ${d.tipo||''} ${d.ubicacao||''} ${d.observacoes||''}`.toLowerCase().includes(q);
+        },
+        rowHeight: 36,
+        maxHeight: 460
+      });
+    }
+
     $('btnExportCsvTemp').addEventListener('click', ()=> exportCsvRefrigeracao(desde, hasta, tp));
-    $('btnPrintTemp').addEventListener('click', ()=> window.print());
+    $('btnPrintTemp').addEventListener('click', triggerPrintWithAllRows);
   }
 
   function exportCsvRefrigeracao(desde, hasta, tp){
@@ -5739,7 +6234,7 @@
     URL.revokeObjectURL(url);
   }
 
-  async function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats){
+  async function renderReporte(desde, hasta, gen, qu, tp, periodStats, monthStats, periodoKey){
     const out = $('reporteOutput');
     if(gen.length===0 && qu.length===0 && tp.length===0){
       out.innerHTML = `<div class="empty"><span class="glyph">◌</span>Não há registos entre ${desde} e ${hasta}.</div>`;
@@ -5751,63 +6246,41 @@
 
     const aguaPerDiag = consumoDiag(periodStats, 'agua');
     const elecPerDiag = consumoDiag(periodStats, 'elec');
-    const aguaMesDiag2 = consumoDiag(monthStats, 'agua');
-    const elecMesDiag2 = consumoDiag(monthStats, 'elec');
     const tarifasRep = await getTarifas();
 
-    let html = `<h2 class="report-heading">Consumo — período selecionado</h2>
+    let periodHeading = `Consumo — Período (${desde} a ${hasta})`;
+    if(periodoKey === 'mes_anterior'){
+      periodHeading = `Consumo — Mês Anterior (${desde} a ${hasta})`;
+    } else if(periodoKey === 'mes'){
+      periodHeading = `Consumo — Mês em Curso (${desde} a ${hasta})`;
+    } else if(periodoKey === 'semana'){
+      periodHeading = `Consumo — Esta Semana (${desde} a ${hasta})`;
+    }
+
+    let html = `<h2 class="report-heading">${periodHeading}</h2>
     <div class="stat-grid">
       ${statBox('Consumo de água (período)', (aguaPerDiag ? '—' : fmtNum(periodStats.aguaTotal)+' m³') + (aguaPerDiag?'':costTag(periodStats.aguaTotal, tarifasRep.agua)), aguaPerDiag || `média diária: ${fmtNum(periodStats.aguaProm)} m³ · ${periodStats.aguaDiasTotal} dia${periodStats.aguaDiasTotal===1?'':'s'} coberto${periodStats.aguaDiasTotal===1?'':'s'}`)}
       ${statBox('Consumo de eletricidade (período)', (elecPerDiag ? '—' : fmtNum(periodStats.elecTotal)+' kWh') + (elecPerDiag?'':costTag(periodStats.elecTotal, tarifasRep.elec)), elecPerDiag || `média diária: ${fmtNum(periodStats.elecProm)} kWh · ${periodStats.elecDiasTotal} dia${periodStats.elecDiasTotal===1?'':'s'} coberto${periodStats.elecDiasTotal===1?'':'s'}`, true)}
-    </div>
-    <h2 class="report-heading">Consumo — mês em curso (sempre atual)</h2>
-    <div class="stat-grid">
-      ${statBox('Acumulado de água do mês', (aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag2?'':costTag(monthStats.aguaTotal, tarifasRep.agua)), aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
-      ${statBox('Acumulado de eletricidade do mês', (elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag2?'':costTag(monthStats.elecTotal, tarifasRep.elec)), elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
-    </div>
-    <div class="stat-grid">
+    </div>`;
+
+    if(monthStats && periodoKey === 'semana'){
+      const aguaMesDiag2 = consumoDiag(monthStats, 'agua');
+      const elecMesDiag2 = consumoDiag(monthStats, 'elec');
+      html += `<h2 class="report-heading">Consumo — mês em curso (acumulado de referência)</h2>
+      <div class="stat-grid">
+        ${statBox('Acumulado de água do mês', (aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag2?'':costTag(monthStats.aguaTotal, tarifasRep.agua)), aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
+        ${statBox('Acumulado de eletricidade do mês', (elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag2?'':costTag(monthStats.elecTotal, tarifasRep.elec)), elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
+      </div>`;
+    }
+
+    html += `<div class="stat-grid">
       ${statBox('pH piscina (méd. período)', fmtNum(avg(phVals)), rangeSub(minmax(phVals)))}
       ${statBox('Cloro livre (méd. período)', fmtNum(avg(cloroLibreVals))+' ppm', rangeSub(minmax(cloroLibreVals)), true)}
     </div>`;
 
-    if(gen.length){
-      html += `<h2 class="report-heading">Instalações (${desde} → ${hasta})</h2>
-      <div class="table-scroll"><table class="report"><thead><tr>
-        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Água</th><th>Cons.Água</th><th>Elet.</th><th>Cons.Elet.</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préfiltro</th><th>F.Areia</th><th>Skimmer</th><th>Obs.</th>
-      </tr></thead><tbody>`;
-      gen.forEach(r=>{
-        const d = r.data;
-        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${nz(d.agua)}</td><td class="calc">${r.deltaAgua!==null && !isNaN(r.deltaAgua) ? r.deltaAgua.toFixed(2) : '—'}</td><td>${nz(d.electricidad)}</td><td class="calc">${r.deltaElec!==null && !isNaN(r.deltaElec) ? r.deltaElec.toFixed(2) : '—'}</td><td>${nz(d.retornoAqs)}</td><td>${nz(d.aqsQuartos)}</td><td>${nz(d.estadoPiscina)}</td><td>${nz(d.tempPiscina)}</td><td>${nz(d.phPiscina)}</td><td>${nz(d.cloroLibre)}</td><td>${nz(d.cloroTotal)}</td><td>${nz(dispYesNo(d.lavadoPrefiltro))}</td><td>${nz(dispYesNo(d.lavadoFiltroArena))}</td><td>${nz(dispYesNo(d.limpiezaSkimmer))}</td><td>${nz(d.observacoes)}</td></tr>`;
-      });
-      html += `</tbody></table></div>`;
-    }
-
-    if(qu.length){
-      html += `<h2 class="report-heading">Quartos (${desde} → ${hasta})</h2>
-      <div class="table-scroll"><table class="report"><thead><tr>
-        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Quarto</th><th>pH qu.</th><th>Cl.livre qu.</th><th>Cl.total qu.</th><th>pH fr.</th><th>Cl.livre fr.</th><th>Cl.total fr.</th>
-      </tr></thead><tbody>`;
-      qu.forEach(r=>{
-        const d = r.data;
-        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
-      });
-      html += `</tbody></table></div>`;
-    }
-
-    if(tp.length){
-      html += `<h2 class="report-heading">🧊 Refrigeração (${desde} → ${hasta})</h2>
-      <div class="table-scroll"><table class="report"><thead><tr>
-        <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Estado</th><th>Obs.</th>
-      </tr></thead><tbody>`;
-      tp.forEach(r=>{
-        const d = r.data;
-        const eq = equipamentos.find(e=> e.id === d.equipamentoId);
-        const rng = eq ? `${eq.min} a ${eq.max}` : '—';
-        const bad = String(d.dentroIntervalo) === 'Não';
-        html += `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td class="${bad?'tbad':''}">${nz(d.temperatura)}</td><td>${esc(rng)}</td><td class="${bad?'tbad':''}">${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
-      });
-      html += `</tbody></table></div>`;
-    }
+    if(gen.length) html += `<div id="repGenDetailTableBox"></div>`;
+    if(qu.length) html += `<div id="repQuDetailTableBox"></div>`;
+    if(tp.length) html += `<div id="repTpDetailTableBox"></div>`;
 
     html += `<div class="report-actions">
       <button class="btn-csv" id="btnExportCsv">Exportar CSV</button>
@@ -5818,8 +6291,72 @@
     </p>`;
 
     out.innerHTML = html;
+
+    if(gen.length){
+      initVirtualTable('repGenDetailTableBox', {
+        title: `Instalações (${desde} → ${hasta})`,
+        theadHtml: `<tr>
+          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Água</th><th>Cons.Água</th><th>Elet.</th><th>Cons.Elet.</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préfiltro</th><th>F.Areia</th><th>Skimmer</th><th>Obs.</th>
+        </tr>`,
+        items: gen,
+        rowRenderer: (r) => {
+          const d = r.data;
+          return `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${nz(d.agua)}</td><td class="calc">${r.deltaAgua!==null && !isNaN(r.deltaAgua) ? r.deltaAgua.toFixed(2) : '—'}</td><td>${nz(d.electricidad)}</td><td class="calc">${r.deltaElec!==null && !isNaN(r.deltaElec) ? r.deltaElec.toFixed(2) : '—'}</td><td>${nz(d.retornoAqs)}</td><td>${nz(d.aqsQuartos)}</td><td>${nz(d.estadoPiscina)}</td><td>${nz(d.tempPiscina)}</td><td>${nz(d.phPiscina)}</td><td>${nz(d.cloroLibre)}</td><td>${nz(d.cloroTotal)}</td><td>${nz(dispYesNo(d.lavadoPrefiltro))}</td><td>${nz(dispYesNo(d.lavadoFiltroArena))}</td><td>${nz(dispYesNo(d.limpiezaSkimmer))}</td><td>${nz(d.observacoes)}</td></tr>`;
+        },
+        searchFn: (r, q) => {
+          const d = r.data || {};
+          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.observacoes||''}`.toLowerCase().includes(q);
+        },
+        rowHeight: 36,
+        maxHeight: 460
+      });
+    }
+
+    if(qu.length){
+      initVirtualTable('repQuDetailTableBox', {
+        title: `Quartos (${desde} → ${hasta})`,
+        theadHtml: `<tr>
+          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Quarto</th><th>pH qu.</th><th>Cl.livre qu.</th><th>Cl.total qu.</th><th>pH fr.</th><th>Cl.livre fr.</th><th>Cl.total fr.</th>
+        </tr>`,
+        items: qu,
+        rowRenderer: (r) => {
+          const d = r.data;
+          return `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
+        },
+        searchFn: (r, q) => {
+          const d = r.data || {};
+          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''}`.toLowerCase().includes(q);
+        },
+        rowHeight: 36,
+        maxHeight: 460
+      });
+    }
+
+    if(tp.length){
+      initVirtualTable('repTpDetailTableBox', {
+        title: `🧊 Refrigeração (${desde} → ${hasta})`,
+        theadHtml: `<tr>
+          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Estado</th><th>Obs.</th>
+        </tr>`,
+        items: tp,
+        rowRenderer: (r) => {
+          const d = r.data;
+          const eq = equipamentos.find(e=> e.id === d.equipamentoId);
+          const rng = eq ? `${eq.min} a ${eq.max}` : '—';
+          const bad = String(d.dentroIntervalo) === 'Não';
+          return `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td class="${bad?'tbad':''}">${nz(d.temperatura)}</td><td>${esc(rng)}</td><td class="${bad?'tbad':''}">${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+        },
+        searchFn: (r, q) => {
+          const d = r.data || {};
+          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.nome||''} ${d.tipo||''} ${d.ubicacao||''} ${d.observacoes||''}`.toLowerCase().includes(q);
+        },
+        rowHeight: 36,
+        maxHeight: 460
+      });
+    }
+
     $('btnExportCsv').addEventListener('click', ()=> exportCsv(desde, hasta, gen, qu, tp));
-    $('btnPrint').addEventListener('click', ()=> window.print());
+    $('btnPrint').addEventListener('click', triggerPrintWithAllRows);
   }
 
   function nz(v){ return esc((v===undefined||v===null||v==='') ? '—' : v); }
@@ -7002,28 +7539,42 @@
   }
 
   // ---------- Cálculo de dados do Resumo Executivo ----------
-  async function calculateExecutiveSummaryData(){
+  async function calculateExecutiveSummaryData(customDesde, customHasta){
     const [generalRaw, tempRaw, quartosRaw, tarifasEjec] = await Promise.all([
       listRecords('general'),
       listRecords('temperatura'),
       listRecords('quarto'),
       getTarifas()
     ]);
-    const [desde, hasta] = rangoMesActual();
+    let desde, hasta;
+    if(customDesde && customHasta){
+      desde = customDesde; hasta = customHasta;
+    } else {
+      [desde, hasta] = rangoMesActual();
+    }
+    const isCurrentMonth = (desde <= todayStr() && hasta >= todayStr());
     const genWithDeltas = await buildGenWithDeltas(generalRaw);
     const inMonth = r => r.data.fecha >= desde && r.data.fecha <= hasta;
     const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
     const monthStats = statsForRange(genWithDeltas, desde, hasta);
     const comp = complianceStatsRange(generalRaw, desde, hasta);
 
-    const [pDesde, pHasta] = monthRangeOffset(-1);
+    // Mês anterior relativo ao período selecionado
+    const startD = new Date(desde + 'T00:00:00');
+    const pFirst = new Date(startD.getFullYear(), startD.getMonth() - 1, 1);
+    const pLast = new Date(startD.getFullYear(), startD.getMonth(), 0);
+    const pDesde = fmt(pFirst), pHasta = fmt(pLast);
     const prevMonthStats = statsForRange(genWithDeltas, pDesde, pHasta);
 
     // Refrigeração
-    const temp7 = tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)));
-    const tempBad7 = temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não');
     const tempMonth = tempRaw.filter(inMonth);
     const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+    const temp7 = isCurrentMonth
+      ? tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)))
+      : tempMonth;
+    const tempBad7 = isCurrentMonth
+      ? temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não')
+      : tempBadMonth;
 
     // Ciclo de quartos (calculado dinamicamente com base nas leituras reais)
     const groupedQuartos = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
@@ -7082,8 +7633,13 @@
     let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
     let scoreDesc = 'Todos os sistemas técnicos críticos operam com elevada fiabilidade, sem riscos de segurança ou conformidade identificados.';
     if(!hasAnyData || healthScore === 0){
-      scoreStatusClass = 'status-zero'; scoreBadgeText = 'Início de Mês (0%)'; scoreHeadline = 'Aguardando Primeiras Leituras';
-      scoreDesc = 'O mês atual iniciou a zero. Os indicadores de AQS, Piscina, Refrigeração e Quartos serão calculados à medida que as rondas técnicas forem efetuadas.';
+      if(isCurrentMonth){
+        scoreStatusClass = 'status-zero'; scoreBadgeText = 'Início de Mês (0%)'; scoreHeadline = 'Aguardando Primeiras Leituras';
+        scoreDesc = 'O mês atual iniciou a zero. Os indicadores de AQS, Piscina, Refrigeração e Quartos serão calculados à medida que as rondas técnicas forem efetuadas.';
+      } else {
+        scoreStatusClass = 'status-zero'; scoreBadgeText = 'Sem Dados (0%)'; scoreHeadline = 'Sem Leituras no Período';
+        scoreDesc = `Não foram encontradas leituras técnicas registadas no intervalo de ${desde} a ${hasta}.`;
+      }
     } else if(healthScore < 65){
       scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
       scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
@@ -7102,18 +7658,28 @@
     const costElec = elecVal * (tarifasEjec.elec || 0);
     const costTotal = costAgua + costElec;
 
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysElapsed = Math.min(now.getDate(), daysInMonth);
-    const projectedCost = daysElapsed > 0 ? (costTotal / daysElapsed) * daysInMonth : costTotal;
-    const dailyCost = daysElapsed > 0 ? costTotal / daysElapsed : 0;
+    const dStart = new Date(desde + 'T00:00:00');
+    const dEnd = new Date(hasta + 'T00:00:00');
+    const daysInMonth = Math.max(1, Math.round((dEnd - dStart) / 86400000) + 1);
+    let daysElapsed = daysInMonth;
+    let projectedCost = costTotal;
+    let dailyCost = daysInMonth > 0 ? (costTotal / daysInMonth) : 0;
+
+    if(isCurrentMonth){
+      const now = new Date();
+      const currentDaysElapsed = Math.min(now.getDate(), daysInMonth);
+      daysElapsed = currentDaysElapsed;
+      projectedCost = currentDaysElapsed > 0 ? (costTotal / currentDaysElapsed) * daysInMonth : costTotal;
+      dailyCost = currentDaysElapsed > 0 ? costTotal / currentDaysElapsed : 0;
+    }
 
     const prevAgua = prevMonthStats.aguaDeltaCount ? prevMonthStats.aguaTotal : 0;
     const prevElec = prevMonthStats.elecDeltaCount ? prevMonthStats.elecTotal : 0;
     const prevTotalCost = (prevAgua * (tarifasEjec.agua || 0)) + (prevElec * (tarifasEjec.elec || 0));
     let varCostPct = null;
     if(prevTotalCost > 0){
-      varCostPct = ((projectedCost - prevTotalCost) / prevTotalCost) * 100;
+      const compareCost = isCurrentMonth ? projectedCost : costTotal;
+      varCostPct = ((compareCost - prevTotalCost) / prevTotalCost) * 100;
     }
 
     const totalSplit = (costAgua + costElec) || 1;
@@ -7200,7 +7766,7 @@
 
     return {
       generalRaw, tempRaw, quartosRaw, tarifasEjec, genWithDeltas,
-      desde, hasta, monthStats, comp, prevMonthStats,
+      desde, hasta, isCurrentMonth, monthStats, comp, prevMonthStats,
       temp7, tempBad7, tempMonth, tempBadMonth,
       done, totalRooms, pending, roomsPct, displayCycle,
       pilarAqs, pilarPiscina, pilarFrio, pilarEficiencia, pilarQuartos, healthScore,
@@ -7214,15 +7780,29 @@
   }
 
   // ---------- Render principal do Resumo Executivo ----------
-  async function renderEjecutivo(){
+  async function renderEjecutivo(forcedDesde, forcedHasta){
     const output = $('ejecutivoOutput');
     const button = $('btnRefreshEjecutivo');
     setLoading(button, true);
     output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
     <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
     try{
-      const d = await calculateExecutiveSummaryData();
+      let desde = forcedDesde, hasta = forcedHasta;
+      if(!desde || !hasta){
+        const sel = $('execMonthSelect');
+        if(sel && sel.value === 'prev'){
+          [desde, hasta] = rangoMesAnterior();
+        } else {
+          [desde, hasta] = rangoMesActual();
+        }
+      }
+      const d = await calculateExecutiveSummaryData(desde, hasta);
       cachedExecMonths = d.months;
+
+      const periodLabel = $('ejecutivoPeriod');
+      if(periodLabel){
+        periodLabel.textContent = `Período de Análise: ${d.desde} a ${d.hasta} ${d.isCurrentMonth ? '(Mês em curso)' : '(Mês anterior)'}`;
+      }
 
       // Scorecard HTML (5 pilares separados: AQS, Piscina, Frio, Cadência, Quartos)
       const scorecardHTML = `
@@ -7290,17 +7870,17 @@
       const finCockpitHTML = `
         <div class="exec-fin-card">
           <div class="exec-score-header">
-            <h3 class="exec-score-title">Cockpit de Custos Energéticos & Projeção Mensal</h3>
-            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${d.daysElapsed} de ${d.daysInMonth} dias decorridos</span>
+            <h3 class="exec-score-title">${d.isCurrentMonth ? 'Cockpit de Custos Energéticos & Projeção Mensal' : 'Custos Energéticos & Consolidado Mensal'}</h3>
+            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${d.isCurrentMonth ? `${d.daysElapsed} de ${d.daysInMonth} dias decorridos` : `${d.daysInMonth} dias (${d.desde} a ${d.hasta})`}</span>
           </div>
           <div class="exec-fin-grid">
             <div class="exec-fin-box">
-              <div class="exec-fin-lab">Custo Acumulado no Mês</div>
+              <div class="exec-fin-lab">${d.isCurrentMonth ? 'Custo Acumulado no Mês' : 'Custo Total do Mês'}</div>
               <div class="exec-fin-val">${(d.costAgua||d.costElec)? (d.costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
               <div class="exec-fin-sub">Média de ${d.dailyCost>0 ? d.dailyCost.toFixed(2)+' €/dia' : '—'}</div>
             </div>
             <div class="exec-fin-box accent">
-              <div class="exec-fin-lab">Projeção Fecho do Mês</div>
+              <div class="exec-fin-lab">${d.isCurrentMonth ? 'Projeção Fecho do Mês' : 'Total Consolidado Fechado'}</div>
               <div class="exec-fin-val">${d.projectedCost>0 ? d.projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
               <div class="exec-fin-sub">
                 ${d.varCostPct !== null ? `${d.varCostPct>0?'+':''}${d.varCostPct.toFixed(1)}% vs mês anterior` : 'Sem histórico anterior suficiente'}
@@ -7443,13 +8023,29 @@
     if(btnElec) btnElec.onclick = () => { execActiveMetric = 'elec'; updateBtns('execMetricElec'); renderExecInteractiveChart(); };
     if(btnComp) btnComp.onclick = () => { execActiveMetric = 'comp'; updateBtns('execMetricComp'); renderExecInteractiveChart(); };
 
+    // Seleção de Mês Executivo
+    const selMonth = $('execMonthSelect');
+    if(selMonth && !selMonth.dataset.bound){
+      selMonth.dataset.bound = '1';
+      selMonth.onchange = () => renderEjecutivo();
+    }
+
     // Exportação CSV Executivo
     const btnCsv = $('btnExportExecCsv');
     if(btnCsv) btnCsv.onclick = () => exportExecutiveCsv(months, execMeta);
 
     // Impressão / Relatório Executivo
     const btnPrint = $('btnPrintExecReport');
-    if(btnPrint) btnPrint.onclick = (e) => generateExecutiveReport(e.currentTarget);
+    if(btnPrint) btnPrint.onclick = (e) => {
+      let desde, hasta;
+      const sel = $('execMonthSelect');
+      if(sel && sel.value === 'prev'){
+        [desde, hasta] = rangoMesAnterior();
+      } else {
+        [desde, hasta] = rangoMesActual();
+      }
+      generateExecutiveReport(e.currentTarget, desde, hasta);
+    };
   }
 
   function buildExecutiveReport(d){
@@ -7460,7 +8056,7 @@
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costAgua !== null ? m.costAgua.toFixed(2)+' €' : '—'}</td>
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.elec !== null ? fmtNum(m.elec) + ' kWh' : '—'}</td>
         <td style="padding:6px 8px; text-align:right; border:1px solid #bbb;">${m.costElec !== null ? m.costElec.toFixed(2)+' €' : '—'}</td>
-        <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
+        <td style="padding:6px 8px; text-align:right; font-weight:700; border:1px solid #bbb;">${m.totalCost !== null ? m.totalCost.toFixed(2)+' €' : '—'}</td>
         <td style="padding:6px 8px; text-align:right; font-weight:700; color:${m.compliance===0 ? '#64748b' : (m.compliance>=90?'#28704b':(m.compliance>=70?'#8a5f0f':'#8b3d1d'))}; border:1px solid #bbb;">${m.compliance}%</td>
       </tr>
     `).join('');
@@ -7517,17 +8113,17 @@
         </div>
       </div>
 
-      <h2>2. Cockpit de Custos Energéticos & Projeção Mensal</h2>
+      <h2>2. ${d.isCurrentMonth ? 'Cockpit de Custos Energéticos & Projeção Mensal' : 'Custos Energéticos & Consolidado do Mês'}</h2>
       <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:8px 0 14px;">
         <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px;">
-          <div style="font-size:9.5px; color:#666; font-weight:700; text-transform:uppercase;">Despesa Atual</div>
+          <div style="font-size:9.5px; color:#666; font-weight:700; text-transform:uppercase;">${d.isCurrentMonth ? 'Despesa Atual' : 'Custo Total'}</div>
           <div style="font-size:18px; font-weight:800; color:#1a3d3b;">${(d.costAgua||d.costElec)? (d.costTotal).toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
           <div style="font-size:9px; color:#666;">Média ${d.dailyCost>0 ? d.dailyCost.toFixed(2)+' €/dia' : '—'}</div>
         </div>
         <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px; background:#f4f9f8;">
-          <div style="font-size:9.5px; color:#1b5568; font-weight:700; text-transform:uppercase;">Projeção Fecho</div>
+          <div style="font-size:9.5px; color:#1b5568; font-weight:700; text-transform:uppercase;">${d.isCurrentMonth ? 'Projeção Fecho' : 'Total Fechado'}</div>
           <div style="font-size:18px; font-weight:800; color:#1b5568;">${d.projectedCost>0 ? d.projectedCost.toLocaleString('pt-PT', {minimumFractionDigits:2, maximumFractionDigits:2})+' €' : '—'}</div>
-          <div style="font-size:9px; color:#555;">${d.varCostPct !== null ? `${d.varCostPct>0?'+':''}${d.varCostPct.toFixed(1)}% vs anterior` : 'Estimativa 30 dias'}</div>
+          <div style="font-size:9px; color:#555;">${d.varCostPct !== null ? `${d.varCostPct>0?'+':''}${d.varCostPct.toFixed(1)}% vs anterior` : (d.isCurrentMonth ? 'Estimativa 30 dias' : 'Consolidado')}</div>
         </div>
         <div style="border:1px solid #bbb; border-radius:8px; padding:8px 10px;">
           <div style="font-size:9.5px; color:#22b8b0; font-weight:700; text-transform:uppercase;">💧 Consumo Água</div>
@@ -7571,21 +8167,93 @@
     </div>`;
   }
 
-  async function generateExecutiveReport(triggerBtn){
+  function openPrintableWindow(htmlContent, title){
+    try{
+      const win = window.open('', '_blank');
+      if(!win){
+        window.print();
+        return;
+      }
+      win.document.write(`<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <title>${esc(title || 'Relatório')}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm 10mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #111; background: #fff; margin: 0; padding: 14px; }
+    .off-doc { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color:#111; background:#fff; }
+    .off-doc h1 { font-size:17px; margin:0 0 2px; }
+    .off-doc h2 { font-size:13px; margin:14px 0 4px; }
+    .off-doc .off-sub { font-size:12px; color:#555; margin-bottom:4px; }
+    .off-doc .off-meta { font-family: monospace; font-size:10px; color:#777; margin-bottom:12px; }
+    .off-doc table { width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 12px; }
+    .off-doc th, .off-doc td { border:1px solid #bbb; padding:4px 5px; text-align:left; }
+    .off-doc th { background:#eee; font-weight:700; }
+    .off-doc tr.bad td, .off-doc tr.bad { background:#fde8e0 !important; }
+    .off-doc .off-sign { display:flex; justify-content:space-between; margin-top:28px; padding-top:20px; border-top:1px dashed #999; font-size:10px; }
+    .off-doc .off-sign div { width:40%; text-align:center; border-top:1px solid #333; padding-top:4px; }
+    .off-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin:8px 0; }
+    .off-stats > div { border:1px solid #bbb; padding:5px 8px; border-radius:6px; font-size:10.5px; }
+    .off-stats > div b { display:block; font-size:9px; text-transform:uppercase; color:#555; }
+    .off-missing { font-size:10.5px; padding:6px 8px; background:#fff2df; border:1px solid #d99b26; border-radius:6px; margin:6px 0; font-family:monospace; }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  ${htmlContent}
+  <script>
+    window.addEventListener('load', () => {
+      setTimeout(() => { window.print(); }, 250);
+    });
+  <\/script>
+</body>
+</html>`);
+      win.document.close();
+    }catch(err){
+      console.warn('Popup blocked or direct window write failed:', err);
+      window.print();
+    }
+  }
+
+  function printOfficialDocument(title){
+    try{
+      window.print();
+    }catch(e){
+      console.warn('window.print() error:', e);
+    }
+  }
+
+  async function generateExecutiveReport(triggerBtn, customDesde, customHasta){
     const btn = triggerBtn || $('btnExecReportFromReports') || $('btnPrintExecReport');
     if(btn) setLoading(btn, true);
     try{
-      const d = await calculateExecutiveSummaryData();
+      let desde = customDesde, hasta = customHasta;
+      if(!desde || !hasta){
+        const sel = $('execMonthSelect');
+        if(sel && sel.value === 'prev'){
+          [desde, hasta] = rangoMesAnterior();
+        } else {
+          [desde, hasta] = rangoMesActual();
+        }
+      }
+      const d = await calculateExecutiveSummaryData(desde, hasta);
+      const reportHtml = buildExecutiveReport(d);
       $('officialReport').innerHTML =
         `<div class="off-toolbar-float">
            <button class="b-print" id="btnOffDoPrint">🖨️ Imprimir / PDF</button>
+           <button class="b-newwin" id="btnOffNewWin">🗗 Abrir e Imprimir (Nova Janela)</button>
            <button class="b-close" id="btnOffClose">✕ Fechar</button>
          </div>` +
-        buildExecutiveReport(d);
+        reportHtml;
       document.body.classList.add('previewing-official');
       window.scrollTo(0,0);
-      $('btnOffDoPrint').addEventListener('click', ()=> window.print());
+      $('btnOffDoPrint').addEventListener('click', ()=> printOfficialDocument('Relatório Executivo'));
+      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Executivo · Moon and Sun'));
       $('btnOffClose').addEventListener('click', closeOfficialPreview);
+      setTimeout(()=> printOfficialDocument('Relatório Executivo'), 300);
     }catch(e){
       showToast('⚠️ Não foi possível gerar o relatório executivo: ' + e.message, true);
     }finally{
@@ -8407,7 +9075,19 @@
       const mn=Math.min(...vals), mx=Math.max(...vals), av=vals.reduce((a,b)=>a+b,0)/vals.length;
       return `<div><b>${esc(label)}</b>mín ${mn.toFixed(dec)} · méd ${av.toFixed(dec)} · máx ${mx.toFixed(dec)} ${unit||''}</div>`;
     };
-    const comp = complianceStats(gen);
+    const comp = complianceStatsRange(gen, desde, hasta);
+    const missingDays = [];
+    {
+      const set = new Set(gen.map(r=> r.data.fecha));
+      const start = new Date(desde+'T00:00:00');
+      const end = new Date(hasta+'T00:00:00');
+      const today = new Date(); today.setHours(0,0,0,0);
+      const cappedEnd = end > today ? today : end;
+      for(let d=new Date(start); d<=cappedEnd; d.setDate(d.getDate()+1)){
+        const k = fmt(d);
+        if(!set.has(k)) missingDays.push(k);
+      }
+    }
     let rows = '';
     gen.forEach(r=>{
       rows += `<tr class="${bad(r)?'bad':''}"><td>${esc(r.data.fecha)}</td><td>${esc(r.data.hora)}</td><td>${esc(r.data.usuario||'')}</td><td>${nz2(r.data.agua)}</td><td>${nz2(r.data.electricidad)}</td><td>${nz2(r.data.retornoAqs)}</td><td>${nz2(r.data.aqsQuartos)}</td><td>${esc(r.data.estadoPiscina||'')}</td><td>${nz2(r.data.tempPiscina)}</td><td>${nz2(r.data.phPiscina)}</td><td>${nz2(r.data.cloroLibre)}</td><td>${nz2(r.data.cloroTotal)}</td><td>${dispYesNo(r.data.lavadoPrefiltro)}</td><td>${dispYesNo(r.data.lavadoFiltroArena)}</td><td>${dispYesNo(r.data.limpiezaSkimmer)}</td><td>${esc(r.data.observacoes||'')}</td></tr>`;
@@ -8438,7 +9118,7 @@
         ${stat('AQS quartos','aqsQuartos',1,'°C')}
         <div><b>${tp.length}</b>leituras de refrigeração (${tempBadCount} fora do intervalo)</div>
       </div>
-      ${comp.missing.length ? `<div class="off-missing">⚠ Dias sem registo geral: ${esc(comp.missing.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo geral</div>'}
+      ${missingDays.length ? `<div class="off-missing">⚠ Dias sem registo geral: ${esc(missingDays.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo geral</div>'}
       <h2>1. Controlo diário — Piscina e AQS</h2>
       <table><thead><tr>
         <th>Data</th><th>Hora</th><th>Técnico</th><th>Água m³</th><th>Elet. kWh</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préf.</th><th>Areia</th><th>Skim.</th><th>Observações</th>
@@ -8483,16 +9163,20 @@
         showToast(`Sem registos entre ${desde} e ${hasta} — mude o período (Esta semana / Este mês / Intervalo)`, true);
         return;
       }
+      const reportHtml = buildOfficialReport(desde, hasta, gen, qu, tp);
       $('officialReport').innerHTML =
         `<div class="off-toolbar-float">
            <button class="b-print" id="btnOffDoPrint">🖨️ Imprimir / PDF</button>
+           <button class="b-newwin" id="btnOffNewWin">🗗 Abrir e Imprimir (Nova Janela)</button>
            <button class="b-close" id="btnOffClose">✕ Fechar</button>
          </div>` +
-        buildOfficialReport(desde, hasta, gen, qu, tp);
+        reportHtml;
       document.body.classList.add('previewing-official');
       window.scrollTo(0,0);
-      $('btnOffDoPrint').addEventListener('click', ()=> window.print());
+      $('btnOffDoPrint').addEventListener('click', ()=> printOfficialDocument('Relatório Oficial'));
+      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Oficial · Moon and Sun'));
       $('btnOffClose').addEventListener('click', closeOfficialPreview);
+      setTimeout(()=> printOfficialDocument('Relatório Oficial'), 300);
     }catch(e){
       showToast('⚠️ Não foi possível gerar: ' + e.message, true);
     }finally{ setLoading(btn, false); }
