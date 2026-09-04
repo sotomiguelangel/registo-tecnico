@@ -1757,17 +1757,23 @@
   function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
   function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-  async function safeFetch(url, opts, timeoutMs = 16000){
-    const fn = (typeof window !== 'undefined' && typeof window.fetch === 'function') ? window.fetch : (typeof fetch === 'function' ? fetch : null);
-    if(!fn) throw new Error('API fetch não disponível neste navegador.');
+  async function safeFetch(url, opts, timeoutMs = 12000){ // 12 segundos por defeito
+    // Usar fetch nativo primeiro
+    const fn = (typeof window !== 'undefined' && typeof window.fetch === 'function') 
+      ? window.fetch 
+      : (typeof fetch === 'function' ? fetch : null);
 
+    if(!fn) throw new Error('Fetch não disponível neste navegador.');
+
+    // Se já houver um signal, usá-lo diretamente
     if(opts && opts.signal){
       return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
     }
 
+    // Criar controller com timeout
     const controller = new AbortController();
     const timer = setTimeout(()=>{
-      controller.abort(new Error('Tempo limite da ligação esgotado (' + Math.round(timeoutMs/1000) + 's)'));
+      controller.abort(new Error('Tempo limite excedido (' + Math.round(timeoutMs/1000) + 's)'));
     }, timeoutMs);
 
     try{
@@ -2123,15 +2129,21 @@
     $('loginHint').textContent = 'A sua sessão expirou ou foi revogada — inicie sessão novamente.';
   }
 
-  async function withRetry(fn, retries, delayMs){
-    retries = retries === undefined ? 1 : retries;
-    delayMs = delayMs === undefined ? 600 : delayMs;
+  async function withRetry(fn, retries = 1, delayMs = 500){
     let lastErr;
     for(let i=0; i<=retries; i++){
-      try{ return await fn(); }
+      try{ 
+        return await fn(); 
+      }
       catch(e){
         lastErr = e;
-        if(e && (e.auth || e.name === 'AbortError')) break;
+        console.log(`Attempt ${i+1} failed:`, e.message);
+
+        // Não repetir se for erro de auth, cancelamento ou tempo limite excedido
+        if(e && (e.auth || e.name === 'AbortError' || (e.message && (e.message.includes('exceeded') || e.message.includes('Tempo limite'))))){
+          break;
+        }
+
         if(i < retries) await new Promise(r=> setTimeout(r, delayMs * (i+1)));
       }
     }
@@ -2143,7 +2155,7 @@
       const url = new URL(API_URL);
       Object.keys(params).forEach(k=> url.searchParams.set(k, params[k]));
       const tk = getToken(); if(tk) url.searchParams.set('token', tk);
-      const res = await safeFetch(url.toString(), {}, 16000);
+      const res = await safeFetch(url.toString(), {}, 12000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -9605,45 +9617,77 @@
 
   (async function boot(){
     renderVersionUI();
-    checkAppVersion(false);
-    setInterval(() => checkAppVersion(false), 5 * 60 * 1000);
+    
+    // Verificar versão apenas em background, não bloquear
+    checkAppVersion(false).catch(()=>{});
+    
+    // Verificar versão a cada 5 minutos em background
+    setInterval(() => checkAppVersion(false).catch(()=>{}), 5 * 60 * 1000);
 
-    if(!CONFIG_OK) return;
-
-    // Verificar se já temos sessão válida
-    const savedToken = getToken();
-    const savedUser = recallUser();
-
-    if(savedToken && savedUser && !sessionChecked){
-      try{
-        const r = await apiGet({ action:'bootstrap' });
-        currentUser = r.user || savedUser;
-        rememberUser(currentUser);
-
-        if(r.config || r.records) {
-          preloadedBoot = {
-            config: r.config,
-            records: r.records,
-            equipamentos: r.equipamentos
-          };
-        }
-
-        $('loginScreen').classList.remove('show');
-        sessionChecked = true;
-        onLoggedIn();
-        return;
-      }catch(e){
-        console.log('Sessão expirada ou inválida, a solicitar novo login...');
-        setToken(null);
-        rememberUser(null);
-        currentUser = null;
-        sessionChecked = false;
-      }
+    // Se não há URL de API configurada, mostrar ecrã de setup
+    if(!CONFIG_OK) {
+      $('setupScreen').classList.add('show');
+      return;
     }
 
+    // Verificação simples e rápida de sessão
+    const savedToken = getToken();
+    const savedUser = recallUser();
+    
+    // Se há sessão guardada, tentar restaurar silenciosamente
+    if(savedToken && savedUser){
+      $('loginScreen').classList.add('show');
+      
+      // Timeout reduzido para não bloquear
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000); // 8 segundos máximo
+        
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ 
+            action: 'bootstrap', 
+            token: savedToken 
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        if(res.ok){
+          const text = await res.text();
+          const r = JSON.parse(text);
+          
+          if(r.ok){
+            // Sessão válida, continuar
+            currentUser = r.user || savedUser;
+            rememberUser(currentUser);
+            
+            if(r.config || r.records) {
+              preloadedBoot = { 
+                config: r.config, 
+                records: r.records, 
+                equipamentos: r.equipamentos 
+              };
+            }
+            
+            $('loginScreen').classList.remove('show');
+            sessionChecked = true;
+            onLoggedIn();
+            return;
+          }
+        }
+      } catch(e) {
+        console.log('Session restore failed:', e.message);
+        // Continuar para o login normal se falhar
+      }
+    }
+    
+    // Mostrar ecrã de login normal
     $('loginScreen').classList.add('show');
     refreshSeedNote();
-    checkApiHealth();
+    checkApiHealth(); // Verificar ligação sem bloquear
   })();
 })();
 </script>
