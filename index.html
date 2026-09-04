@@ -5027,33 +5027,62 @@
         : 'Contadores do mês ativos · Consumos calculados por diferença a partir da linha base.';
     }
 
-    // Check previous month
+    // Lógica aperfeiçoada do aviso de fecho pendente
+    // Ocultar por omissão
+    if(noticeEl) noticeEl.style.display = 'none';
+
+    // Apenas administradores veem este aviso (só admin tem permissão para fechar o mês)
+    if(!isAdmin()) return;
+
+    // Verificar mês anterior
     const d = new Date();
     const prevMonthDate = new Date(d.getFullYear(), d.getMonth()-1, 1);
     const prevMonthKey = `${prevMonthDate.getFullYear()}-${pad(prevMonthDate.getMonth()+1)}`;
+    const prevMonthName = formatMonthName(prevMonthKey);
     const isPrevClosed = fechos.some(f => f.mesKey === prevMonthKey);
 
-    if(!isPrevClosed && noticeEl){
-      try{
-        const generalRaw = await listRecords('general');
-        const prevRecords = generalRaw.filter(r => r.data && r.data.fecha && r.data.fecha.startsWith(prevMonthKey));
-        if(prevRecords.length > 0){
+    // Se o mês anterior já estiver fechado, não mostrar nada
+    if(isPrevClosed) return;
+
+    try{
+      const generalRaw = await listRecords('general');
+
+      // Filtrar registos do mês anterior
+      const prevRecords = generalRaw.filter(r =>
+        r.data && r.data.fecha && r.data.fecha.startsWith(prevMonthKey)
+      );
+
+      // Filtrar registos do mês atual (para verificar se há atividade recente)
+      const currRecords = generalRaw.filter(r =>
+        r.data && r.data.fecha && r.data.fecha.startsWith(currentMonthKey)
+      );
+
+      // Mostrar o aviso apenas se:
+      // - Existem registos do mês anterior
+      // - TAMBÉM já existem registos no mês atual (início de atividade recente do novo período)
+      // - O mês anterior não foi fechado
+      if(prevRecords.length > 0 && currRecords.length > 0){
+        if(noticeEl){
           noticeEl.style.display = 'block';
           if(noticeTextEl){
-            noticeTextEl.textContent = `O mês de ${formatMonthName(prevMonthKey)} tem ${prevRecords.length} registo(s) pendentes de consolidação formal.`;
+            noticeTextEl.innerHTML = `
+              O mês de <b>${prevMonthName}</b> tem 
+              <b>${prevRecords.length} registo(s)</b> pendentes de consolidação formal.<br>
+              <span style="font-size:11px; color:var(--ink-600)">
+              • Recomendamos fazer o fecho para oficializar os dados<br>
+              • Pode fazer agora ou mais tarde, não há urgência<br>
+              • O sistema continua a funcionar normalmente
+              </span>
+            `;
           }
           const btnNotice = $('btnNoticeClosePrev');
           if(btnNotice){
             btnNotice.onclick = () => openFechoMensalModal(prevMonthKey);
           }
-        } else {
-          noticeEl.style.display = 'none';
         }
-      }catch(e){
-        noticeEl.style.display = 'none';
       }
-    } else if(noticeEl){
-      noticeEl.style.display = 'none';
+    }catch(e){
+      if(noticeEl) noticeEl.style.display = 'none';
     }
   }
 
