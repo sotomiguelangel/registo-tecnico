@@ -2454,8 +2454,11 @@
   let cachedDashboardTimestamp = 0;
   let cachedEjecutivoData = null;
   let cachedEjecutivoTimestamp = 0;
+  let cachedEjecutivoPeriodKey = '';
   let cachedExecPeriodText = '';
   let cachedExecMeta = null;
+
+  let executivoRenderRequestId = 0;
   let cachedHistorialData = null;
   let cachedHistorialTimestamp = 0;
   let lastHistorialItems = [];
@@ -2467,7 +2470,7 @@
     memoCache.cycles = null; memoCache.cyclesKey = '';
     memoCache.deltas = null; memoCache.deltasKey = '';
     cachedDashboardData = null; cachedDashboardTimestamp = 0;
-    cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0;
+    cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = '';
     cachedHistorialData = null; cachedHistorialTimestamp = 0;
     lastHistorialItems = [];
   }
@@ -7998,26 +8001,86 @@
   let execActiveMetric = 'costo';
   let cachedExecMonths = null;
 
-  async function buildMonthlyHistory(monthsBack){
-    const [genAllRaw, tarifas] = await Promise.all([ listRecords('general'), getTarifas() ]);
+  async function buildMonthlyHistory(monthsBack, anchorDate){
+    const [genAllRaw, tarifas] = await Promise.all([
+      listRecords('general'),
+      getTarifas()
+    ]);
+
     const genWithDeltas = await buildGenWithDeltas(genAllRaw);
+
+    const anchor = anchorDate
+      ? new Date(anchorDate + 'T00:00:00')
+      : new Date();
+
     const months = [];
-    for(let i=monthsBack-1; i>=0; i--){
-      const [desde, hasta] = monthRangeOffset(-i);
-      const stats = statsForRange(genWithDeltas, desde, hasta);
-      const comp = complianceStatsRange(genAllRaw, desde, hasta);
-      const costAgua = (stats.aguaDeltaCount && tarifas.agua) ? stats.aguaTotal * tarifas.agua : null;
-      const costElec = (stats.elecDeltaCount && tarifas.elec) ? stats.elecTotal * tarifas.elec : null;
-      const totalCost = (costAgua !== null || costElec !== null) ? ((costAgua||0) + (costElec||0)) : null;
+
+    for(let i = monthsBack - 1; i >= 0; i--){
+      const target = new Date(
+        anchor.getFullYear(),
+        anchor.getMonth() - i,
+        1
+      );
+
+      const first = new Date(
+        target.getFullYear(),
+        target.getMonth(),
+        1
+      );
+
+      const last = new Date(
+        target.getFullYear(),
+        target.getMonth() + 1,
+        0
+      );
+
+      const desde = fmt(first);
+      const hasta = fmt(last);
+
+      const stats = statsForRange(
+        genWithDeltas,
+        desde,
+        hasta
+      );
+
+      const comp = complianceStatsRange(
+        genAllRaw,
+        desde,
+        hasta
+      );
+
+      const costAgua =
+        stats.aguaDeltaCount && tarifas.agua
+          ? stats.aguaTotal * tarifas.agua
+          : null;
+
+      const costElec =
+        stats.elecDeltaCount && tarifas.elec
+          ? stats.elecTotal * tarifas.elec
+          : null;
+
+      const totalCost =
+        costAgua !== null || costElec !== null
+          ? (costAgua || 0) + (costElec || 0)
+          : null;
+
       months.push({
-        label: desde.slice(0,7),
-        desde, hasta,
-        agua: stats.aguaDeltaCount ? stats.aguaTotal : null,
-        elec: stats.elecDeltaCount ? stats.elecTotal : null,
+        label: desde.slice(0, 7),
+        desde,
+        hasta,
+        agua: stats.aguaDeltaCount
+          ? stats.aguaTotal
+          : null,
+        elec: stats.elecDeltaCount
+          ? stats.elecTotal
+          : null,
         compliance: comp.pct,
-        costAgua, costElec, totalCost
+        costAgua,
+        costElec,
+        totalCost
       });
     }
+
     return months;
   }
 
@@ -8066,15 +8129,45 @@
       ? temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não')
       : tempBadMonth;
 
-    // Ciclo de quartos (calculado dinamicamente com base nas leituras reais)
-    const groupedQuartos = groupQuartoRecordsIntoCycles(quartosRaw, roomsList);
-    const activeCycle = groupedQuartos.currentCycle;
-    const displayCycle = activeCycle;
+    const frioPeriodLabel = isCurrentMonth
+      ? 'últimos 7 dias'
+      : `período ${desde} a ${hasta}`;
+
+    // Reconstruir los ciclos solamente con los registros existentes
+    // hasta el final del período seleccionado. De esta forma, al consultar
+    // el mes anterior se obtiene el ciclo que estaba activo en ese momento.
+    const quartosUntilPeriodEnd = quartosRaw.filter(r =>
+      r.data &&
+      r.data.fecha &&
+      r.data.fecha <= hasta
+    );
+
+    const groupedQuartos = groupQuartoRecordsIntoCycles(
+      quartosUntilPeriodEnd,
+      roomsList
+    );
+
+    let displayCycle = groupedQuartos.currentCycle;
+
+    // Si el ciclo actual reconstruido está vacío significa que el último
+    // registro completó un ciclo. En ese caso mostramos ese último ciclo.
+    if(
+      displayCycle &&
+      displayCycle.doneCount === 0 &&
+      groupedQuartos.completedCycles.length > 0
+    ){
+      displayCycle =
+        groupedQuartos.completedCycles[
+          groupedQuartos.completedCycles.length - 1
+        ];
+    }
 
     const totalRooms = roomsList.length || 40;
     const done = displayCycle ? displayCycle.doneCount : 0;
     const pending = Math.max(0, totalRooms - done);
-    const roomsPct = Math.min(100, Math.round((done / totalRooms) * 100));
+    const roomsPct = totalRooms > 0
+      ? Math.min(100, Math.round((done / totalRooms) * 100))
+      : 0;
 
     // 1. Pilares do Score Global de Saúde Técnica (0-100%)
     // Pilar 1: Segurança AQS (Legionella & Temperaturas de Retorno/Quartos) - Peso 25%
@@ -8212,7 +8305,7 @@
       const equipNomes = [...new Set(tempBad7.map(r=>r.data.nome))].slice(0,3).join(', ');
       actionItems.push({
         type: 'crit', tag: 'HACCP · Cadeia de Frio',
-        title: `${tempBad7.length} leitura(s) fora do intervalo seguro nos últimos 7 dias`,
+        title: `${tempBad7.length} leitura(s) fora do intervalo seguro no período selecionado`,
         desc: `Equipamentos com desvio: ${esc(equipNomes)}. Risco de conservação e segurança alimentar.`,
         rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
       });
@@ -8252,12 +8345,13 @@
     const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
     const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
 
-    const months = await buildMonthlyHistory(6);
+    const months = await buildMonthlyHistory(6, hasta);
 
     return {
       generalRaw, tempRaw, quartosRaw, tarifasEjec, genWithDeltas,
       desde, hasta, isCurrentMonth, monthStats, comp, prevMonthStats,
       temp7, tempBad7, tempMonth, tempBadMonth,
+      frioPeriodLabel,
       done, totalRooms, pending, roomsPct, displayCycle,
       pilarAqs, pilarPiscina, pilarFrio, pilarEficiencia, pilarQuartos, healthScore,
       scoreStatusClass, scoreBadgeText, scoreHeadline, scoreDesc,
@@ -8274,20 +8368,60 @@
     const output = $('ejecutivoOutput');
     const button = $('btnRefreshEjecutivo');
 
-    const now = Date.now();
-    const isStale = (now - cachedEjecutivoTimestamp) > CACHE_MAX_AGE;
-    const hasCache = cachedEjecutivoData !== null;
+    // Cada render tiene un identificador para evitar que una petición antigua
+    // sobrescriba el resultado de una selección más reciente.
+    const requestId = ++executivoRenderRequestId;
 
-    if(!forcedDesde && !forcedHasta && hasCache && !isStale){
+    let selectedDesde = forcedDesde;
+    let selectedHasta = forcedHasta;
+    let selectedPeriodType = 'current';
+
+    if(!selectedDesde || !selectedHasta){
+      const select = $('execMonthSelect');
+
+      if(select && select.value === 'prev'){
+        [selectedDesde, selectedHasta] = rangoMesAnterior();
+        selectedPeriodType = 'prev';
+      } else {
+        [selectedDesde, selectedHasta] = rangoMesActual();
+        selectedPeriodType = 'current';
+      }
+    } else {
+      const [currentDesde, currentHasta] = rangoMesActual();
+
+      selectedPeriodType =
+        selectedDesde === currentDesde && selectedHasta === currentHasta
+          ? 'current'
+          : 'custom';
+    }
+
+    const periodCacheKey =
+      `${selectedPeriodType}:${selectedDesde}:${selectedHasta}`;
+
+    const now = Date.now();
+    const isStale =
+      (now - cachedEjecutivoTimestamp) > CACHE_MAX_AGE;
+
+    const hasValidCache =
+      cachedEjecutivoData !== null &&
+      cachedEjecutivoPeriodKey === periodCacheKey;
+
+    if(hasValidCache && !isStale){
       if(output) output.innerHTML = cachedEjecutivoData;
+
       const periodLabel = $('ejecutivoPeriod');
-      if(periodLabel && cachedExecPeriodText) periodLabel.textContent = cachedExecPeriodText;
+      if(periodLabel && cachedExecPeriodText){
+        periodLabel.textContent = cachedExecPeriodText;
+      }
+
       mountCharts(output);
       renderExecInteractiveChart();
+
       if(cachedExecMeta){
         wireHeatmapNav(cachedExecMeta.generalRaw);
         wireExecEvents(cachedExecMonths, cachedExecMeta);
       }
+
       return;
     }
 
@@ -8295,24 +8429,18 @@
     output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
     <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
     try{
-      let desde = forcedDesde, hasta = forcedHasta;
-      if(!desde || !hasta){
-        const sel = $('execMonthSelect');
-        if(sel && sel.value === 'prev'){
-          [desde, hasta] = rangoMesAnterior();
-        } else {
-          [desde, hasta] = rangoMesActual();
-        }
-      }
+      const desde = selectedDesde;
+      const hasta = selectedHasta;
+
       const d = await calculateExecutiveSummaryData(desde, hasta);
+
+      // Si el usuario cambió el período mientras se cargaban los datos,
+      // se ignora esta respuesta antigua.
+      if(requestId !== executivoRenderRequestId){
+        return;
+      }
       cachedExecMonths = d.months;
       cachedExecMeta = { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw };
-
-      const periodLabel = $('ejecutivoPeriod');
-      if(periodLabel){
-        periodLabel.textContent = `Período de Análise: ${d.desde} a ${d.hasta} ${d.isCurrentMonth ? '(Mês em curso)' : '(Mês anterior)'}`;
-        cachedExecPeriodText = periodLabel.textContent;
-      }
 
       // Scorecard HTML (5 pilares separados: AQS, Piscina, Frio, Cadência, Quartos)
       const scorecardHTML = `
@@ -8350,11 +8478,11 @@
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
-                <span>🧊 Cadeia de Frio (7 dias)</span>
+                <span>🧊 Cadeia de Frio (${esc(d.frioPeriodLabel)})</span>
                 <span class="exec-pillar-val" style="color:${d.temp7.length===0?'var(--ink-400)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarFrio}%</span>
               </div>
               <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${d.temp7.length===0?'var(--line)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
-              <div class="exec-pillar-note">${d.temp7.length===0?'Sem leituras nos últimos 7 dias (0%)':(d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)')}</div>
+              <div class="exec-pillar-note">${d.temp7.length===0?'Sem leituras no período selecionado (0%)':(d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)')}</div>
             </div>
             <div class="exec-pillar-item">
               <div class="exec-pillar-head">
@@ -8444,7 +8572,14 @@
         ${kpiCard('Consumo eletricidade (mês)', (d.monthStats.elecDeltaCount? fmtNum(d.monthStats.elecTotal)+' kWh':'—') + (d.monthStats.elecDeltaCount?costTag(d.monthStats.elecTotal, d.tarifasEjec.elec):''), d.monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', d.elecSpark, CHART_COLORS.b)}
       </div>`;
 
-      $('ejecutivoPeriod').textContent = `Mês em curso · ${d.desde} a ${d.hasta} · atualizado às ${nowTimeStr()}`;
+      const executivoPeriodName = d.isCurrentMonth
+        ? 'Mês em curso'
+        : 'Mês anterior';
+
+      $('ejecutivoPeriod').textContent =
+        `${executivoPeriodName} · ${d.desde} a ${d.hasta} · atualizado às ${nowTimeStr()}`;
+
+      cachedExecPeriodText = $('ejecutivoPeriod').textContent;
 
       const chartSwitcherHTML = `
         <div style="background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;">
@@ -8479,6 +8614,7 @@
       if(output && output.innerHTML){
         cachedEjecutivoData = output.innerHTML;
         cachedEjecutivoTimestamp = Date.now();
+        cachedEjecutivoPeriodKey = periodCacheKey;
       }
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
@@ -8541,7 +8677,7 @@
     const selMonth = $('execMonthSelect');
     if(selMonth && !selMonth.dataset.bound){
       selMonth.dataset.bound = '1';
-      selMonth.onchange = () => { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; renderEjecutivo(); };
+      selMonth.onchange = () => { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; renderEjecutivo(); };
     }
 
     // Exportação CSV Executivo
@@ -8814,7 +8950,7 @@
     generateExecutiveReport($('btnPrintExecReport'));
   }
 
-  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; renderEjecutivo(); });
+  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; renderEjecutivo(); });
   if($('btnPrintExecReport')) $('btnPrintExecReport').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
   if($('btnExportExecCsv')) $('btnExportExecCsv').addEventListener('click', ()=> exportExecutiveCsv());
 
