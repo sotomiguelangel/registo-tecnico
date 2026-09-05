@@ -1,0 +1,15 @@
+{
+  "version": "3.3.0",
+  "semver": "3.3.0",
+  "MAJOR": 3,
+  "MINOR": 3,
+  "PATCH": 0,
+  "BUILD_ID": "2026.01.15",
+  "BUILD_DATE": "2026-01-15",
+  "CHANNEL": "Produção",
+  "forceUpdate": false,
+  "minVersion": "3.2.0",
+  "releaseNotes": "Correções de rendimento e melhorias no sistema de versioning",
+  "url": "/index.html",
+  "checksum": "sha256-del-archivo"
+}

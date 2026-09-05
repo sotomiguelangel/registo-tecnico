@@ -27,14 +27,43 @@ app.use(express.static(__dirname));
 // Version info endpoint
 const APP_VERSION_DATA = {
   name: 'Registo Técnico · Moon and Sun',
-  semver: '3.2.2',
-  build: '2026.09.03-R2',
-  buildDate: '2026-09-03',
-  channel: 'Produção (Oficial)',
-  full: 'v3.2.2 (Build 2026.09.03-R2)',
-  label: 'v3.2.2',
+  version: '3.3.0',
+  semver: '3.3.0',
+  MAJOR: 3,
+  MINOR: 3,
+  PATCH: 0,
+  build: '2026.01.15',
+  buildDate: '2026-01-15',
+  channel: 'Produção',
+  forceUpdate: false,
+  full: 'v3.3.0 (2026.01.15)',
+  label: 'v3.3.0',
   timestamp: Date.now()
 };
+
+app.get('/version.json', (req, res) => {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+  res.json({
+    version: APP_VERSION_DATA.version,
+    semver: APP_VERSION_DATA.semver,
+    MAJOR: APP_VERSION_DATA.MAJOR,
+    MINOR: APP_VERSION_DATA.MINOR,
+    PATCH: APP_VERSION_DATA.PATCH,
+    BUILD_ID: APP_VERSION_DATA.build,
+    BUILD_DATE: APP_VERSION_DATA.buildDate,
+    CHANNEL: APP_VERSION_DATA.channel,
+    forceUpdate: APP_VERSION_DATA.forceUpdate,
+    minVersion: '3.2.0',
+    releaseNotes: 'Correções de rendimento e melhorias no sistema de versioning',
+    url: '/index.html',
+    timestamp: Date.now()
+  });
+});
 
 app.get('/api/version', (req, res) => {
   res.set({

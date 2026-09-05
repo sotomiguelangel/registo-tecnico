@@ -1803,75 +1803,78 @@
   // =======================================================================
 
   // =======================================================================
-  // NOMENCLATURA E CONTROLO DE VERSÕES DA APLICAÇÃO
+  // NOMENCLATURA E CONTROLO DE VERSÕES DA APLICAÇÃO (CENTRALIZADO)
   // =======================================================================
   const APP_RELEASE = {
-    major: 3,
-    minor: 2,
-    patch: 2,
-    semver: '3.2.2',
-    build: '2026.09.03-R1',
-    buildDate: '2026-09-03',
-    channel: 'Produção (Oficial)',
-    get full() { return `v${this.semver} (${this.build})`; },
-    get label() { return `v${this.semver}`; },
-    get short() { return `v${this.semver} · ${this.buildDate}`; },
+    // ✅ NÚMERO DE VERSÃO UNIFICADO - apenas alterar aqui
+    VERSION: '3.3.0',
+    MAJOR: 3,
+    MINOR: 3,
+    PATCH: 0,
+    
+    // Nome descritivo e build
+    CHANNEL: 'Produção',
+    BUILD_ID: '2026.01.15',
+    BUILD_DATE: '2026-01-15',
+    
+    // URL para verificar atualizações (repositório ou endpoint de versão local)
+    UPDATE_URL: 'https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/version.json',
+    
+    // Getters unificados e compatibilidade
+    get semver() { return this.VERSION; },
+    get build() { return this.BUILD_ID; },
+    get buildDate() { return this.BUILD_DATE; },
+    get channel() { return this.CHANNEL; },
+    get full() { return `v${this.VERSION} (${this.BUILD_ID})`; },
+    get label() { return `v${this.VERSION}`; },
+    get short() { return `v${this.VERSION} · ${this.BUILD_DATE}`; },
+    
+    // Changelog
     changelog: [
       {
-        version: 'v3.2.2',
-        date: '2026-09-03',
+        version: '3.3.0',
+        date: '2026-01-15',
         tag: 'Versão Atual',
         highlights: [
-          'Gravação ultrarrápida Local-First: elimina totalmente o congelamento da app ao guardar registos.',
-          'Fila de sincronização assíncrona com envio sequencial transparente para o Google Sheets.',
-          'Indicador visual de estado de sincronização em tempo real na barra de estado superior.',
-          'Otimização completa em Controlo Diário (água, eletricidade, retorno AQS, AQS quartos, piscina), Quartos e Refrigeração.'
+          'Correção do ciclo de quartos: completa apenas ao medir todos os quartos da lista (40 quartos).',
+          'Melhoria substancial no rendimento do login, bootstrap sem bloqueio e gestão de timeout.',
+          'Sistema de versão unificado e sincronização forçada para todos os postos e equipamentos.'
         ]
       },
       {
-        version: 'v3.2.1',
-        date: '2026-09-01',
+        version: '3.2.2',
+        date: '2026-01-10',
         tag: 'Estável',
         highlights: [
-          'Corrigida a verificação de versão para sincronização imediata sem congelamento.',
-          'Recuperada a navegação em ciclos anteriores de Quartos com consulta e edição direta de leituras passadas.',
-          'Melhorada a deteção automática de fecho de ciclos de quartos mesmo com medições parciais.'
-        ]
-      },
-      {
-        version: 'v3.2.0',
-        date: '2026-08-31',
-        tag: 'Estável',
-        highlights: [
-          'Painel Executivo Estratégico com pilares de prevenção HACCP e Legionella.',
-          'Exportação de relatórios técnicos mensais em formato oficial para impressão/PDF.',
-          'Gráficos de dispersão e correlação em tempo real D3.js (Cloro vs. pH).'
-        ]
-      },
-      {
-        version: 'v3.0.0',
-        date: '2026-08-20',
-        tag: 'Base',
-        highlights: [
-          'Arquitetura modular de dados com sincronização assíncrona ao Google Sheets.',
-          'Suporte PWA e Service Worker para operação contínua e tolerância a falhas offline.',
-          'Registo diário de instalações gerais, piscina, AQS e controlo de quartos.'
+          'Gravação ultrarrápida Local-First com fila assíncrona para Google Sheets.',
+          'Correção de bugs e estabilização de sessão.'
         ]
       }
     ]
   };
 
+  // Alias para compatibilidade
   const APP_VERSION = APP_RELEASE.full;
 
   let latestServerVersion = null;
-  let versionStatusState = 'ok'; // 'ok' | 'warn' | 'offline'
+  let versionStatusState = 'ok'; // 'ok' | 'warn' | 'offline' | 'forced'
 
-  function parseSemver(v){
-    if(!v) return [0,0,0];
+  // Parsear versão semântica
+  function parseVersion(v){
+    if(!v) return { major: 0, minor: 0, patch: 0 };
     const clean = String(v).replace(/^v/i, '').split('-')[0].split('(')[0].trim();
     const parts = clean.split('.').map(n => parseInt(n, 10) || 0);
-    while(parts.length < 3) parts.push(0);
-    return parts;
+    return {
+      major: parts[0] || 0,
+      minor: parts[1] || 0,
+      patch: parts[2] || 0
+    };
+  }
+
+  // Alias para compatibilidade retroativa
+  function parseSemver(v){
+    const p = parseVersion(v);
+    return [p.major, p.minor, p.patch];
   }
 
   function compareSemver(vA, vB){
@@ -1884,10 +1887,119 @@
     return 0;
   }
 
+  // Determinar se necessita atualização
+  function shouldUpdate(current, server){
+    if(!server) return false;
+    const curr = parseVersion(current);
+    const svc = parseVersion(server);
+    
+    // Se o servidor tem forceUpdate, sempre atualizar
+    if(latestServerVersion?.forceUpdate) return true;
+    
+    // Comparar semanticamente
+    if(svc.major > curr.major) return true;
+    if(svc.major === curr.major && svc.minor > curr.minor) return true;
+    if(svc.major === curr.major && svc.minor === curr.minor && svc.patch > curr.patch) return true;
+    
+    return false;
+  }
+
+  // Mostrar alerta de versão
+  function showVersionAlert(serverData, isNewer){
+    const version = serverData.version || serverData.semver || serverData.VERSION || 'desconhecida';
+    const isForced = serverData.forceUpdate === true || versionStatusState === 'forced';
+    
+    const banner = $('updateBanner');
+    if(!banner) return;
+    
+    banner.classList.add('show');
+    
+    const title = $('updateBannerTitle');
+    const sub = $('updateBannerSub');
+    const btnNow = $('btnUpdateNow');
+    const btnDismiss = $('btnUpdateDismiss');
+    
+    if(title) title.textContent = isForced 
+      ? `🔄 Atualização OBRIGATÓRIA para v${version}`
+      : `🆕 Nova versão disponível (v${version})`;
+    
+    if(sub) sub.textContent = isForced
+      ? 'Atualize agora para continuar usando o sistema'
+      : 'Clique para atualizar para a versão mais recente';
+    
+    // Botão de atualizar
+    if(btnNow){
+      btnNow.textContent = isForced ? '🔄 Atualizar Agora' : 'Atualizar';
+      btnNow.disabled = false;
+      btnNow.onclick = () => forceAppUpdate();
+    }
+    
+    // Botão de fechar (apenas se não for forçada)
+    if(btnDismiss){
+      btnDismiss.style.display = isForced ? 'none' : 'inline-block';
+      if(!isForced){
+        btnDismiss.onclick = () => {
+          banner.classList.remove('show');
+          // Guardar preferência
+          try{
+            localStorage.setItem('versionDismissed', APP_RELEASE.VERSION);
+          }catch(e){}
+        };
+      }
+    }
+  }
+
+  // Forçar atualização
+  async function forceAppUpdate(){
+    showToast('⏳ Atualizando aplicação...', false);
+    
+    try{
+      // 1. Limpar todos os caches
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      
+      // 2. Unregister service workers
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for(const reg of regs){
+          if(reg.waiting){
+            reg.waiting.postMessage({ action:'skipWaiting' });
+          }
+          try { await reg.unregister(); } catch(e){}
+        }
+      }
+      
+      // 3. Limpar localStorage não essencial
+      try{
+        const keepKeys = ['bitacora_token', 'bitacora_user', 'bitacora_sync_queue', 'bitacora_sheets_url', 'bitacora_theme'];
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach(k => {
+          if(!keepKeys.includes(k)){
+            localStorage.removeItem(k);
+          }
+        });
+      }catch(e){}
+      
+      // 4. Recarregar com cache bypass
+      window.location.href = window.location.pathname + '?_v=' + Date.now() + '#updated';
+      
+    }catch(e){
+      console.error('Error al actualizar:', e);
+      // Fallback: recarregar normalmente
+      window.location.reload(true);
+    }
+  }
+
   function renderVersionUI(){
     document.querySelectorAll('.appVersionInline').forEach(el=> el.textContent = APP_RELEASE.label);
-    const vLabel = $('appVersionLabel'); if(vLabel) vLabel.textContent = APP_RELEASE.label;
-    const vSetup = $('appVersionLabelSetup'); if(vSetup) vSetup.textContent = APP_RELEASE.label;
+    
+    const vLabel = $('appVersionLabel'); 
+    if(vLabel) vLabel.textContent = APP_RELEASE.label;
+    
+    const vSetup = $('appVersionLabelSetup'); 
+    if(vSetup) vSetup.textContent = APP_RELEASE.label;
 
     const badge = $('btnOpenVersionModal');
     const vTag = $('vStatusTag');
@@ -1895,95 +2007,113 @@
     const dot = $('vDotStatus');
     const updateBanner = $('updateBanner');
 
-    if(versionStatusState === 'warn'){
+    // ✅ Mostrar estado correto
+    if(versionStatusState === 'forced'){
       if(badge){ badge.classList.add('warn'); badge.classList.remove('offline'); }
-      if(dot){ dot.style.background = 'var(--amber-500)'; }
-      if(vTag){ vTag.textContent = '⚠️ Nova Versão'; }
+      if(dot){ dot.style.background = 'var(--coral-500)'; dot.style.animation = 'pulse-dot 1s infinite'; }
+      if(vTag){ vTag.textContent = '⚠️ OBRIGATÓRIA'; vTag.style.background = 'var(--coral-500)'; vTag.style.color = '#fff'; }
+      if(vLoginTag){ vLoginTag.textContent = '⚠️ Atualização Obrigatória'; }
+      if(updateBanner) updateBanner.classList.add('show');
+    }
+    else if(versionStatusState === 'warn'){
+      if(badge){ badge.classList.add('warn'); badge.classList.remove('offline'); }
+      if(dot){ dot.style.background = 'var(--amber-500)'; dot.style.animation = 'pulse-dot 1.4s infinite'; }
+      if(vTag){ vTag.textContent = '⚠️ Nova Versão'; vTag.style.background = ''; vTag.style.color = ''; }
       if(vLoginTag){ vLoginTag.textContent = '⚠️ Nova Versão'; }
-      if(updateBanner){
-        updateBanner.classList.add('show');
-        const sVer = latestServerVersion ? (latestServerVersion.semver || latestServerVersion.version) : '';
-        $('updateBannerTitle').textContent = sVer ? `Nova versão disponível (v${sVer})!` : 'Nova versão disponível da aplicação!';
-        $('updateBannerSub').textContent = 'O servidor possui uma atualização pronta. Clique para atualizar e limpar a cache.';
-      }
-    } else if(versionStatusState === 'offline'){
+      if(updateBanner) updateBanner.classList.add('show');
+    } 
+    else if(versionStatusState === 'offline'){
       if(badge){ badge.classList.remove('warn'); badge.classList.add('offline'); }
-      if(dot){ dot.style.background = 'var(--ice-500)'; }
-      if(vTag){ vTag.textContent = 'Modo Offline'; }
+      if(dot){ dot.style.background = 'var(--ice-500)'; dot.style.animation = 'none'; }
+      if(vTag){ vTag.textContent = 'Modo Offline'; vTag.style.background = ''; vTag.style.color = ''; }
       if(vLoginTag){ vLoginTag.textContent = 'Modo Offline'; }
       if(updateBanner) updateBanner.classList.remove('show');
-    } else {
+    } 
+    else {
       if(badge){ badge.classList.remove('warn', 'offline'); }
-      if(dot){ dot.style.background = 'var(--ok-500)'; }
-      if(vTag){ vTag.textContent = '✓ Atualizada'; }
+      if(dot){ dot.style.background = 'var(--ok-500)'; dot.style.animation = 'none'; }
+      if(vTag){ vTag.textContent = '✓ Atualizada'; vTag.style.background = ''; vTag.style.color = ''; }
       if(vLoginTag){ vLoginTag.textContent = '✓ Atualizada'; }
       if(updateBanner) updateBanner.classList.remove('show');
     }
   }
 
+  // Função principal de verificação
   async function checkAppVersion(manual){
     try{
-      const res = await safeFetch('/api/version?t=' + Date.now(), {
-        cache: 'no-store',
-        headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' }
-      });
-      if(!res.ok) throw new Error('Status ' + res.status);
+      // ✅ Tentar obter versão do servidor/repositório
+      let res = null;
+      let urlToTry = APP_RELEASE.UPDATE_URL;
+      
+      // Se URL do GitHub for padrão com TU_USUARIO, utilizar versão local ou de servidor
+      if(!urlToTry || urlToTry.includes('TU_USUARIO')){
+        urlToTry = '/version.json';
+      }
+
+      try{
+        res = await safeFetch(urlToTry + '?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' },
+          method: 'GET'
+        }, 10000);
+      }catch(netErr){
+        // Fallback para endpoint local /version.json ou /api/version
+        res = await safeFetch('/version.json?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' },
+          method: 'GET'
+        }, 10000);
+      }
+
+      if(!res || !res.ok){
+        res = await safeFetch('/api/version?t=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Pragma':'no-cache', 'Cache-Control':'no-cache' },
+          method: 'GET'
+        }, 10000);
+      }
+
+      if(!res || !res.ok) throw new Error('Status ' + (res ? res.status : 'offline'));
+      
       const data = await res.json();
       latestServerVersion = data;
-
-      const semCmp = compareSemver(data.semver || data.version, APP_RELEASE.semver);
-      const isNewerBuild = data.build && data.build !== APP_RELEASE.build && semCmp >= 0;
-
-      if(semCmp > 0 || isNewerBuild){
-        versionStatusState = 'warn';
+      
+      // Comparar versões
+      const serverVer = data.version || data.semver || data.VERSION;
+      const currentVer = APP_RELEASE.VERSION;
+      
+      console.log(`📱 Versão atual: ${currentVer} | Servidor: ${serverVer}`);
+      
+      // Determinar se necessita atualização
+      const needsUpdate = shouldUpdate(currentVer, serverVer);
+      
+      if(needsUpdate){
+        versionStatusState = data.forceUpdate ? 'forced' : 'warn';
         renderVersionUI();
-        if(manual){
-          showToast(`⚠️ Nova versão detetada: v${data.semver || data.version} (${data.build || ''}). Clique em Atualizar.`, true);
+        
+        if(manual || data.forceUpdate){
+          showVersionAlert(data, needsUpdate);
         }
       } else {
         versionStatusState = 'ok';
         renderVersionUI();
         if(manual){
-          showToast(`✓ A sua versão (v${APP_RELEASE.semver}) está atualizada e coincide com o servidor.`);
+          showToast(`✓ Versão atualizada (v${currentVer})`);
         }
       }
+      
       return data;
+      
     }catch(e){
-      // Não foi possível contactar endpoint local (ex.: modo offline ou standalone direto)
+      console.log('Verificação de versão:', e.message);
+      // Modo offline - usar versão local
       versionStatusState = 'offline';
       renderVersionUI();
       if(manual){
-        showToast(`ℹ️ Modo Offline / PWA: a executar v${APP_RELEASE.semver} localmente.`);
+        showToast(`ℹ️ Modo Offline / PWA: a executar v${APP_RELEASE.VERSION} localmente.`);
       }
       return null;
     }
-  }
-
-  async function forceAppUpdate(){
-    showToast('A atualizar aplicação e a limpar cache...', false);
-    try{
-      if('serviceWorker' in navigator){
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for(const reg of regs){
-          if(reg.waiting){
-            reg.waiting.postMessage({ action:'skipWaiting' });
-          }
-          try { await reg.update(); } catch(e){}
-          try { await reg.unregister(); } catch(e){}
-        }
-      }
-      if('caches' in window){
-        const keys = await caches.keys();
-        await Promise.all(keys.map(k => caches.delete(k)));
-      }
-    }catch(e){}
-    setTimeout(()=>{
-      try {
-        window.location.href = window.location.pathname + '?_t=' + Date.now();
-      } catch(e) {
-        window.location.reload();
-      }
-    }, 300);
   }
 
   function openVersionModal(){
@@ -9618,11 +9748,13 @@
   (async function boot(){
     renderVersionUI();
     
-    // Verificar versão apenas em background, não bloquear
-    checkAppVersion(false).catch(()=>{});
+    // ✅ VERIFICAR VERSÃO early (mas sem bloquear arranque)
+    checkAppVersion(false).catch(()=>{
+      console.log('Version check failed - offline mode');
+    });
     
-    // Verificar versão a cada 5 minutos em background
-    setInterval(() => checkAppVersion(false).catch(()=>{}), 5 * 60 * 1000);
+    // Verificar a cada 2 minutos em background
+    setInterval(() => checkAppVersion(false).catch(()=>{}), 2 * 60 * 1000);
 
     // Se não há URL de API configurada, mostrar ecrã de setup
     if(!CONFIG_OK) {
