@@ -2470,7 +2470,7 @@
     memoCache.cycles = null; memoCache.cyclesKey = '';
     memoCache.deltas = null; memoCache.deltasKey = '';
     cachedDashboardData = null; cachedDashboardTimestamp = 0;
-    cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = '';
+    cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; cachedExecMeta = null;
     cachedHistorialData = null; cachedHistorialTimestamp = 0;
     lastHistorialItems = [];
   }
@@ -8572,14 +8572,17 @@
         ${kpiCard('Consumo eletricidade (mês)', (d.monthStats.elecDeltaCount? fmtNum(d.monthStats.elecTotal)+' kWh':'—') + (d.monthStats.elecDeltaCount?costTag(d.monthStats.elecTotal, d.tarifasEjec.elec):''), d.monthStats.elecDeltaCount?'':'sem dados suficientes', 'na', d.elecSpark, CHART_COLORS.b)}
       </div>`;
 
-      const executivoPeriodName = d.isCurrentMonth
+      const periodLabel = $('ejecutivoPeriod');
+      const periodName = d.isCurrentMonth
         ? 'Mês em curso'
         : 'Mês anterior';
 
-      $('ejecutivoPeriod').textContent =
-        `${executivoPeriodName} · ${d.desde} a ${d.hasta} · atualizado às ${nowTimeStr()}`;
+      cachedExecPeriodText =
+        `${periodName} · ${d.desde} a ${d.hasta} · atualizado às ${nowTimeStr()}`;
 
-      cachedExecPeriodText = $('ejecutivoPeriod').textContent;
+      if(periodLabel){
+        periodLabel.textContent = cachedExecPeriodText;
+      }
 
       const chartSwitcherHTML = `
         <div style="background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;">
@@ -8595,6 +8598,14 @@
           <div id="execChartInteractiveBox"></div>
         </div>
       `;
+
+      // El heatmap debe mostrar el mes elegido, no siempre el mes actual.
+      const selectedHeatmapDate = new Date(d.desde + 'T00:00:00');
+      const currentHeatmapDate = new Date();
+
+      heatmapMonthOffset =
+        (selectedHeatmapDate.getFullYear() - currentHeatmapDate.getFullYear()) * 12 +
+        (selectedHeatmapDate.getMonth() - currentHeatmapDate.getMonth());
 
       output.innerHTML = `
         ${scorecardHTML}
@@ -8618,7 +8629,11 @@
       }
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
-    }finally{ setLoading(button, false); }
+    }finally{
+      if(requestId === executivoRenderRequestId){
+        setLoading(button, false);
+      }
+    }
   }
 
   function renderExecInteractiveChart(){
@@ -8677,7 +8692,15 @@
     const selMonth = $('execMonthSelect');
     if(selMonth && !selMonth.dataset.bound){
       selMonth.dataset.bound = '1';
-      selMonth.onchange = () => { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; renderEjecutivo(); };
+      selMonth.onchange = () => {
+        cachedEjecutivoData = null;
+        cachedEjecutivoTimestamp = 0;
+        cachedEjecutivoPeriodKey = '';
+        cachedExecMeta = null;
+        cachedExecMonths = null;
+
+        renderEjecutivo();
+      };
     }
 
     // Exportação CSV Executivo
@@ -8950,7 +8973,14 @@
     generateExecutiveReport($('btnPrintExecReport'));
   }
 
-  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> { cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; renderEjecutivo(); });
+  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> {
+    cachedEjecutivoData = null;
+    cachedEjecutivoTimestamp = 0;
+    cachedEjecutivoPeriodKey = '';
+    cachedExecMeta = null;
+    cachedExecMonths = null;
+    renderEjecutivo();
+  });
   if($('btnPrintExecReport')) $('btnPrintExecReport').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
   if($('btnExportExecCsv')) $('btnExportExecCsv').addEventListener('click', ()=> exportExecutiveCsv());
 
