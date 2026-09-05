@@ -2,151 +2,17 @@
 <html lang="pt-PT">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Registo Técnico · Moon and Sun</title>
+<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
+<meta name="theme-color" content="#0e3341">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
-  // 1. Desregistrar imediatamente Service Workers anteriores e purgar Cache Storage
-  try {
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (var i = 0; i < regs.length; i++) {
-          regs[i].unregister();
-        }
-      }).catch(function() {});
-    }
-    if (typeof caches !== 'undefined') {
-      caches.keys().then(function(names) {
-        for (var i = 0; i < names.length; i++) {
-          caches.delete(names[i]);
-        }
-      }).catch(function() {});
-    }
-  } catch(e) {}
-
-  // 2. Intercetor global para prevenir e neutralizar erros de atribuição a 'fetch' apenas com getter
-  (function() {
-    if (typeof window === 'undefined') return;
-
-    var _nativeFetch = null;
-    try {
-      if (typeof window.fetch === 'function') {
-        _nativeFetch = window.fetch.bind(window);
-      }
-    } catch(e) {}
-    if (!_nativeFetch && typeof fetch === 'function') {
-      try { _nativeFetch = fetch; } catch(e) {}
-    }
-
-    var _activeFetch = _nativeFetch;
-
-    function isFetchGetterError(err) {
-      if (!err) return false;
-      var str = (typeof err === 'string') ? err : ((err.message || err.stack || '') + '');
-      var s = str.toLowerCase();
-      return (s.indexOf('cannot set property fetch') !== -1 || (s.indexOf('fetch') !== -1 && s.indexOf('only a getter') !== -1));
-    }
-
-    // Ouvinte global em fase de captura para neutralizar Uncaught TypeError de fetch
-    try {
-      window.addEventListener('error', function(ev) {
-        var msg = ev ? (ev.message || (ev.error && ev.error.message)) : '';
-        if (isFetchGetterError(msg) || isFetchGetterError(ev && ev.error)) {
-          if (ev.preventDefault) ev.preventDefault();
-          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          return true;
-        }
-      }, true);
-
-      var _prevOnError = window.onerror;
-      window.onerror = function(msg, source, lineno, colno, error) {
-        if (isFetchGetterError(msg) || isFetchGetterError(error)) {
-          return true;
-        }
-        if (typeof _prevOnError === 'function') {
-          return _prevOnError.apply(this, arguments);
-        }
-      };
-
-      if (typeof console !== 'undefined' && console.error) {
-        var _prevConsoleError = console.error;
-        console.error = function() {
-          for (var i = 0; i < arguments.length; i++) {
-            if (isFetchGetterError(arguments[i])) return;
-          }
-          return _prevConsoleError.apply(this, arguments);
-        };
-      }
-    } catch(e) {}
-
-    // 1. Tornar window.fetch uma propriedade gravável diretamente (data property)
-    // Desta forma, qualquer script estrito que execute 'window.fetch = fn' nunca invoca getters do protótipo
-    try {
-      Object.defineProperty(window, 'fetch', {
-        value: function() {
-          var targetFn = _activeFetch || _nativeFetch;
-          return targetFn.apply(this, arguments);
-        },
-        writable: true,
-        configurable: true,
-        enumerable: true
-      });
-    } catch(e) {
-      try {
-        Object.defineProperty(window, 'fetch', {
-          get: function() { return _activeFetch || _nativeFetch; },
-          set: function(fn) { _activeFetch = fn; },
-          configurable: true,
-          enumerable: true
-        });
-      } catch(e2) {}
-    }
-
-    // 2. Garantir setter em toda a cadeia de protótipos de Window
-    try {
-      var proto = typeof Window !== 'undefined' ? Window.prototype : (typeof window !== 'undefined' ? Object.getPrototypeOf(window) : null);
-      while (proto && proto !== Object.prototype) {
-        try {
-          var desc = Object.getOwnPropertyDescriptor(proto, 'fetch');
-          if (desc && desc.configurable) {
-            Object.defineProperty(proto, 'fetch', {
-              get: function() { return _activeFetch || _nativeFetch; },
-              set: function(fn) {
-                _activeFetch = fn;
-                try {
-                  Object.defineProperty(window, 'fetch', {
-                    value: fn,
-                    writable: true,
-                    configurable: true,
-                    enumerable: true
-                  });
-                } catch(err) {
-                  try { window.fetch = fn; } catch(err2) {}
-                }
-              },
-              configurable: true,
-              enumerable: true
-            });
-          }
-        } catch(e) {}
-        proto = Object.getPrototypeOf(proto);
-      }
-    } catch(e) {}
-
-    // 3. Garantir consistência em globalThis
-    if (typeof globalThis !== 'undefined' && globalThis !== window) {
-      try {
-        Object.defineProperty(globalThis, 'fetch', {
-          value: function() {
-            var targetFn = _activeFetch || _nativeFetch;
-            return targetFn.apply(this, arguments);
-          },
-          writable: true,
-          configurable: true,
-          enumerable: true
-        });
-      } catch(e) {}
-    }
-  })();
-
-  // 3. Funções globais de ciclo de vida pré-inicializadas no escopo global (evita qualquer ReferenceError)
+  // Funções globais de ciclo de vida pré-inicializadas no escopo global (evita ReferenceError)
   var _realRefreshConsumoResumen = null;
   async function refreshConsumoResumen() {
     if (typeof _realRefreshConsumoResumen === 'function') {
@@ -208,23 +74,6 @@
     globalThis.renderRoomGrid = renderRoomGrid;
     globalThis.refreshChips = refreshChips;
     globalThis.initMainApp = initMainApp;
-  }
-</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Registo Técnico · Moon and Sun</title>
-<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
-<meta name="theme-color" content="#0e3341">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon-192.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<script src="/node_modules/d3/dist/d3.min.js"></script>
-<script>
-  if (typeof d3 === 'undefined') {
-    var _d3s = document.createElement('script');
-    _d3s.src = 'https://d3js.org/d3.v7.min.js';
-    document.head.appendChild(_d3s);
   }
 </script>
 <style>
@@ -306,7 +155,7 @@
   nav.tabs button.active{ background:var(--petrol-900); color:#fff; }
 
   main{ padding:22px 16px 100px; flex:1; }
-  section.view{ display:none; }
+  section.view{ display:none; contain: layout style paint; }
   section.view.active{ display:block; animation:fadein .25s ease; }
   @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
 
@@ -318,6 +167,18 @@
   .section-title.ice::before{ background:var(--ice-500); }
 
   .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
+
+  .card,
+  .exec-score-card,
+  .exec-fin-card,
+  .exec-matrix-card{
+    contain: layout paint;
+  }
+
+  .entry{
+    content-visibility: auto;
+    contain-intrinsic-size: 170px;
+  }
 
   label.field{ display:block; margin-bottom:14px; }
   label.field span.lbl{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-600); margin-bottom:6px; }
@@ -1114,6 +975,10 @@
     .vlist-spacer{ height:auto !important; }
     .vlist-content{ position:static !important; transform:none !important; }
     .vtable-spacer-row{ display:none !important; }
+    .entry, .card, .exec-score-card, .exec-fin-card, .exec-matrix-card{
+      contain: none !important;
+      content-visibility: visible !important;
+    }
   }
 </style>
 </head>
@@ -1855,6 +1720,66 @@
 
   // Alias para compatibilidade
   const APP_VERSION = APP_RELEASE.full;
+
+  const CACHE_PREFIX = 'registo-tecnico-';
+  const CURRENT_CACHE = `${CACHE_PREFIX}${APP_RELEASE.VERSION}`;
+
+  async function deleteOldAppCaches(){
+    if(!('caches' in window)) return;
+    try {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter(key => key.startsWith(CACHE_PREFIX) && key !== CURRENT_CACHE)
+          .map(key => caches.delete(key))
+      );
+    } catch(e){}
+  }
+
+  let lastVersionCheckAt = 0;
+  let versionCheckPromise = null;
+
+  async function checkVersionThrottled(manual = false){
+    const now = Date.now();
+    if(!manual && now - lastVersionCheckAt < 5 * 60 * 1000){
+      return latestServerVersion;
+    }
+    if(versionCheckPromise){
+      return versionCheckPromise;
+    }
+    lastVersionCheckAt = now;
+    versionCheckPromise = checkAppVersion(manual)
+      .finally(() => {
+        versionCheckPromise = null;
+      });
+    return versionCheckPromise;
+  }
+
+  let d3LoadPromise = null;
+  function ensureD3(){
+    if(typeof window !== 'undefined' && window.d3) return Promise.resolve(window.d3);
+    if(d3LoadPromise) return d3LoadPromise;
+
+    d3LoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = '/node_modules/d3/dist/d3.min.js';
+      script.defer = true;
+      script.onload = () => resolve(window.d3);
+      script.onerror = () => {
+        const fallback = document.createElement('script');
+        fallback.src = 'https://d3js.org/d3.v7.min.js';
+        fallback.onload = () => resolve(window.d3);
+        fallback.onerror = () => {
+          d3LoadPromise = null;
+          reject(new Error('Não foi possível carregar a biblioteca gráfica D3'));
+        };
+        document.head.appendChild(fallback);
+      };
+      document.head.appendChild(script);
+    });
+
+    return d3LoadPromise;
+  }
 
   let latestServerVersion = null;
   let versionStatusState = 'ok'; // 'ok' | 'warn' | 'offline' | 'forced'
@@ -2988,14 +2913,15 @@
     loadTarifasAdmin();
     loadParametrosAdmin();
     resetIdleTimer();
-    switchToTab('ejecutivo');
+    switchToTab('ejecutivo', { render: false });
     initMainApp();
   }
 
   // ---------- Separadores ----------
   const views = ['dashboard','ejecutivo','general','quarto','temperatura','historial','reportes','usuarios','importar'];
 
-  function switchToTab(viewName){
+  function switchToTab(viewName, options = {}){
+    const shouldRender = options.render !== false;
     document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
     views.forEach(v=> {
       const el = $('view-'+v);
@@ -3003,12 +2929,22 @@
     });
     const target = $('view-'+viewName);
     if(target) target.classList.add('active');
+
+    if(!shouldRender) return;
+
     if(viewName === 'general') updateActivePeriodUI();
     if(viewName === 'historial') renderHistorial(false).catch(()=>{});
     if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
     if(viewName === 'temperatura') renderTempView();
     if(viewName === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
-    if(viewName === 'dashboard') renderDashboard();
+    if(viewName === 'dashboard'){
+      ensureD3()
+        .then(() => renderDashboard())
+        .catch(error => {
+          console.warn('Erro ao carregar D3:', error);
+          renderDashboard();
+        });
+    }
     if(viewName === 'ejecutivo') renderEjecutivo();
   }
 
@@ -3018,7 +2954,7 @@
     });
   });
 
-  $('btnRefreshDashboard').addEventListener('click', ()=> renderDashboard(true));
+  if($('btnRefreshDashboard')) $('btnRefreshDashboard').onclick = () => renderDashboard(true);
 
   function setDefaults(){
     $('g-fecha').value = todayStr(); $('g-hora').value = nowTimeStr();
@@ -7443,9 +7379,13 @@
     const container = $('d3ScatterContainer');
     const tip = $('d3ScatterTip');
     const statStrip = $('d3StatStrip');
-        if(!container) return;
+    if(!container) return;
     if(typeof d3 === 'undefined'){
-      container.innerHTML = `<div class="empty" style="padding:24px 10px">⚠️ Não foi possível carregar a biblioteca D3.js (verifique a ligação à internet).</div>`;
+      ensureD3().then(() => {
+        drawD3ScatterChart();
+      }).catch(() => {
+        if(container) container.innerHTML = `<div class="empty" style="padding:24px 10px">⚠️ Não foi possível carregar a biblioteca D3.js (verifique a ligação à internet).</div>`;
+      });
       return;
     }
 
@@ -8001,14 +7941,13 @@
   let execActiveMetric = 'costo';
   let cachedExecMonths = null;
 
-  async function buildMonthlyHistory(monthsBack, anchorDate){
-    const [genAllRaw, tarifas] = await Promise.all([
-      listRecords('general'),
-      getTarifas()
-    ]);
-
-    const genWithDeltas = await buildGenWithDeltas(genAllRaw);
-
+  function buildMonthlyHistory(
+    monthsBack,
+    anchorDate,
+    genAllRaw,
+    genWithDeltas,
+    tarifas
+  ){
     const anchor = anchorDate
       ? new Date(anchorDate + 'T00:00:00')
       : new Date();
@@ -8022,20 +7961,17 @@
         1
       );
 
-      const first = new Date(
+      const desde = fmt(new Date(
         target.getFullYear(),
         target.getMonth(),
         1
-      );
+      ));
 
-      const last = new Date(
+      const hasta = fmt(new Date(
         target.getFullYear(),
         target.getMonth() + 1,
         0
-      );
-
-      const desde = fmt(first);
-      const hasta = fmt(last);
+      ));
 
       const stats = statsForRange(
         genWithDeltas,
@@ -8059,11 +7995,6 @@
           ? stats.elecTotal * tarifas.elec
           : null;
 
-      const totalCost =
-        costAgua !== null || costElec !== null
-          ? (costAgua || 0) + (costElec || 0)
-          : null;
-
       months.push({
         label: desde.slice(0, 7),
         desde,
@@ -8077,7 +8008,10 @@
         compliance: comp.pct,
         costAgua,
         costElec,
-        totalCost
+        totalCost:
+          costAgua !== null || costElec !== null
+            ? (costAgua || 0) + (costElec || 0)
+            : null
       });
     }
 
@@ -8345,7 +8279,13 @@
     const aguaSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, agua:r.deltaAgua}})), 'agua', 14);
     const elecSpark = dailySeries(genWithDeltas.filter(r=>!r.isBaseline).map(r=>({data:{fecha:r.data.fecha, electricidad:r.deltaElec}})), 'electricidad', 14);
 
-    const months = await buildMonthlyHistory(6, hasta);
+    const months = buildMonthlyHistory(
+      6,
+      hasta,
+      generalRaw,
+      genWithDeltas,
+      tarifasEjec
+    );
 
     return {
       generalRaw, tempRaw, quartosRaw, tarifasEjec, genWithDeltas,
@@ -8973,16 +8913,17 @@
     generateExecutiveReport($('btnPrintExecReport'));
   }
 
-  if($('btnRefreshEjecutivo')) $('btnRefreshEjecutivo').addEventListener('click', ()=> {
-    cachedEjecutivoData = null;
-    cachedEjecutivoTimestamp = 0;
-    cachedEjecutivoPeriodKey = '';
-    cachedExecMeta = null;
-    cachedExecMonths = null;
-    renderEjecutivo();
-  });
-  if($('btnPrintExecReport')) $('btnPrintExecReport').addEventListener('click', (e)=> generateExecutiveReport(e.currentTarget));
-  if($('btnExportExecCsv')) $('btnExportExecCsv').addEventListener('click', ()=> exportExecutiveCsv());
+  const btnRefreshExec = $('btnRefreshEjecutivo');
+  if(btnRefreshExec){
+    btnRefreshExec.onclick = () => {
+      cachedEjecutivoData = null;
+      cachedEjecutivoTimestamp = 0;
+      cachedEjecutivoPeriodKey = '';
+      cachedExecMeta = null;
+      cachedExecMonths = null;
+      renderEjecutivo();
+    };
+  }
 
   function wireDashboardEvents(){
     const btnBase = $('btnSetBaseline');
@@ -10022,27 +9963,23 @@
   document.querySelectorAll('[data-openversion="1"]').forEach(btn => {
     btn.addEventListener('click', (e)=>{ e.preventDefault(); openVersionModal(); });
   });
-  $('btnUpdateNow') && $('btnUpdateNow').addEventListener('click', forceAppUpdate);
-  $('btnUpdateDismiss') && $('btnUpdateDismiss').addEventListener('click', ()=>{
+  if($('btnUpdateNow')) $('btnUpdateNow').onclick = () => forceAppUpdate();
+  if($('btnUpdateDismiss')) $('btnUpdateDismiss').onclick = () => {
     const ub = $('updateBanner');
     if(ub) ub.classList.remove('show');
-  });
+  };
 
-  window.addEventListener('focus', () => checkAppVersion(false));
-  document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'visible') checkAppVersion(false);
-  });
+  window.addEventListener('focus', () => checkVersionThrottled(false).catch(()=>{}));
+  setInterval(() => checkVersionThrottled(false).catch(()=>{}), 10 * 60 * 1000);
 
   (async function boot(){
     renderVersionUI();
+    deleteOldAppCaches().catch(()=>{});
     
-    // ✅ VERIFICAR VERSÃO early (mas sem bloquear arranque)
-    checkAppVersion(false).catch(()=>{
+    // ✅ VERIFICAR VERSÃO early de forma regulada
+    checkVersionThrottled(false).catch(()=>{
       console.log('Version check failed - offline mode');
     });
-    
-    // Verificar a cada 2 minutos em background
-    setInterval(() => checkAppVersion(false).catch(()=>{}), 2 * 60 * 1000);
 
     // Se não há URL de API configurada, mostrar ecrã de setup
     if(!CONFIG_OK) {
@@ -10118,15 +10055,6 @@
     checkApiHealth(); // Verificar ligação sem bloquear
   })();
 })();
-</script>
-<script>
-  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-      for (var i = 0; i < regs.length; i++) {
-        regs[i].unregister();
-      }
-    }).catch(function() {});
-  }
 </script>
 </body>
 </html>
