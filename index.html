@@ -2251,6 +2251,17 @@
   function isViewer(){ return currentUser && currentUser.rol === 'visualizador'; }
   function isAdmin(){ return currentUser && currentUser.rol === 'admin'; }
 
+  function getCurrentUserName() {
+    if (!currentUser) return 'Técnico';
+
+    return String(
+      currentUser.nome ||
+      currentUser.nombre ||
+      currentUser.usuario ||
+      'Técnico'
+    ).trim() || 'Técnico';
+  }
+
   function forceRelogin(){
     setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
     document.body.classList.remove('viewer-mode');
@@ -2552,7 +2563,7 @@
     if(!data.id){
       data.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     }
-    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
+    const userWho = getCurrentUserName();
     if(!data.criadoPor) data.criadoPor = userWho;
     if(!data.criadoEm) data.criadoEm = todayStr() + ' ' + nowTimeStr();
 
@@ -2586,7 +2597,7 @@
   }
 
   async function updateRecordApi(type, id, data){
-    const userWho = currentUser ? (currentUser.nome || currentUser.nombre || currentUser.usuario) : 'Técnico';
+    const userWho = getCurrentUserName();
     data.modificadoPor = userWho;
     data.modificadoEn = todayStr() + ' ' + nowTimeStr();
     data.editado = 'Sim';
@@ -2821,8 +2832,17 @@
     try{
       const r = await apiPost({ action:'login', usuario, pin });
       setToken(r.token);
-      currentUser = r.user;
-      rememberUser(r.user);
+      currentUser = r.user || {};
+
+      // Compatibilidad: el backend puede usar "nome" o "nombre".
+      if (!currentUser.nome && currentUser.nombre) {
+        currentUser.nome = currentUser.nombre;
+      }
+      if (!currentUser.nombre && currentUser.nome) {
+        currentUser.nombre = currentUser.nome;
+      }
+
+      rememberUser(currentUser);
       if(r.boot) preloadedBoot = r.boot;
       $('loginScreen').classList.remove('show');
       $('login-pin').value = '';
@@ -2895,8 +2915,16 @@
     try{
       const r = await apiPost({ action:'login', usuario: currentUser.usuario, pin });
       setToken(r.token);
-      currentUser = r.user;
-      rememberUser(r.user);
+      currentUser = r.user || {};
+
+      if (!currentUser.nome && currentUser.nombre) {
+        currentUser.nome = currentUser.nombre;
+      }
+      if (!currentUser.nombre && currentUser.nome) {
+        currentUser.nombre = currentUser.nome;
+      }
+
+      rememberUser(currentUser);
       isAppLocked = false;
       $('lockScreen').classList.remove('show');
       $('lock-pin').value = '';
@@ -3100,7 +3128,7 @@
     const data = {
       fecha: $('g-fecha').value || todayStr(),
       hora: $('g-hora').value || nowTimeStr(),
-      usuario: currentUser ? currentUser.nombre : '',
+      usuario: getCurrentUserName(),
       agua: $('g-agua').value,
       electricidad: $('g-electricidad').value,
       retornoAqs: $('g-retornoAqs').value,
@@ -3174,7 +3202,7 @@
       numero,
       fecha: $('q-fecha').value || todayStr(),
       hora: $('q-hora').value || nowTimeStr(),
-      usuario: currentUser ? currentUser.nombre : '',
+      usuario: getCurrentUserName(),
       phCaliente: $('q-phCaliente').value,
       cloroCaliente: $('q-cloroCaliente').value,
       cloroTotalCaliente: $('q-cloroTotalCaliente').value,
@@ -3758,7 +3786,7 @@
       <div class="off-page">
         <div class="off-header">
           <div class="off-title">Moon & Sun · Relatório Técnico de Ciclo de Quartos (AQS / Legionela)</div>
-          <div class="off-meta">Ciclo #${cycle.index} ${cycle.isActive?'(Em Curso)':'(Concluído)'} · Período: ${cycle.fechaInicio} a ${cycle.fechaFin} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser?currentUser.nombre:'Técnico')}</div>
+          <div class="off-meta">Ciclo #${cycle.index} ${cycle.isActive?'(Em Curso)':'(Concluído)'} · Período: ${cycle.fechaInicio} a ${cycle.fechaFin} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(getCurrentUserName())}</div>
         </div>
 
         <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px;">
@@ -4578,6 +4606,7 @@
     const data = {
       equipamentoId: eq.id,
       nome: eq.nome,
+      usuario: getCurrentUserName(),
       tipo: eq.tipo,
       ubicacao: eq.ubicacao || '',
       fecha: $('t-fecha').value || todayStr(),
@@ -4929,7 +4958,7 @@
     const summary = await calculateMonthSummary(mesKey);
     const fechoRecord = {
       ...summary,
-      fechadoPor: currentUser ? (currentUser.nome || currentUser.nombre || 'Técnico') : 'Técnico',
+      fechadoPor: getCurrentUserName(),
       dataFecho: `${todayStr()} ${nowTimeStr()}`,
       observacoes: observacoes || ''
     };
@@ -8560,7 +8589,7 @@
     return `<div class="off-doc">
       <h1>Relatório Executivo de Gestão Técnica & Sustentabilidade</h1>
       <div class="off-sub">Moon and Sun · Painel Estratégico para Tomada de Decisão e Direção de Operações</div>
-      <div class="off-meta">Período: ${d.desde} a ${d.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(currentUser ? currentUser.nombre : 'Técnico')} · App Registo Técnico v${APP_VERSION}</div>
+      <div class="off-meta">Período: ${d.desde} a ${d.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(getCurrentUserName())} · App Registo Técnico v${APP_VERSION}</div>
 
       <h2>1. Índice Global de Saúde Técnica & Conformidade (${d.healthScore}%)</h2>
       <div style="display:grid; grid-template-columns:1fr 2fr; gap:12px; margin:8px 0 14px;">
@@ -9240,7 +9269,7 @@
       importParsedRows = dataRows.map(row=>{
         const obj = {};
         colMap.forEach((key, idx)=>{ if(key) obj[key] = (row[idx]||'').trim(); });
-        if(!obj.usuario) obj.usuario = currentUser ? currentUser.nombre : '';
+        if (!obj.usuario) obj.usuario = getCurrentUserName();
         if(importType === 'quarto' && obj.numero) obj.numero = normRoom(obj.numero);
         ['lavadoPrefiltro','lavadoFiltroArena','limpiezaSkimmer'].forEach(f=>{
           if(obj[f]) obj[f] = isYesVal(obj[f]) ? 'Sim' : (isNoVal(obj[f]) ? 'Não' : obj[f]);
@@ -9886,7 +9915,15 @@
           
           if(r.ok){
             // Sessão válida, continuar
-            currentUser = r.user || savedUser;
+            currentUser = r.user || savedUser || {};
+
+            if (!currentUser.nome && currentUser.nombre) {
+              currentUser.nome = currentUser.nombre;
+            }
+            if (!currentUser.nombre && currentUser.nome) {
+              currentUser.nombre = currentUser.nome;
+            }
+
             rememberUser(currentUser);
             
             if(r.config || r.records) {
