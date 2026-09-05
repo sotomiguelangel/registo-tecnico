@@ -1201,6 +1201,17 @@
         </div>
         <p style="font-size:11px; color:var(--ink-400); margin:0 0 12px; line-height:1.4;" id="cycleExplanationText">O ciclo reinicia apenas ao completar os <span id="roomsCycleTotalHint">40</span> quartos — não por data, pode demorar mais de um mês. Pode tocar num quarto já medido para consultar ou modificar o seu valor caso necessário.</p>
         <div class="room-groups" id="roomGrid"></div>
+
+        <div id="floorQualityChartContainer" style="margin: 20px 0; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; position: relative;">
+          <div style="text-align: center; color: var(--ink-700); font-size: 13px; margin-bottom: 4px; font-weight: 700;">
+            📊 Calidad media del agua por piso (ciclo seleccionado)
+          </div>
+          <div style="text-align: center; color: var(--ink-400); font-size: 11px; margin-bottom: 10px;">
+            ¿Qué piso tiene actualmente la mejor calidad de agua en función de las lecturas registradas?
+          </div>
+          <div id="floorQualityChart" style="min-height: 180px; position: relative;"></div>
+          <div id="floorQualityChartTooltip" class="chart-tip" style="display:none; position:absolute; z-index: 10;"></div>
+        </div>
         <label class="field" id="qManualLabel" style="margin-top:10px; margin-bottom:0">
           <span class="lbl">Ou escreva o número manualmente <span style="font-weight:400; color:var(--ink-400)">(caso precise de repetir um que já foi feito)</span></span>
           <input type="text" inputmode="numeric" id="q-numero" placeholder="Ex.: 214">
@@ -3505,6 +3516,252 @@
     select.value = selectedCycleIndex === 'current' ? 'current' : String(selectedCycleIndex);
   }
 
+  // ========== QUALIDADE DA ÁGUA POR PISO ==========
+  /**
+   * Calcula um score de qualidade da água (0-100) baseado em pH e cloro livre.
+   * pH ideal: 7.0 - 7.8 → fora de intervalo: penalização linear até 5.0 e 9.0
+   * Cloro livre ideal: 0.5 - 3.0 ppm → fora de intervalo: penalização linear até 0 e 5.0
+   * Score final = média dos dois scores (0 a 100 cada).
+   */
+  function calculateWaterQualityScore(ph, cloro) {
+    if (ph === null || cloro === null || isNaN(ph) || isNaN(cloro)) return null;
+
+    // pH score: 100 se em [7.0, 7.8], diminui linearmente fora
+    let pHScore;
+    if (ph < 7.0) pHScore = Math.max(0, 100 * (ph - 5.0) / 2.0); // 5.0 -> 0, 7.0 -> 100
+    else if (ph > 7.8) pHScore = Math.max(0, 100 * (9.0 - ph) / 1.2); // 9.0 -> 0, 7.8 -> 100
+    else pHScore = 100;
+
+    // Cloro score: 100 se em [0.5, 3.0], diminui linearmente fora
+    let cloroScore;
+    if (cloro < 0.5) cloroScore = Math.max(0, 100 * (cloro - 0.0) / 0.5); // 0.0 -> 0, 0.5 -> 100
+    else if (cloro > 3.0) cloroScore = Math.max(0, 100 * (5.0 - cloro) / 2.0); // 5.0 -> 0, 3.0 -> 100
+    else cloroScore = 100;
+
+    return Math.round((pHScore + cloroScore) / 2);
+  }
+
+  /**
+   * Devolve os registos de quartos que pertencem ao ciclo atualmente selecionado (segundo qCycleSelect).
+   */
+  function getSelectedCycleQuartoRecords(allRecords) {
+    const selectedCycleVal = $('qCycleSelect')?.value || (typeof selectedCycleIndex !== 'undefined' ? selectedCycleIndex : 'current');
+    const isViewingPast = selectedCycleVal !== 'current';
+
+    if (isViewingPast) {
+      const cycleIndex = parseInt(selectedCycleVal, 10);
+      const allCycles = groupQuartoRecordsIntoCycles(allRecords, roomsList).allCycles;
+      const targetCycle = allCycles.find(c => c.index === cycleIndex);
+      return targetCycle ? (targetCycle.records || []) : [];
+    } else {
+      const grouped = groupQuartoRecordsIntoCycles(allRecords, roomsList);
+      return grouped.currentCycle ? (grouped.currentCycle.records || []) : [];
+    }
+  }
+
+  async function drawFloorQualityChart() {
+    const container = $('floorQualityChart') || document.getElementById('floorQualityChart');
+    const tooltip = $('floorQualityChartTooltip') || document.getElementById('floorQualityChartTooltip');
+    if (!container || !tooltip) return;
+
+    try {
+      // 1. Obter registos de quartos do ciclo selecionado
+      const records = await listRecords('quarto');
+      const cycleRecords = getSelectedCycleQuartoRecords(records);
+
+      if (!cycleRecords || cycleRecords.length === 0) {
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Sem leituras de quartos no ciclo selecionado.</div>';
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      // 2. Agrupar por piso e calcular média de qualidade
+      const floorData = {}; // piso -> { sumScore: X, count: Y }
+
+      cycleRecords.forEach(r => {
+        if (!r || !r.data) return;
+        const numero = normRoom(r.data.numero);
+        const piso = numero.charAt(0); // primeiro dígito = piso (ex: '101' -> '1')
+
+        if (!piso || !/[0-4]/.test(piso)) return; // validar piso
+
+        const ph = parseFloat(r.data.phCaliente);
+        const cloro = parseFloat(r.data.cloroCaliente);
+        const score = calculateWaterQualityScore(ph, cloro);
+
+        if (score === null) return;
+
+        if (!floorData[piso]) {
+          floorData[piso] = { sumScore: 0, count: 0 };
+        }
+        floorData[piso].sumScore += score;
+        floorData[piso].count += 1;
+      });
+
+      // 3. Calcular média por piso
+      const floors = Object.keys(floorData)
+        .map(piso => ({
+          piso: piso,
+          score: Math.round(floorData[piso].sumScore / floorData[piso].count),
+          count: floorData[piso].count
+        }))
+        .sort((a, b) => b.score - a.score); // de maior a menor qualidade
+
+      if (floors.length === 0) {
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Dados insuficientes para calcular qualidade por piso no ciclo selecionado.</div>';
+        tooltip.style.display = 'none';
+        return;
+      }
+
+      // 4. Desenhar gráfico de barras horizontal com D3.js
+      await ensureD3();
+
+      if (typeof d3 === 'undefined') {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Biblioteca D3.js não disponível.</div>';
+        return;
+      }
+
+      const margin = { top: 20, right: 35, bottom: 35, left: 65 };
+      const containerWidth = container.clientWidth || 320;
+      const width = Math.max(200, containerWidth - margin.left - margin.right);
+      const height = Math.max(160, floors.length * 36 + margin.top + margin.bottom);
+
+      // Limpar contentor
+      container.innerHTML = '';
+
+      const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height}`)
+        .attr('width', '100%')
+        .attr('height', height)
+        .style('display', 'block');
+
+      const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+      const innerHeight = height - margin.top - margin.bottom;
+
+      const yScale = d3.scaleBand()
+        .domain(floors.map(d => d.piso))
+        .range([0, innerHeight])
+        .padding(0.2);
+
+      const xScale = d3.scaleLinear()
+        .domain([0, 100])
+        .range([0, width]);
+
+      // Linha de meta recomendada (80%)
+      g.append('line')
+        .attr('x1', xScale(80))
+        .attr('y1', 0)
+        .attr('x2', xScale(80))
+        .attr('y2', innerHeight)
+        .attr('stroke', 'var(--ok-500)')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '4,3')
+        .attr('opacity', 0.6);
+
+      g.append('text')
+        .attr('x', xScale(80) + 3)
+        .attr('y', -6)
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '9.5px')
+        .attr('fill', 'var(--ok-500)')
+        .text('Meta 80%');
+
+      // Grupos de barras interativos
+      const barGroups = g.selectAll('.bar-group')
+        .data(floors)
+        .enter()
+        .append('g')
+        .attr('class', 'bar-group')
+        .style('cursor', 'pointer');
+
+      // Fundo de barra ténue
+      barGroups.append('rect')
+        .attr('x', 0)
+        .attr('y', d => yScale(d.piso))
+        .attr('width', width)
+        .attr('height', yScale.bandwidth())
+        .attr('fill', 'rgba(0,0,0,0.03)')
+        .attr('rx', 4);
+
+      // Barra de qualidade
+      barGroups.append('rect')
+        .attr('class', 'bar')
+        .attr('x', 0)
+        .attr('y', d => yScale(d.piso))
+        .attr('width', d => Math.max(4, xScale(d.score)))
+        .attr('height', yScale.bandwidth())
+        .attr('fill', d => {
+          if (d.score >= 80) return 'var(--ok-500)';
+          if (d.score >= 60) return 'var(--amber-500)';
+          return 'var(--coral-500)';
+        })
+        .attr('rx', 4)
+        .attr('ry', 4);
+
+      // Etiqueta numérica de score
+      barGroups.append('text')
+        .attr('class', 'value-label')
+        .attr('x', d => xScale(d.score) > 42 ? xScale(d.score) - 6 : xScale(d.score) + 6)
+        .attr('y', d => yScale(d.piso) + yScale.bandwidth() / 2 + 4)
+        .attr('text-anchor', d => xScale(d.score) > 42 ? 'end' : 'start')
+        .attr('fill', d => xScale(d.score) > 42 ? '#ffffff' : 'var(--ink-900)')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '11px')
+        .attr('font-weight', '700')
+        .text(d => d.score + '%');
+
+      // Eixo Y (Pisos)
+      g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).tickFormat(p => `Piso ${p}`))
+        .call(axis => axis.select('.domain').remove())
+        .selectAll('text')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '12px')
+        .attr('font-weight', '600')
+        .attr('fill', 'var(--ink-900)');
+
+      // Eixo X (Escala 0-100%)
+      g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${innerHeight})`)
+        .call(d3.axisBottom(xScale).ticks(5).tickFormat(d => d + '%'))
+        .selectAll('text')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10.5px')
+        .attr('fill', 'var(--ink-600)');
+
+      // Tooltip em cada barra
+      barGroups
+        .on('mouseover', (event, d) => {
+          tooltip.innerHTML = `
+            <div class="tip-row"><span class="tip-label">Piso:</span><span class="tip-val">Piso ${d.piso}</span></div>
+            <div class="tip-row"><span class="tip-label">Qualidade média:</span><span class="tip-val">${d.score}%</span></div>
+            <div class="tip-row"><span class="tip-label">Amostras:</span><span class="tip-val">${d.count} leitura${d.count === 1 ? '' : 's'}</span></div>
+          `;
+          tooltip.style.display = 'block';
+          tooltip.classList.add('show');
+        })
+        .on('mousemove', (event) => {
+          const boxRect = container.getBoundingClientRect();
+          tooltip.style.left = (event.clientX - boxRect.left + 14) + 'px';
+          tooltip.style.top = (event.clientY - boxRect.top - 24) + 'px';
+        })
+        .on('mouseout', () => {
+          tooltip.style.display = 'none';
+          tooltip.classList.remove('show');
+        });
+
+    } catch (err) {
+      console.error('Erro ao desenhar gráfico de qualidade por piso:', err);
+      container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Erro ao gerar gráfico: ${esc(err.message)}</div>`;
+      tooltip.style.display = 'none';
+    }
+  }
+
   async function renderRoomGrid(){
     const grid = $('roomGrid');
     if(!grid) return;
@@ -3599,6 +3856,8 @@
         selectRoom(roomNum);
       });
     });
+
+    await drawFloorQualityChart();
   }
 
   // Modal com detalhe da leitura do quarto no ciclo com opção de edição direta
@@ -3821,9 +4080,10 @@
     catch(e){ showToast('⚠️ Não foi possível recalcular: ' + e.message, true); }
   });
 
-  $('qCycleSelect') && $('qCycleSelect').addEventListener('change', (e)=>{
+  $('qCycleSelect') && $('qCycleSelect').addEventListener('change', async (e)=>{
     selectedCycleIndex = e.target.value;
-    renderRoomGrid();
+    await renderRoomGrid();
+    await drawFloorQualityChart();
   });
 
   $('btnViewCycleHistory') && $('btnViewCycleHistory').addEventListener('click', ()=>{
