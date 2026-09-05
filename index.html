@@ -1204,10 +1204,10 @@
 
         <div id="floorQualityChartContainer" style="margin: 20px 0; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; position: relative;">
           <div style="text-align: center; color: var(--ink-700); font-size: 13px; margin-bottom: 4px; font-weight: 700;">
-            📊 Calidad media del agua por piso (ciclo seleccionado)
+            📊 Qualidade média da água por piso (ciclo selecionado)
           </div>
           <div style="text-align: center; color: var(--ink-400); font-size: 11px; margin-bottom: 10px;">
-            ¿Qué piso tiene actualmente la mejor calidad de agua en función de las lecturas registradas?
+            Qual é o piso com melhor qualidade de água segundo as leituras registadas?
           </div>
           <div id="floorQualityChart" style="min-height: 180px; position: relative;"></div>
           <div id="floorQualityChartTooltip" class="chart-tip" style="display:none; position:absolute; z-index: 10;"></div>
@@ -3570,18 +3570,18 @@
       const cycleRecords = getSelectedCycleQuartoRecords(records);
 
       if (!cycleRecords || cycleRecords.length === 0) {
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Sem leituras de quartos no ciclo selecionado.</div>';
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Não há leituras de quartos no ciclo selecionado.</div>';
         tooltip.style.display = 'none';
         return;
       }
 
       // 2. Agrupar por piso e calcular média de qualidade
-      const floorData = {}; // piso -> { sumScore: X, count: Y }
+      const floorData = {}; // piso -> { somaScore: X, contagem: Y }
 
       cycleRecords.forEach(r => {
         if (!r || !r.data) return;
         const numero = normRoom(r.data.numero);
-        const piso = numero.charAt(0); // primeiro dígito = piso (ex: '101' -> '1')
+        const piso = numero.charAt(0); // primeiro dígito = piso (ex: '101' → '1')
 
         if (!piso || !/[0-4]/.test(piso)) return; // validar piso
 
@@ -3592,28 +3592,28 @@
         if (score === null) return;
 
         if (!floorData[piso]) {
-          floorData[piso] = { sumScore: 0, count: 0 };
+          floorData[piso] = { somaScore: 0, contagem: 0 };
         }
-        floorData[piso].sumScore += score;
-        floorData[piso].count += 1;
+        floorData[piso].somaScore += score;
+        floorData[piso].contagem += 1;
       });
 
       // 3. Calcular média por piso
-      const floors = Object.keys(floorData)
+      const pisos = Object.keys(floorData)
         .map(piso => ({
           piso: piso,
-          score: Math.round(floorData[piso].sumScore / floorData[piso].count),
-          count: floorData[piso].count
+          score: Math.round(floorData[piso].somaScore / floorData[piso].contagem),
+          contagem: floorData[piso].contagem
         }))
-        .sort((a, b) => b.score - a.score); // de maior a menor qualidade
+        .sort((a, b) => b.score - a.score); // do maior para o menor score
 
-      if (floors.length === 0) {
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Dados insuficientes para calcular qualidade por piso no ciclo selecionado.</div>';
+      if (pisos.length === 0) {
+        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Dados insuficientes para calcular qualidade por piso.</div>';
         tooltip.style.display = 'none';
         return;
       }
 
-      // 4. Desenhar gráfico de barras horizontal com D3.js
+      // 4. Desenhar gráfico de barras horizontais com D3.js
       await ensureD3();
 
       if (typeof d3 === 'undefined') {
@@ -3621,48 +3621,48 @@
         return;
       }
 
-      const margin = { top: 20, right: 35, bottom: 35, left: 65 };
-      const containerWidth = container.clientWidth || 320;
-      const width = Math.max(200, containerWidth - margin.left - margin.right);
-      const height = Math.max(160, floors.length * 36 + margin.top + margin.bottom);
+      const margin = { top: 20, right: 30, bottom: 30, left: 80 };
+      const clientWidth = container.clientWidth || 320;
+      const largura = Math.max(200, clientWidth - margin.left - margin.right);
+      const altura = Math.max(200, pisos.length * 30 + margin.top + margin.bottom);
 
-      // Limpar contentor
+      // Limpar o contentor
       container.innerHTML = '';
 
       const svg = d3.select(container)
         .append('svg')
-        .attr('viewBox', `0 0 ${width + margin.left + margin.right} ${height}`)
-        .attr('width', '100%')
-        .attr('height', height)
+        .attr('viewBox', `0 0 ${largura + margin.left + margin.right} ${altura}`)
+        .style('width', '100%')
+        .style('height', 'auto')
         .style('display', 'block');
 
       const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
-      const innerHeight = height - margin.top - margin.bottom;
+      const innerHeight = altura - margin.top - margin.bottom;
 
-      const yScale = d3.scaleBand()
-        .domain(floors.map(d => d.piso))
+      const escalaY = d3.scaleBand()
+        .domain(pisos.map(d => d.piso))
         .range([0, innerHeight])
-        .padding(0.2);
+        .padding(0.18);
 
-      const xScale = d3.scaleLinear()
+      const escalaX = d3.scaleLinear()
         .domain([0, 100])
-        .range([0, width]);
+        .range([0, largura]);
 
-      // Linha de meta recomendada (80%)
+      // Linha de referência recomendada (80%)
       g.append('line')
-        .attr('x1', xScale(80))
+        .attr('x1', escalaX(80))
         .attr('y1', 0)
-        .attr('x2', xScale(80))
+        .attr('x2', escalaX(80))
         .attr('y2', innerHeight)
         .attr('stroke', 'var(--ok-500)')
         .attr('stroke-width', 1.5)
-        .attr('stroke-dasharray', '4,3')
-        .attr('opacity', 0.6);
+        .attr('stroke-dasharray', '4,2')
+        .attr('opacity', 0.65);
 
       g.append('text')
-        .attr('x', xScale(80) + 3)
+        .attr('x', escalaX(80) + 4)
         .attr('y', -6)
         .attr('font-family', 'var(--mono)')
         .attr('font-size', '9.5px')
@@ -3670,29 +3670,29 @@
         .text('Meta 80%');
 
       // Grupos de barras interativos
-      const barGroups = g.selectAll('.bar-group')
-        .data(floors)
+      const gruposBarras = g.selectAll('.grupo-barra')
+        .data(pisos)
         .enter()
         .append('g')
-        .attr('class', 'bar-group')
+        .attr('class', 'grupo-barra')
         .style('cursor', 'pointer');
 
-      // Fundo de barra ténue
-      barGroups.append('rect')
+      // Fundo suave de barra
+      gruposBarras.append('rect')
         .attr('x', 0)
-        .attr('y', d => yScale(d.piso))
-        .attr('width', width)
-        .attr('height', yScale.bandwidth())
+        .attr('y', d => escalaY(d.piso))
+        .attr('width', largura)
+        .attr('height', escalaY.bandwidth())
         .attr('fill', 'rgba(0,0,0,0.03)')
         .attr('rx', 4);
 
       // Barra de qualidade
-      barGroups.append('rect')
-        .attr('class', 'bar')
+      gruposBarras.append('rect')
+        .attr('class', 'barra')
         .attr('x', 0)
-        .attr('y', d => yScale(d.piso))
-        .attr('width', d => Math.max(4, xScale(d.score)))
-        .attr('height', yScale.bandwidth())
+        .attr('y', d => escalaY(d.piso))
+        .attr('width', d => Math.max(4, escalaX(d.score)))
+        .attr('height', escalaY.bandwidth())
         .attr('fill', d => {
           if (d.score >= 80) return 'var(--ok-500)';
           if (d.score >= 60) return 'var(--amber-500)';
@@ -3701,22 +3701,23 @@
         .attr('rx', 4)
         .attr('ry', 4);
 
-      // Etiqueta numérica de score
-      barGroups.append('text')
-        .attr('class', 'value-label')
-        .attr('x', d => xScale(d.score) > 42 ? xScale(d.score) - 6 : xScale(d.score) + 6)
-        .attr('y', d => yScale(d.piso) + yScale.bandwidth() / 2 + 4)
-        .attr('text-anchor', d => xScale(d.score) > 42 ? 'end' : 'start')
-        .attr('fill', d => xScale(d.score) > 42 ? '#ffffff' : 'var(--ink-900)')
+      // Rótulos de valor (dentro ou junto à barra)
+      gruposBarras.append('text')
+        .attr('class', 'rotulo-valor')
+        .attr('x', d => escalaX(d.score) > 40 ? escalaX(d.score) - 6 : escalaX(d.score) + 6)
+        .attr('y', d => escalaY(d.piso) + escalaY.bandwidth() / 2 + 4)
+        .attr('text-anchor', d => escalaX(d.score) > 40 ? 'end' : 'start')
+        .attr('fill', d => escalaX(d.score) > 40 ? '#ffffff' : 'var(--ink-900)')
         .attr('font-family', 'var(--mono)')
         .attr('font-size', '11px')
-        .attr('font-weight', '700')
+        .attr('font-weight', '600')
         .text(d => d.score + '%');
 
-      // Eixo Y (Pisos)
+      // Eixo Y (pisos)
       g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).tickFormat(p => `Piso ${p}`))
+        .attr('class', 'eixo-y')
+        .attr('transform', `translate(0,0)`)
+        .call(d3.axisLeft(escalaY).tickFormat(p => `Piso ${p}`))
         .call(axis => axis.select('.domain').remove())
         .selectAll('text')
         .attr('font-family', 'var(--mono)')
@@ -3724,23 +3725,23 @@
         .attr('font-weight', '600')
         .attr('fill', 'var(--ink-900)');
 
-      // Eixo X (Escala 0-100%)
+      // Eixo X (escala 0-100)
       g.append('g')
-        .attr('class', 'x-axis')
+        .attr('class', 'eixo-x')
         .attr('transform', `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(xScale).ticks(5).tickFormat(d => d + '%'))
+        .call(d3.axisBottom(escalaX).ticks(5).tickFormat(d => d + '%'))
         .selectAll('text')
         .attr('font-family', 'var(--mono)')
-        .attr('font-size', '10.5px')
+        .attr('font-size', '11px')
         .attr('fill', 'var(--ink-600)');
 
-      // Tooltip em cada barra
-      barGroups
+      // Tooltip nos grupos de barra
+      gruposBarras
         .on('mouseover', (event, d) => {
           tooltip.innerHTML = `
             <div class="tip-row"><span class="tip-label">Piso:</span><span class="tip-val">Piso ${d.piso}</span></div>
             <div class="tip-row"><span class="tip-label">Qualidade média:</span><span class="tip-val">${d.score}%</span></div>
-            <div class="tip-row"><span class="tip-label">Amostras:</span><span class="tip-val">${d.count} leitura${d.count === 1 ? '' : 's'}</span></div>
+            <div class="tip-row"><span class="tip-label">Amostras:</span><span class="tip-val">${d.contagem} leitura${d.contagem === 1 ? '' : 's'}</span></div>
           `;
           tooltip.style.display = 'block';
           tooltip.classList.add('show');
@@ -3755,9 +3756,20 @@
           tooltip.classList.remove('show');
         });
 
+      // Legenda do eixo X
+      g.append('text')
+        .attr('x', largura / 2)
+        .attr('y', altura - margin.bottom + 20)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--sans)')
+        .attr('font-size', '12px')
+        .attr('font-weight', '600')
+        .attr('fill', 'var(--ink-600)')
+        .text('Qualidade média da água (%)');
+
     } catch (err) {
       console.error('Erro ao desenhar gráfico de qualidade por piso:', err);
-      container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Erro ao gerar gráfico: ${esc(err.message)}</div>`;
+      container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Erro ao gerar o gráfico: ${esc(err.message)}</div>`;
       tooltip.style.display = 'none';
     }
   }
