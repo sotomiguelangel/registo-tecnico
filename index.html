@@ -4775,49 +4775,110 @@
 
   async function calculateMonthSummary(mesKey){
     const [dIni, dFim] = rangoMesEspecifico(mesKey);
+
     const [genRaw, tpRaw, quRaw] = await Promise.all([
       listRecords('general'),
       listRecords('temperatura'),
       listRecords('quarto')
     ]);
 
-    const gen = genRaw.filter(r => r.data && r.data.fecha >= dIni && r.data.fecha <= dFim)
-      .sort((a,b) => (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-    const tp = tpRaw.filter(r => r.data && r.data.fecha >= dIni && r.data.fecha <= dFim);
-    const qu = quRaw.filter(r => r.data && r.data.fecha >= dIni && r.data.fecha <= dFim);
+    // Registros del mes que se va a cerrar.
+    const gen = genRaw
+      .filter(r => r.data && r.data.fecha >= dIni && r.data.fecha <= dFim)
+      .sort((a, b) =>
+        ((a.data.fecha || '') + (a.data.hora || ''))
+          .localeCompare((b.data.fecha || '') + (b.data.hora || ''))
+      );
 
-    // Baseline for this month
+    const tp = tpRaw.filter(r =>
+      r.data && r.data.fecha >= dIni && r.data.fecha <= dFim
+    );
+
+    const qu = quRaw.filter(r =>
+      r.data && r.data.fecha >= dIni && r.data.fecha <= dFim
+    );
+
+    // Obtiene la lectura base para agua y electricidad.
     const [bAgua, bElec] = await Promise.all([
       getBaselineForMonth('agua', mesKey),
       getBaselineForMonth('electricidad', mesKey)
     ]);
-    const consumption = statsForRange(gen, bAgua, bElec, dIni, dFim);
 
-    // Final meter readings of the month
-    let ultimaAgua = null, ultimaElec = null;
+    /*
+     * IMPORTANTE:
+     * buildGenWithDeltas recibe todo el histórico de lecturas,
+     * no solo las del mes. Así puede calcular correctamente la
+     * diferencia entre un contador y su lectura anterior.
+     */
+    const genWithDeltas = await buildGenWithDeltas(genRaw, {
+      aguaBaseline: bAgua,
+      elecBaseline: bElec
+    });
+
+    // statsForRange solo recibe: registros con delta, inicio y fin.
+    const consumption = statsForRange(genWithDeltas, dIni, dFim);
+
+    // Última lectura disponible del mes para convertirla
+    // en la línea base del mes siguiente.
+    let ultimaAgua = null;
+    let ultimaElec = null;
+
     for(let i = gen.length - 1; i >= 0; i--){
       const d = gen[i].data;
-      if(ultimaAgua === null && d.agua !== '' && d.agua !== null && !isNaN(Number(d.agua))){
+
+      if(
+        ultimaAgua === null &&
+        d.agua !== '' &&
+        d.agua !== null &&
+        d.agua !== undefined &&
+        !isNaN(Number(d.agua))
+      ){
         ultimaAgua = Number(d.agua);
       }
-      if(ultimaElec === null && d.electricidad !== '' && d.electricidad !== null && !isNaN(Number(d.electricidad))){
+
+      if(
+        ultimaElec === null &&
+        d.electricidad !== '' &&
+        d.electricidad !== null &&
+        d.electricidad !== undefined &&
+        !isNaN(Number(d.electricidad))
+      ){
         ultimaElec = Number(d.electricidad);
       }
+
       if(ultimaAgua !== null && ultimaElec !== null) break;
     }
 
-    // Piscina averages
-    const phVals = gen.map(r => parseFloat(r.data.phPiscina)).filter(n => !isNaN(n));
-    const clVals = gen.map(r => parseFloat(r.data.cloroLibre)).filter(n => !isNaN(n));
-    const avgPh = phVals.length ? phVals.reduce((a,b)=>a+b,0)/phVals.length : null;
-    const avgCl = clVals.length ? clVals.reduce((a,b)=>a+b,0)/clVals.length : null;
+    // Promedios de piscina.
+    const phVals = gen
+      .map(r => parseFloat(r.data.phPiscina))
+      .filter(n => !isNaN(n));
 
-    // AQS average
-    const aqsVals = gen.map(r => parseFloat(r.data.retornoAqs)).filter(n => !isNaN(n));
-    const avgAqs = aqsVals.length ? aqsVals.reduce((a,b)=>a+b,0)/aqsVals.length : null;
+    const clVals = gen
+      .map(r => parseFloat(r.data.cloroLibre))
+      .filter(n => !isNaN(n));
 
-    // Temperatura stats
-    let tempConformes = 0, tempDesvios = 0;
+    const avgPh = phVals.length
+      ? phVals.reduce((a, b) => a + b, 0) / phVals.length
+      : null;
+
+    const avgCl = clVals.length
+      ? clVals.reduce((a, b) => a + b, 0) / clVals.length
+      : null;
+
+    // Promedio del retorno AQS.
+    const aqsVals = gen
+      .map(r => parseFloat(r.data.retornoAqs))
+      .filter(n => !isNaN(n));
+
+    const avgAqs = aqsVals.length
+      ? aqsVals.reduce((a, b) => a + b, 0) / aqsVals.length
+      : null;
+
+    // Estadísticas de refrigeración.
+    let tempConformes = 0;
+    let tempDesvios = 0;
+
     tp.forEach(r => {
       if(String(r.data.dentroIntervalo) === 'Não'){
         tempDesvios++;
@@ -4825,26 +4886,37 @@
         tempConformes++;
       }
     });
+
     const tempTotal = tp.length;
-    const tempCompliancePct = tempTotal > 0 ? Math.round((tempConformes / tempTotal) * 100) : 0;
+    const tempCompliancePct = tempTotal > 0
+      ? Math.round((tempConformes / tempTotal) * 100)
+      : 0;
 
     return {
       mesKey,
       mesLabel: formatMonthName(mesKey),
       dataInicio: dIni,
       dataFim: dFim,
+
       generalCount: gen.length,
+
+      // Consumos correctamente calculados mediante diferencias.
       aguaConsumoTotal: Number(consumption.aguaTotal || 0),
       elecConsumoTotal: Number(consumption.elecTotal || 0),
+
+      // Lecturas de contador finales del mes.
       ultimaLeituraAgua: ultimaAgua,
       ultimaLeituraElec: ultimaElec,
+
       piscinaAvgPh: avgPh,
       piscinaAvgCloro: avgCl,
       aqsAvgRetorno: avgAqs,
+
       tempCount: tempTotal,
       tempConformes,
       tempDesvios,
       tempCompliancePct,
+
       quartosCount: qu.length
     };
   }
