@@ -3239,30 +3239,28 @@
 
   // Agrupa TODOS os registos de quartos num ciclo contínuo
   // O ciclo completa-se apenas quando se atingem os 'targetSize' quartos (40), NÃO por semana nem por mês
-  function groupQuartoRecordsIntoCycles(rawRecords, rList){
-    const listNorm = (rList || roomsList).map(normRoom).filter(Boolean);
-    const targetSize = listNorm.length || 40;
+  function groupQuartoRecordsIntoCycles(rawRecords, rList) {
+    const roomList = (rList || roomsList)
+      .map(normRoom)
+      .filter(Boolean);
 
+    const validRooms = new Set(roomList);
+    const targetSize = roomList.length || 40;
     const currentMonthKey = todayStr().slice(0, 7);
-    const monthLabel = formatMonthName(currentMonthKey);
 
-    // Se não há registos, devolver ciclo vazio
-    if(!rawRecords || rawRecords.length === 0){
-      const emptyCycle = {
-        index: 1,
-        label: `Ciclo em curso (0/${targetSize})`,
-        monthKey: currentMonthKey,
-        monthLabel: monthLabel,
-        fechaInicio: '—',
-        fechaFin: '—',
-        totalRooms: targetSize,
-        doneCount: 0,
-        isCompleted: false,
-        isActive: true,
-        records: [],
-        roomsMap: new Map(),
-        uniqueRooms: []
-      };
+    // Sin registros: crear el primer ciclo vacío.
+    if (!rawRecords || rawRecords.length === 0) {
+      const emptyCycle = buildCycleSummary(
+        1,
+        [],
+        new Map(),
+        targetSize,
+        true,
+        currentMonthKey
+      );
+
+      emptyCycle.label = `Ciclo en curso (0/${targetSize})`;
+
       return {
         completedCycles: [],
         currentCycle: emptyCycle,
@@ -3270,66 +3268,84 @@
       };
     }
 
-    const cacheKey = (rawRecords.length) + '_' + targetSize + '_' + (rawRecords[0]?.data?.fecha||'') + (rawRecords[rawRecords.length-1]?.data?.fecha||'');
-    if(memoCache.cycles && memoCache.cyclesKey === cacheKey){
-      return memoCache.cycles;
+    // Orden cronológico: primero fecha, después hora y, como último criterio, ID.
+    const sorted = rawRecords
+      .slice()
+      .sort((a, b) => {
+        const dateA = `${a.data?.fecha || ''} ${a.data?.hora || '00:00'} ${a.data?.id || a.key || ''}`;
+        const dateB = `${b.data?.fecha || ''} ${b.data?.hora || '00:00'} ${b.data?.id || b.key || ''}`;
+        return dateA.localeCompare(dateB);
+      });
+
+    const completedCycles = [];
+
+    let cycleIndex = 1;
+    let cycleRecords = [];
+    let cycleRoomsMap = new Map();
+
+    function finalizeCycle(isActive) {
+      const cycle = buildCycleSummary(
+        cycleIndex,
+        cycleRecords,
+        cycleRoomsMap,
+        targetSize,
+        isActive,
+        currentMonthKey
+      );
+
+      cycle.label = cycle.isCompleted
+        ? `Ciclo #${cycleIndex} completo (${cycle.doneCount}/${targetSize}) ✓`
+        : `Ciclo #${cycleIndex} em curso (${cycle.doneCount}/${targetSize})`;
+
+      return cycle;
     }
 
-    // Ordenar cronologicamente ascendente
-    const sorted = rawRecords.slice().sort((a,b)=> {
-      const fA = (a.data?.fecha || '') + ' ' + (a.data?.hora || '');
-      const fB = (b.data?.fecha || '') + ' ' + (b.data?.hora || '');
-      return fA.localeCompare(fB);
+    sorted.forEach(record => {
+      const roomNumber = normRoom(record.data?.numero);
+
+      // El registro pertenece al ciclo actual, incluso si su habitación
+      // no está en la lista oficial. Pero no contará para completar el ciclo.
+      cycleRecords.push(record);
+
+      // Solo habitaciones existentes en la lista configurada cuentan.
+      if (!roomNumber || !validRooms.has(roomNumber)) {
+        return;
+      }
+
+      // Si se repite una habitación, la última lectura reemplaza
+      // la lectura representativa de ese cuarto dentro del ciclo.
+      cycleRoomsMap.set(roomNumber, record);
+
+      // Un ciclo se completa solo cuando TODAS las habitaciones
+      // configuradas han sido medidas al menos una vez.
+      const cycleCompleted = roomList.every(room => cycleRoomsMap.has(room));
+
+      if (cycleCompleted) {
+        const finishedCycle = finalizeCycle(false);
+        finishedCycle.isCompleted = true;
+        finishedCycle.isActive = false;
+
+        completedCycles.push(finishedCycle);
+
+        // Se abre automáticamente el próximo ciclo.
+        cycleIndex++;
+        cycleRecords = [];
+        cycleRoomsMap = new Map();
+      }
     });
 
-    // Criar mapa de quartos medidos com a sua última leitura
-    const roomsMap = new Map(); // roomNum -> último registo
-    sorted.forEach(r=>{
-      const num = normRoom(r.data?.numero);
-      if(!num) return;
-      roomsMap.set(num, r);
-    });
+    // Después de procesar los registros siempre existe un ciclo actual.
+    // Puede estar vacío si el último registro completó el ciclo anterior.
+    const currentCycle = finalizeCycle(true);
+    currentCycle.isActive = true;
+    currentCycle.isCompleted = false;
+    currentCycle.label = `Ciclo atual em curso (${currentCycle.doneCount}/${targetSize})`;
 
-    const uniqueRooms = Array.from(roomsMap.keys());
-    const isCompleted = uniqueRooms.length >= targetSize;
-
-    let fechaInicio = '—', fechaFin = '—';
-    if(sorted.length > 0){
-      const first = sorted[0].data;
-      const last = sorted[sorted.length - 1].data;
-      fechaInicio = first?.fecha || '—';
-      fechaFin = last?.fecha || '—';
-    }
-
-    const label = isCompleted
-      ? `Ciclo completo (${uniqueRooms.length}/${targetSize}) ✓`
-      : `Ciclo em curso (${uniqueRooms.length}/${targetSize})`;
-
-    const currentCycle = {
-      index: 1,
-      label: label,
-      monthKey: currentMonthKey,
-      monthLabel: monthLabel,
-      fechaInicio: fechaInicio,
-      fechaFin: fechaFin,
-      totalRooms: targetSize,
-      doneCount: uniqueRooms.length,
-      isCompleted: isCompleted,
-      isActive: true,
-      records: sorted,
-      roomsMap: roomsMap,
-      uniqueRooms: uniqueRooms
+    return {
+      completedCycles,
+      currentCycle,
+      allCycles: [...completedCycles, currentCycle]
     };
-
-    const result = {
-      completedCycles: [],
-      currentCycle: currentCycle,
-      allCycles: [currentCycle]
-    };
-
-    memoCache.cycles = result;
-    memoCache.cyclesKey = cacheKey;
-    return result;
   }
 
   function buildCycleSummary(index, records, roomsMap, targetSize, isActive, monthKey){
@@ -3364,20 +3380,20 @@
     };
   }
 
-  async function loadCycleDone(){
-    try{
-      const stored = localStorage.getItem('bitacora_cicloQuartosHechos');
-      if(stored){
-        const parsed = JSON.parse(stored);
-        if(Array.isArray(parsed)){
-          cycleDone = parsed;
-          return;
-        }
-      }
+  async function loadCycleDone() {
+    try {
       const existing = await listRecords('quarto');
       const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
-      cycleDone = grouped.currentCycle ? grouped.currentCycle.uniqueRooms : [];
-    }catch(e){
+
+      // El ciclo actual se calcula desde el historial real.
+      // No depende exclusivamente de localStorage.
+      cycleDone = grouped.currentCycle
+        ? grouped.currentCycle.uniqueRooms.slice()
+        : [];
+
+      saveCycleDone();
+    } catch (e) {
+      console.warn('Erro ao carregar progresso do ciclo:', e);
       cycleDone = [];
     }
   }
@@ -3394,9 +3410,14 @@
   }
 
   // Obter os quartos já medidos no ciclo atual
-  function effectiveCycleDone(){
+  function effectiveCycleDone() {
     const validSet = new Set(roomsList.map(normRoom));
-    return cycleDone.map(normRoom).filter(n=> n && validSet.has(n));
+
+    return [...new Set(
+      cycleDone
+        .map(normRoom)
+        .filter(room => room && validSet.has(room))
+    )];
   }
 
   // Marcar um quarto como concluído
