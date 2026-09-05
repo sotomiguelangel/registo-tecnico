@@ -1203,13 +1203,26 @@
         <div class="room-groups" id="roomGrid"></div>
 
         <div id="floorQualityChartContainer" style="margin: 20px 0; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 14px; position: relative;">
-          <div style="text-align: center; color: var(--ink-700); font-size: 13px; margin-bottom: 4px; font-weight: 700;">
-            📊 Qualidade média da água por piso (ciclo selecionado)
+          <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+            <div style="font-size: 13px; color: var(--ink-700); font-weight: 700;">
+              📊 Qualidade da água por piso
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+              <label style="font-size: 12px; color: var(--ink-600); display: inline-flex; align-items: center; gap: 6px;">
+                Modo de visualização:
+                <select id="qualidadeAguaModo" style="padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface, #fff); font-size: 12px; color: var(--ink-900);">
+                  <option value="barras">📊 Visão Geral (por piso)</option>
+                  <option value="dispersao">🔍 Visão Detalhada (pH × Cloro)</option>
+                </select>
+              </label>
+              <label id="qualidadeAguaTendenciaContainer" style="font-size: 12px; color: var(--ink-600); display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="qualidadeAguaTendencia" style="cursor: pointer;">
+                <span>Mostrar linha de tendência</span>
+              </label>
+            </div>
           </div>
-          <div style="text-align: center; color: var(--ink-400); font-size: 11px; margin-bottom: 10px;">
-            Qual é o piso com melhor qualidade de água segundo as leituras registadas?
-          </div>
-          <div id="floorQualityChart" style="min-height: 180px; position: relative;"></div>
+
+          <div id="floorQualityChart" style="min-height: 280px; position: relative;"></div>
           <div id="floorQualityChartTooltip" class="chart-tip" style="display:none; position:absolute; z-index: 10;"></div>
         </div>
         <label class="field" id="qManualLabel" style="margin-top:10px; margin-bottom:0">
@@ -3565,213 +3578,588 @@
     if (!container || !tooltip) return;
 
     try {
+      const modoSel = $('qualidadeAguaModo') || document.getElementById('qualidadeAguaModo');
+      const modo = modoSel?.value || 'barras';
+      const tendenciaCheck = $('qualidadeAguaTendencia') || document.getElementById('qualidadeAguaTendencia');
+      const mostrarTendencia = tendenciaCheck?.checked || false;
+
+      // Atualizar estado visual do checkbox de tendência (só ativo no modo dispersão)
+      const tendenciaContainer = $('qualidadeAguaTendenciaContainer') || document.getElementById('qualidadeAguaTendenciaContainer');
+      if (tendenciaCheck) {
+        tendenciaCheck.disabled = (modo === 'barras');
+        if (tendenciaContainer) {
+          tendenciaContainer.style.opacity = (modo === 'barras') ? '0.45' : '1';
+          tendenciaContainer.style.pointerEvents = (modo === 'barras') ? 'none' : 'auto';
+        }
+      }
+
       // 1. Obter registos de quartos do ciclo selecionado
       const records = await listRecords('quarto');
       const cycleRecords = getSelectedCycleQuartoRecords(records);
 
       if (!cycleRecords || cycleRecords.length === 0) {
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Não há leituras de quartos no ciclo selecionado.</div>';
+        container.innerHTML = `
+          <div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">
+            Não há leituras de quartos no ciclo selecionado.
+          </div>
+        `;
         tooltip.style.display = 'none';
+        tooltip.classList.remove('show');
         return;
       }
 
-      // 2. Agrupar por piso e calcular média de qualidade
-      const floorData = {}; // piso -> { somaScore: X, contagem: Y }
-
-      cycleRecords.forEach(r => {
-        if (!r || !r.data) return;
+      // 2. Preparar dados comuns: extrair pH, cloro, piso, quarto, data, hora, técnico
+      const pontos = cycleRecords.map(r => {
+        if (!r || !r.data) return null;
         const numero = normRoom(r.data.numero);
-        const piso = numero.charAt(0); // primeiro dígito = piso (ex: '101' → '1')
-
-        if (!piso || !/[0-4]/.test(piso)) return; // validar piso
+        const piso = numero.charAt(0);
+        if (!piso || !/[0-4]/.test(piso)) return null;
 
         const ph = parseFloat(r.data.phCaliente);
         const cloro = parseFloat(r.data.cloroCaliente);
         const score = calculateWaterQualityScore(ph, cloro);
 
-        if (score === null) return;
-
-        if (!floorData[piso]) {
-          floorData[piso] = { somaScore: 0, contagem: 0 };
-        }
-        floorData[piso].somaScore += score;
-        floorData[piso].contagem += 1;
-      });
-
-      // 3. Calcular média por piso
-      const pisos = Object.keys(floorData)
-        .map(piso => ({
+        return {
           piso: piso,
-          score: Math.round(floorData[piso].somaScore / floorData[piso].contagem),
-          contagem: floorData[piso].contagem
-        }))
-        .sort((a, b) => b.score - a.score); // do maior para o menor score
+          quarto: numero,
+          data: r.data.fecha || '—',
+          hora: r.data.hora || '—',
+          tecnico: r.data.usuario || '—',
+          ph: isNaN(ph) ? null : ph,
+          cloro: isNaN(cloro) ? null : cloro,
+          score: score === null ? null : score,
+          observacoes: r.data.observacoes || ''
+        };
+      }).filter(p => p !== null && p.ph !== null && p.cloro !== null); // apenas pontos válidos
 
-      if (pisos.length === 0) {
-        container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Dados insuficientes para calcular qualidade por piso.</div>';
+      if (pontos.length === 0) {
+        container.innerHTML = `
+          <div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">
+            Não há leituras com pH e cloro válidos para análise no ciclo selecionado.
+          </div>
+        `;
         tooltip.style.display = 'none';
+        tooltip.classList.remove('show');
         return;
       }
 
-      // 4. Desenhar gráfico de barras horizontais com D3.js
-      await ensureD3();
-
-      if (typeof d3 === 'undefined') {
-        container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Biblioteca D3.js não disponível.</div>';
-        return;
+      // 3. Se modo for "barras", usar o gráfico de barras
+      if (modo === 'barras') {
+        return await desenharModoBarras(pontos, container, tooltip);
       }
 
-      const margin = { top: 20, right: 30, bottom: 30, left: 80 };
-      const clientWidth = container.clientWidth || 320;
-      const largura = Math.max(200, clientWidth - margin.left - margin.right);
-      const altura = Math.max(200, pisos.length * 30 + margin.top + margin.bottom);
-
-      // Limpar o contentor
-      container.innerHTML = '';
-
-      const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${largura + margin.left + margin.right} ${altura}`)
-        .style('width', '100%')
-        .style('height', 'auto')
-        .style('display', 'block');
-
-      const g = svg.append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-
-      const innerHeight = altura - margin.top - margin.bottom;
-
-      const escalaY = d3.scaleBand()
-        .domain(pisos.map(d => d.piso))
-        .range([0, innerHeight])
-        .padding(0.18);
-
-      const escalaX = d3.scaleLinear()
-        .domain([0, 100])
-        .range([0, largura]);
-
-      // Linha de referência recomendada (80%)
-      g.append('line')
-        .attr('x1', escalaX(80))
-        .attr('y1', 0)
-        .attr('x2', escalaX(80))
-        .attr('y2', innerHeight)
-        .attr('stroke', 'var(--ok-500)')
-        .attr('stroke-width', 1.5)
-        .attr('stroke-dasharray', '4,2')
-        .attr('opacity', 0.65);
-
-      g.append('text')
-        .attr('x', escalaX(80) + 4)
-        .attr('y', -6)
-        .attr('font-family', 'var(--mono)')
-        .attr('font-size', '9.5px')
-        .attr('fill', 'var(--ok-500)')
-        .text('Meta 80%');
-
-      // Grupos de barras interativos
-      const gruposBarras = g.selectAll('.grupo-barra')
-        .data(pisos)
-        .enter()
-        .append('g')
-        .attr('class', 'grupo-barra')
-        .style('cursor', 'pointer');
-
-      // Fundo suave de barra
-      gruposBarras.append('rect')
-        .attr('x', 0)
-        .attr('y', d => escalaY(d.piso))
-        .attr('width', largura)
-        .attr('height', escalaY.bandwidth())
-        .attr('fill', 'rgba(0,0,0,0.03)')
-        .attr('rx', 4);
-
-      // Barra de qualidade
-      gruposBarras.append('rect')
-        .attr('class', 'barra')
-        .attr('x', 0)
-        .attr('y', d => escalaY(d.piso))
-        .attr('width', d => Math.max(4, escalaX(d.score)))
-        .attr('height', escalaY.bandwidth())
-        .attr('fill', d => {
-          if (d.score >= 80) return 'var(--ok-500)';
-          if (d.score >= 60) return 'var(--amber-500)';
-          return 'var(--coral-500)';
-        })
-        .attr('rx', 4)
-        .attr('ry', 4);
-
-      // Rótulos de valor (dentro ou junto à barra)
-      gruposBarras.append('text')
-        .attr('class', 'rotulo-valor')
-        .attr('x', d => escalaX(d.score) > 40 ? escalaX(d.score) - 6 : escalaX(d.score) + 6)
-        .attr('y', d => escalaY(d.piso) + escalaY.bandwidth() / 2 + 4)
-        .attr('text-anchor', d => escalaX(d.score) > 40 ? 'end' : 'start')
-        .attr('fill', d => escalaX(d.score) > 40 ? '#ffffff' : 'var(--ink-900)')
-        .attr('font-family', 'var(--mono)')
-        .attr('font-size', '11px')
-        .attr('font-weight', '600')
-        .text(d => d.score + '%');
-
-      // Eixo Y (pisos)
-      g.append('g')
-        .attr('class', 'eixo-y')
-        .attr('transform', `translate(0,0)`)
-        .call(d3.axisLeft(escalaY).tickFormat(p => `Piso ${p}`))
-        .call(axis => axis.select('.domain').remove())
-        .selectAll('text')
-        .attr('font-family', 'var(--mono)')
-        .attr('font-size', '12px')
-        .attr('font-weight', '600')
-        .attr('fill', 'var(--ink-900)');
-
-      // Eixo X (escala 0-100)
-      g.append('g')
-        .attr('class', 'eixo-x')
-        .attr('transform', `translate(0,${innerHeight})`)
-        .call(d3.axisBottom(escalaX).ticks(5).tickFormat(d => d + '%'))
-        .selectAll('text')
-        .attr('font-family', 'var(--mono)')
-        .attr('font-size', '11px')
-        .attr('fill', 'var(--ink-600)');
-
-      // Tooltip nos grupos de barra
-      gruposBarras
-        .on('mouseover', (event, d) => {
-          tooltip.innerHTML = `
-            <div class="tip-row"><span class="tip-label">Piso:</span><span class="tip-val">Piso ${d.piso}</span></div>
-            <div class="tip-row"><span class="tip-label">Qualidade média:</span><span class="tip-val">${d.score}%</span></div>
-            <div class="tip-row"><span class="tip-label">Amostras:</span><span class="tip-val">${d.contagem} leitura${d.contagem === 1 ? '' : 's'}</span></div>
-          `;
-          tooltip.style.display = 'block';
-          tooltip.classList.add('show');
-        })
-        .on('mousemove', (event) => {
-          const boxRect = container.getBoundingClientRect();
-          tooltip.style.left = (event.clientX - boxRect.left + 14) + 'px';
-          tooltip.style.top = (event.clientY - boxRect.top - 24) + 'px';
-        })
-        .on('mouseout', () => {
-          tooltip.style.display = 'none';
-          tooltip.classList.remove('show');
-        });
-
-      // Legenda do eixo X
-      g.append('text')
-        .attr('x', largura / 2)
-        .attr('y', altura - margin.bottom + 20)
-        .attr('text-anchor', 'middle')
-        .attr('font-family', 'var(--sans)')
-        .attr('font-size', '12px')
-        .attr('font-weight', '600')
-        .attr('fill', 'var(--ink-600)')
-        .text('Qualidade média da água (%)');
+      // 4. Se modo for "dispersao", usar o gráfico de dispersão
+      if (modo === 'dispersao') {
+        return await desenharModoDispersao(pontos, container, tooltip, mostrarTendencia);
+      }
 
     } catch (err) {
-      console.error('Erro ao desenhar gráfico de qualidade por piso:', err);
+      console.error('Erro ao desenhar gráfico de qualidade da água:', err);
       container.innerHTML = `<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Erro ao gerar o gráfico: ${esc(err.message)}</div>`;
       tooltip.style.display = 'none';
+      tooltip.classList.remove('show');
     }
+  }
+
+  // ========== MODO BARRAS (VISÃO GERAL POR PISO) ==========
+  async function desenharModoBarras(pontos, container, tooltip) {
+    // Agrupar por piso e calcular média de score
+    const floorData = {};
+    pontos.forEach(p => {
+      if (p.score === null) return;
+      if (!floorData[p.piso]) {
+        floorData[p.piso] = { somaScore: 0, contagem: 0 };
+      }
+      floorData[p.piso].somaScore += p.score;
+      floorData[p.piso].contagem += 1;
+    });
+
+    const pisos = Object.keys(floorData)
+      .map(piso => ({
+        piso: piso,
+        score: Math.round(floorData[piso].somaScore / floorData[piso].contagem),
+        contagem: floorData[piso].contagem
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    if (pisos.length === 0) {
+      container.innerHTML = '<div style="padding:40px; text-align:center; color:var(--ink-400); font-family:var(--mono); font-size:12px;">Dados insuficientes para calcular qualidade por piso.</div>';
+      tooltip.style.display = 'none';
+      tooltip.classList.remove('show');
+      return;
+    }
+
+    await ensureD3();
+
+    if (typeof d3 === 'undefined') {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Biblioteca D3.js não disponível.</div>';
+      return;
+    }
+
+    const margin = { top: 20, right: 30, bottom: 35, left: 75 };
+    const clientWidth = container.clientWidth || 320;
+    const largura = Math.max(200, clientWidth - margin.left - margin.right);
+    const altura = Math.max(220, pisos.length * 36 + margin.top + margin.bottom);
+
+    container.innerHTML = '';
+    const svg = d3.select(container)
+      .append('svg')
+      .attr('viewBox', `0 0 ${largura + margin.left + margin.right} ${altura}`)
+      .style('width', '100%')
+      .style('height', 'auto')
+      .style('display', 'block');
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const innerHeight = altura - margin.top - margin.bottom;
+
+    const escalaY = d3.scaleBand()
+      .domain(pisos.map(d => d.piso))
+      .range([0, innerHeight])
+      .padding(0.18);
+
+    const escalaX = d3.scaleLinear()
+      .domain([0, 100])
+      .range([0, largura]);
+
+    // Linha de referência (80%)
+    g.append('line')
+      .attr('x1', escalaX(80))
+      .attr('y1', 0)
+      .attr('x2', escalaX(80))
+      .attr('y2', innerHeight)
+      .attr('stroke', 'var(--ok-500)')
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,2')
+      .attr('opacity', 0.65);
+
+    g.append('text')
+      .attr('x', escalaX(80) + 4)
+      .attr('y', -6)
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '9.5px')
+      .attr('fill', 'var(--ok-500)')
+      .text('Meta 80%');
+
+    // Grupos de barras interativos
+    const gruposBarras = g.selectAll('.grupo-barra')
+      .data(pisos)
+      .enter()
+      .append('g')
+      .attr('class', 'grupo-barra')
+      .style('cursor', 'pointer');
+
+    // Fundo suave de barra
+    gruposBarras.append('rect')
+      .attr('x', 0)
+      .attr('y', d => escalaY(d.piso))
+      .attr('width', largura)
+      .attr('height', escalaY.bandwidth())
+      .attr('fill', 'rgba(0,0,0,0.03)')
+      .attr('rx', 4);
+
+    // Barra de qualidade
+    gruposBarras.append('rect')
+      .attr('class', 'barra')
+      .attr('x', 0)
+      .attr('y', d => escalaY(d.piso))
+      .attr('width', d => Math.max(4, escalaX(d.score)))
+      .attr('height', escalaY.bandwidth())
+      .attr('fill', d => {
+        if (d.score >= 80) return 'var(--ok-500)';
+        if (d.score >= 60) return 'var(--amber-500)';
+        return 'var(--coral-500)';
+      })
+      .attr('rx', 4)
+      .attr('ry', 4);
+
+    // Rótulos de valor
+    gruposBarras.append('text')
+      .attr('class', 'rotulo-valor')
+      .attr('x', d => escalaX(d.score) > 40 ? escalaX(d.score) - 6 : escalaX(d.score) + 6)
+      .attr('y', d => escalaY(d.piso) + escalaY.bandwidth() / 2 + 4)
+      .attr('text-anchor', d => escalaX(d.score) > 40 ? 'end' : 'start')
+      .attr('fill', d => escalaX(d.score) > 40 ? '#ffffff' : 'var(--ink-900)')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '11px')
+      .attr('font-weight', '600')
+      .text(d => d.score + '%');
+
+    // Eixos
+    g.append('g')
+      .attr('class', 'eixo-y')
+      .attr('transform', `translate(0,0)`)
+      .call(d3.axisLeft(escalaY).tickFormat(p => `Piso ${p}`))
+      .call(axis => axis.select('.domain').remove())
+      .selectAll('text')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '12px')
+      .attr('font-weight', '600')
+      .attr('fill', 'var(--ink-900)');
+
+    g.append('g')
+      .attr('class', 'eixo-x')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(escalaX).ticks(5).tickFormat(d => d + '%'))
+      .selectAll('text')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '11px')
+      .attr('fill', 'var(--ink-600)');
+
+    // Tooltip
+    gruposBarras
+      .on('mouseover', (event, d) => {
+        tooltip.innerHTML = `
+          <div class="tip-row"><span class="tip-label">Piso:</span><span class="tip-val">Piso ${d.piso}</span></div>
+          <div class="tip-row"><span class="tip-label">Qualidade média:</span><span class="tip-val">${d.score}%</span></div>
+          <div class="tip-row"><span class="tip-label">Amostras:</span><span class="tip-val">${d.contagem} leitura${d.contagem === 1 ? '' : 's'}</span></div>
+        `;
+        tooltip.style.display = 'block';
+        tooltip.classList.add('show');
+      })
+      .on('mousemove', (event) => {
+        const boxRect = container.getBoundingClientRect();
+        tooltip.style.left = (event.clientX - boxRect.left + 14) + 'px';
+        tooltip.style.top = (event.clientY - boxRect.top - 24) + 'px';
+      })
+      .on('mouseout', () => {
+        tooltip.style.display = 'none';
+        tooltip.classList.remove('show');
+      });
+
+    // Legenda do eixo X
+    g.append('text')
+      .attr('x', largura / 2)
+      .attr('y', innerHeight + 30)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'var(--sans)')
+      .attr('font-size', '12px')
+      .attr('font-weight', '600')
+      .attr('fill', 'var(--ink-600)')
+      .text('Qualidade média da água (%)');
+  }
+
+  // ========== MODO DISPERSÃO (VISÃO DETALHADA pH × CLORO) ==========
+  async function desenharModoDispersao(pontos, container, tooltip, mostrarTendencia) {
+    await ensureD3();
+
+    if (typeof d3 === 'undefined') {
+      container.innerHTML = '<div style="padding:20px; text-align:center; color:var(--coral-500); font-size:12px;">Biblioteca D3.js não disponível.</div>';
+      return;
+    }
+
+    const margin = { top: 35, right: 85, bottom: 50, left: 60 };
+    const clientWidth = container.clientWidth || 360;
+    const largura = Math.max(220, clientWidth - margin.left - margin.right);
+    const altura = 340; // altura confortável para o gráfico de dispersão
+    const innerHeight = altura - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    const svg = d3.select(container)
+      .append('svg')
+      .attr('viewBox', `0 0 ${largura + margin.left + margin.right} ${altura}`)
+      .style('width', '100%')
+      .style('height', 'auto')
+      .style('display', 'block');
+
+    const g = svg.append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Determinar escala dos eixos com margem de segurança
+    const phVals = pontos.map(p => p.ph).filter(p => p !== null && !isNaN(p));
+    const cloroVals = pontos.map(p => p.cloro).filter(p => p !== null && !isNaN(p));
+
+    const phMin = phVals.length ? Math.min(...phVals) : 6.5;
+    const phMax = phVals.length ? Math.max(...phVals) : 8.0;
+    const cloroMin = cloroVals.length ? Math.min(...cloroVals) : 0.5;
+    const cloroMax = cloroVals.length ? Math.max(...cloroVals) : 2.5;
+
+    const phRange = [Math.max(5.5, Math.min(6.5, phMin - 0.4)), Math.min(9.5, Math.max(8.5, phMax + 0.4))];
+    const cloroRange = [Math.max(0.0, Math.min(0.0, cloroMin - 0.3)), Math.min(6.0, Math.max(3.5, cloroMax + 0.5))];
+
+    // Invertido: pH alto em cima
+    const escalaY = d3.scaleLinear()
+      .domain([phRange[1], phRange[0]])
+      .range([0, innerHeight]);
+
+    const escalaX = d3.scaleLinear()
+      .domain(cloroRange)
+      .range([0, largura]);
+
+    // 1. ZONA IDEAL (verde): pH 7.0–7.8, Cloro 0.5–3.0
+    const zonaIdealX1 = escalaX(0.5);
+    const zonaIdealX2 = escalaX(3.0);
+    const zonaIdealY1 = escalaY(7.8);
+    const zonaIdealY2 = escalaY(7.0);
+    const zonaIdealLargura = Math.max(0, zonaIdealX2 - zonaIdealX1);
+    const zonaIdealAltura = Math.max(0, zonaIdealY2 - zonaIdealY1);
+
+    if (zonaIdealLargura > 0 && zonaIdealAltura > 0) {
+      g.append('rect')
+        .attr('x', zonaIdealX1)
+        .attr('y', zonaIdealY1)
+        .attr('width', zonaIdealLargura)
+        .attr('height', zonaIdealAltura)
+        .attr('fill', 'var(--ok-500)')
+        .attr('fill-opacity', 0.12)
+        .attr('stroke', 'var(--ok-500)')
+        .attr('stroke-width', 1.2)
+        .attr('stroke-dasharray', '4,3');
+
+      g.append('text')
+        .attr('x', zonaIdealX1 + zonaIdealLargura / 2)
+        .attr('y', zonaIdealY1 + zonaIdealAltura / 2 + 4)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('font-weight', '700')
+        .attr('fill', 'var(--ok-500)')
+        .text('ZONA IDEAL');
+    }
+
+    // 2. Alertas de pH (fora de 7.0–7.8): faixa amarela subtil
+    const phAlertaX1 = escalaX(cloroRange[0]);
+    const phAlertaLargura = Math.max(0, escalaX(cloroRange[1]) - phAlertaX1);
+    const phAlertaAlturaAlt = Math.max(0, escalaY(7.8) - escalaY(phRange[1]));
+    const phAlertaAlturaBaixo = Math.max(0, escalaY(phRange[0]) - escalaY(7.0));
+
+    if (phAlertaLargura > 0 && phAlertaAlturaAlt > 0) {
+      g.append('rect')
+        .attr('x', phAlertaX1)
+        .attr('y', escalaY(phRange[1]))
+        .attr('width', phAlertaLargura)
+        .attr('height', phAlertaAlturaAlt)
+        .attr('fill', 'var(--amber-500)')
+        .attr('fill-opacity', 0.08)
+        .attr('stroke', 'var(--amber-500)')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '3,3');
+    }
+
+    if (phAlertaLargura > 0 && phAlertaAlturaBaixo > 0) {
+      g.append('rect')
+        .attr('x', phAlertaX1)
+        .attr('y', escalaY(7.0))
+        .attr('width', phAlertaLargura)
+        .attr('height', phAlertaAlturaBaixo)
+        .attr('fill', 'var(--amber-500)')
+        .attr('fill-opacity', 0.08)
+        .attr('stroke', 'var(--amber-500)')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '3,3');
+    }
+
+    // 3. Alertas de Cloro (fora de 0.5–3.0): faixa coral subtil
+    const cloroAlertaY1 = escalaY(phRange[1]);
+    const cloroAlertaAltura = Math.max(0, escalaY(phRange[0]) - cloroAlertaY1);
+    const cloroAlertaLarguraEsq = Math.max(0, escalaX(0.5) - escalaX(cloroRange[0]));
+    const cloroAlertaLarguraDir = Math.max(0, escalaX(cloroRange[1]) - escalaX(3.0));
+
+    if (cloroAlertaAltura > 0 && cloroAlertaLarguraEsq > 0) {
+      g.append('rect')
+        .attr('x', escalaX(cloroRange[0]))
+        .attr('y', cloroAlertaY1)
+        .attr('width', cloroAlertaLarguraEsq)
+        .attr('height', cloroAlertaAltura)
+        .attr('fill', 'var(--coral-500)')
+        .attr('fill-opacity', 0.08)
+        .attr('stroke', 'var(--coral-500)')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '3,3');
+    }
+
+    if (cloroAlertaAltura > 0 && cloroAlertaLarguraDir > 0) {
+      g.append('rect')
+        .attr('x', escalaX(3.0))
+        .attr('y', cloroAlertaY1)
+        .attr('width', cloroAlertaLarguraDir)
+        .attr('height', cloroAlertaAltura)
+        .attr('fill', 'var(--coral-500)')
+        .attr('fill-opacity', 0.08)
+        .attr('stroke', 'var(--coral-500)')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '3,3');
+    }
+
+    // Eixos
+    g.append('g')
+      .attr('class', 'eixo-y')
+      .attr('transform', `translate(0,0)`)
+      .call(d3.axisLeft(escalaY).ticks(6).tickFormat(d => d.toFixed(1)))
+      .selectAll('text')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '11px')
+      .attr('fill', 'var(--ink-900)');
+
+    g.append('g')
+      .attr('class', 'eixo-x')
+      .attr('transform', `translate(0,${innerHeight})`)
+      .call(d3.axisBottom(escalaX).ticks(6).tickFormat(d => d.toFixed(2)))
+      .selectAll('text')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '11px')
+      .attr('fill', 'var(--ink-600)');
+
+    // Rótulos dos eixos
+    g.append('text')
+      .attr('x', -innerHeight / 2)
+      .attr('y', -40)
+      .attr('transform', 'rotate(-90)')
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'var(--sans)')
+      .attr('font-size', '12px')
+      .attr('font-weight', '600')
+      .attr('fill', 'var(--ink-700)')
+      .text('pH');
+
+    g.append('text')
+      .attr('x', largura / 2)
+      .attr('y', innerHeight + 38)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'var(--sans)')
+      .attr('font-size', '12px')
+      .attr('font-weight', '600')
+      .attr('fill', 'var(--ink-700)')
+      .text('Cloro livre (ppm)');
+
+    // Cores distintas por piso
+    const pisosUnicos = [...new Set(pontos.map(p => p.piso))].sort();
+    const cores = [
+      '#059669', // Piso 0 - verde esmeralda
+      '#2563eb', // Piso 1 - azul royal
+      '#d97706', // Piso 2 - âmbar
+      '#7c3aed', // Piso 3 - violeta
+      '#e11d48'  // Piso 4 - coral/rosa forte
+    ];
+    const corPorPiso = {};
+    pisosUnicos.forEach((piso, i) => {
+      corPorPiso[piso] = cores[i % cores.length];
+    });
+
+    // Desenhar pontos de dispersão
+    g.selectAll('.ponto')
+      .data(pontos)
+      .enter()
+      .append('circle')
+      .attr('class', 'ponto')
+      .attr('cx', d => escalaX(d.cloro))
+      .attr('cy', d => escalaY(d.ph))
+      .attr('r', 5.5)
+      .attr('fill', d => corPorPiso[d.piso] || '#64748b')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 1.5)
+      .style('cursor', 'pointer')
+      .on('mouseover', function(evento, d) {
+        d3.select(this)
+          .attr('r', 8)
+          .attr('stroke-width', 2.5);
+
+        tooltip.innerHTML = `
+          <div class="tip-row"><span class="tip-label">Piso:</span><span class="tip-val">Piso ${d.piso}</span></div>
+          <div class="tip-row"><span class="tip-label">Quarto:</span><span class="tip-val">${d.quarto}</span></div>
+          <div class="tip-row"><span class="tip-label">Data / Hora:</span><span class="tip-val">${d.data} ${d.hora}</span></div>
+          <div class="tip-row"><span class="tip-label">pH:</span><span class="tip-val">${d.ph !== null ? d.ph.toFixed(2) : '—'}</span></div>
+          <div class="tip-row"><span class="tip-label">Cloro livre:</span><span class="tip-val">${d.cloro !== null ? d.cloro.toFixed(2) : '—'} ppm</span></div>
+          <div class="tip-row"><span class="tip-label">Qualidade:</span><span class="tip-val">${d.score !== null ? d.score + '%' : '—'}</span></div>
+          <div class="tip-row"><span class="tip-label">Técnico:</span><span class="tip-val">${d.tecnico}</span></div>
+          ${d.observacoes ? `<div class="tip-row" style="margin-top:4px; font-size:10px; color:var(--ink-400);"><span class="tip-label">Obs:</span><span class="tip-val">${esc(d.observacoes)}</span></div>` : ''}
+        `;
+        tooltip.style.display = 'block';
+        tooltip.classList.add('show');
+      })
+      .on('mousemove', function(evento) {
+        const boxRect = container.getBoundingClientRect();
+        tooltip.style.left = (evento.clientX - boxRect.left + 14) + 'px';
+        tooltip.style.top = (evento.clientY - boxRect.top - 28) + 'px';
+      })
+      .on('mouseout', function() {
+        d3.select(this)
+          .attr('r', 5.5)
+          .attr('stroke-width', 1.5);
+        tooltip.style.display = 'none';
+        tooltip.classList.remove('show');
+      })
+      .on('click', function(evento, d) {
+        if (typeof selectRoom === 'function') {
+          selectRoom(d.quarto);
+          const form = $('selectedRoomBanner') || $('q-numero');
+          if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+
+    // Linha de tendência (regressão linear) — se ativada
+    if (mostrarTendencia && pontos.length >= 2) {
+      const validPts = pontos.filter(p => typeof p.cloro === 'number' && typeof p.ph === 'number');
+      const n = validPts.length;
+      if (n >= 2) {
+        const somaX = validPts.reduce((acc, p) => acc + p.cloro, 0);
+        const somaY = validPts.reduce((acc, p) => acc + p.ph, 0);
+        const somaXY = validPts.reduce((acc, p) => acc + (p.cloro * p.ph), 0);
+        const somaX2 = validPts.reduce((acc, p) => acc + Math.pow(p.cloro, 2), 0);
+
+        const denominador = n * somaX2 - Math.pow(somaX, 2);
+        if (Math.abs(denominador) > 1e-9) {
+          const inclinacao = (n * somaXY - somaX * somaY) / denominador;
+          const intercepto = (somaY - inclinacao * somaX) / n;
+
+          const x1 = cloroRange[0];
+          const y1 = inclinacao * x1 + intercepto;
+          const x2 = cloroRange[1];
+          const y2 = inclinacao * x2 + intercepto;
+
+          g.append('line')
+            .attr('x1', escalaX(x1))
+            .attr('y1', escalaY(y1))
+            .attr('x2', escalaX(x2))
+            .attr('y2', escalaY(y2))
+            .attr('stroke', 'var(--petrol-700)')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5,5')
+            .attr('opacity', 0.85);
+
+          g.append('text')
+            .attr('x', escalaX(x2) - 4)
+            .attr('y', escalaY(y2) - 6)
+            .attr('text-anchor', 'end')
+            .attr('font-family', 'var(--mono)')
+            .attr('font-size', '9.5px')
+            .attr('font-weight', '600')
+            .attr('fill', 'var(--petrol-700)')
+            .text('Tendência linear');
+        }
+      }
+    }
+
+    // Legenda de pisos à direita
+    const legenda = g.append('g')
+      .attr('transform', `translate(${largura + 10}, 10)`);
+
+    pisosUnicos.forEach((piso, i) => {
+      const y = i * 20;
+      legenda.append('circle')
+        .attr('cx', 0)
+        .attr('cy', y + 6)
+        .attr('r', 5)
+        .attr('fill', corPorPiso[piso]);
+
+      legenda.append('text')
+        .attr('x', 10)
+        .attr('y', y + 10)
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '11px')
+        .attr('fill', 'var(--ink-900)')
+        .text(`Piso ${piso}`);
+    });
+
+    // Título da visão detalhada
+    g.append('text')
+      .attr('x', largura / 2)
+      .attr('y', -14)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'var(--sans)')
+      .attr('font-size', '13px')
+      .attr('font-weight', '700')
+      .attr('fill', 'var(--ink-800)')
+      .text('Dispersão pH × Cloro por Piso (passe o cursor sobre os pontos)');
   }
 
   async function renderRoomGrid(){
@@ -4095,6 +4483,14 @@
   $('qCycleSelect') && $('qCycleSelect').addEventListener('change', async (e)=>{
     selectedCycleIndex = e.target.value;
     await renderRoomGrid();
+    await drawFloorQualityChart();
+  });
+
+  $('qualidadeAguaModo') && $('qualidadeAguaModo').addEventListener('change', async ()=>{
+    await drawFloorQualityChart();
+  });
+
+  $('qualidadeAguaTendencia') && $('qualidadeAguaTendencia').addEventListener('change', async ()=>{
     await drawFloorQualityChart();
   });
 
