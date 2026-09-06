@@ -18,6 +18,51 @@
 <link rel="stylesheet" href="css/main.css">
 <link rel="stylesheet" href="css/components.css">
 <script>
+  // Garantir que window.fetch tenha sempre getter e setter configuráveis
+  // Previne "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter"
+  // quando proxies, iframes ou extensões tentam sobrescrever window.fetch
+  (function() {
+    try {
+      var realFetch = typeof window !== 'undefined' ? window.fetch : null;
+      var _fetch = realFetch;
+      var fetchGetter = function() { return _fetch || realFetch; };
+      var fetchSetter = function(val) { _fetch = val; };
+
+      if (typeof window !== 'undefined') {
+        try {
+          Object.defineProperty(window, 'fetch', {
+            get: fetchGetter,
+            set: fetchSetter,
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e1) {}
+      }
+
+      if (typeof Window !== 'undefined' && Window.prototype) {
+        try {
+          Object.defineProperty(Window.prototype, 'fetch', {
+            get: fetchGetter,
+            set: fetchSetter,
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e2) {}
+      }
+
+      if (typeof globalThis !== 'undefined' && globalThis !== window) {
+        try {
+          Object.defineProperty(globalThis, 'fetch', {
+            get: fetchGetter,
+            set: fetchSetter,
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e3) {}
+      }
+    } catch(err) {}
+  })();
+
   // Funções globais de ciclo de vida pré-inicializadas no escopo global (evita ReferenceError)
   var _realRefreshConsumoResumen = null;
   async function refreshConsumoResumen() {
@@ -1616,31 +1661,6 @@
 
 <script>
 (function(){
-  // Expor e sincronizar funções de ciclo de vida globais logo no início da execução
-  if (typeof _realRefreshConsumoResumen !== 'undefined') _realRefreshConsumoResumen = refreshConsumoResumen;
-  if (typeof _realRenderDashboard !== 'undefined') _realRenderDashboard = renderDashboard;
-  if (typeof _realRenderEjecutivo !== 'undefined') _realRenderEjecutivo = renderEjecutivo;
-  if (typeof _realRenderRoomGrid !== 'undefined') _realRenderRoomGrid = renderRoomGrid;
-  if (typeof _realRefreshChips !== 'undefined') _realRefreshChips = refreshChips;
-  if (typeof _realInitMainApp !== 'undefined') _realInitMainApp = initMainApp;
-
-  if (typeof window !== 'undefined') {
-    window.refreshConsumoResumen = refreshConsumoResumen;
-    window.renderDashboard = renderDashboard;
-    window.renderEjecutivo = renderEjecutivo;
-    window.renderRoomGrid = renderRoomGrid;
-    window.refreshChips = refreshChips;
-    window.initMainApp = initMainApp;
-  }
-  if (typeof globalThis !== 'undefined') {
-    globalThis.refreshConsumoResumen = refreshConsumoResumen;
-    globalThis.renderDashboard = renderDashboard;
-    globalThis.renderEjecutivo = renderEjecutivo;
-    globalThis.renderRoomGrid = renderRoomGrid;
-    globalThis.refreshChips = refreshChips;
-    globalThis.initMainApp = initMainApp;
-  }
-
   const $ = (id) => document.getElementById(id);
   const pad = n => String(n).padStart(2,'0');
   const esc = s => String(s === undefined || s === null ? '' : s)

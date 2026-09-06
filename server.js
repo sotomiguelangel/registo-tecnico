@@ -8,29 +8,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
-// Security Headers & Content Security Policy (CSP)
+// Basic security and CORS/embed headers friendly to AI Studio iframe
 app.use((req, res, next) => {
-  res.setHeader(
-    'Content-Security-Policy',
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://script.google.com https://*.google.com https://*.googleusercontent.com",
-      "frame-ancestors 'self' https://*.google.com https://*.googleusercontent.com https://*.run.app *",
-      "object-src 'none'",
-      "base-uri 'self'"
-    ].join('; ')
-  );
-
-  // Other security headers
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-
   next();
 });
 
