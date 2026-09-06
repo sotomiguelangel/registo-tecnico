@@ -127,6 +127,7 @@
     globalThis.initMainApp = initMainApp;
   }
 </script>
+<script src="/node_modules/d3/dist/d3.min.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -997,6 +998,105 @@
   }
   .d3-check-label input[type="checkbox"]{
     width:15px; height:15px; accent-color:var(--petrol-900); margin:0; cursor:pointer;
+  }
+
+  /* D3 Gráfico de Linhas Interativo - Tendência de Consumo 30 Dias */
+  .d3-line-card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:20px;
+    box-shadow:0 2px 12px -4px rgba(10,37,48,.08);
+  }
+  .d3-line-header{
+    display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-wrap:wrap; gap:8px;
+  }
+  .d3-line-title{
+    font-family:var(--sans); font-size:14.5px; font-weight:700; color:var(--petrol-900); margin:0 0 3px; display:flex; align-items:center; gap:8px;
+  }
+  .d3-line-sub{
+    font-family:var(--mono); font-size:11px; color:var(--ink-400); margin:0; line-height:1.4;
+  }
+  .d3-line-controls{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;
+  }
+  .d3-metric-toggle{
+    display:flex; gap:6px; flex-wrap:wrap;
+  }
+  .d3-metric-btn{
+    padding:7px 12px; border-radius:8px; border:1.5px solid var(--line); background:#fff;
+    font-size:11.5px; font-weight:700; color:var(--ink-600); cursor:pointer; transition:all .15s ease;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .d3-metric-btn:hover{
+    border-color:var(--petrol-700); color:var(--petrol-900);
+  }
+  .d3-metric-btn.active{
+    background:var(--petrol-900); border-color:var(--petrol-900); color:#fff;
+  }
+  .d3-metric-btn.active.is-water{
+    background:#0284c7; border-color:#0284c7; color:#fff;
+  }
+  .d3-metric-btn.active.is-elec{
+    background:#d97706; border-color:#d97706; color:#fff;
+  }
+  .d3-options-strip{
+    display:flex; align-items:center; gap:14px; font-size:11px; color:var(--ink-600); flex-wrap:wrap;
+  }
+  .d3-summary-strip{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(135px, 1fr)); gap:8px; margin-bottom:14px;
+  }
+  .d3-summary-pill{
+    background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:9px 10px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .d3-summary-pill .s-lbl{
+    font-size:9.5px; font-weight:600; color:var(--ink-400); text-transform:uppercase; font-family:var(--mono);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .d3-summary-pill .s-val{
+    font-family:var(--mono); font-size:14px; font-weight:700; color:var(--petrol-900); line-height:1.2;
+  }
+  .d3-summary-pill.water .s-val{ color:#0284c7; }
+  .d3-summary-pill.elec .s-val{ color:#d97706; }
+  .d3-summary-pill .s-sub{
+    font-size:10px; color:var(--ink-400); font-family:var(--mono);
+  }
+  .d3-line-container{
+    position:relative; width:100%; min-height:290px; touch-action:pan-y;
+  }
+  .d3-line-container svg{
+    display:block; width:100%; height:auto; overflow:visible;
+  }
+  .d3-line-tip{
+    position:absolute; background:var(--petrol-950); color:#fff; border-radius:10px; padding:10px 14px;
+    font-family:var(--mono); font-size:11px; line-height:1.55; pointer-events:none; opacity:0;
+    transition:opacity .12s ease; z-index:30; box-shadow:0 12px 28px -6px rgba(0,0,0,.65);
+    min-width:200px; transform:translate(-50%, -115%);
+  }
+  .d3-line-tip.show{ opacity:1; }
+  .d3-line-tip .tip-date{
+    font-weight:700; font-size:11.5px; color:#e2e8f0; border-bottom:1px solid rgba(255,255,255,.15);
+    padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between;
+  }
+  .d3-line-tip .tip-val-water{
+    color:#38bdf8; font-weight:700;
+  }
+  .d3-line-tip .tip-val-elec{
+    color:#fbbf24; font-weight:700;
+  }
+  .d3-line-tip .tip-row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:2px;
+  }
+  .d3-legend-strip{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:16px; margin-top:14px;
+    font-family:var(--mono); font-size:11px; color:var(--ink-600);
+  }
+  .d3-legend-item{
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+  }
+  .d3-legend-line{
+    width:18px; height:3px; border-radius:2px; display:inline-block;
+  }
+  .d3-legend-line.dashed{
+    border-top:2px dashed; height:0; background:none;
   }
 
   .modal-wide{
@@ -7854,6 +7954,678 @@
     return Object.keys(byDay).sort().map(d=> byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length);
   }
 
+  // ---------- Módulo D3.js: Gráfico de Linhas Interativo de Consumo (Água e Eletricidade - 30 Dias) ----------
+  let d3ConsumoMetric = 'both'; // 'both' | 'agua' | 'elec'
+  let d3ConsumoShowMA7 = true;
+  let d3ConsumoShowArea = true;
+  let d3CachedDailyData = null;
+  let d3CachedTarifas = null;
+  let d3ConsumoResizeObserver = null;
+  let d3ConsumoResizeTimer = null;
+
+  const PT_WEEKDAYS = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+  const PT_MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  function renderD3ConsumoLineChartHtml(){
+    return `
+      <div class="d3-line-card" id="d3ConsumoLineCard">
+        <div class="d3-line-header">
+          <div>
+            <div class="d3-line-title">
+              <span>Tendência de Consumo · Água e Eletricidade</span>
+              <span class="d3-badge-tag">D3.js Interativo</span>
+            </div>
+            <p class="d3-line-sub">Variação diária e média móvel dos últimos 30 dias calculada por leitura de contadores.</p>
+          </div>
+        </div>
+
+        <div class="d3-line-controls">
+          <div class="d3-metric-toggle" id="d3ConsumoMetricToggle">
+            <button type="button" class="d3-metric-btn ${d3ConsumoMetric==='both'?'active':''}" data-metric="both" id="btnD3Both">
+              🔄 Comparativo (Ambos)
+            </button>
+            <button type="button" class="d3-metric-btn is-water ${d3ConsumoMetric==='agua'?'active':''}" data-metric="agua" id="btnD3Agua">
+              💧 Água (m³)
+            </button>
+            <button type="button" class="d3-metric-btn is-elec ${d3ConsumoMetric==='elec'?'active':''}" data-metric="elec" id="btnD3Elec">
+              ⚡ Eletricidade (kWh)
+            </button>
+          </div>
+
+          <div class="d3-options-strip">
+            <label class="d3-check-label">
+              <input type="checkbox" id="chkD3ConsumoMA7" ${d3ConsumoShowMA7?'checked':''}>
+              <span>Média móvel (7d)</span>
+            </label>
+            <label class="d3-check-label">
+              <input type="checkbox" id="chkD3ConsumoArea" ${d3ConsumoShowArea?'checked':''}>
+              <span>Área sombreada</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="d3-summary-strip" id="d3ConsumoSummaryStrip">
+          <!-- Injetado dinamicamente no drawD3ConsumoLineChart() -->
+        </div>
+
+        <div class="d3-line-container" id="d3ConsumoLineChartBox">
+          <div class="d3-line-tip" id="d3ConsumoLineTip"></div>
+        </div>
+
+        <div class="d3-legend-strip" id="d3ConsumoLegend">
+          <span class="d3-legend-item" id="legItemAgua">
+            <span class="d3-legend-line" style="background:#0284c7"></span>
+            <strong>Água</strong> (m³ · eixo esquerdo)
+          </span>
+          <span class="d3-legend-item" id="legItemElec">
+            <span class="d3-legend-line" style="background:#d97706"></span>
+            <strong>Eletricidade</strong> (kWh · eixo direito)
+          </span>
+          <span class="d3-legend-item" id="legItemMA" style="${d3ConsumoShowMA7?'':'display:none;'}">
+            <span class="d3-legend-line dashed" style="border-color:var(--ink-400)"></span>
+            <span>Média móvel 7 dias</span>
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function initD3ConsumoLineChart(dailyData, generalDeltas, tarifas){
+    d3CachedDailyData = dailyData || { agua: {}, elec: {} };
+    d3CachedTarifas = tarifas || { agua: 0, elec: 0 };
+
+    wireD3ConsumoEvents();
+
+    ensureD3().then(()=>{
+      drawD3ConsumoLineChart();
+      setupD3ConsumoResize();
+    }).catch(err=>{
+      console.warn('D3 não pôde ser carregado:', err);
+      const box = $('d3ConsumoLineChartBox');
+      if(box) box.innerHTML = `<div class="empty" style="padding:20px 0">Erro ao carregar visualização D3.js.</div>`;
+    });
+  }
+
+  function wireD3ConsumoEvents(){
+    const toggle = $('d3ConsumoMetricToggle');
+    if(toggle && !toggle.dataset.bound){
+      toggle.dataset.bound = '1';
+      toggle.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.d3-metric-btn');
+        if(!btn) return;
+        const metric = btn.dataset.metric;
+        if(!metric || metric === d3ConsumoMetric) return;
+        d3ConsumoMetric = metric;
+        toggle.querySelectorAll('.d3-metric-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        drawD3ConsumoLineChart();
+      });
+    }
+
+    const chkMA7 = $('chkD3ConsumoMA7');
+    if(chkMA7 && !chkMA7.dataset.bound){
+      chkMA7.dataset.bound = '1';
+      chkMA7.addEventListener('change', ()=>{
+        d3ConsumoShowMA7 = chkMA7.checked;
+        const legMA = $('legItemMA');
+        if(legMA) legMA.style.display = d3ConsumoShowMA7 ? 'inline-flex' : 'none';
+        drawD3ConsumoLineChart();
+      });
+    }
+
+    const chkArea = $('chkD3ConsumoArea');
+    if(chkArea && !chkArea.dataset.bound){
+      chkArea.dataset.bound = '1';
+      chkArea.addEventListener('change', ()=>{
+        d3ConsumoShowArea = chkArea.checked;
+        drawD3ConsumoLineChart();
+      });
+    }
+  }
+
+  function setupD3ConsumoResize(){
+    const box = $('d3ConsumoLineChartBox');
+    if(!box) return;
+    if(window.ResizeObserver){
+      if(d3ConsumoResizeObserver) d3ConsumoResizeObserver.disconnect();
+      d3ConsumoResizeObserver = new ResizeObserver(()=>{
+        clearTimeout(d3ConsumoResizeTimer);
+        d3ConsumoResizeTimer = setTimeout(()=>{
+          if($('d3ConsumoLineChartBox')) drawD3ConsumoLineChart();
+        }, 120);
+      });
+      d3ConsumoResizeObserver.observe(box);
+    }
+  }
+
+  function drawD3ConsumoLineChart(){
+    if(typeof window === 'undefined' || !window.d3) return;
+    const d3 = window.d3;
+    const box = $('d3ConsumoLineChartBox');
+    if(!box) return;
+
+    // Remover qualquer SVG anterior
+    const oldSvg = box.querySelector('svg');
+    if(oldSvg) oldSvg.remove();
+
+    const tip = $('d3ConsumoLineTip');
+    if(tip) tip.classList.remove('show');
+
+    // Preparar série contínua dos últimos 30 dias
+    const dailyAgua = (d3CachedDailyData && d3CachedDailyData.agua) || {};
+    const dailyElec = (d3CachedDailyData && d3CachedDailyData.elec) || {};
+
+    const data = [];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    for(let i = 29; i >= 0; i--){
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dStr = fmt(d);
+      const aVal = (typeof dailyAgua[dStr] === 'number') ? Math.max(0, dailyAgua[dStr]) : 0;
+      const eVal = (typeof dailyElec[dStr] === 'number') ? Math.max(0, dailyElec[dStr]) : 0;
+      data.push({
+        date: d,
+        dateStr: dStr,
+        agua: aVal,
+        elec: eVal,
+        hasAgua: (dStr in dailyAgua),
+        hasElec: (dStr in dailyElec)
+      });
+    }
+
+    // Calcular Médias Móveis de 7 dias
+    for(let i = 0; i < data.length; i++){
+      const slice = data.slice(Math.max(0, i - 6), i + 1);
+      data[i].aguaMA7 = slice.reduce((sum, item) => sum + item.agua, 0) / slice.length;
+      data[i].elecMA7 = slice.reduce((sum, item) => sum + item.elec, 0) / slice.length;
+    }
+
+    // Totais e Médias
+    const totalAgua = data.reduce((s, d) => s + d.agua, 0);
+    const avgAgua = totalAgua / data.length;
+    const maxAguaObj = data.reduce((m, d) => d.agua > m.agua ? d : m, { agua: 0, dateStr: '—' });
+
+    const totalElec = data.reduce((s, d) => s + d.elec, 0);
+    const avgElec = totalElec / data.length;
+    const maxElecObj = data.reduce((m, d) => d.elec > m.elec ? d : m, { elec: 0, dateStr: '—' });
+
+    const tarifaAgua = (d3CachedTarifas && d3CachedTarifas.agua) || 0;
+    const tarifaElec = (d3CachedTarifas && d3CachedTarifas.elec) || 0;
+    const custoAguaTot = totalAgua * tarifaAgua;
+    const custoElecTot = totalElec * tarifaElec;
+    const custoTotal = custoAguaTot + custoElecTot;
+
+    // Atualizar pills de resumo
+    const summaryStrip = $('d3ConsumoSummaryStrip');
+    if(summaryStrip){
+      if(d3ConsumoMetric === 'agua'){
+        summaryStrip.innerHTML = `
+          <div class="d3-summary-pill water">
+            <div class="s-lbl">💧 Consumo Total 30d</div>
+            <div class="s-val">${fmtNum(totalAgua)} m³</div>
+            <div class="s-sub">${tarifaAgua ? '~' + custoAguaTot.toFixed(2) + ' €' : 'Consumo acumulado'}</div>
+          </div>
+          <div class="d3-summary-pill water">
+            <div class="s-lbl">📊 Média Diária</div>
+            <div class="s-val">${fmtNum(avgAgua)} m³/dia</div>
+            <div class="s-sub">Base 30 dias</div>
+          </div>
+          <div class="d3-summary-pill">
+            <div class="s-lbl">⛰ Pico Máximo</div>
+            <div class="s-val">${fmtNum(maxAguaObj.agua)} m³</div>
+            <div class="s-sub">${maxAguaObj.dateStr}</div>
+          </div>
+        `;
+      } else if(d3ConsumoMetric === 'elec'){
+        summaryStrip.innerHTML = `
+          <div class="d3-summary-pill elec">
+            <div class="s-lbl">⚡ Consumo Total 30d</div>
+            <div class="s-val">${fmtNum(totalElec)} kWh</div>
+            <div class="s-sub">${tarifaElec ? '~' + custoElecTot.toFixed(2) + ' €' : 'Consumo acumulado'}</div>
+          </div>
+          <div class="d3-summary-pill elec">
+            <div class="s-lbl">📊 Média Diária</div>
+            <div class="s-val">${fmtNum(avgElec)} kWh/dia</div>
+            <div class="s-sub">Base 30 dias</div>
+          </div>
+          <div class="d3-summary-pill">
+            <div class="s-lbl">⛰ Pico Máximo</div>
+            <div class="s-val">${fmtNum(maxElecObj.elec)} kWh</div>
+            <div class="s-sub">${maxElecObj.dateStr}</div>
+          </div>
+        `;
+      } else {
+        summaryStrip.innerHTML = `
+          <div class="d3-summary-pill water">
+            <div class="s-lbl">💧 Total Água</div>
+            <div class="s-val">${fmtNum(totalAgua)} m³</div>
+            <div class="s-sub">Média: ${fmtNum(avgAgua)} m³/d ${tarifaAgua ? '· ~' + custoAguaTot.toFixed(0) + '€' : ''}</div>
+          </div>
+          <div class="d3-summary-pill elec">
+            <div class="s-lbl">⚡ Total Eletricidade</div>
+            <div class="s-val">${fmtNum(totalElec)} kWh</div>
+            <div class="s-sub">Média: ${fmtNum(avgElec)} kWh/d ${tarifaElec ? '· ~' + custoElecTot.toFixed(0) + '€' : ''}</div>
+          </div>
+          <div class="d3-summary-pill">
+            <div class="s-lbl">💶 Custo Est. Total</div>
+            <div class="s-val">${custoTotal > 0 ? custoTotal.toFixed(2) + ' €' : '—'}</div>
+            <div class="s-sub">${tarifaAgua || tarifaElec ? 'Tarifas ativas' : 'Definir tarifas'}</div>
+          </div>
+          <div class="d3-summary-pill">
+            <div class="s-lbl">📅 Janela</div>
+            <div class="s-val" style="font-size:12.5px">${data[0].dateStr.slice(5)} a ${data[data.length-1].dateStr.slice(5)}</div>
+            <div class="s-sub">30 dias</div>
+          </div>
+        `;
+      }
+    }
+
+    // Atualizar legenda de acordo com a métrica ativa
+    const legAgua = $('legItemAgua');
+    const legElec = $('legItemElec');
+    if(legAgua) legAgua.style.display = (d3ConsumoMetric === 'elec') ? 'none' : 'inline-flex';
+    if(legElec) legElec.style.display = (d3ConsumoMetric === 'agua') ? 'none' : 'inline-flex';
+
+    // Dimensões do SVG
+    const width = Math.max(300, box.clientWidth || 600);
+    const isMobile = width < 500;
+    const height = isMobile ? 260 : 300;
+    const margin = {
+      top: 22,
+      right: d3ConsumoMetric === 'both' ? 56 : 24,
+      bottom: 38,
+      left: 54
+    };
+    const innerW = Math.max(10, width - margin.left - margin.right);
+    const innerH = Math.max(10, height - margin.top - margin.bottom);
+
+    const svg = d3.select(box)
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('style', 'max-width:100%; height:auto;');
+
+    // Definição de Gradientes
+    const defs = svg.append('defs');
+
+    const gradWater = defs.append('linearGradient')
+      .attr('id', 'd3GradWater')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '0%').attr('y2', '100%');
+    gradWater.append('stop').attr('offset', '0%').attr('stop-color', '#0284c7').attr('stop-opacity', 0.28);
+    gradWater.append('stop').attr('offset', '100%').attr('stop-color', '#0284c7').attr('stop-opacity', 0.01);
+
+    const gradElec = defs.append('linearGradient')
+      .attr('id', 'd3GradElec')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '0%').attr('y2', '100%');
+    gradElec.append('stop').attr('offset', '0%').attr('stop-color', '#d97706').attr('stop-opacity', 0.28);
+    gradElec.append('stop').attr('offset', '100%').attr('stop-color', '#d97706').attr('stop-opacity', 0.01);
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Escalas
+    const xScale = d3.scaleTime()
+      .domain(d3.extent(data, d => d.date))
+      .range([0, innerW]);
+
+    const maxAguaVal = d3.max(data, d => Math.max(d.agua, d3ConsumoShowMA7 ? d.aguaMA7 : 0)) || 5;
+    const yScaleAgua = d3.scaleLinear()
+      .domain([0, maxAguaVal * 1.2])
+      .range([innerH, 0])
+      .nice();
+
+    const maxElecVal = d3.max(data, d => Math.max(d.elec, d3ConsumoShowMA7 ? d.elecMA7 : 0)) || 50;
+    const yScaleElec = d3.scaleLinear()
+      .domain([0, maxElecVal * 1.2])
+      .range([innerH, 0])
+      .nice();
+
+    // Grelha horizontal
+    const primaryYScale = (d3ConsumoMetric === 'elec') ? yScaleElec : yScaleAgua;
+    const yGridTicks = primaryYScale.ticks(5);
+    g.append('g')
+      .attr('class', 'd3-grid')
+      .selectAll('line')
+      .data(yGridTicks)
+      .enter()
+      .append('line')
+      .attr('x1', 0)
+      .attr('x2', innerW)
+      .attr('y1', d => primaryYScale(d))
+      .attr('y2', d => primaryYScale(d))
+      .attr('stroke', 'var(--line)')
+      .attr('stroke-dasharray', '3,3')
+      .attr('stroke-opacity', 0.65);
+
+    // Eixo X (Datas)
+    const xAxis = d3.axisBottom(xScale)
+      .ticks(isMobile ? 5 : 8)
+      .tickFormat(d => {
+        const day = d.getDate() < 10 ? '0' + d.getDate() : d.getDate();
+        return `${day}/${PT_MONTHS_SHORT[d.getMonth()]}`;
+      });
+
+    g.append('g')
+      .attr('class', 'd3-axis')
+      .attr('transform', `translate(0,${innerH})`)
+      .call(xAxis)
+      .selectAll('text')
+      .attr('font-family', 'var(--mono)')
+      .attr('font-size', '10px')
+      .attr('fill', 'var(--ink-400)');
+
+    // Eixo Y Esquerdo
+    if(d3ConsumoMetric === 'elec'){
+      const yAxisLeftElec = d3.axisLeft(yScaleElec).ticks(5).tickFormat(d => d + ' kWh');
+      g.append('g')
+        .attr('class', 'd3-axis')
+        .call(yAxisLeftElec)
+        .selectAll('text')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('fill', '#d97706');
+    } else {
+      const yAxisLeftAgua = d3.axisLeft(yScaleAgua).ticks(5).tickFormat(d => d + ' m³');
+      g.append('g')
+        .attr('class', 'd3-axis')
+        .call(yAxisLeftAgua)
+        .selectAll('text')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('fill', '#0284c7');
+    }
+
+    // Eixo Y Direito (quando ambos ativos)
+    if(d3ConsumoMetric === 'both'){
+      const yAxisRight = d3.axisRight(yScaleElec).ticks(5).tickFormat(d => d + ' kWh');
+      g.append('g')
+        .attr('class', 'd3-axis')
+        .attr('transform', `translate(${innerW},0)`)
+        .call(yAxisRight)
+        .selectAll('text')
+        .attr('font-family', 'var(--mono)')
+        .attr('font-size', '10px')
+        .attr('fill', '#d97706');
+    }
+
+    // Geradores de Linha e Área
+    const showWater = (d3ConsumoMetric === 'both' || d3ConsumoMetric === 'agua');
+    const showElec = (d3ConsumoMetric === 'both' || d3ConsumoMetric === 'elec');
+
+    // 1. Áreas Sombreadas
+    if(d3ConsumoShowArea){
+      if(showWater){
+        const areaAgua = d3.area()
+          .x(d => xScale(d.date))
+          .y0(innerH)
+          .y1(d => yScaleAgua(d.agua))
+          .curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(data)
+          .attr('fill', 'url(#d3GradWater)')
+          .attr('d', areaAgua);
+      }
+      if(showElec){
+        const areaElec = d3.area()
+          .x(d => xScale(d.date))
+          .y0(innerH)
+          .y1(d => yScaleElec(d.elec))
+          .curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(data)
+          .attr('fill', 'url(#d3GradElec)')
+          .attr('d', areaElec);
+      }
+    }
+
+    // 2. Linhas de Média Móvel (MA7)
+    if(d3ConsumoShowMA7){
+      if(showWater){
+        const lineAguaMA7 = d3.line()
+          .x(d => xScale(d.date))
+          .y(d => yScaleAgua(d.aguaMA7))
+          .curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(data)
+          .attr('fill', 'none')
+          .attr('stroke', '#0891b2')
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '4,3')
+          .attr('opacity', 0.85)
+          .attr('d', lineAguaMA7);
+      }
+      if(showElec){
+        const lineElecMA7 = d3.line()
+          .x(d => xScale(d.date))
+          .y(d => yScaleElec(d.elecMA7))
+          .curve(d3.curveMonotoneX);
+
+        g.append('path')
+          .datum(data)
+          .attr('fill', 'none')
+          .attr('stroke', '#f59e0b')
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '4,3')
+          .attr('opacity', 0.85)
+          .attr('d', lineElecMA7);
+      }
+    }
+
+    // 3. Linhas Principais de Consumo
+    if(showWater){
+      const lineAgua = d3.line()
+        .x(d => xScale(d.date))
+        .y(d => yScaleAgua(d.agua))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(data)
+        .attr('fill', 'none')
+        .attr('stroke', '#0284c7')
+        .attr('stroke-width', 2.6)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('d', lineAgua);
+
+      // Pontos individuais da água
+      g.selectAll('.dot-water')
+        .data(data.filter(d => d.hasAgua || d.agua > 0))
+        .enter()
+        .append('circle')
+        .attr('class', 'dot-water')
+        .attr('cx', d => xScale(d.date))
+        .attr('cy', d => yScaleAgua(d.agua))
+        .attr('r', isMobile ? 3 : 3.5)
+        .attr('fill', '#0284c7')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.5);
+    }
+
+    if(showElec){
+      const lineElec = d3.line()
+        .x(d => xScale(d.date))
+        .y(d => yScaleElec(d.elec))
+        .curve(d3.curveMonotoneX);
+
+      g.append('path')
+        .datum(data)
+        .attr('fill', 'none')
+        .attr('stroke', '#d97706')
+        .attr('stroke-width', 2.6)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('d', lineElec);
+
+      // Pontos individuais da eletricidade
+      g.selectAll('.dot-elec')
+        .data(data.filter(d => d.hasElec || d.elec > 0))
+        .enter()
+        .append('circle')
+        .attr('class', 'dot-elec')
+        .attr('cx', d => xScale(d.date))
+        .attr('cy', d => yScaleElec(d.elec))
+        .attr('r', isMobile ? 3 : 3.5)
+        .attr('fill', '#d97706')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 1.5);
+    }
+
+    // 4. Elementos Interativos: Linha Crosshair e Marcadores de Foco
+    const crosshair = g.append('line')
+      .attr('class', 'd3-crosshair')
+      .attr('y1', 0)
+      .attr('y2', innerH)
+      .attr('stroke', 'var(--ink-400)')
+      .attr('stroke-width', 1.2)
+      .attr('stroke-dasharray', '3,3')
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+
+    const focusDotAgua = g.append('circle')
+      .attr('r', 6)
+      .attr('fill', '#0284c7')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2.5)
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+
+    const focusDotElec = g.append('circle')
+      .attr('r', 6)
+      .attr('fill', '#d97706')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2.5)
+      .style('opacity', 0)
+      .style('pointer-events', 'none');
+
+    // Retângulo transparente para captura de eventos do cursor/toque
+    const bisect = d3.bisector(d => d.date).center;
+
+    function handlePointer(event){
+      const [px] = d3.pointer(event, g.node());
+      if(px < 0 || px > innerW){
+        hideTip();
+        return;
+      }
+      const xDate = xScale.invert(px);
+      const idx = bisect(data, xDate, 0, data.length - 1);
+      const d = data[idx];
+      if(!d) return;
+
+      const cx = xScale(d.date);
+      crosshair
+        .attr('x1', cx)
+        .attr('x2', cx)
+        .style('opacity', 0.85);
+
+      if(showWater){
+        focusDotAgua
+          .attr('cx', cx)
+          .attr('cy', yScaleAgua(d.agua))
+          .style('opacity', 1);
+      } else {
+        focusDotAgua.style('opacity', 0);
+      }
+
+      if(showElec){
+        focusDotElec
+          .attr('cx', cx)
+          .attr('cy', yScaleElec(d.elec))
+          .style('opacity', 1);
+      } else {
+        focusDotElec.style('opacity', 0);
+      }
+
+      // Preencher e posicionar o Tooltip
+      if(!tip) return;
+      const weekday = PT_WEEKDAYS[d.date.getDay()];
+      const dayStr = (d.date.getDate() < 10 ? '0' : '') + d.date.getDate() + ' ' + PT_MONTHS_SHORT[d.date.getMonth()] + ' ' + d.date.getFullYear();
+
+      const diffAguaPct = avgAgua > 0 ? Math.round(((d.agua - avgAgua) / avgAgua) * 100) : 0;
+      const diffAguaBadge = diffAguaPct !== 0
+        ? `<span style="font-size:9.5px; opacity:0.8; margin-left:4px;">(${diffAguaPct > 0 ? '+' : ''}${diffAguaPct}%)</span>`
+        : '';
+
+      const diffElecPct = avgElec > 0 ? Math.round(((d.elec - avgElec) / avgElec) * 100) : 0;
+      const diffElecBadge = diffElecPct !== 0
+        ? `<span style="font-size:9.5px; opacity:0.8; margin-left:4px;">(${diffElecPct > 0 ? '+' : ''}${diffElecPct}%)</span>`
+        : '';
+
+      const cAgua = tarifaAgua ? `<span style="opacity:0.75; font-size:10px;">~${(d.agua * tarifaAgua).toFixed(2)}€</span>` : '';
+      const cElec = tarifaElec ? `<span style="opacity:0.75; font-size:10px;">~${(d.elec * tarifaElec).toFixed(2)}€</span>` : '';
+
+      tip.innerHTML = `
+        <div class="tip-date">
+          <span>${weekday}</span>
+          <span style="opacity:0.75">${dayStr}</span>
+        </div>
+        ${showWater ? `
+          <div class="tip-row">
+            <span style="color:#7dd3fc">💧 Água:</span>
+            <span class="tip-val-water">${fmtNum(d.agua)} m³ ${diffAguaBadge} ${cAgua}</span>
+          </div>
+          ${d3ConsumoShowMA7 ? `
+            <div class="tip-row" style="font-size:10px; opacity:0.75;">
+              <span>Média 7d água:</span>
+              <span>${fmtNum(d.aguaMA7)} m³</span>
+            </div>
+          ` : ''}
+        ` : ''}
+        ${showElec ? `
+          <div class="tip-row" style="margin-top:3px">
+            <span style="color:#fde68a">⚡ Eletricidade:</span>
+            <span class="tip-val-elec">${fmtNum(d.elec)} kWh ${diffElecBadge} ${cElec}</span>
+          </div>
+          ${d3ConsumoShowMA7 ? `
+            <div class="tip-row" style="font-size:10px; opacity:0.75;">
+              <span>Média 7d eletricidade:</span>
+              <span>${fmtNum(d.elecMA7)} kWh</span>
+            </div>
+          ` : ''}
+        ` : ''}
+      `;
+
+      // Posicionar tooltip
+      const tipX = margin.left + cx;
+      const tipY = margin.top + 20;
+      tip.style.left = tipX + 'px';
+      tip.style.top = tipY + 'px';
+
+      // Ajuste de margens laterais para não cortar o tooltip
+      if(tipX > width - 120){
+        tip.style.transform = 'translate(-92%, -105%)';
+      } else if(tipX < 120){
+        tip.style.transform = 'translate(-8%, -105%)';
+      } else {
+        tip.style.transform = 'translate(-50%, -105%)';
+      }
+
+      tip.classList.add('show');
+    }
+
+    function hideTip(){
+      crosshair.style('opacity', 0);
+      focusDotAgua.style('opacity', 0);
+      focusDotElec.style('opacity', 0);
+      if(tip) tip.classList.remove('show');
+    }
+
+    g.append('rect')
+      .attr('width', innerW)
+      .attr('height', innerH)
+      .attr('fill', 'transparent')
+      .attr('cursor', 'crosshair')
+      .on('pointermove', handlePointer)
+      .on('pointerdown', handlePointer)
+      .on('pointerleave', hideTip);
+  }
+
   // ---------- Módulo D3.js: Gráficos de Dispersão Cloro vs. pH ao Longo do Tempo ----------
   let d3ScatterSource = 'piscina'; // 'piscina', 'quarto-caliente', 'quarto-fria', 'todos'
   let d3ScatterMode = 'quadrant'; // 'quadrant', 'timeline'
@@ -9674,7 +10446,8 @@
     if(!forceFresh && hasCache && !isStale){
       if(output) output.innerHTML = cachedDashboardData;
       mountCharts(output);
-      if($('dailyChartBox')) renderDailyChartBox();
+      initD3ConsumoLineChart(lastDailyData, lastConsumoDetail, d3CachedTarifas);
+      initD3Scatter(cachedGeneralRaw, cachedQuartosRaw);
       wireDashboardEvents();
       return;
     }
@@ -9846,13 +10619,8 @@
           </div>
         </div>
 
-        <h2 class="report-heading">Consumo diário · últimos 30 dias</h2>
-        <div class="seg-toggle">
-          <button id="segAgua" class="${dailyMetric==='agua'?'active':''}">Água (m³)</button>
-          <button id="segElec" class="${dailyMetric==='elec'?'active':''}">Eletricidade (kWh)</button>
-        </div>
-        <div id="dailyChartBox"></div>
-        <p style="font-size:10.5px; color:var(--ink-400); margin:-10px 0 16px; font-family:var(--mono)">O consumo entre duas leituras do contador é atribuído à data da leitura mais recente. Toque no gráfico para ver os valores.</p>
+        <h2 class="report-heading">Tendência de Consumo · últimos 30 dias (D3.js)</h2>
+        ${renderD3ConsumoLineChartHtml()}
 
         <h2 class="report-heading">AQS · leitura atual</h2>
         <div class="dashboard-grid">
@@ -9901,7 +10669,7 @@
       `;
 
       mountCharts(output);
-      renderDailyChartBox();
+      initD3ConsumoLineChart(lastDailyData, generalDeltas, tarifasDash);
       initD3Scatter(generalRaw, quartosRaw);
       wireDashboardEvents();
 
