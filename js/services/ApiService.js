@@ -336,3 +336,6 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
     module.exports.ApiError = ApiError;
 }
+
+export { ApiService, ApiError, api };
+export default api;

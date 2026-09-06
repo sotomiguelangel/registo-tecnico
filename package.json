@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node server.js",
     "lint": "node --check server.js",
+    "test": "node --test tests/unit/*.test.js tests/integration/*.test.js tests/e2e/*.test.js",
     "build": "echo 'Build complete'",
     "start": "node server.js"
   },

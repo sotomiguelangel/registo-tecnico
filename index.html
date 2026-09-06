@@ -11,6 +11,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/components.css">
 <script>
   // Funções globais de ciclo de vida pré-inicializadas no escopo global (evita ReferenceError)
   var _realRefreshConsumoResumen = null;
@@ -983,6 +985,7 @@
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
 <div id="app">
 
   <div class="update-banner" id="updateBanner">
@@ -1047,7 +1050,7 @@
     <button data-view="importar" id="navImportar">Importar</button>
   </nav>
 
-  <main>
+  <main id="main-content">
 
     <section class="view" id="view-dashboard">
       <p class="section-title">Painel operacional</p>

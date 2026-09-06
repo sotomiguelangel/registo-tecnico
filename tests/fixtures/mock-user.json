@@ -1,0 +1,20 @@
+{
+  "admin": {
+    "username": "admin",
+    "nombre": "Administrador Chefe",
+    "rol": "admin",
+    "pin": "1234"
+  },
+  "tecnico": {
+    "username": "tecnico1",
+    "nombre": "Carlos Técnico",
+    "rol": "tecnico",
+    "pin": "0000"
+  },
+  "visualizador": {
+    "username": "viewer",
+    "nombre": "Auditor Externo",
+    "rol": "visualizador",
+    "pin": "1111"
+  }
+}
