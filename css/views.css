@@ -3,81 +3,113 @@
    ============================================ */
 
 /* ---- Dashboard View ---- */
+.dashboard-period,
 #view-dashboard .dashboard-period {
-    font-family: var(--mono);
-    font-size: 11px;
+    font-family: var(--font-mono, var(--mono));
+    font-size: var(--text-xs, 11px);
     color: var(--ink-400);
     margin: -6px 0 16px;
 }
 
+.dashboard-grid,
 #view-dashboard .dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2, 10px);
+    margin-bottom: var(--space-4, 16px);
 }
 
+@media (max-width: 480px) {
+    .dashboard-grid,
+    #view-dashboard .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dashboard Card & Generic Stat Card */
+.dashboard-card,
+.dashboard-stat,
 #view-dashboard .dashboard-card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 13px;
+    border-radius: var(--radius-lg, 14px);
+    padding: var(--space-3, 13px);
+    transition: all var(--transition-fast, 0.15s ease);
 }
 
+.dashboard-card .lab,
+.dashboard-stat .lab,
 #view-dashboard .dashboard-card .lab {
-    font-size: 11px;
+    font-size: var(--text-xs, 11px);
     font-weight: 700;
     color: var(--ink-600);
-    margin-bottom: 5px;
+    margin-bottom: var(--space-1, 5px);
 }
 
+.dashboard-card .value,
+.dashboard-stat .value,
 #view-dashboard .dashboard-card .value {
-    font-family: var(--mono);
-    font-size: 18px;
+    font-family: var(--font-mono, var(--mono));
+    font-size: var(--text-lg, 18px);
     font-weight: 700;
     color: var(--petrol-900);
 }
 
+.dashboard-card .meta,
+.dashboard-stat .meta,
 #view-dashboard .dashboard-card .meta {
-    font-family: var(--mono);
+    font-family: var(--font-mono, var(--mono));
     font-size: 10.5px;
     color: var(--ink-400);
-    margin-top: 4px;
+    margin-top: var(--space-1, 4px);
     line-height: 1.35;
 }
 
+.dashboard-card.good,
+.dashboard-stat.good,
 #view-dashboard .dashboard-card.good {
     background: var(--ok-100);
     border-color: var(--ok-500);
 }
 
+.dashboard-card.alert,
+.dashboard-stat.alert,
 #view-dashboard .dashboard-card.alert {
     border-color: var(--coral-500);
     background: var(--coral-100);
 }
 
+.dashboard-card.alert .value,
+.dashboard-stat.alert .value,
 #view-dashboard .dashboard-card.alert .value {
     color: var(--coral-500);
 }
 
+.dashboard-card.ice,
+.dashboard-stat.ice,
 #view-dashboard .dashboard-card.ice {
     background: var(--ice-100);
     border-color: var(--ice-500);
 }
 
+.dashboard-card.zero,
+.dashboard-stat.zero,
 #view-dashboard .dashboard-card.zero {
     background: var(--paper);
     border-color: var(--line);
 }
 
+.dashboard-card.zero .value,
+.dashboard-stat.zero .value,
 #view-dashboard .dashboard-card.zero .value {
-    color: var(--ink-500);
+    color: var(--ink-400);
 }
 
+.dashboard-alert,
 #view-dashboard .dashboard-alert {
     border-left: 4px solid var(--coral-500);
     background: var(--coral-100);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     padding: 10px 12px;
     font-size: 12.5px;
     color: #8b3d1d;
@@ -85,16 +117,18 @@
     line-height: 1.4;
 }
 
+.dashboard-ok,
 #view-dashboard .dashboard-ok {
     border-left: 4px solid var(--ok-500);
     background: var(--ok-100);
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     padding: 10px 12px;
     font-size: 12.5px;
     color: #28704b;
     margin-bottom: 8px;
 }
 
+.dashboard-chart,
 #view-dashboard .dashboard-chart {
     width: 100%;
     height: auto;
