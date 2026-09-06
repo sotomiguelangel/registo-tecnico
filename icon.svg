@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e3341"/>
+      <stop offset="100%" stop-color="#061920"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5b842"/>
+      <stop offset="100%" stop-color="#e0782b"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- Stylized Sun -->
+  <circle cx="210" cy="220" r="105" fill="url(#sun)"/>
+  <!-- Stylized Moon crescent cutting through -->
+  <path d="M275,135 C345,160 385,235 365,310 C348,370 295,410 230,410 C210,410 190,405 170,395 C230,410 295,380 325,325 C355,270 340,200 290,155 C285,150 280,140 275,135 Z" fill="#ffffff" opacity="0.95"/>
+  <!-- Water wave element -->
+  <path d="M110,380 Q190,340 270,380 T430,380 L430,410 Q350,440 270,410 T110,410 Z" fill="url(#teal)" opacity="0.9"/>
+</svg>

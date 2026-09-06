@@ -44,6 +44,27 @@ class QuartoView extends BaseView {
             cycleSelect.addEventListener('change', (e) => {
                 this.selectedCycle = e.target.value;
                 this.renderRoomGrid();
+                if (typeof window.drawFloorQualityChart === 'function') {
+                    window.drawFloorQualityChart();
+                }
+            });
+        }
+
+        const modoSel = document.getElementById('qualidadeAguaModo');
+        if (modoSel) {
+            modoSel.addEventListener('change', () => {
+                if (typeof window.drawFloorQualityChart === 'function') {
+                    window.drawFloorQualityChart();
+                }
+            });
+        }
+
+        const tendenciaCheck = document.getElementById('qualidadeAguaTendencia');
+        if (tendenciaCheck) {
+            tendenciaCheck.addEventListener('change', () => {
+                if (typeof window.drawFloorQualityChart === 'function') {
+                    window.drawFloorQualityChart();
+                }
             });
         }
     }
@@ -166,6 +187,9 @@ class QuartoView extends BaseView {
     async refresh() {
         const records = await storage.getAllRecords('quarto');
         this.data = records;
+        if (typeof window.drawFloorQualityChart === 'function') {
+            window.drawFloorQualityChart();
+        }
     }
 }
 
