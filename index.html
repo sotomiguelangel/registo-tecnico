@@ -18,104 +18,136 @@
 <link rel="stylesheet" href="css/main.css">
 <link rel="stylesheet" href="css/components.css">
 <script>
-  // Garantir que window.fetch tenha sempre getter e setter configuráveis
-  // Previne "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter"
-  // quando proxies, iframes ou extensões tentam sobrescrever window.fetch
+  // Intercetor e protetor global de erros de runtime para window.fetch em ambientes com proxies/iframes
   (function() {
-    try {
-      var realFetch = typeof window !== 'undefined' ? window.fetch : null;
-      var _fetch = realFetch;
-      var fetchGetter = function() { return _fetch || realFetch; };
-      var fetchSetter = function(val) { _fetch = val; };
+    if (typeof window !== 'undefined') {
+      // 1. Capturar e suprimir erros não tratados de atribuição a window.fetch (getter-only)
+      window.addEventListener('error', function(ev) {
+        var msg = (ev && ev.message) ? String(ev.message) : (ev && ev.error && ev.error.message ? String(ev.error.message) : '');
+        if (msg && msg.indexOf('fetch') !== -1 && (msg.indexOf('getter') !== -1 || msg.indexOf('Cannot set') !== -1)) {
+          if (ev.preventDefault) ev.preventDefault();
+          if (ev.stopPropagation) ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
 
-      if (typeof window !== 'undefined') {
-        try {
-          Object.defineProperty(window, 'fetch', {
-            get: fetchGetter,
-            set: fetchSetter,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e1) {}
-      }
+      var prevOnError = window.onerror;
+      window.onerror = function(msg, url, line, col, err) {
+        var m = String(msg || (err && err.message) || '');
+        if (m && m.indexOf('fetch') !== -1 && (m.indexOf('getter') !== -1 || m.indexOf('Cannot set') !== -1)) {
+          return true;
+        }
+        if (typeof prevOnError === 'function') {
+          return prevOnError.apply(this, arguments);
+        }
+        return false;
+      };
 
-      if (typeof Window !== 'undefined' && Window.prototype) {
-        try {
-          Object.defineProperty(Window.prototype, 'fetch', {
-            get: fetchGetter,
-            set: fetchSetter,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e2) {}
-      }
+      // 2. Tentar tornar fetch configurável e gravável no Window.prototype e window
+      try {
+        var origFetch = window.fetch;
+        var storedFetch = origFetch;
+        var fetchGet = function() { return storedFetch || origFetch; };
+        var fetchSet = function(val) { storedFetch = val; };
 
-      if (typeof globalThis !== 'undefined' && globalThis !== window) {
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          try {
+            var protoDesc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+            if (!protoDesc || protoDesc.configurable) {
+              Object.defineProperty(Window.prototype, 'fetch', {
+                get: fetchGet,
+                set: fetchSet,
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch(eProto) {}
+        }
+
         try {
-          Object.defineProperty(globalThis, 'fetch', {
-            get: fetchGetter,
-            set: fetchSetter,
-            configurable: true,
-            enumerable: true
-          });
-        } catch(e3) {}
-      }
-    } catch(err) {}
+          var winDesc = Object.getOwnPropertyDescriptor(window, 'fetch');
+          if (!winDesc || winDesc.configurable) {
+            Object.defineProperty(window, 'fetch', {
+              get: fetchGet,
+              set: fetchSet,
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch(eWin) {}
+
+        if (typeof globalThis !== 'undefined' && globalThis !== window) {
+          try {
+            var gtDesc = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+            if (!gtDesc || gtDesc.configurable) {
+              Object.defineProperty(globalThis, 'fetch', {
+                get: fetchGet,
+                set: fetchSet,
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch(eGt) {}
+        }
+      } catch(errFetch) {}
+    }
   })();
-
-  // Funções globais de ciclo de vida pré-inicializadas no escopo global (evita ReferenceError)
+</script>
+<script>
+  // Funções globais de ciclo de vida pré-inicializadas no escopo global (evita ReferenceError em qualquer ponto de chamada)
   var _realRefreshConsumoResumen = null;
-  async function refreshConsumoResumen() {
+  var refreshConsumoResumen = async function() {
     if (typeof _realRefreshConsumoResumen === 'function') {
       return _realRefreshConsumoResumen.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.refreshConsumoResumen = refreshConsumoResumen;
 
   var _realRenderDashboard = null;
-  async function renderDashboard() {
+  var renderDashboard = async function() {
     if (typeof _realRenderDashboard === 'function') {
       return _realRenderDashboard.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.renderDashboard = renderDashboard;
 
   var _realRenderEjecutivo = null;
-  async function renderEjecutivo() {
+  var renderEjecutivo = async function() {
     if (typeof _realRenderEjecutivo === 'function') {
       return _realRenderEjecutivo.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.renderEjecutivo = renderEjecutivo;
 
   var _realRenderRoomGrid = null;
-  async function renderRoomGrid() {
+  var renderRoomGrid = async function() {
     if (typeof _realRenderRoomGrid === 'function') {
       return _realRenderRoomGrid.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.renderRoomGrid = renderRoomGrid;
 
   var _realRefreshChips = null;
-  async function refreshChips() {
+  var refreshChips = async function() {
     if (typeof _realRefreshChips === 'function') {
       return _realRefreshChips.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.refreshChips = refreshChips;
 
   var _realInitMainApp = null;
-  async function initMainApp() {
+  var initMainApp = async function() {
     if (typeof _realInitMainApp === 'function') {
       return _realInitMainApp.apply(this, arguments);
     }
     return Promise.resolve();
-  }
+  };
   window.initMainApp = initMainApp;
 
   if (typeof globalThis !== 'undefined') {
@@ -1761,6 +1793,16 @@
 
 <script>
 (function(){
+  // Ligar stubs globais pré-inicializados às funções internas (hoisted)
+  if (typeof window !== 'undefined') {
+    window._realRefreshConsumoResumen = function() { return refreshConsumoResumen.apply(this, arguments); };
+    window._realRenderDashboard = function() { return renderDashboard.apply(this, arguments); };
+    window._realRenderEjecutivo = function() { return renderEjecutivo.apply(this, arguments); };
+    window._realRenderRoomGrid = function() { return renderRoomGrid.apply(this, arguments); };
+    window._realRefreshChips = function() { return refreshChips.apply(this, arguments); };
+    window._realInitMainApp = function() { return initMainApp.apply(this, arguments); };
+  }
+
   const $ = (id) => document.getElementById(id);
   const pad = n => String(n).padStart(2,'0');
   const esc = s => String(s === undefined || s === null ? '' : s)
@@ -11460,20 +11502,14 @@
       
       // Timeout reduzido para não bloquear
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000); // 8 segundos máximo
-        
-        const res = await fetch(API_URL, {
+        const res = await safeFetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ 
             action: 'bootstrap', 
             token: savedToken 
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeout);
+          })
+        }, 8000);
         
         if(res.ok){
           const text = await res.text();
