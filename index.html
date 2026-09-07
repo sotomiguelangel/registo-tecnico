@@ -19,8 +19,53 @@
 <link rel="stylesheet" href="css/components.css">
 <script>
   // =========================================================================
-  // Runtime Protection: Global error filter & safeFetch networking
+  // Runtime Protection: Global error filter, fetch setter shim & safeFetch
   // =========================================================================
+  (function() {
+    try {
+      var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+      if (!win) return;
+
+      var currentFetch = (typeof win.fetch === 'function')
+        ? win.fetch.bind(win)
+        : (typeof fetch === 'function' ? fetch : null);
+
+      // Check if assignment to win.fetch throws because of a getter-only property
+      var isAssignmentBlocked = false;
+      try {
+        win.fetch = currentFetch;
+      } catch (assignErr) {
+        isAssignmentBlocked = true;
+      }
+
+      var desc = null;
+      try { desc = Object.getOwnPropertyDescriptor(win, 'fetch'); } catch (e) {}
+
+      if (isAssignmentBlocked || (desc && (!desc.writable && !desc.set))) {
+        try {
+          Object.defineProperty(win, 'fetch', {
+            get: function() { return currentFetch; },
+            set: function(fn) { currentFetch = fn; },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (eDef) {
+          try {
+            var proto = Object.getPrototypeOf(win);
+            if (proto) {
+              Object.defineProperty(proto, 'fetch', {
+                get: function() { return currentFetch; },
+                set: function(fn) { currentFetch = fn; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (eProto) {}
+        }
+      }
+    } catch (e) {}
+  })();
+
   (function() {
     if (typeof window !== 'undefined') {
       // Suppress unhandled getter/fetch assignment errors from browser extensions or iframe wrappers
@@ -38,6 +83,14 @@
           return true;
         }
       }, true);
+
+      window.addEventListener('unhandledrejection', function(ev) {
+        var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
+        if (isFetchGetterError(reason)) {
+          if (ev.preventDefault) ev.preventDefault();
+          return true;
+        }
+      });
 
       var prevOnError = window.onerror;
       window.onerror = function(msg, url, line, col, err) {
@@ -10475,11 +10528,11 @@
 </head>
 <body>
   ${htmlContent}
-  <script>
+  ` + '<scr' + 'ipt>' + `
     window.addEventListener('load', () => {
       setTimeout(() => { window.print(); }, 250);
     });
-  <\/script>
+  ` + '</scr' + 'ipt>' + `
 </body>
 </html>`);
       win.document.close();
