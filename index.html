@@ -1225,6 +1225,7 @@
     <button data-view="general">Geral</button>
     <button data-view="quarto">Quarto</button>
     <button data-view="temperatura">Refrigeração</button>
+    <button data-view="pedidos">Manutenção</button>
     <button data-view="historial">Histórico</button>
     <button data-view="reportes">Relatórios</button>
     <button data-view="usuarios" id="navUsuarios" style="display:none">Utilizadores</button>
@@ -1517,6 +1518,98 @@
       </p>
     </section>
 
+    <section class="view" id="view-pedidos">
+      <p class="section-title">📋 Controlo de Tickets · Manutenção</p>
+      
+      <div class="edit-banner" id="editBannerPedidos">✏️ A editar um ticket existente — ao guardar será atualizado.</div>
+      
+      <!-- Resumen de KPIs -->
+      <div id="pedidosStatsGrid" class="kpi-grid"></div>
+      
+      <!-- Gráfico de dispersión -->
+      <div id="pedidosScatterSection"></div>
+      
+      <!-- Filtros -->
+      <div class="filter-row">
+        <select id="pedidoFiltroEstado">
+          <option value="all">Todos os estados</option>
+          <option value="aberto">Aberto</option>
+          <option value="em_andamento">Em Andamento</option>
+          <option value="pausado">Pausado</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+        <select id="pedidoFiltroCategoria">
+          <option value="all">Todas as categorias</option>
+          <option value="Elétrica">Elétrica</option>
+          <option value="Hidráulica">Hidráulica</option>
+          <option value="Climatização">Climatização</option>
+          <option value="Estrutural">Estrutural</option>
+          <option value="Vidros/Portas">Vidros/Portas</option>
+          <option value="Mobiliário">Mobiliário</option>
+          <option value="Piscina">Piscina</option>
+          <option value="Jardim/Exterior">Jardim/Exterior</option>
+          <option value="Segurança">Segurança</option>
+          <option value="Limpeza">Limpeza</option>
+          <option value="Utensílios">Utensílios</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </div>
+      
+      <!-- Lista de tickets -->
+      <div id="pedidosList"></div>
+      
+      <!-- Formulario para nuevo ticket -->
+      <div class="card">
+        <div class="subgroup-title" style="color:var(--petrol-700)">Abrir Novo Ticket</div>
+        <div class="row2">
+          <label class="field"><span class="lbl">Quarto/Local</span>
+            <input type="text" id="p-quarto" placeholder="Ex.: 101, COZINHA, RECEÇÃO">
+          </label>
+          <label class="field"><span class="lbl">Categoria</span>
+            <select id="p-categoria">
+              <option value="">Selecione…</option>
+              <option value="Elétrica">Elétrica</option>
+              <option value="Hidráulica">Hidráulica</option>
+              <option value="Climatização">Climatização</option>
+              <option value="Estrutural">Estrutural</option>
+              <option value="Vidros/Portas">Vidros/Portas</option>
+              <option value="Mobiliário">Mobiliário</option>
+              <option value="Piscina">Piscina</option>
+              <option value="Jardim/Exterior">Jardim/Exterior</option>
+              <option value="Segurança">Segurança</option>
+              <option value="Limpeza">Limpeza</option>
+              <option value="Utensílios">Utensílios</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </label>
+        </div>
+        <label class="field"><span class="lbl">Descrição do Problema</span>
+          <textarea id="p-descricao" rows="3" maxlength="500" placeholder="Descreva o problema detalhadamente..."></textarea>
+        </label>
+        <div class="row2">
+          <label class="field"><span class="lbl">Turno</span>
+            <select id="p-turno">
+              <option value="Manhã">Manhã</option>
+              <option value="Tarde">Tarde</option>
+              <option value="Noite">Noite</option>
+            </select>
+          </label>
+          <label class="field"><span class="lbl">Data Reporte</span>
+            <input type="date" id="p-fecha">
+          </label>
+        </div>
+        <label class="field" style="margin-bottom:0"><span class="lbl">Observação Adicional <span class="unit">(opcional)</span></span>
+          <input type="text" id="p-observacao" maxlength="300" placeholder="Alguma informação adicional relevante...">
+        </label>
+      </div>
+      
+      <button class="primary" id="btnSavePedido"><span class="spinner"></span><span class="lbl-text">Abrir Ticket</span></button>
+      
+      <p style="font-size:10.5px; color:var(--ink-400); margin-top:10px; font-family:var(--mono)">
+        💡 Os tickets podem ser editados para mudar o estado. Para <b> FINALIZAR </b> um ticket, é necessário fornecer um comentário de fecho.
+      </p>
+    </section>
+
     <section class="view" id="view-historial">
       <p class="section-title">Histórico de registos</p>
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
@@ -1549,6 +1642,7 @@
         <button data-reptipo="geral" class="active">Geral</button>
         <button data-reptipo="quarto">Quartos</button>
         <button data-reptipo="temperatura">Refrigeração</button>
+        <button data-reptipo="pedidos">Manutenção (Tickets)</button>
       </div>
       <div class="period-toggle">
         <button data-periodo="semana" class="active">Esta semana</button>
@@ -2895,12 +2989,32 @@
       $('modalMsg').textContent = '';
       $('modalTextarea').style.display = 'none';
       const container = $('modalFormContainer');
-      container.innerHTML = fields.map(f=> `
-        <label class="field" style="margin-bottom:12px">
-          <span class="lbl">${esc(f.label)}</span>
-          <input type="${f.type||'text'}" id="modalField_${f.id}" ${f.inputmode?`inputmode="${f.inputmode}"`:''} placeholder="${esc(f.placeholder||'')}" value="${f.value!==undefined && f.value!==null ? esc(f.value) : ''}">
-        </label>
-      `).join('');
+      container.innerHTML = fields.map(f=> {
+        if(f.type === 'select'){
+          return `
+            <label class="field" style="margin-bottom:12px">
+              <span class="lbl">${esc(f.label)}</span>
+              <select id="modalField_${f.id}">
+                ${(f.options||[]).map(opt=> `<option value="${esc(opt.value)}" ${opt.value===f.value?'selected':''}>${esc(opt.label)}</option>`).join('')}
+              </select>
+            </label>
+          `;
+        }
+        if(f.type === 'textarea'){
+          return `
+            <label class="field" style="margin-bottom:12px">
+              <span class="lbl">${esc(f.label)}</span>
+              <textarea id="modalField_${f.id}" rows="${f.rows||3}" placeholder="${esc(f.placeholder||'')}">${esc(f.value!==undefined && f.value!==null ? f.value : '')}</textarea>
+            </label>
+          `;
+        }
+        return `
+          <label class="field" style="margin-bottom:12px">
+            <span class="lbl">${esc(f.label)}</span>
+            <input type="${f.type||'text'}" id="modalField_${f.id}" ${f.inputmode?`inputmode="${f.inputmode}"`:''} placeholder="${esc(f.placeholder||'')}" value="${f.value!==undefined && f.value!==null ? esc(f.value) : ''}">
+          </label>
+        `;
+      }).join('');
       const actions = $('modalActions'); actions.innerHTML = '';
       const btnCancel = document.createElement('button'); btnCancel.className = 'modal-btn-cancel'; btnCancel.textContent = 'Cancelar';
       const btnConfirm = document.createElement('button'); btnConfirm.className = 'modal-btn-confirm'; btnConfirm.textContent = confirmLabel || 'Guardar';
@@ -2908,12 +3022,15 @@
       btnCancel.addEventListener('click', ()=> close(null));
       btnConfirm.addEventListener('click', ()=>{
         const values = {};
-        fields.forEach(f=> values[f.id] = $('modalField_'+f.id).value.trim());
+        fields.forEach(f=> {
+          const el = $('modalField_'+f.id);
+          values[f.id] = el ? el.value.trim() : '';
+        });
         close(values);
       });
       actions.appendChild(btnCancel); actions.appendChild(btnConfirm);
       overlay.classList.add('show');
-      setTimeout(()=>{ const first = container.querySelector('input'); if(first) first.focus(); }, 50);
+      setTimeout(()=>{ const first = container.querySelector('input, select, textarea'); if(first) first.focus(); }, 50);
     });
   }
 
@@ -3111,7 +3228,7 @@
   }
 
   // ---------- Separadores ----------
-  const views = ['dashboard','ejecutivo','general','quarto','temperatura','historial','reportes','usuarios','importar'];
+  const views = ['dashboard','ejecutivo','general','quarto','temperatura','pedidos','historial','reportes','usuarios','importar'];
 
   function switchToTab(viewName, options = {}){
     const shouldRender = options.render !== false;
@@ -3129,6 +3246,7 @@
     if(viewName === 'historial') renderHistorial(false).catch(()=>{});
     if(viewName === 'quarto'){ updateCycleSelectorOptions(); renderRoomGrid(); }
     if(viewName === 'temperatura') renderTempView();
+    if(viewName === 'pedidos') renderPedidosView();
     if(viewName === 'usuarios'){ renderUsersList(); loadAlertsAdmin(); loadTarifasAdmin(); loadParametrosAdmin(); }
     if(viewName === 'dashboard'){
       ensureD3()
@@ -7226,6 +7344,8 @@
         await renderReporteQuartos(desde, hasta);
       } else if(reportTipo === 'temperatura'){
         await renderReporteRefrigeracao(desde, hasta);
+      } else if(reportTipo === 'pedidos'){
+        await renderReporteTickets(desde, hasta);
       } else {
         const [genAllRaw, quAllRaw, tpAllRaw] = await Promise.all([listRecords('general'), listRecords('quarto'), listRecords('temperatura')]);
         const genWithDeltas = await buildGenWithDeltas(genAllRaw);
@@ -11476,6 +11596,348 @@
 
   window.addEventListener('focus', () => checkVersionThrottled(false).catch(()=>{}));
   setInterval(() => checkVersionThrottled(false).catch(()=>{}), 10 * 60 * 1000);
+
+  // =========================================================
+  // MÓDULO DE TICKETS DE MANUTENÇÃO
+  // =========================================================
+
+  let cachedTicketsData = null;
+  let cachedTicketsTimestamp = 0;
+
+  function invalidateTicketsCache(){
+    cachedTicketsData = null;
+    cachedTicketsTimestamp = 0;
+  }
+  function invalidateRecordsCache(tipo){
+    if(tipo === 'ticket') invalidateTicketsCache();
+  }
+
+  async function loadTickets(forceFresh) {
+    const now = Date.now();
+    if (!forceFresh && cachedTicketsData && (now - cachedTicketsTimestamp) < 30000) {
+      return cachedTicketsData;
+    }
+    
+    try {
+      const r = await apiGet({ action: 'listTickets' });
+      cachedTicketsData = r.tickets || [];
+      cachedTicketsTimestamp = now;
+      return cachedTicketsData;
+    } catch (e) {
+      console.error('Error loading tickets:', e);
+      return cachedTicketsData || [];
+    }
+  }
+
+  function renderPedidosView() {
+    const list = $('pedidosList');
+    const statsGrid = $('pedidosStatsGrid');
+    if(!list) return;
+    
+    loadTickets().then(async ticketsData => {
+      const tickets = ticketsData || [];
+      const hoy = todayStr();
+      const mesActual = hoy.slice(0, 7);
+      
+      // Calcular estatísticas da semana atual
+      const d = new Date();
+      const day = (d.getDay() + 6) % 7;
+      const monday = new Date(d);
+      monday.setDate(d.getDate() - day);
+      const domingo = new Date(monday);
+      domingo.setDate(monday.getDate() + 6);
+      
+      const semanaActual = formatDatePort(monday) + ' a ' + formatDatePort(domingo);
+      const desdeSemana = formatDatePort(monday);
+      const hastaSemana = formatDatePort(domingo);
+      
+      // Filtrar tickets da semana
+      const ticketsSemana = tickets.filter(t => t.dataReporte >= desdeSemana && t.dataReporte <= hastaSemana);
+      const ticketsMes = tickets.filter(t => t.dataReporte && t.dataReporte.startsWith(mesActual));
+      
+      // KPIs da semana
+      const semanaStats = {
+        total: ticketsSemana.length,
+        abiertos: ticketsSemana.filter(t => t.situacao === 'aberto').length,
+        enProceso: ticketsSemana.filter(t => t.situacao === 'em_andamento').length,
+        finalizados: ticketsSemana.filter(t => t.situacao === 'finalizado').length
+      };
+      
+      // Renderizar KPIs
+      if(statsGrid){
+        statsGrid.innerHTML = `
+          ${kpiCard('Tickets Semana', semanaStats.total, semanaActual, semanaStats.total === 0 ? 'zero' : 'na')}
+          ${kpiCard('Abertos', semanaStats.abiertos, 'pendentes', semanaStats.abiertos > 0 ? 'bad' : 'na')}
+          ${kpiCard('Em Andamento', semanaStats.enProceso, 'em execução', semanaStats.enProceso > 0 ? 'warn' : 'na')}
+          ${kpiCard('Finalizados', semanaStats.finalizados, 'concluídos', semanaStats.finalizados > 0 ? 'ok' : 'na')}
+        `;
+      }
+      
+      // Renderizar lista filtrada
+      const filtroEstado = $('pedidoFiltroEstado') ? $('pedidoFiltroEstado').value : 'all';
+      const filtroCat = $('pedidoFiltroCategoria') ? $('pedidoFiltroCategoria').value : 'all';
+      
+      let filtered = [...tickets];
+      if (filtroEstado !== 'all') {
+        filtered = filtered.filter(t => t.situacao === filtroEstado);
+      }
+      if (filtroCat !== 'all') {
+        filtered = filtered.filter(t => t.categoria === filtroCat);
+      }
+      
+      // Ordenar por data descendente
+      filtered.sort((a, b) => (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || '')));
+      
+      if (filtered.length === 0) {
+        list.innerHTML = '<div class="empty"><span class="glyph">📋</span>Não há tickets correspondentes aos filtros.</div>';
+        return;
+      }
+      
+      // Agrupar por data para mostrar como entradas
+      const porFecha = {};
+      filtered.forEach(t => {
+        const fecha = t.dataReporte || '—';
+        if (!porFecha[fecha]) porFecha[fecha] = [];
+        porFecha[fecha].push(t);
+      });
+      
+      let html = '';
+      Object.keys(porFecha).sort().reverse().forEach(fecha => {
+        const dateObj = fecha !== '—' ? new Date(fecha + 'T00:00:00') : new Date();
+        html += `<div class="floor-label">${formatDatePort(dateObj)}</div>`;
+        porFecha[fecha].forEach(t => {
+          const statusClass = t.situacao === 'finalizado' ? 'ok' : 
+                           t.situacao === 'aberto' ? 'bad' : 
+                           t.situacao === 'pausado' ? 'warn' : 'info';
+          const statusLabel = t.situacao === 'aberto' ? 'Aberto' :
+                            t.situacao === 'em_andamento' ? 'Em Andamento' :
+                            t.situacao === 'pausado' ? 'Pausado' : 'Finalizado';
+          
+          html += `
+            <div class="entry">
+              <div class="entry-head">
+                <span class="entry-date">${esc(t.quarto || '')} · ${esc(t.categoria || '')}</span>
+                <span class="entry-tag tag-general" style="background:${statusClass==='ok'?'var(--ok-100)':statusClass==='bad'?'var(--coral-100)':statusClass==='warn'?'var(--amber-100)':'var(--ice-100)'}; color:${statusClass==='ok'?'#28704b':statusClass==='bad'?'#8b3d1d':statusClass==='warn'?'#8a5f0f':'#1f5f96'}">${statusLabel}</span>
+              </div>
+              <div class="entry-user">${esc(t.horaReporte || '--:--')} · ${esc(t.colaborador || 'Técnico')} · Turno: ${esc(t.turno || '—')}</div>
+              <div class="entry-grid" style="margin-top:8px;">
+                <div style="grid-column:1/-1; font-size:13px; line-height:1.5; padding:8px; background:var(--paper); border-radius:8px; margin-bottom:6px;">
+                  ${esc(t.descricao || '')}
+                </div>
+                ${t.observacao ? `<div style="grid-column:1/-1; font-size:12px; color:var(--ink-400); font-style:italic;">Obs: ${esc(t.observacao)}</div>` : ''}
+                ${t.comentarioCierre ? `<div style="grid-column:1/-1; font-size:12px; color:var(--ok-500); font-weight:600;">✓ Fecho: ${esc(t.comentarioCierre)}</div>` : ''}
+              </div>
+              <div class="entry-actions">
+                <button class="edit" data-edit-ticket="${esc(t.id)}">Editar Estado</button>
+                ${isAdmin() ? `<button class="del" data-delete-ticket="${esc(t.id)}" style="color:var(--coral-500); border-color:var(--coral-100); background:var(--coral-100);">Eliminar</button>` : ''}
+              </div>
+            </div>
+          `;
+        });
+      });
+      
+      list.innerHTML = html;
+      
+      // Eventos de edição
+      list.querySelectorAll('button[data-edit-ticket]').forEach(btn => {
+        btn.onclick = () => openTicketEditDialog(btn.dataset.editTicket);
+      });
+      
+      list.querySelectorAll('button[data-delete-ticket]').forEach(btn => {
+        btn.onclick = () => deleteTicket(btn.dataset.deleteTicket);
+      });
+      
+    }).catch(e => {
+      list.innerHTML = `<div class="empty">Erro ao carregar tickets: ${esc(e.message)}</div>`;
+    });
+  }
+
+  function formatDatePort(dateObj) {
+    const d = dateObj;
+    return String(d.getFullYear()) + '-' + 
+           String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(d.getDate()).padStart(2, '0');
+  }
+
+  function openTicketEditDialog(ticketId) {
+    loadTickets().then(tickets => {
+      const ticket = (tickets || []).find(t => String(t.id) === String(ticketId));
+      if (!ticket) return;
+      
+      const btnCerrar = ticket.situacao === 'finalizado';
+      formDialog(
+        'Editar Ticket #' + String(ticket.id).slice(0, 12),
+        [
+          { id: 'situacao', label: 'Situação', type: 'select', value: ticket.situacao || 'aberto',
+            options: [
+              { value: 'aberto', label: 'Aberto' },
+              { value: 'em_andamento', label: 'Em Andamento' },
+              { value: 'pausado', label: 'Pausado' },
+              { value: 'finalizado', label: 'Finalizado (Admin)' }
+            ]
+          },
+          { id: 'comentario', label: 'Comentário de Fecho', type: 'textarea', 
+            placeholder: btnCerrar ? 'Indique o que foi feito para resolver...' : 'Opcional' }
+        ],
+        'Guardar'
+      ).then(async vals => {
+        if (!vals) return;
+        
+        try {
+          await apiPost({
+            action: 'updateTicket',
+            id: ticketId,
+            data: {
+              situacao: vals.situacao,
+              comentarioCierre: vals.comentario || ''
+            }
+          });
+          invalidateRecordsCache('ticket');
+          cachedTicketsData = null;
+          renderPedidosView();
+          showToast('Ticket atualizado ✓');
+        } catch (e) {
+          showToast('Erro: ' + e.message, true);
+        }
+      });
+    });
+  }
+
+  async function deleteTicket(ticketId) {
+    const ok = await confirmDialog('Eliminar Ticket', 
+      'Tem certeza que deseja eliminar este ticket? Esta ação não pode ser desfeita.', 
+      'Eliminar', 'Cancelar');
+    if (!ok) return;
+    
+    try {
+      await apiPost({ action: 'deleteTicket', id: ticketId });
+      invalidateTicketsCache();
+      cachedTicketsData = null;
+      renderPedidosView();
+      showToast('Ticket eliminado ✓');
+    } catch (e) {
+      showToast('Erro: ' + e.message, true);
+    }
+  }
+
+  // Guardar novo ticket
+  if ($('btnSavePedido')) {
+    $('btnSavePedido').addEventListener('click', async () => {
+      if (isViewer()) { showToast('Perfil de visualização', true); return; }
+      
+      const btn = $('btnSavePedido');
+      const data = {
+        quarto: $('p-quarto') ? $('p-quarto').value.trim() : '',
+        categoria: $('p-categoria') ? $('p-categoria').value : '',
+        descricao: $('p-descricao') ? $('p-descricao').value.trim() : '',
+        turno: $('p-turno') ? $('p-turno').value : 'Manhã',
+        dataReporte: ($('p-fecha') && $('p-fecha').value) ? $('p-fecha').value : todayStr(),
+        observacao: $('p-observacao') ? $('p-observacao').value.trim() : ''
+      };
+      
+      if (!data.quarto) { showToast('Indique o quarto/local', true); return; }
+      if (!data.categoria) { showToast('Selecione a categoria', true); return; }
+      if (!data.descricao || data.descricao.length < 5) { 
+        showToast('Descrição com pelo menos 5 caracteres', true); return; 
+      }
+      
+      setLoading(btn, true);
+      try {
+        await apiPost({ action: 'saveTicket', data: data });
+        showToast('Ticket aberto com sucesso ✓');
+        if($('p-quarto')) $('p-quarto').value = '';
+        if($('p-categoria')) $('p-categoria').value = '';
+        if($('p-descricao')) $('p-descricao').value = '';
+        if($('p-observacao')) $('p-observacao').value = '';
+        if($('p-fecha')) $('p-fecha').value = todayStr();
+        invalidateTicketsCache();
+        cachedTicketsData = null;
+        renderPedidosView();
+      } catch (e) {
+        showToast('Erro: ' + e.message, true);
+      } finally {
+        setLoading(btn, false);
+      }
+    });
+  }
+
+  // Filtrados
+  if ($('pedidoFiltroEstado')) $('pedidoFiltroEstado').addEventListener('change', renderPedidosView);
+  if ($('pedidoFiltroCategoria')) $('pedidoFiltroCategoria').addEventListener('change', renderPedidosView);
+
+  // Inicializar data
+  if ($('p-fecha')) $('p-fecha').value = todayStr();
+
+  // Relatório de tickets
+  async function renderReporteTickets(desde, hasta){
+    const out = $('reporteOutput');
+    if(!out) return;
+    const tickets = (await loadTickets()) || [];
+    
+    const filtered = tickets.filter(t => t.dataReporte >= desde && t.dataReporte <= hasta);
+    
+    if(!filtered.length){
+      out.innerHTML = '<div class="empty">Sem tickets no período.</div>';
+      return;
+    }
+    
+    // Calcular estatísticas
+    const porCat = {};
+    const porEstado = {};
+    const porQuarto = {};
+    
+    filtered.forEach(t => {
+      const cat = t.categoria || 'Outro';
+      const st = t.situacao || 'aberto';
+      const q = t.quarto || 'Geral';
+      porCat[cat] = (porCat[cat] || 0) + 1;
+      porEstado[st] = (porEstado[st] || 0) + 1;
+      porQuarto[q] = (porQuarto[q] || 0) + 1;
+    });
+    
+    out.innerHTML = `
+      <div class="stat-grid">
+        ${statBox('Total de Tickets', filtered.length, `${desde} a ${hasta}`)}
+        ${statBox('Abertos', porEstado['aberto'] || 0, 'pendentes', (porEstado['aberto'] || 0) > 0 ? 'bad' : 'na')}
+        ${statBox('Finalizados', porEstado['finalizado'] || 0, 'concluídos', (porEstado['finalizado'] || 0) > 0 ? 'ok' : 'na')}
+      </div>
+      
+      <h2 class="report-heading">Por Categoria</h2>
+      <div class="table-scroll"><table class="report">
+        <thead><tr><th>Categoria</th><th>Quantidade</th></tr></thead>
+        <tbody>
+          ${Object.entries(porCat).map(([cat, qtd]) => `<tr><td>${esc(cat)}</td><td>${qtd}</td></tr>`).join('')}
+        </tbody>
+      </table></div>
+      
+      <h2 class="report-heading">Detalhe dos Tickets</h2>
+      <div class="table-scroll"><table class="report">
+        <thead><tr>
+          <th>Data</th><th>Quarto</th><th>Categoria</th><th>Estado</th><th>Descrição</th>
+        </tr></thead>
+        <tbody>
+          ${filtered.sort((a,b) => String(b.dataReporte || '').localeCompare(String(a.dataReporte || ''))).map(t => `
+            <tr>
+              <td>${esc(t.dataReporte || '—')}</td>
+              <td>${esc(t.quarto || '—')}</td>
+              <td>${esc(t.categoria || '—')}</td>
+              <td>${esc(t.situacao || '—')}</td>
+              <td>${esc(String(t.descricao || '').substring(0,50))}${String(t.descricao || '').length > 50 ? '...' : ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table></div>
+      
+      <button class="btn-print" onclick="imprimirReporteTickets()">Imprimir PDF</button>
+    `;
+  }
+
+  function imprimirReporteTickets(){
+    window.print();
+  }
+  if (typeof window !== 'undefined') {
+    window.imprimirReporteTickets = imprimirReporteTickets;
+  }
 
   (async function boot(){
     renderVersionUI();
