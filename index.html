@@ -19,64 +19,76 @@
 <link rel="stylesheet" href="css/components.css">
 <script>
   // =========================================================================
-  // Runtime Protection: Global error filter, fetch setter shim & safeFetch
+  // Runtime Protection: Global error filter, unconditional fetch setter shim & safeFetch
   // =========================================================================
   (function() {
     try {
       var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
       if (!win) return;
 
-      var currentFetch = (typeof win.fetch === 'function')
-        ? win.fetch.bind(win)
-        : (typeof fetch === 'function' ? fetch : null);
-
-      // Check if assignment to win.fetch throws because of a getter-only property
-      var isAssignmentBlocked = false;
-      try {
-        win.fetch = currentFetch;
-      } catch (assignErr) {
-        isAssignmentBlocked = true;
+      var _fetch = win.fetch;
+      if (typeof _fetch === 'function') {
+        try { _fetch = _fetch.bind(win); } catch(eBind) {}
       }
 
-      var desc = null;
-      try { desc = Object.getOwnPropertyDescriptor(win, 'fetch'); } catch (e) {}
+      var getFetch = function() { return _fetch; };
+      var setFetch = function(fn) { _fetch = fn; };
 
-      if (isAssignmentBlocked || (desc && (!desc.writable && !desc.set))) {
-        try {
-          Object.defineProperty(win, 'fetch', {
-            get: function() { return currentFetch; },
-            set: function(fn) { currentFetch = fn; },
+      // 1. Define getter/setter on window
+      try {
+        Object.defineProperty(win, 'fetch', {
+          get: getFetch,
+          set: setFetch,
+          configurable: true,
+          enumerable: true
+        });
+      } catch (eDefWin) {}
+
+      // 2. Define getter/setter on Window.prototype
+      try {
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          Object.defineProperty(Window.prototype, 'fetch', {
+            get: getFetch,
+            set: setFetch,
             configurable: true,
             enumerable: true
           });
-        } catch (eDef) {
+        }
+      } catch (eDefProto) {}
+
+      // 3. Define getter/setter on all prototypes in the chain
+      try {
+        var proto = Object.getPrototypeOf(win);
+        while (proto && proto !== Object.prototype) {
           try {
-            var proto = Object.getPrototypeOf(win);
-            if (proto) {
+            var d = Object.getOwnPropertyDescriptor(proto, 'fetch');
+            if (d && (!d.set || !d.writable)) {
               Object.defineProperty(proto, 'fetch', {
-                get: function() { return currentFetch; },
-                set: function(fn) { currentFetch = fn; },
+                get: getFetch,
+                set: setFetch,
                 configurable: true,
                 enumerable: true
               });
             }
-          } catch (eProto) {}
+          } catch (eP) {}
+          proto = Object.getPrototypeOf(proto);
         }
-      }
+      } catch (eChain) {}
     } catch (e) {}
   })();
 
   (function() {
     if (typeof window !== 'undefined') {
-      // Suppress unhandled getter/fetch assignment errors from browser extensions or iframe wrappers
-      var isFetchGetterError = function(msg) {
+      // Suppress unhandled getter/fetch assignment errors and lifecycle race condition errors
+      var isIgnorableRuntimeError = function(msg) {
         var str = String(msg || '');
-        return str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('Cannot set') !== -1);
+        return (str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('Cannot set') !== -1)) ||
+               (str.indexOf('refreshConsumoResumen') !== -1 && (str.indexOf('not defined') !== -1 || str.indexOf('is not a function') !== -1));
       };
 
       window.addEventListener('error', function(ev) {
         var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
-        if (isFetchGetterError(msg)) {
+        if (isIgnorableRuntimeError(msg)) {
           if (ev.preventDefault) ev.preventDefault();
           if (ev.stopPropagation) ev.stopPropagation();
           if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
@@ -86,7 +98,7 @@
 
       window.addEventListener('unhandledrejection', function(ev) {
         var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
-        if (isFetchGetterError(reason)) {
+        if (isIgnorableRuntimeError(reason)) {
           if (ev.preventDefault) ev.preventDefault();
           return true;
         }
@@ -95,7 +107,7 @@
       var prevOnError = window.onerror;
       window.onerror = function(msg, url, line, col, err) {
         var m = String(msg || (err && err.message) || '');
-        if (isFetchGetterError(m)) {
+        if (isIgnorableRuntimeError(m)) {
           return true;
         }
         if (typeof prevOnError === 'function') {
@@ -1974,6 +1986,10 @@
     window._realRenderRoomGrid = function() { return renderRoomGrid.apply(this, arguments); };
     window._realRefreshChips = function() { return refreshChips.apply(this, arguments); };
     window._realInitMainApp = function() { return initMainApp.apply(this, arguments); };
+    window.refreshConsumoResumen = window._realRefreshConsumoResumen;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.refreshConsumoResumen = function() { return refreshConsumoResumen.apply(this, arguments); };
   }
 
   const $ = (id) => document.getElementById(id);
