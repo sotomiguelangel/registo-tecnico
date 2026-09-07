@@ -65,7 +65,10 @@ class ApiService {
                 // Handle auth errors
                 if (result.code === 'AUTH') {
                     this.handleAuthError(result);
-                    throw new ApiError('AUTH', 'Sessão expirada');
+                    throw new ApiError(
+                        'Sessão expirada. Inicie sessão novamente.',
+                        'AUTH'
+                    );
                 }
                 
                 throw new ApiError(result.error || 'Erro do servidor', result.code);
@@ -331,11 +334,6 @@ class ApiError extends Error {
 
 // Export singleton instance
 const api = new ApiService();
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = api;
-    module.exports.ApiError = ApiError;
-}
 
 export { ApiService, ApiError, api };
 export default api;
