@@ -1798,12 +1798,13 @@
       <p class="section-title">Importação em lote</p>
       <div class="card">
         <p style="font-size:12.5px; color:var(--ink-600); line-height:1.5; margin:0 0 14px;">
-          Carregue muitos registos de uma só vez colando um CSV ou carregando um ficheiro. A <b>primeira linha deve ser o cabeçalho</b> — descarregue o modelo para ter as colunas corretas. As datas no formato <code style="background:var(--aqua-100); padding:2px 5px; border-radius:4px;">AAAA-MM-DD</code>. Na refrigeração, o equipamento identifica-se pelo <b>Nome</b>.
+          Carregue muitos registos de uma só vez colando um CSV ou carregando um ficheiro. A <b>primeira linha deve ser o cabeçalho</b> — descarregue o modelo para ter as colunas corretas. As datas no formato <code style="background:var(--aqua-100); padding:2px 5px; border-radius:4px;">AAAA-MM-DD</code>. Na refrigeração, o equipamento identifica-se pelo <b>Nome</b>. Nos tickets, indique <b>Quarto/Local</b>, <b>Categoria</b> e <b>Descrição</b>.
         </p>
-        <div class="period-toggle">
+        <div class="period-toggle" style="flex-wrap:wrap;">
           <button data-importtype="general" class="active">Leituras gerais</button>
           <button data-importtype="quarto">Leituras de quartos</button>
           <button data-importtype="temperatura">Refrigeração</button>
+          <button data-importtype="ticket">Tickets / Pedidos</button>
         </div>
         <button class="link-edit" id="btnDownloadTemplate" type="button">Descarregar modelo CSV</button>
 
@@ -10912,6 +10913,8 @@
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
+  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
+  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
 
   const IMPORT_ALIASES = {
     fecha:'fecha', data:'fecha', hora:'hora', usuario:'usuario', utilizador:'usuario',
@@ -10923,12 +10926,21 @@
     lavadofiltroarena:'lavadoFiltroArena', lavagemfiltroareia:'lavadoFiltroArena', lavagemfiltrodareia:'lavadoFiltroArena',
     limpiezaskimmer:'limpiezaSkimmer', limpezaskimmer:'limpiezaSkimmer',
     observacoes:'observacoes', observacione:'observacoes', notas:'observacoes',
-    quarto:'numero', numero:'numero',
+    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto',
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
     clorototalcaliente:'cloroTotalCaliente', clorototalquente:'cloroTotalCaliente',
     phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria',
-    equipamento:'nome', nome:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura'
+    equipamento:'nome', nome:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura',
+    datareporte:'dataReporte', horareporte:'horaReporte',
+    categoria:'categoria', categ:'categoria', cat:'categoria',
+    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao',
+    turno:'turno',
+    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador',
+    situacao:'situacao', estado:'situacao', status:'situacao',
+    observacao:'observacao', obs:'observacao',
+    comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre',
+    resolucao:'comentarioCierre', solucao:'comentarioCierre', fecho:'comentarioCierre'
   };
 
   let importType = 'general';
@@ -10955,14 +10967,30 @@
     return text.split(/\r?\n/).filter(l=> l.trim()!=='').map(parseCSVLine);
   }
 
+  function updateImportPlaceholder(){
+    const area = $('importTextarea');
+    if(!area) return;
+    if(importType === 'quarto'){
+      area.placeholder = 'Data,Hora,Utilizador,Quarto,pHQuente,CloroQuente,CloroTotalQuente,pHFria,CloroFria,CloroTotalFria\n2026-08-01,09:00,,101,7.20,1.50,0.30,7.30,1.20,0.20';
+    } else if(importType === 'temperatura'){
+      area.placeholder = 'Data,Hora,Equipamento,Temperatura,Observacoes\n2026-08-01,09:00,Frigorifico Cozinha 1,4.2,porta verificada';
+    } else if(importType === 'ticket'){
+      area.placeholder = 'Data,Hora,Quarto_Local,Categoria,Descricao,Turno,Colaborador,Estado,Observacao,ComentarioFecho\n2026-08-01,10:30,Quarto 204,Climatização,Ar condicionado não arrefece adequadamente,Manhã,Técnico,aberto,Verificar carga de gás,';
+    } else {
+      area.placeholder = 'Data,Hora,Utilizador,Agua,Eletricidade,RetornoAQS,AQSQuartos,EstadoPiscina,TempPiscina,pH,CloroLivre,CloroTotal,LavagemPrefiltro,LavagemFiltroAreia,LimpezaSkimmer,Observacoes\n2026-08-01,09:00,,12.50,340.00,45.0,48.0,Clara,28.5,7.20,1.50,2.00,Sim,Não,Sim,exemplo de observação';
+    }
+  }
+
   document.querySelectorAll('.period-toggle button[data-importtype]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.period-toggle button[data-importtype]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       importType = btn.dataset.importtype;
       $('importPreview').innerHTML = '';
+      updateImportPlaceholder();
     });
   });
+  updateImportPlaceholder();
 
   $('btnDownloadTemplate').addEventListener('click', ()=>{
     let headers, ejemplo, fname;
@@ -10974,6 +11002,10 @@
       headers = TEMP_IMPORT_HEADERS;
       ejemplo = ['2026-08-01','09:00','Frigorifico Cozinha 1','4.2','porta verificada'];
       fname = 'modelo_temperatura.csv';
+    } else if(importType === 'ticket'){
+      headers = TICKET_IMPORT_HEADERS;
+      ejemplo = ['2026-08-01','10:30','Quarto 204','Climatização','Ar condicionado não arrefece adequadamente','Manhã','Técnico','aberto','Verificar carga de gás',''];
+      fname = 'modelo_tickets.csv';
     } else {
       headers = GENERAL_IMPORT_HEADERS;
       ejemplo = ['2026-08-01','09:00','','12.50','340.00','45.0','48.0','Clara','28.5','7.20','1.50','2.00','Sim','Não','Sim','exemplo de observação'];
@@ -11018,17 +11050,74 @@
       // Obter registos existentes da base de dados para verificar duplicações prévias
       let existingRecords = [];
       try{
-        existingRecords = await listRecords(importType);
+        if(importType === 'ticket'){
+          existingRecords = (await loadTickets()) || [];
+        } else {
+          existingRecords = await listRecords(importType);
+        }
       }catch(e){}
 
       const existingGeneralDates = new Set(existingRecords.filter(r=> r.data && r.data.fecha).map(r=> r.data.fecha));
       const existingQuartoKeys = new Set(existingRecords.filter(r=> r.data && r.data.numero).map(r=> `${r.data.fecha}_${normRoom(r.data.numero)}`));
       const existingTempKeys = new Set(existingRecords.filter(r=> r.data && r.data.nome && r.data.fecha).map(r=> `${r.data.fecha}_${(r.data.nome||'').toLowerCase().trim()}`));
+      const existingTicketKeys = new Set(
+        (importType === 'ticket' && Array.isArray(existingRecords))
+          ? existingRecords.map(t => `${t.dataReporte}_${String(t.quarto||'').toLowerCase().trim()}_${String(t.descricao||'').slice(0,20).toLowerCase().trim()}`)
+          : []
+      );
 
       const dataRows = rows.slice(1);
       importParsedRows = dataRows.map(row=>{
         const obj = {};
         colMap.forEach((key, idx)=>{ if(key) obj[key] = (row[idx]||'').trim(); });
+
+        if(obj.quarto_or_numero){
+          if(importType === 'ticket') obj.quarto = obj.quarto_or_numero;
+          else if(importType === 'quarto') obj.numero = obj.quarto_or_numero;
+          else obj.numero = obj.quarto_or_numero;
+        }
+
+        if(importType === 'ticket'){
+          if(!obj.dataReporte && obj.fecha) obj.dataReporte = obj.fecha;
+          if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
+          if(!obj.horaReporte && obj.hora) obj.horaReporte = obj.hora;
+          if(!obj.hora && obj.horaReporte) obj.hora = obj.horaReporte;
+          if(!obj.quarto && obj.numero) obj.quarto = obj.numero;
+          if(!obj.colaborador && obj.usuario) obj.colaborador = obj.usuario;
+          if(!obj.colaborador) obj.colaborador = getCurrentUserName();
+          if(!obj.turno) obj.turno = 'Manhã';
+          if(!obj.observacao && obj.observacoes) obj.observacao = obj.observacoes;
+          if(!obj.situacao) obj.situacao = 'aberto';
+
+          // Normalizar turno
+          const normT = String(obj.turno||'').toLowerCase().trim();
+          if(normT.includes('tard')) obj.turno = 'Tarde';
+          else if(normT.includes('noit') || normT.includes('noche')) obj.turno = 'Noite';
+          else obj.turno = 'Manhã';
+
+          // Normalizar situação / estado
+          const normSt = String(obj.situacao||'').toLowerCase().trim();
+          if(normSt.includes('andamento') || normSt.includes('progresso') || normSt.includes('curso')) obj.situacao = 'em_andamento';
+          else if(normSt.includes('paus') || normSt.includes('aguard') || normSt.includes('pend')) obj.situacao = 'pausado';
+          else if(normSt.includes('fin') || normSt.includes('concl') || normSt.includes('fech') || normSt.includes('resolv') || normSt.includes('cerr')) obj.situacao = 'finalizado';
+          else obj.situacao = 'aberto';
+
+          // Normalizar categoria
+          const normC = String(obj.categoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+          if(normC.includes('eletric')) obj.categoria = 'Elétrica';
+          else if(normC.includes('hidraul')) obj.categoria = 'Hidráulica';
+          else if(normC.includes('clima') || normC.includes('arcond') || normC.includes('ar cond')) obj.categoria = 'Climatização';
+          else if(normC.includes('estrutur') || normC.includes('obra')) obj.categoria = 'Estrutural';
+          else if(normC.includes('vidro') || normC.includes('porta') || normC.includes('fechad')) obj.categoria = 'Vidros/Portas';
+          else if(normC.includes('mobil') || normC.includes('movel') || normC.includes('moveis')) obj.categoria = 'Mobiliário';
+          else if(normC.includes('piscina')) obj.categoria = 'Piscina';
+          else if(normC.includes('jardim') || normC.includes('exterior')) obj.categoria = 'Jardim/Exterior';
+          else if(normC.includes('seguranc') || normC.includes('alarme') || normC.includes('cctv')) obj.categoria = 'Segurança';
+          else if(normC.includes('limpez')) obj.categoria = 'Limpeza';
+          else if(normC.includes('utensil')) obj.categoria = 'Utensílios';
+          else if(!obj.categoria) obj.categoria = 'Outro';
+        }
+
         if (!obj.usuario) obj.usuario = getCurrentUserName();
         if(importType === 'quarto' && obj.numero) obj.numero = normRoom(obj.numero);
         ['lavadoPrefiltro','lavadoFiltroArena','limpiezaSkimmer'].forEach(f=>{
@@ -11036,34 +11125,52 @@
         });
         const errores = [];
         const avisos = [];
-        if(!obj.fecha) errores.push('falta a data');
-        else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.fecha)) errores.push('a data deve ser AAAA-MM-DD');
-        
-        if(importType === 'quarto'){
-          if(!obj.numero) errores.push('falta o número do quarto');
-          else if(obj.fecha){
-            const qKey = `${obj.fecha}_${normRoom(obj.numero)}`;
-            if(existingQuartoKeys.has(qKey)){
-              avisos.push(`Já existe leitura para o quarto ${obj.numero} no dia ${obj.fecha}`);
+
+        if(importType === 'ticket'){
+          if(!obj.dataReporte) errores.push('falta a data de reporte');
+          else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.dataReporte)) errores.push('a data deve ser AAAA-MM-DD');
+
+          if(!obj.quarto) errores.push('falta o quarto/local');
+          if(!obj.categoria) errores.push('falta a categoria');
+          if(!obj.descricao || obj.descricao.length < 5) errores.push('descrição com pelo menos 5 caracteres');
+
+          if(obj.dataReporte && obj.quarto && obj.descricao){
+            const tKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${obj.descricao.slice(0, 20).toLowerCase().trim()}`;
+            if(existingTicketKeys.has(tKey)){
+              avisos.push(`Já existe ticket semelhante para ${obj.quarto} na data ${obj.dataReporte}`);
+            }
+          }
+        } else {
+          if(!obj.fecha) errores.push('falta a data');
+          else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.fecha)) errores.push('a data deve ser AAAA-MM-DD');
+          
+          if(importType === 'quarto'){
+            if(!obj.numero) errores.push('falta o número do quarto');
+            else if(obj.fecha){
+              const qKey = `${obj.fecha}_${normRoom(obj.numero)}`;
+              if(existingQuartoKeys.has(qKey)){
+                avisos.push(`Já existe leitura para o quarto ${obj.numero} no dia ${obj.fecha}`);
+              }
+            }
+          }
+          if(importType === 'general' && obj.fecha){
+            if(existingGeneralDates.has(obj.fecha)){
+              avisos.push(`Já existe registo geral para o dia ${obj.fecha}`);
+            }
+          }
+          if(importType === 'temperatura'){
+            if(!obj.nome) errores.push('falta o nome do equipamento');
+            if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
+            else if(obj.fecha && obj.nome){
+              const tKey = `${obj.fecha}_${(obj.nome||'').toLowerCase().trim()}`;
+              if(existingTempKeys.has(tKey)){
+                avisos.push(`Já existe medição para ${obj.nome} em ${obj.fecha}`);
+              }
             }
           }
         }
-        if(importType === 'general' && obj.fecha){
-          if(existingGeneralDates.has(obj.fecha)){
-            avisos.push(`Já existe registo geral para o dia ${obj.fecha}`);
-          }
-        }
-        if(importType === 'temperatura'){
-          if(!obj.nome) errores.push('falta o nome do equipamento');
-          if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
-          else if(obj.fecha && obj.nome){
-            const tKey = `${obj.fecha}_${(obj.nome||'').toLowerCase().trim()}`;
-            if(existingTempKeys.has(tKey)){
-              avisos.push(`Já existe medição para ${obj.nome} em ${obj.fecha}`);
-            }
-          }
-        }
-        if(!obj.hora) obj.hora = '00:00';
+        if(!obj.hora) obj.hora = obj.horaReporte || '00:00';
+        if(!obj.horaReporte) obj.horaReporte = obj.hora;
         return { obj, errores, avisos };
       });
 
@@ -11078,7 +11185,7 @@
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
     const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.avisos && r.avisos.length>0);
-    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS);
+    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
 
     let dupBanner = '';
     if(withDuplicates.length > 0){
@@ -11092,7 +11199,9 @@
     let html = `<div class="card" style="margin-top:16px;">
       ${dupBanner}
       <p style="font-size:13px; font-weight:700; margin:0 0 10px;">${valid.length} de ${importParsedRows.length} linhas prontas para importar${invalid.length ? ` · ${invalid.length} com problemas` : ''}${withDuplicates.length ? ` · ${withDuplicates.length} com avisos de já existente` : ''}</p>
-      <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas na importação com a indicação da linha.</p>
+      <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">
+        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas na importação com a indicação da linha.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição (mín. 5 carateres) são obrigatórios. O estado padrão é "aberto" e o turno padrão é "Manhã".' : '')}
+      </p>
       <div class="table-scroll"><table class="report"><thead><tr>
         <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th>Estado / Validação</th>
       </tr></thead><tbody>`;
@@ -11114,7 +11223,7 @@
       if(valid.length === 0){ showToast('Não há linhas válidas para importar'); return; }
       let confirmMsg = `Vai adicionar ${valid.length} registo(s) novo(s) à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`;
       if(withDuplicates.length > 0){
-        confirmMsg = `Atenção: ${withDuplicates.length} dos registos a importar já possuem leitura registada para essa mesma data/quarto.\n\nDeseja mesmo importar estes registos adicionais?`;
+        confirmMsg = `Atenção: ${withDuplicates.length} dos registos a importar já possuem registo existente para essa mesma data/quarto.\n\nDeseja mesmo importar estes registos adicionais?`;
       }
       const ok = await confirmDialog('Confirmar importação', confirmMsg, 'Importar');
       if(!ok) return;
@@ -11129,10 +11238,34 @@
     let imported = 0;
     try{
       for(let i=0; i<rowsToImport.length; i+=CHUNK){
-        const chunk = rowsToImport.slice(i, i+CHUNK).map(obj=>{
-          return Object.assign({}, obj, { id: 'id_' + Date.now() + '_' + imported + '_' + Math.random().toString(36).slice(2,8) });
+        const chunk = rowsToImport.slice(i, i+CHUNK).map((obj, idx)=>{
+          const generatedId = 'id_' + Date.now() + '_' + (imported + idx) + '_' + Math.random().toString(36).slice(2,8);
+          return Object.assign({}, obj, {
+            id: obj.id || generatedId,
+            dataReporte: obj.dataReporte || obj.fecha || todayStr(),
+            horaReporte: obj.horaReporte || obj.hora || '00:00',
+            fecha: obj.dataReporte || obj.fecha || todayStr(),
+            hora: obj.horaReporte || obj.hora || '00:00',
+            quarto: obj.quarto || obj.numero || '',
+            colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
+            situacao: obj.situacao || 'aberto',
+            turno: obj.turno || 'Manhã',
+            observacao: obj.observacao || obj.observacoes || '',
+            comentarioCierre: obj.comentarioCierre || ''
+          });
         });
-        await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+        if(importType === 'ticket'){
+          try {
+            await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk });
+          } catch(errBatch) {
+            // Fallback caso a ação saveBatch no backend ainda não suporte o tipo 'ticket'
+            for(const item of chunk){
+              await apiPost({ action: 'saveTicket', data: item });
+            }
+          }
+        } else {
+          await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+        }
         imported += chunk.length;
         showToast(`A importar… ${imported}/${rowsToImport.length}`);
       }
@@ -11145,10 +11278,22 @@
       refreshConsumoResumen();
       if(importType === 'quarto'){ await loadCycleDone(); renderRoomGrid(); }
       if(importType === 'temperatura'){ renderTempWeek(); }
+      if(importType === 'ticket'){
+        invalidateTicketsCache();
+        cachedTicketsData = null;
+        if(typeof renderPedidosView === 'function') renderPedidosView();
+      }
     }catch(e){
       showToast(`⚠️ Foram importados ${imported} antes do erro: ${e.message}`, true);
     }finally{
-      if(imported > 0) invalidateRecords(importType);
+      if(imported > 0) {
+        if(importType === 'ticket'){
+          invalidateTicketsCache();
+          cachedTicketsData = null;
+        } else {
+          invalidateRecords(importType);
+        }
+      }
       setLoading(btn, false);
     }
   }
