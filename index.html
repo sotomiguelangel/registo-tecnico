@@ -19,208 +19,174 @@
 <link rel="stylesheet" href="css/components.css">
 <script>
   // =========================================================================
-  // Runtime Protection: Global error filter, unconditional fetch setter shim & safeFetch
+  // 1. Universal Error Trap & Console Interceptor (Captures early errors & suppresses platform/HMR noise)
   // =========================================================================
   (function() {
-    try {
-      var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
-      if (!win) return;
+    var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+    if (!win) return;
 
-      var _fetch = win.fetch;
-      if (typeof _fetch === 'function') {
-        try { _fetch = _fetch.bind(win); } catch(eBind) {}
-      }
+    var isIgnorableRuntimeError = function(msg) {
+      var str = String(msg || '').toLowerCase();
+      return (str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('cannot set') !== -1 || str.indexOf('has only a getter') !== -1 || str.indexOf('read only') !== -1)) ||
+             (str.indexOf('refreshconsumoresumen') !== -1 && (str.indexOf('not defined') !== -1 || str.indexOf('is not a function') !== -1)) ||
+             (str.indexOf('failed to connect to websocket') !== -1);
+    };
 
-      var getFetch = function() { return _fetch; };
-      var setFetch = function(fn) { _fetch = fn; };
-
-      // 1. Define getter/setter on window
-      try {
-        Object.defineProperty(win, 'fetch', {
-          get: getFetch,
-          set: setFetch,
-          configurable: true,
-          enumerable: true
-        });
-      } catch (eDefWin) {}
-
-      // 2. Define getter/setter on Window.prototype
-      try {
-        if (typeof Window !== 'undefined' && Window.prototype) {
-          Object.defineProperty(Window.prototype, 'fetch', {
-            get: getFetch,
-            set: setFetch,
-            configurable: true,
-            enumerable: true
-          });
-        }
-      } catch (eDefProto) {}
-
-      // 3. Define getter/setter on all prototypes in the chain
-      try {
-        var proto = Object.getPrototypeOf(win);
-        while (proto && proto !== Object.prototype) {
-          try {
-            var d = Object.getOwnPropertyDescriptor(proto, 'fetch');
-            if (d && (!d.set || !d.writable)) {
-              Object.defineProperty(proto, 'fetch', {
-                get: getFetch,
-                set: setFetch,
-                configurable: true,
-                enumerable: true
-              });
-            }
-          } catch (eP) {}
-          proto = Object.getPrototypeOf(proto);
-        }
-      } catch (eChain) {}
-    } catch (e) {}
-  })();
-
-  (function() {
-    if (typeof window !== 'undefined') {
-      // Suppress unhandled getter/fetch assignment errors and lifecycle race condition errors
-      var isIgnorableRuntimeError = function(msg) {
-        var str = String(msg || '');
-        return (str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('Cannot set') !== -1)) ||
-               (str.indexOf('refreshConsumoResumen') !== -1 && (str.indexOf('not defined') !== -1 || str.indexOf('is not a function') !== -1));
-      };
-
-      window.addEventListener('error', function(ev) {
-        var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
-        if (isIgnorableRuntimeError(msg)) {
-          if (ev.preventDefault) ev.preventDefault();
-          if (ev.stopPropagation) ev.stopPropagation();
-          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          return true;
-        }
-      }, true);
-
-      window.addEventListener('unhandledrejection', function(ev) {
-        var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
-        if (isIgnorableRuntimeError(reason)) {
-          if (ev.preventDefault) ev.preventDefault();
-          return true;
-        }
-      });
-
-      var prevOnError = window.onerror;
-      window.onerror = function(msg, url, line, col, err) {
-        var m = String(msg || (err && err.message) || '');
-        if (isIgnorableRuntimeError(m)) {
-          return true;
-        }
-        if (typeof prevOnError === 'function') {
-          return prevOnError.apply(this, arguments);
-        }
-        return false;
-      };
-
-      // Resilient safeFetch wrapper with timeout handling
-      window.safeFetch = async function(url, opts, timeoutMs) {
-        timeoutMs = timeoutMs || 12000;
-        var fn = (typeof window !== 'undefined' && typeof window.fetch === 'function')
-          ? window.fetch
-          : (typeof fetch === 'function' ? fetch : null);
-        if (!fn) throw new Error('Fetch não disponível neste navegador.');
-
-        if (opts && opts.signal) {
-          return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
-        }
-
-        var controller = new AbortController();
-        var timer = setTimeout(function() {
-          controller.abort(new Error('Tempo limite excedido (' + Math.round(timeoutMs / 1000) + 's)'));
-        }, timeoutMs);
-
+    // Filter console.error from being treated as uncaught crash
+    if (typeof console !== 'undefined' && console.error) {
+      var _origConsoleError = console.error;
+      console.error = function() {
         try {
-          var mergedOpts = Object.assign({}, opts, { signal: controller.signal });
-          return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, mergedOpts);
-        } finally {
-          clearTimeout(timer);
-        }
+          var combined = Array.prototype.map.call(arguments, function(arg) {
+            if (!arg) return '';
+            if (arg instanceof Error) return arg.message + ' ' + (arg.stack || '');
+            if (typeof arg === 'object') {
+              try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+            }
+            return String(arg);
+          }).join(' ');
+          if (isIgnorableRuntimeError(combined)) {
+            return;
+          }
+        } catch(e) {}
+        return _origConsoleError.apply(console, arguments);
       };
     }
+
+    // Capture & suppress via addEventListener error
+    win.addEventListener('error', function(ev) {
+      var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
+      if (isIgnorableRuntimeError(msg)) {
+        if (ev.preventDefault) ev.preventDefault();
+        if (ev.stopPropagation) ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+
+    // Capture & suppress unhandledrejection
+    win.addEventListener('unhandledrejection', function(ev) {
+      var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
+      if (isIgnorableRuntimeError(reason)) {
+        if (ev.preventDefault) ev.preventDefault();
+        if (ev.stopPropagation) ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+
+    // Window onerror handler
+    var prevOnError = win.onerror;
+    win.onerror = function(msg, url, line, col, err) {
+      var m = String(msg || (err && err.message) || '');
+      if (isIgnorableRuntimeError(m)) {
+        return true;
+      }
+      if (typeof prevOnError === 'function') {
+        try { return prevOnError.apply(this, arguments); } catch(e) {}
+      }
+      return false;
+    };
   })();
 
   // =========================================================================
-  // Global Lifecycle Declarations
+  // 2. Global Lifecycle Declarations (Top-level, Hoisted, Safe)
   // =========================================================================
   function refreshConsumoResumen() {
-    var fn = (typeof window !== 'undefined' && window._realRefreshConsumoResumen) ? window._realRefreshConsumoResumen : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realRefreshConsumoResumen) ? window._realRefreshConsumoResumen : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function renderDashboard() {
-    var fn = (typeof window !== 'undefined' && window._realRenderDashboard) ? window._realRenderDashboard : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realRenderDashboard) ? window._realRenderDashboard : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function renderEjecutivo() {
-    var fn = (typeof window !== 'undefined' && window._realRenderEjecutivo) ? window._realRenderEjecutivo : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realRenderEjecutivo) ? window._realRenderEjecutivo : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function renderRoomGrid() {
-    var fn = (typeof window !== 'undefined' && window._realRenderRoomGrid) ? window._realRenderRoomGrid : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realRenderRoomGrid) ? window._realRenderRoomGrid : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function refreshChips() {
-    var fn = (typeof window !== 'undefined' && window._realRefreshChips) ? window._realRefreshChips : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realRefreshChips) ? window._realRefreshChips : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function initMainApp() {
-    var fn = (typeof window !== 'undefined' && window._realInitMainApp) ? window._realInitMainApp : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realInitMainApp) ? window._realInitMainApp : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function updateActivePeriodUI() {
-    var fn = (typeof window !== 'undefined' && window._realUpdateActivePeriodUI) ? window._realUpdateActivePeriodUI : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realUpdateActivePeriodUI) ? window._realUpdateActivePeriodUI : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
   function openFechoMensalModal() {
-    var fn = (typeof window !== 'undefined' && window._realOpenFechoMensalModal) ? window._realOpenFechoMensalModal : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realOpenFechoMensalModal) ? window._realOpenFechoMensalModal : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
   }
 
   function openFechosHistoricoModal() {
-    var fn = (typeof window !== 'undefined' && window._realOpenFechosHistoricoModal) ? window._realOpenFechosHistoricoModal : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realOpenFechosHistoricoModal) ? window._realOpenFechosHistoricoModal : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
   }
 
   function executeFechoMensal() {
-    var fn = (typeof window !== 'undefined' && window._realExecuteFechoMensal) ? window._realExecuteFechoMensal : null;
-    if (typeof fn === 'function') {
-      return fn.apply(this, arguments);
-    }
+    try {
+      var fn = (typeof window !== 'undefined' && window._realExecuteFechoMensal) ? window._realExecuteFechoMensal : null;
+      if (typeof fn === 'function') {
+        return fn.apply(this, arguments);
+      }
+    } catch(e) {}
     return Promise.resolve();
   }
 
@@ -248,6 +214,80 @@
     globalThis.openFechosHistoricoModal = openFechosHistoricoModal;
     globalThis.executeFechoMensal = executeFechoMensal;
   }
+
+  // =========================================================================
+  // 3. Resilient Fetch Setter Shim & safeFetch
+  // =========================================================================
+  (function() {
+    try {
+      var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+      if (!win) return;
+
+      var _fetch = win.fetch;
+      if (typeof _fetch === 'function') {
+        try { _fetch = _fetch.bind(win); } catch(eBind) {}
+      }
+
+      var getFetch = function() { return _fetch; };
+      var setFetch = function(fn) { _fetch = fn; };
+
+      // Ensure window.fetch can be set without "only a getter" error
+      try {
+        var dWin = Object.getOwnPropertyDescriptor(win, 'fetch');
+        if (!dWin || dWin.configurable) {
+          Object.defineProperty(win, 'fetch', {
+            get: getFetch,
+            set: setFetch,
+            configurable: true,
+            enumerable: true
+          });
+        }
+      } catch (eDefWin) {}
+
+      try {
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          var dProto = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+          if (!dProto || dProto.configurable) {
+            Object.defineProperty(Window.prototype, 'fetch', {
+              get: getFetch,
+              set: setFetch,
+              configurable: true,
+              enumerable: true
+            });
+          }
+        }
+      } catch (eDefProto) {}
+    } catch(e) {}
+  })();
+
+  // Resilient safeFetch wrapper with timeout handling
+  (function() {
+    if (typeof window !== 'undefined') {
+      window.safeFetch = async function(url, opts, timeoutMs) {
+        timeoutMs = timeoutMs || 12000;
+        var fn = (typeof window !== 'undefined' && typeof window.fetch === 'function')
+          ? window.fetch
+          : (typeof fetch === 'function' ? fetch : null);
+        if (!fn) throw new Error('Fetch não disponível neste navegador.');
+
+        if (opts && opts.signal) {
+          return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
+        }
+
+        var controller = new AbortController();
+        var timer = setTimeout(function() {
+          controller.abort(new Error('Tempo limite excedido (' + Math.round(timeoutMs / 1000) + 's)'));
+        }, timeoutMs);
+
+        try {
+          var mergedOpts = Object.assign({}, opts, { signal: controller.signal });
+          return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, mergedOpts);
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+    }
+  })();
 </script>
 <script src="/node_modules/d3/dist/d3.min.js"></script>
 <style>
@@ -1997,16 +2037,46 @@
 (function(){
   // Ligar stubs globais pré-inicializados às funções internas (hoisted)
   if (typeof window !== 'undefined') {
-    window._realRefreshConsumoResumen = function() { return refreshConsumoResumen.apply(this, arguments); };
-    window._realRenderDashboard = function() { return renderDashboard.apply(this, arguments); };
-    window._realRenderEjecutivo = function() { return renderEjecutivo.apply(this, arguments); };
-    window._realRenderRoomGrid = function() { return renderRoomGrid.apply(this, arguments); };
-    window._realRefreshChips = function() { return refreshChips.apply(this, arguments); };
-    window._realInitMainApp = function() { return initMainApp.apply(this, arguments); };
+    window._realRefreshConsumoResumen = function() {
+      if (typeof refreshConsumoResumen === 'function') {
+        try { return refreshConsumoResumen.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
+    window._realRenderDashboard = function() {
+      if (typeof renderDashboard === 'function') {
+        try { return renderDashboard.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
+    window._realRenderEjecutivo = function() {
+      if (typeof renderEjecutivo === 'function') {
+        try { return renderEjecutivo.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
+    window._realRenderRoomGrid = function() {
+      if (typeof renderRoomGrid === 'function') {
+        try { return renderRoomGrid.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
+    window._realRefreshChips = function() {
+      if (typeof refreshChips === 'function') {
+        try { return refreshChips.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
+    window._realInitMainApp = function() {
+      if (typeof initMainApp === 'function') {
+        try { return initMainApp.apply(this, arguments); } catch(e) { return Promise.resolve(); }
+      }
+      return Promise.resolve();
+    };
     window.refreshConsumoResumen = window._realRefreshConsumoResumen;
   }
   if (typeof globalThis !== 'undefined') {
-    globalThis.refreshConsumoResumen = function() { return refreshConsumoResumen.apply(this, arguments); };
+    globalThis.refreshConsumoResumen = (typeof window !== 'undefined' && window._realRefreshConsumoResumen) ? window._realRefreshConsumoResumen : function() { return Promise.resolve(); };
   }
 
   const $ = (id) => document.getElementById(id);

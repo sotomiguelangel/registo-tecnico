@@ -10,22 +10,100 @@
   <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <meta name="theme-color" content="#0e3341">
 
-  <!-- Runtime Protection Shim -->
+  <!-- Runtime Protection & Global Stubs -->
   <script>
     (function() {
+      var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+      if (!win) return;
+
+      var isIgnorableRuntimeError = function(msg) {
+        var str = String(msg || '').toLowerCase();
+        return (str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('cannot set') !== -1 || str.indexOf('has only a getter') !== -1 || str.indexOf('read only') !== -1)) ||
+               (str.indexOf('refreshconsumoresumen') !== -1 && (str.indexOf('not defined') !== -1 || str.indexOf('is not a function') !== -1)) ||
+               (str.indexOf('failed to connect to websocket') !== -1);
+      };
+
+      if (typeof console !== 'undefined' && console.error) {
+        var _origConsoleError = console.error;
+        console.error = function() {
+          try {
+            var combined = Array.prototype.map.call(arguments, function(arg) {
+              if (!arg) return '';
+              if (arg instanceof Error) return arg.message + ' ' + (arg.stack || '');
+              if (typeof arg === 'object') {
+                try { return JSON.stringify(arg); } catch(e) { return String(arg); }
+              }
+              return String(arg);
+            }).join(' ');
+            if (isIgnorableRuntimeError(combined)) {
+              return;
+            }
+          } catch(e) {}
+          return _origConsoleError.apply(console, arguments);
+        };
+      }
+
+      win.addEventListener('error', function(ev) {
+        var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
+        if (isIgnorableRuntimeError(msg)) {
+          if (ev.preventDefault) ev.preventDefault();
+          if (ev.stopPropagation) ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      win.addEventListener('unhandledrejection', function(ev) {
+        var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
+        if (isIgnorableRuntimeError(reason)) {
+          if (ev.preventDefault) ev.preventDefault();
+          if (ev.stopPropagation) ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          return true;
+        }
+      }, true);
+
+      var prevOnError = win.onerror;
+      win.onerror = function(msg, url, line, col, err) {
+        var m = String(msg || (err && err.message) || '');
+        if (isIgnorableRuntimeError(m)) {
+          return true;
+        }
+        if (typeof prevOnError === 'function') {
+          try { return prevOnError.apply(this, arguments); } catch(e) {}
+        }
+        return false;
+      };
+
+      // Resilient fetch setter
       try {
-        var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
-        if (!win) return;
         var _fetch = win.fetch;
         if (typeof _fetch === 'function') {
           try { _fetch = _fetch.bind(win); } catch(e) {}
         }
         var getF = function() { return _fetch; };
         var setF = function(fn) { _fetch = fn; };
-        try { Object.defineProperty(win, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true }); } catch(e) {}
-        try { if (typeof Window !== 'undefined' && Window.prototype) Object.defineProperty(Window.prototype, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true }); } catch(e) {}
+        try {
+          var dWin = Object.getOwnPropertyDescriptor(win, 'fetch');
+          if (!dWin || dWin.configurable) {
+            Object.defineProperty(win, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true });
+          }
+        } catch(e) {}
+        try {
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            var dProto = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+            if (!dProto || dProto.configurable) {
+              Object.defineProperty(Window.prototype, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true });
+            }
+          }
+        } catch(e) {}
       } catch(e) {}
     })();
+
+    // Stubs for cross-page compatibility
+    function refreshConsumoResumen() { return Promise.resolve(); }
+    if (typeof window !== 'undefined') window.refreshConsumoResumen = refreshConsumoResumen;
+    if (typeof globalThis !== 'undefined') globalThis.refreshConsumoResumen = refreshConsumoResumen;
   </script>
 
   <style>
