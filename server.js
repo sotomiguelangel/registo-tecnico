@@ -431,6 +431,21 @@ app.use('/api', (req, res) => {
 });
 
 // ============================================
+// Dedicated KPIs / Indicadores routes
+// ============================================
+
+app.get(['/indicadores', '/kpis', '/kpi', '/dashboard-kpi', '/indicadores.html', '/kpis.html'], (req, res, next) => {
+  res.sendFile(
+    path.join(__dirname, 'indicadores.html'),
+    error => {
+      if (error) {
+        next(error);
+      }
+    }
+  );
+});
+
+// ============================================
 // SPA fallback
 // ============================================
 

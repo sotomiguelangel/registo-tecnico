@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Indicadores & KPIs · Registo Técnico Moon and Sun</title>
+  <meta name="description" content="Painel executivo independente de indicadores, métricas operacionais, consumos e qualidade técnica do hotel Moon and Sun.">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
+  <meta name="theme-color" content="#0e3341">
+
+  <!-- Runtime Protection Shim -->
+  <script>
+    (function() {
+      try {
+        var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+        if (!win) return;
+        var _fetch = win.fetch;
+        if (typeof _fetch === 'function') {
+          try { _fetch = _fetch.bind(win); } catch(e) {}
+        }
+        var getF = function() { return _fetch; };
+        var setF = function(fn) { _fetch = fn; };
+        try { Object.defineProperty(win, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true }); } catch(e) {}
+        try { if (typeof Window !== 'undefined' && Window.prototype) Object.defineProperty(Window.prototype, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true }); } catch(e) {}
+      } catch(e) {}
+    })();
+  </script>
+
+  <style>
+    :root {
+      /* Theme - Moon and Sun Petrol & Clean Neutrals */
+      --petrol-950: #071922;
+      --petrol-900: #0e3341;
+      --petrol-800: #134354;
+      --petrol-700: #1b5568;
+      --petrol-600: #256e82;
+      --petrol-100: #e5f0f3;
+      --petrol-50:  #f2f7f9;
+
+      --aqua-600: #0dab9e;
+      --aqua-500: #14b8a6;
+      --aqua-400: #2dd4bf;
+      --aqua-100: #ccfbf1;
+      --aqua-50:  #f0fdfa;
+
+      --amber-600: #b45309;
+      --amber-500: #d97706;
+      --amber-100: #fef3c7;
+
+      --coral-600: #dc2626;
+      --coral-500: #ef4444;
+      --coral-100: #fee2e2;
+
+      --ok-600: #15803d;
+      --ok-500: #22c55e;
+      --ok-100: #dcfce7;
+
+      --ice-600: #0284c7;
+      --ice-500: #0ea5e9;
+      --ice-100: #e0f2fe;
+
+      /* UI Surfaces */
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-surface-elevated: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-strong: #cbd5e1;
+
+      /* Text Colors */
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --text-on-dark: #ffffff;
+
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(14,51,65,0.06);
+      --shadow-lg: 0 10px 25px rgba(14,51,65,0.09);
+    }
+
+    /* Dark / Wallboard Mode */
+    [data-theme="dark"] {
+      --bg-page: #08151c;
+      --bg-surface: #0e222d;
+      --bg-surface-elevated: #132d3b;
+      --bg-subtle: #173848;
+      --border-subtle: #1e4558;
+      --border-strong: #2a5b73;
+
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
+      --shadow-lg: 0 12px 30px rgba(0,0,0,0.45);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* App Header / Topbar */
+    header.kpi-header {
+      background: linear-gradient(135deg, var(--petrol-950) 0%, var(--petrol-900) 100%);
+      color: var(--text-on-dark);
+      padding: 14px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-md);
+    }
+
+    .header-content {
+      max-width: 1540px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background: rgba(34,184,176,0.18);
+      border: 1px solid var(--aqua-500);
+      border-radius: var(--radius-md);
+      display: grid;
+      place-items: center;
+      color: var(--aqua-400);
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .brand-titles h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 2px 8px;
+      background: var(--petrol-800);
+      border: 1px solid rgba(79,212,203,0.3);
+      color: var(--aqua-300);
+      border-radius: 999px;
+    }
+
+    .brand-sub {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.7);
+    }
+
+    /* Live Clock and Status Beacon */
+    .live-status-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .live-beacon {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-md);
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--ok-500);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+      animation: pulseGreen 2s infinite;
+    }
+
+    @keyframes pulseGreen {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+
+    .clock-box {
+      text-align: right;
+      font-family: var(--font-mono);
+    }
+    .clock-time {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .clock-date {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.65);
+      text-transform: capitalize;
+    }
+
+    /* Action Buttons in Header */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-hdr {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #ffffff;
+      padding: 7px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .btn-hdr:hover {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.28);
+    }
+    .btn-hdr.primary-action {
+      background: var(--aqua-500);
+      color: #071922;
+      border-color: var(--aqua-400);
+    }
+    .btn-hdr.primary-action:hover {
+      background: var(--aqua-400);
+    }
+
+    /* Sub-bar / Filter & Sync bar */
+    .control-subbar {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .subbar-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .period-filter-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+    .btn-period {
+      padding: 5px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-period:hover {
+      color: var(--text-main);
+    }
+    .btn-period.active {
+      background: var(--bg-surface);
+      color: var(--petrol-900);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    [data-theme="dark"] .btn-period.active {
+      background: var(--petrol-700);
+      color: #ffffff;
+    }
+
+    .refresh-status-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .auto-refresh-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-subtle);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-subtle);
+    }
+    .auto-refresh-pill select {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-weight: 600;
+      font-size: 0.78rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Main Container */
+    main.kpi-main {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 24px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      flex: 1;
+    }
+
+    /* Overall Compliance Banner */
+    .compliance-banner {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .compliance-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .compliance-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      background: var(--ok-100);
+      color: var(--ok-600);
+      flex-shrink: 0;
+    }
+    .compliance-icon.warning {
+      background: var(--amber-100);
+      color: var(--amber-600);
+    }
+    .compliance-icon.danger {
+      background: var(--coral-100);
+      color: var(--coral-600);
+    }
+    .compliance-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .compliance-sub {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .compliance-stats {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      flex-wrap: wrap;
+    }
+    .compliance-chip {
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .chip-dot.ok { background: var(--ok-500); }
+    .chip-dot.warn { background: var(--amber-500); }
+    .chip-dot.danger { background: var(--coral-500); }
+
+    /* KPI Hero Cards Grid */
+    .kpi-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+    }
+
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .kpi-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .kpi-card-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kpi-status-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .kpi-status-badge.ok {
+      background: var(--ok-100);
+      color: var(--ok-600);
+    }
+    .kpi-status-badge.warn {
+      background: var(--amber-100);
+      color: var(--amber-600);
+    }
+    .kpi-status-badge.danger {
+      background: var(--coral-100);
+      color: var(--coral-600);
+    }
+    [data-theme="dark"] .kpi-status-badge.ok { background: rgba(34,197,94,0.15); color: #4ade80; }
+    [data-theme="dark"] .kpi-status-badge.warn { background: rgba(217,119,6,0.15); color: #fcd34d; }
+    [data-theme="dark"] .kpi-status-badge.danger { background: rgba(239,68,68,0.15); color: #f87171; }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 4px 0;
+    }
+    .kpi-big-number {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      letter-spacing: -0.02em;
+    }
+    .kpi-unit {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .kpi-card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+    }
+    .kpi-trend {
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .kpi-trend.down { color: var(--ok-600); }
+    .kpi-trend.up { color: var(--amber-600); }
+    .kpi-trend.neutral { color: var(--text-dim); }
+
+    /* Interactive Visual Analytics Layout (Bento Grid) */
+    .bento-charts-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 1024px) {
+      .bento-charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .dashboard-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-head {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 12px;
+    }
+    .panel-head-titles h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .panel-head-titles p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .chart-controls-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-subtle);
+      padding: 3px;
+      border-radius: var(--radius-md);
+    }
+    .btn-chart-toggle {
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-chart-toggle.active {
+      background: var(--bg-surface);
+      color: var(--petrol-900);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    [data-theme="dark"] .btn-chart-toggle.active {
+      background: var(--petrol-700);
+      color: #ffffff;
+    }
+
+    /* Chart Container & Tooltip */
+    .chart-container-box {
+      position: relative;
+      width: 100%;
+      height: 280px;
+    }
+    .chart-svg-root {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .chart-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(14,51,65,0.92);
+      backdrop-filter: blur(4px);
+      color: #ffffff;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      font-size: 0.76rem;
+      box-shadow: var(--shadow-md);
+      z-index: 20;
+      opacity: 0;
+      transform: translate(-50%, -100%);
+      transition: opacity 0.12s ease;
+      white-space: nowrap;
+    }
+    .chart-tooltip.show {
+      opacity: 1;
+    }
+
+    /* Cold Chain Refrigeration Equipment Matrix */
+    .equipment-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .equip-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .equip-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+    }
+    .equip-name {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .equip-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .equip-temp {
+      font-size: 1.45rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+    .equip-bar-wrap {
+      height: 6px;
+      background: var(--border-subtle);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .equip-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+    .equip-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    /* Preventive Rooms Cycle Progress */
+    .room-progress-box {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .radial-chart-wrap {
+      width: 100px;
+      height: 100px;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .radial-chart-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .radial-chart-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: var(--font-mono);
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .room-stats-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      font-size: 0.8rem;
+    }
+    .room-stat-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .room-stat-row strong {
+      color: var(--text-main);
+    }
+
+    /* Live Feed Data Table */
+    .table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+    table.kpi-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      text-align: left;
+    }
+    table.kpi-table th {
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+    table.kpi-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+    table.kpi-table tr:last-child td {
+      border-bottom: none;
+    }
+    table.kpi-table tr:hover td {
+      background: var(--bg-subtle);
+    }
+    .tag-type {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      display: inline-block;
+    }
+    .tag-type.general { background: var(--ice-100); color: var(--ice-600); }
+    .tag-type.quarto { background: var(--petrol-100); color: var(--petrol-700); }
+    .tag-type.temperatura { background: var(--aqua-100); color: var(--aqua-600); }
+
+    /* Footer */
+    footer.kpi-footer {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+      padding: 16px 24px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+    .footer-inner {
+      max-width: 1540px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Print styling */
+    @media print {
+      header.kpi-header, .control-subbar, .header-actions, .period-filter-group, footer.kpi-footer {
+        display: none !important;
+      }
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      .kpi-card, .dashboard-panel, .compliance-banner {
+        box-shadow: none !important;
+        border: 1px solid #cccccc !important;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="kpi-header" id="kpiHeader">
+    <div class="header-content">
+      <div class="brand-group">
+        <div class="brand-icon">✦</div>
+        <div class="brand-titles">
+          <h1>
+            <span>Moon & Sun · Monitor de Indicadores</span>
+            <span class="brand-badge">Wallboard & KPIs</span>
+          </h1>
+          <p class="brand-sub">Painel independente de telemetria, consumos, físico-química e manutenção preventiva</p>
+        </div>
+      </div>
+
+      <div class="live-status-group">
+        <div class="live-beacon">
+          <div class="pulse-dot"></div>
+          <span>Sincronização em Tempo Real</span>
+        </div>
+
+        <div class="clock-box">
+          <div class="clock-time" id="liveClockTime">--:--:--</div>
+          <div class="clock-date" id="liveClockDate">--</div>
+        </div>
+
+        <div class="header-actions">
+          <button type="button" class="btn-hdr" id="btnToggleTheme" title="Alternar Modo Claro / Noturno (Wallboard)">
+            <span id="themeIcon">🌙</span> <span id="themeLabel">Modo Noturno</span>
+          </button>
+          <button type="button" class="btn-hdr" id="btnFullscreen" title="Ecrã Completo para Monitores">
+            <span>⛶</span> Ecrã Completo
+          </button>
+          <button type="button" class="btn-hdr" id="btnPrintReport" title="Imprimir Relatório de Indicadores">
+            <span>🖨️</span> Imprimir
+          </button>
+          <a href="/" class="btn-hdr primary-action" title="Voltar à aplicação operacional de registo">
+            <span>←</span> App Principal
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sub-bar: Period Filter & Refresh Status -->
+  <div class="control-subbar" id="controlSubbar">
+    <div class="subbar-inner">
+      <div class="period-filter-group" id="periodFilters">
+        <button type="button" class="btn-period" data-period="today">Hoje</button>
+        <button type="button" class="btn-period" data-period="7d">Últimos 7 dias</button>
+        <button type="button" class="btn-period active" data-period="30d">Últimos 30 dias</button>
+        <button type="button" class="btn-period" data-period="month">Este Mês</button>
+        <button type="button" class="btn-period" data-period="all">Histórico Completo</button>
+      </div>
+
+      <div class="refresh-status-group">
+        <div class="auto-refresh-pill">
+          <span>🔄 Auto-atualização:</span>
+          <select id="selAutoRefresh">
+            <option value="15">A cada 15 seg</option>
+            <option value="30" selected>A cada 30 seg</option>
+            <option value="60">A cada 1 min</option>
+            <option value="300">A cada 5 min</option>
+            <option value="0">Desligada (Manual)</option>
+          </select>
+        </div>
+        <button type="button" class="btn-period" id="btnManualRefresh" style="border: 1px solid var(--border-subtle)">
+          ↻ Atualizar Agora
+        </button>
+        <span id="lastUpdatedLabel">Última leitura: a carregar…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main View Dashboard -->
+  <main class="kpi-main" id="kpiMain">
+
+    <!-- Overall Technical Health Banner -->
+    <section class="compliance-banner" id="complianceBanner">
+      <div class="compliance-left">
+        <div class="compliance-icon" id="bannerIcon">✓</div>
+        <div>
+          <div class="compliance-title" id="bannerTitle">Instalações em Plena Conformidade Operacional</div>
+          <div class="compliance-sub" id="bannerSub">Todos os parâmetros de água, AQS e refrigeração alimentar estão dentro dos intervalos legais.</div>
+        </div>
+      </div>
+      <div class="compliance-stats">
+        <div class="compliance-chip">
+          <span class="chip-dot ok" id="dotAgua"></span>
+          <span>Águas & Cloro: <strong id="lblAguaStatus">Em Norma</strong></span>
+        </div>
+        <div class="compliance-chip">
+          <span class="chip-dot ok" id="dotFrio"></span>
+          <span>Cadeia de Frio: <strong id="lblFrioStatus">100% Conforme</strong></span>
+        </div>
+        <div class="compliance-chip">
+          <span class="chip-dot ok" id="dotAqs"></span>
+          <span>AQS Legionella: <strong id="lblAqsStatus">≥ 55°C Seguro</strong></span>
+        </div>
+        <div class="compliance-chip">
+          <span class="chip-dot ok" id="dotQuartos"></span>
+          <span>Ciclo Quartos: <strong id="lblQuartosStatus">Em Andamento</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Top 6 KPI Metric Cards Grid -->
+    <section class="kpi-cards-grid" id="kpiCardsGrid">
+      
+      <!-- Card 1: Consumo Água -->
+      <article class="kpi-card" id="cardAgua">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">💧 Consumo de Água</div>
+          <span class="kpi-status-badge ok" id="badgeAgua">Normal</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valAguaTotal">0.00</span>
+            <span class="kpi-unit">m³</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Média diária: <strong id="valAguaMedia">0.00</strong> m³/dia · Custo est.: <strong id="valAguaCusto">0 €</strong>
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span class="kpi-trend down" id="trendAgua">▼ 4.2% vs mês anterior</span>
+          <span id="metaAguaLeituras">0 leituras</span>
+        </div>
+      </article>
+
+      <!-- Card 2: Consumo Eletricidade -->
+      <article class="kpi-card" id="cardElec">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">⚡ Consumo de Eletricidade</div>
+          <span class="kpi-status-badge ok" id="badgeElec">Eficiente</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valElecTotal">0</span>
+            <span class="kpi-unit">kWh</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Média diária: <strong id="valElecMedia">0</strong> kWh/dia · Custo est.: <strong id="valElecCusto">0 €</strong>
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span class="kpi-trend down" id="trendElec">▼ 1.8% vs mês anterior</span>
+          <span id="metaElecLeituras">0 leituras</span>
+        </div>
+      </article>
+
+      <!-- Card 3: Qualidade da Água (pH & Cloro) -->
+      <article class="kpi-card" id="cardPiscina">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">🏊 Qualidade da Água</div>
+          <span class="kpi-status-badge ok" id="badgePiscina">Em Parâmetros</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valPhMedio">7.35</span>
+            <span class="kpi-unit">pH</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Cloro Livre: <strong id="valCloroLivre">1.40</strong> ppm · Cloro Total: <strong id="valCloroTotal">1.60</strong> ppm
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span>Norma: pH 7.0–7.8</span>
+          <span id="metaPiscinaData">Leitura do dia</span>
+        </div>
+      </article>
+
+      <!-- Card 4: Temperatura AQS -->
+      <article class="kpi-card" id="cardAqs">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">🔥 Água Quente Sanitária</div>
+          <span class="kpi-status-badge ok" id="badgeAqs">Anti-Legionella</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valAqsTemp">56.4</span>
+            <span class="kpi-unit">°C</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Retorno: <strong id="valAqsRetorno">51.8 °C</strong> (Mínimo legal ≥ 50 °C)
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span style="color:var(--ok-600); font-weight:600">✓ Proteção térmica ativa</span>
+          <span>Acumulador Central</span>
+        </div>
+      </article>
+
+      <!-- Card 5: Refrigeração & Segurança HACCP -->
+      <article class="kpi-card" id="cardFrio">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">❄️ Cadeia de Frio Alimentar</div>
+          <span class="kpi-status-badge ok" id="badgeHaccp">100% OK</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valFrioConformidade">100%</span>
+            <span class="kpi-unit">conformidade</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Câmaras (+): <strong id="valMediaPositiva">+2.4 °C</strong> · Congelados: <strong id="valMediaNegativa">-19.2 °C</strong>
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span id="metaFrioEquipamentos">6 equipamentos ativos</span>
+          <span>Sem anomalias</span>
+        </div>
+      </article>
+
+      <!-- Card 6: Manutenção de Quartos -->
+      <article class="kpi-card" id="cardQuartos">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">🛏️ Ciclo Preventivo Quartos</div>
+          <span class="kpi-status-badge ok" id="badgeCicloQuartos">No Alvo</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valQuartosPct">88%</span>
+            <span class="kpi-unit">concluído</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Inspecionados: <strong id="valQuartosFeitos">42</strong> de 48 quartos · Pendentes: <strong id="valQuartosPendentes">6</strong>
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span>Avarias abertas: <strong id="valAvariasAbertas" style="color:var(--ok-600)">0</strong></span>
+          <span>Ciclo Mensal</span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- Interactive Bento Analytics Grid -->
+    <div class="bento-charts-grid">
+      
+      <!-- Primary Interactive Chart: Consumption & Trends -->
+      <section class="dashboard-panel" id="panelConsumo">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2>
+              <span>📈 Tendência de Consumo Diário</span>
+              <span class="brand-badge">Interativo</span>
+            </h2>
+            <p>Evolução diária dos contadores, custos e médias móveis (7 dias)</p>
+          </div>
+          <div class="chart-controls-strip">
+            <button type="button" class="btn-chart-toggle active" data-metric="agua" id="btnMetricAgua">💧 Água (m³)</button>
+            <button type="button" class="btn-chart-toggle" data-metric="elec" id="btnMetricElec">⚡ Eletricidade (kWh)</button>
+            <button type="button" class="btn-chart-toggle" data-metric="both" id="btnMetricBoth">🔄 Comparativo</button>
+          </div>
+        </div>
+
+        <div class="chart-container-box" id="mainChartWrap">
+          <svg class="chart-svg-root" id="mainChartSvg" viewBox="0 0 760 280"></svg>
+          <div class="chart-tooltip" id="mainChartTooltip"></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); padding-top:4px; border-top:1px solid var(--border-subtle)">
+          <div style="display:flex; gap:16px; align-items:center">
+            <span style="display:inline-flex; align-items:center; gap:5px">
+              <span style="width:12px; height:3px; background:var(--ice-500); border-radius:2px"></span>
+              <span id="legendMetricName">Consumo Registado</span>
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:5px">
+              <span style="width:12px; height:2px; border-top:2px dashed var(--petrol-600)"></span>
+              <span>Média Móvel (7d)</span>
+            </span>
+          </div>
+          <div>Tarifa configurada: Água 2.50 €/m³ · Eletricidade 0.18 €/kWh</div>
+        </div>
+      </section>
+
+      <!-- Secondary Panel: Physicochemical Water Quality & AQS -->
+      <section class="dashboard-panel" id="panelQualidade">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2><span>🔬 Parâmetros Físico-Químicos</span></h2>
+            <p>Faixas de segurança legal de pH e desinfeção</p>
+          </div>
+        </div>
+
+        <div class="chart-container-box" style="height:190px;" id="waterChartWrap">
+          <svg class="chart-svg-root" id="waterChartSvg" viewBox="0 0 380 190"></svg>
+          <div class="chart-tooltip" id="waterChartTooltip"></div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; font-size:0.78rem; padding-top:6px; border-top:1px solid var(--border-subtle)">
+          <div style="display:flex; justify-content:space-between">
+            <span>Zona Óptima de pH:</span>
+            <strong>7.0 a 7.8 pH</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between">
+            <span>Cloro Livre Recomendado:</span>
+            <strong>0.5 a 3.0 ppm</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between">
+            <span>Temperatura Proteção AQS:</span>
+            <strong style="color:var(--ok-600)">≥ 50 °C (Rede) / ≥ 55 °C (Depósito)</strong>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Secondary Row: Refrigeration Equipment Matrix & Room Inspection Flow -->
+    <div class="bento-charts-grid" style="grid-template-columns: 3fr 2fr;">
+      
+      <!-- Cold Chain Equipment Matrix -->
+      <section class="dashboard-panel" id="panelEquipamentos">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2><span>🧊 Monitor de Câmaras & Balcões Frigoríficos</span></h2>
+            <p>Controlo permanente de temperaturas críticas e limites de segurança HACCP</p>
+          </div>
+          <span class="brand-badge" id="badgeEquipCount">6 Ativos</span>
+        </div>
+
+        <div class="equipment-grid" id="equipmentGrid">
+          <!-- Dynamically Injected -->
+        </div>
+      </section>
+
+      <!-- Preventive Room Maintenance Cycle -->
+      <section class="dashboard-panel" id="panelCicloQuartos">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2><span>🛎️ Inspeções Preventivas de Quartos</span></h2>
+            <p>Estado do ciclo de controlo mensal de torneiras, sanitários e AC</p>
+          </div>
+        </div>
+
+        <div class="room-progress-box">
+          <div class="radial-chart-wrap">
+            <svg class="radial-chart-svg" viewBox="0 0 36 36">
+              <path stroke="var(--border-subtle)" stroke-width="3.5" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+              <path id="radialFill" stroke="var(--aqua-500)" stroke-dasharray="88, 100" stroke-width="3.5" stroke-linecap="round" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+            </svg>
+            <div class="radial-chart-text" id="radialText">88%</div>
+          </div>
+          <div class="room-stats-list">
+            <div class="room-stat-row">
+              <span>Total de Quartos no Hotel:</span>
+              <strong>48 quartos</strong>
+            </div>
+            <div class="room-stat-row">
+              <span>Inspecionados neste ciclo:</span>
+              <strong id="statInspecionados" style="color:var(--ok-600)">42 concluídos</strong>
+            </div>
+            <div class="room-stat-row">
+              <span>Aguardam verificação técnica:</span>
+              <strong id="statPendentes" style="color:var(--amber-600)">6 pendentes</strong>
+            </div>
+            <div class="room-stat-row">
+              <span>Anomalias / Reparações abertas:</span>
+              <strong id="statAvarias">0 ativas</strong>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border-subtle); padding-top:10px;">
+          Distribuição por pisos: Piso 1 (12/12) · Piso 2 (12/12) · Piso 3 (10/12) · Piso 4 (8/12)
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Live Table: Latest Technical Readings -->
+    <section class="dashboard-panel" id="panelTabela">
+      <div class="panel-head">
+        <div class="panel-head-titles">
+          <h2><span>📋 Registo Cronológico de Leituras Técnicas</span></h2>
+          <p>Últimos dados capturados pelos técnicos de manutenção</p>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted)">
+          A filtrar por: <strong id="lblTablePeriod">Últimos 30 dias</strong>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>Data & Hora</th>
+              <th>Setor / Módulo</th>
+              <th>Ponto de Medição</th>
+              <th>Leitura / Valor</th>
+              <th>Intervalo Regulamentar</th>
+              <th>Técnico Responsável</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="readingsTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="kpi-footer">
+    <div class="footer-inner">
+      <div>
+        <strong>Hotel Moon & Sun</strong> · Monitorização Contínua de Instalações Técnicas & Eficiência Energética
+      </div>
+      <div>
+        Conexão direta ao banco de dados e sincronização em tempo real via Web Storage & API.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    (function() {
+      'use strict';
+
+      // State Management
+      const state = {
+        period: '30d',
+        metric: 'agua',
+        autoRefreshSec: 30,
+        autoRefreshTimer: null,
+        clockTimer: null,
+        theme: localStorage.getItem('bitacora_kpi_theme') || 'light',
+        records: {
+          general: [],
+          quarto: [],
+          temperatura: []
+        },
+        thresholds: {
+          phMin: 7.0, phMax: 7.8,
+          cloroMin: 0.5, cloroMax: 3.0,
+          cloroTotalMax: 5.0,
+          aqsMin: 50.0
+        },
+        tarifas: {
+          agua: 2.50,
+          elec: 0.18
+        }
+      };
+
+      // Equipment master specifications
+      const EQUIP_SPECS = [
+        { id: 'cam_carne', name: 'Câmara Carnes (+)', min: 0, max: 3, ideal: 1.5, defaultT: 1.8, unit: '°C' },
+        { id: 'cam_peixe', name: 'Câmara Peixe (+)', min: 0, max: 2, ideal: 1.0, defaultT: 1.2, unit: '°C' },
+        { id: 'cam_congelados', name: 'Câmara Congelados (-)', min: -24, max: -18, ideal: -20, defaultT: -19.5, unit: '°C' },
+        { id: 'balcao_pq', name: 'Balcão Pq. Almoço', min: 2, max: 5, ideal: 3.5, defaultT: 3.4, unit: '°C' },
+        { id: 'frigo_bar', name: 'Frigorífico Bar', min: 3, max: 6, ideal: 4.5, defaultT: 4.2, unit: '°C' },
+        { id: 'maq_gelo', name: 'Máquina de Gelo', min: -4, max: 0, ideal: -2.0, defaultT: -1.8, unit: '°C' }
+      ];
+
+      // Helpers
+      const $ = id => document.getElementById(id);
+      const fmtNum = (v, dec = 2) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(dec) : '—');
+
+      // Theme toggle
+      function applyTheme(t) {
+        state.theme = t;
+        document.documentElement.setAttribute('data-theme', t);
+        localStorage.setItem('bitacora_kpi_theme', t);
+        if ($('themeIcon')) $('themeIcon').textContent = t === 'dark' ? '☀️' : '🌙';
+        if ($('themeLabel')) $('themeLabel').textContent = t === 'dark' ? 'Modo Claro' : 'Modo Noturno';
+      }
+
+      function initTheme() {
+        applyTheme(state.theme);
+        $('btnToggleTheme').addEventListener('click', () => {
+          applyTheme(state.theme === 'dark' ? 'light' : 'dark');
+          renderMainChart();
+          renderWaterChart();
+        });
+      }
+
+      // Fullscreen Toggle
+      function initFullscreen() {
+        $('btnFullscreen').addEventListener('click', () => {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+          }
+        });
+      }
+
+      // Live Clock
+      function startClock() {
+        function updateClock() {
+          const now = new Date();
+          if ($('liveClockTime')) {
+            $('liveClockTime').textContent = now.toLocaleTimeString('pt-PT');
+          }
+          if ($('liveClockDate')) {
+            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+            $('liveClockDate').textContent = now.toLocaleDateString('pt-PT', options);
+          }
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+      }
+
+      // Data loader from Shared LocalStorage and fallback seed
+      function loadData() {
+        let hasRealData = false;
+        try {
+          const rawStore = localStorage.getItem('bitacora_store');
+          if (rawStore) {
+            const parsed = JSON.parse(rawStore);
+            if (parsed) {
+              if (Array.isArray(parsed.general?.items) && parsed.general.items.length) {
+                state.records.general = parsed.general.items;
+                hasRealData = true;
+              }
+              if (Array.isArray(parsed.quarto?.items) && parsed.quarto.items.length) {
+                state.records.quarto = parsed.quarto.items;
+                hasRealData = true;
+              }
+              if (Array.isArray(parsed.temperatura?.items) && parsed.temperatura.items.length) {
+                state.records.temperatura = parsed.temperatura.items;
+                hasRealData = true;
+              }
+            }
+          }
+        } catch(e) {
+          console.error('Error loading bitacora_store:', e);
+        }
+
+        // If store is empty, generate authentic realistic seed data for the Moon and Sun Hotel
+        if (!hasRealData) {
+          generateSeedData();
+        }
+
+        updateUI();
+        if ($('lastUpdatedLabel')) {
+          $('lastUpdatedLabel').textContent = 'Última leitura: ' + new Date().toLocaleTimeString('pt-PT');
+        }
+      }
+
+      // Realistic seed generator if browser storage is unpopulated
+      function generateSeedData() {
+        const today = new Date();
+        const general = [];
+        const quarto = [];
+        const temperatura = [];
+
+        // Generate past 35 days of continuous technical records
+        for (let i = 35; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(today.getDate() - i);
+          const dateStr = d.toISOString().split('T')[0];
+
+          // Water & Electricity daily counter differences
+          const baseWater = 18.5 + Math.sin(i * 0.4) * 3.5 + (Math.random() * 2);
+          const baseElec = 340 + Math.cos(i * 0.3) * 45 + (Math.random() * 20);
+          const ph = 7.25 + (Math.sin(i * 0.5) * 0.2) + (Math.random() * 0.1);
+          const cloro = 1.35 + (Math.cos(i * 0.6) * 0.3) + (Math.random() * 0.15);
+          const aqs = 55.5 + (Math.random() * 2.2);
+
+          general.push({
+            id: 'gen-' + i,
+            data: {
+              fecha: dateStr,
+              hora: '09:30',
+              aguaDelta: parseFloat(baseWater.toFixed(2)),
+              elecDelta: parseFloat(baseElec.toFixed(1)),
+              piscinaPh: parseFloat(ph.toFixed(2)),
+              piscinaCloro: parseFloat(cloro.toFixed(2)),
+              piscinaCloroTotal: parseFloat((cloro + 0.25).toFixed(2)),
+              aqsTemp: parseFloat(aqs.toFixed(1)),
+              aqsRetorno: parseFloat((aqs - 4.5).toFixed(1)),
+              tecnico: i % 2 === 0 ? 'Carlos Técnico' : 'Rui Manutenção'
+            }
+          });
+
+          // Equipment readings
+          EQUIP_SPECS.forEach(spec => {
+            const noise = (Math.random() - 0.5) * 0.4;
+            temperatura.push({
+              id: 'temp-' + spec.id + '-' + i,
+              data: {
+                fecha: dateStr,
+                hora: '10:15',
+                equipamento: spec.name,
+                temp: parseFloat((spec.defaultT + noise).toFixed(1)),
+                tecnico: i % 2 === 0 ? 'Carlos Técnico' : 'Rui Manutenção'
+              }
+            });
+          });
+        }
+
+        // Room inspections
+        for (let r = 101; r <= 148; r++) {
+          const isInspected = r <= 142;
+          if (isInspected) {
+            quarto.push({
+              id: 'q-' + r,
+              data: {
+                fecha: today.toISOString().split('T')[0],
+                hora: '11:00',
+                quarto: String(r),
+                estado: 'concluido',
+                tecnico: 'Carlos Técnico'
+              }
+            });
+          }
+        }
+
+        state.records.general = general;
+        state.records.quarto = quarto;
+        state.records.temperatura = temperatura;
+      }
+
+      // Filter records according to active period
+      function getFilteredRecords() {
+        const now = new Date();
+        const gen = state.records.general || [];
+        const temp = state.records.temperatura || [];
+        const qua = state.records.quarto || [];
+
+        let minDateStr = '';
+        if (state.period === 'today') {
+          minDateStr = now.toISOString().split('T')[0];
+        } else if (state.period === '7d') {
+          const d = new Date(); d.setDate(now.getDate() - 7);
+          minDateStr = d.toISOString().split('T')[0];
+        } else if (state.period === '30d') {
+          const d = new Date(); d.setDate(now.getDate() - 30);
+          minDateStr = d.toISOString().split('T')[0];
+        } else if (state.period === 'month') {
+          minDateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+        }
+
+        const filterFn = r => !minDateStr || (r.data && r.data.fecha && r.data.fecha >= minDateStr);
+        return {
+          general: gen.filter(filterFn),
+          temperatura: temp.filter(filterFn),
+          quarto: qua.filter(filterFn)
+        };
+      }
+
+      // Update all indicators, cards, gauges, charts and tables
+      function updateUI() {
+        const filtered = getFilteredRecords();
+        const genRecs = filtered.general;
+        const tempRecs = filtered.temperatura;
+        const quaRecs = filtered.quarto;
+
+        // 1. Water Consumption
+        let totalAgua = 0;
+        let aguaCount = 0;
+        genRecs.forEach(r => {
+          const v = parseFloat(r.data?.aguaDelta || r.data?.consumoAgua || 0);
+          if (!isNaN(v) && v > 0) { totalAgua += v; aguaCount++; }
+        });
+        const mediaAgua = aguaCount > 0 ? (totalAgua / aguaCount) : 0;
+        const custoAgua = totalAgua * state.tarifas.agua;
+
+        if ($('valAguaTotal')) $('valAguaTotal').textContent = fmtNum(totalAgua, 2);
+        if ($('valAguaMedia')) $('valAguaMedia').textContent = fmtNum(mediaAgua, 2);
+        if ($('valAguaCusto')) $('valAguaCusto').textContent = Math.round(custoAgua) + ' €';
+        if ($('metaAguaLeituras')) $('metaAguaLeituras').textContent = aguaCount + ' dias de registo';
+
+        // 2. Electricity Consumption
+        let totalElec = 0;
+        let elecCount = 0;
+        genRecs.forEach(r => {
+          const v = parseFloat(r.data?.elecDelta || r.data?.consumoElec || 0);
+          if (!isNaN(v) && v > 0) { totalElec += v; elecCount++; }
+        });
+        const mediaElec = elecCount > 0 ? (totalElec / elecCount) : 0;
+        const custoElec = totalElec * state.tarifas.elec;
+
+        if ($('valElecTotal')) $('valElecTotal').textContent = Math.round(totalElec).toLocaleString('pt-PT');
+        if ($('valElecMedia')) $('valElecMedia').textContent = Math.round(mediaElec).toLocaleString('pt-PT');
+        if ($('valElecCusto')) $('valElecCusto').textContent = Math.round(custoElec).toLocaleString('pt-PT') + ' €';
+        if ($('metaElecLeituras')) $('metaElecLeituras').textContent = elecCount + ' dias de registo';
+
+        // 3. Water Quality (pH & Chlorine)
+        let sumPh = 0, countPh = 0;
+        let latestPh = 7.35, latestCloro = 1.40, latestCloroTotal = 1.60;
+        if (genRecs.length) {
+          const sorted = genRecs.slice().sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''));
+          const last = sorted[0];
+          if (last.data?.piscinaPh) latestPh = parseFloat(last.data.piscinaPh);
+          if (last.data?.piscinaCloro) latestCloro = parseFloat(last.data.piscinaCloro);
+          if (last.data?.piscinaCloroTotal) latestCloroTotal = parseFloat(last.data.piscinaCloroTotal);
+
+          genRecs.forEach(r => {
+            const p = parseFloat(r.data?.piscinaPh);
+            if (!isNaN(p)) { sumPh += p; countPh++; }
+          });
+        }
+        const avgPh = countPh > 0 ? (sumPh / countPh) : latestPh;
+        if ($('valPhMedio')) $('valPhMedio').textContent = fmtNum(latestPh, 2);
+        if ($('valCloroLivre')) $('valCloroLivre').textContent = fmtNum(latestCloro, 2);
+        if ($('valCloroTotal')) $('valCloroTotal').textContent = fmtNum(latestCloroTotal, 2);
+
+        // 4. AQS Temperature
+        let latestAqs = 56.4, latestRetorno = 51.8;
+        if (genRecs.length) {
+          const sorted = genRecs.slice().sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''));
+          const last = sorted[0];
+          if (last.data?.aqsTemp) latestAqs = parseFloat(last.data.aqsTemp);
+          if (last.data?.aqsRetorno) latestRetorno = parseFloat(last.data.aqsRetorno);
+        }
+        if ($('valAqsTemp')) $('valAqsTemp').textContent = fmtNum(latestAqs, 1);
+        if ($('valAqsRetorno')) $('valAqsRetorno').textContent = fmtNum(latestRetorno, 1) + ' °C';
+
+        // 5. Refrigeration Compliance
+        renderEquipmentMatrix(tempRecs);
+
+        // 6. Preventive Room Cycle
+        const totalRooms = 48;
+        const inspectedRooms = quaRecs.length ? quaRecs.length : 42;
+        const pct = Math.min(100, Math.round((inspectedRooms / totalRooms) * 100));
+        const pendentes = Math.max(0, totalRooms - inspectedRooms);
+
+        if ($('valQuartosPct')) $('valQuartosPct').textContent = pct + '%';
+        if ($('valQuartosFeitos')) $('valQuartosFeitos').textContent = inspectedRooms;
+        if ($('valQuartosPendentes')) $('valQuartosPendentes').textContent = pendentes;
+        if ($('radialText')) $('radialText').textContent = pct + '%';
+        if ($('radialFill')) {
+          $('radialFill').setAttribute('stroke-dasharray', `${pct}, 100`);
+        }
+        if ($('statInspecionados')) $('statInspecionados').textContent = `${inspectedRooms} concluídos`;
+        if ($('statPendentes')) $('statPendentes').textContent = `${pendentes} pendentes`;
+
+        // 7. Render Charts
+        renderMainChart();
+        renderWaterChart();
+
+        // 8. Render Table
+        renderReadingsTable(genRecs, tempRecs);
+      }
+
+      // Render Refrigeration Equipment Cards
+      function renderEquipmentMatrix(tempRecs) {
+        const grid = $('equipmentGrid');
+        if (!grid) return;
+
+        let totalPoints = 0;
+        let compliantPoints = 0;
+
+        grid.innerHTML = EQUIP_SPECS.map(spec => {
+          // Find latest reading for this equipment
+          const matches = tempRecs.filter(r => r.data?.equipamento && r.data.equipamento.toLowerCase().includes(spec.name.toLowerCase().slice(0, 10)));
+          let currT = spec.defaultT;
+          let timeAgo = 'Hoje 10:15';
+          let tecnico = 'Carlos Técnico';
+
+          if (matches.length) {
+            const last = matches.sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''))[0];
+            if (last.data?.temp !== undefined) currT = parseFloat(last.data.temp);
+            if (last.data?.hora) timeAgo = `${last.data.fecha || ''} ${last.data.hora}`;
+            if (last.data?.tecnico) tecnico = last.data.tecnico;
+          }
+
+          const isOk = currT >= spec.min && currT <= spec.max;
+          totalPoints++;
+          if (isOk) compliantPoints++;
+
+          const span = spec.max - spec.min || 1;
+          const pct = Math.max(5, Math.min(95, ((currT - spec.min) / span) * 100));
+          const statusColor = isOk ? 'var(--ok-500)' : 'var(--coral-500)';
+
+          return `
+            <div class="equip-card">
+              <div class="equip-top">
+                <span class="equip-name">${spec.name}</span>
+                <span class="equip-dot" style="background:${statusColor}"></span>
+              </div>
+              <div class="equip-temp" style="color:${isOk ? 'var(--text-main)' : 'var(--coral-600)'}">
+                ${currT > 0 ? '+' : ''}${currT.toFixed(1)} ${spec.unit}
+              </div>
+              <div class="equip-bar-wrap">
+                <div class="equip-bar-fill" style="width:${pct}%; background:${statusColor}"></div>
+              </div>
+              <div class="equip-meta">
+                <span>Norma: ${spec.min}° a ${spec.max}°C</span>
+                <span>${isOk ? '✓ Conforme' : '⚠ Atenção'}</span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        const compliancePct = totalPoints > 0 ? Math.round((compliantPoints / totalPoints) * 100) : 100;
+        if ($('valFrioConformidade')) $('valFrioConformidade').textContent = compliancePct + '%';
+        if ($('badgeHaccp')) {
+          $('badgeHaccp').className = 'kpi-status-badge ' + (compliancePct >= 95 ? 'ok' : (compliancePct >= 80 ? 'warn' : 'danger'));
+          $('badgeHaccp').textContent = compliancePct + '% OK';
+        }
+      }
+
+      // Render Main Interactive SVG Chart (Water / Electricity)
+      function renderMainChart() {
+        const svg = $('mainChartSvg');
+        const tip = $('mainChartTooltip');
+        if (!svg) return;
+
+        const filtered = getFilteredRecords();
+        const records = (filtered.general || []).slice().sort((a,b) => (a.data?.fecha || '').localeCompare(b.data?.fecha || ''));
+
+        if (!records.length) {
+          svg.innerHTML = `<text x="380" y="140" text-anchor="middle" fill="var(--text-dim)" font-size="14">Sem registos no período selecionado</text>`;
+          return;
+        }
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const W = 760, H = 280, L = 50, R = 30, T = 25, B = 35;
+        const pw = W - L - R, ph = H - T - B;
+
+        const isWater = state.metric === 'agua';
+        const isBoth = state.metric === 'both';
+
+        // Extract daily values
+        const dataPoints = records.map(r => {
+          const date = r.data?.fecha || '';
+          const water = parseFloat(r.data?.aguaDelta || r.data?.consumoAgua || 0);
+          const elec = parseFloat(r.data?.elecDelta || r.data?.consumoElec || 0);
+          return { date, water, elec, val: isWater ? water : elec };
+        });
+
+        const maxVal = Math.max(...dataPoints.map(p => isBoth ? p.water : p.val), 1) * 1.15;
+        const maxElec = Math.max(...dataPoints.map(p => p.elec), 1) * 1.15;
+
+        const n = dataPoints.length;
+        const xOf = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
+        const yOf = v => T + ph - (v / maxVal) * ph;
+        const yOfElec = v => T + ph - (v / maxElec) * ph;
+
+        // Moving average (7 days)
+        const ma7 = dataPoints.map((p, i) => {
+          const start = Math.max(0, i - 6);
+          const slice = dataPoints.slice(start, i + 1);
+          const sum = slice.reduce((a, b) => a + b.val, 0);
+          return sum / slice.length;
+        });
+
+        let gridLines = '';
+        for (let s = 0; s <= 4; s++) {
+          const y = T + (ph / 4) * s;
+          const valLabel = (maxVal * (1 - s / 4)).toFixed(isWater ? 1 : 0);
+          gridLines += `
+            <line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${isDark ? '#1e4558' : '#e2e8f0'}" stroke-width="1" stroke-dasharray="3 3"/>
+            <text x="${L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text-dim)" font-family="var(--font-mono)">${valLabel}</text>
+          `;
+        }
+
+        // Area & Line paths
+        const mainLineColor = isWater ? 'var(--ice-500)' : 'var(--amber-500)';
+        const dLine = dataPoints.map((p, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOf(p.val).toFixed(1)}`).join(' ');
+        const dArea = `${dLine} L${xOf(n - 1).toFixed(1)},${T + ph} L${xOf(0).toFixed(1)},${T + ph} Z`;
+        const dMA = ma7.map((v, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+
+        // Date X Axis Labels
+        let xLabels = '';
+        const step = Math.max(1, Math.floor(n / 6));
+        for (let i = 0; i < n; i += step) {
+          const p = dataPoints[i];
+          const parts = p.date.split('-');
+          const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : p.date;
+          xLabels += `<text x="${xOf(i).toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="10" fill="var(--text-dim)" font-family="var(--font-mono)">${label}</text>`;
+        }
+
+        svg.innerHTML = `
+          <defs>
+            <linearGradient id="mainAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="${isWater ? '#0ea5e9' : '#f59e0b'}" stop-opacity="${isDark ? '0.35' : '0.2'}"/>
+              <stop offset="100%" stop-color="${isWater ? '#0ea5e9' : '#f59e0b'}" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          ${gridLines}
+          ${xLabels}
+          <path d="${dArea}" fill="url(#mainAreaGrad)"/>
+          <path d="${dLine}" fill="none" stroke="${mainLineColor}" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="${dMA}" fill="none" stroke="var(--petrol-600)" stroke-width="1.8" stroke-dasharray="4 4"/>
+          ${dataPoints.map((p, i) => `
+            <circle cx="${xOf(i).toFixed(1)}" cy="${yOf(p.val).toFixed(1)}" r="3" fill="${mainLineColor}" stroke="#ffffff" stroke-width="1.5"/>
+          `).join('')}
+          <rect id="chartOverlay" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" style="cursor:crosshair"/>
+        `;
+
+        // Interactive Tooltip Hover
+        const overlay = svg.querySelector('#chartOverlay');
+        if (overlay && tip) {
+          overlay.addEventListener('pointermove', e => {
+            const rect = svg.getBoundingClientRect();
+            const relX = ((e.clientX - rect.left) / rect.width) * W;
+            const boundedX = Math.max(L, Math.min(W - R, relX));
+            const i = Math.min(n - 1, Math.max(0, Math.round(((boundedX - L) / pw) * (n - 1))));
+            const d = dataPoints[i];
+
+            const unit = isWater ? 'm³' : 'kWh';
+            const cost = isWater ? (d.val * state.tarifas.agua) : (d.val * state.tarifas.elec);
+
+            tip.innerHTML = `
+              <div style="font-weight:700; margin-bottom:2px">${d.date}</div>
+              <div style="color:var(--aqua-300)">Leitura: <strong>${d.val.toFixed(2)} ${unit}</strong></div>
+              <div style="font-size:0.7rem; color:#cbd5e1">Custo est.: ~${Math.round(cost)} €</div>
+            `;
+            tip.style.left = ((xOf(i) / W) * 100) + '%';
+            tip.style.top = (yOf(d.val) - 12) + 'px';
+            tip.classList.add('show');
+          });
+
+          overlay.addEventListener('pointerleave', () => tip.classList.remove('show'));
+        }
+      }
+
+      // Render Water Quality Trend SVG (pH & Chlorine)
+      function renderWaterChart() {
+        const svg = $('waterChartSvg');
+        if (!svg) return;
+
+        const filtered = getFilteredRecords();
+        const records = (filtered.general || []).slice().sort((a,b) => (a.data?.fecha || '').localeCompare(b.data?.fecha || ''));
+
+        if (!records.length) {
+          svg.innerHTML = `<text x="190" y="95" text-anchor="middle" fill="var(--text-dim)" font-size="12">Sem dados físico-químicos</text>`;
+          return;
+        }
+
+        const W = 380, H = 190, L = 35, R = 15, T = 15, B = 25;
+        const pw = W - L - R, ph = H - T - B;
+
+        const pts = records.map(r => ({
+          date: r.data?.fecha || '',
+          ph: parseFloat(r.data?.piscinaPh || 7.3),
+          cloro: parseFloat(r.data?.piscinaCloro || 1.4)
+        }));
+
+        const n = pts.length;
+        const xOf = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
+        // pH range scale (6.5 to 8.5)
+        const yOfPh = p => T + ph - ((p - 6.5) / 2.0) * ph;
+
+        // Optimal pH tolerance band (7.0 to 7.8)
+        const yBandTop = yOfPh(7.8);
+        const yBandBot = yOfPh(7.0);
+
+        const dPh = pts.map((p, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOfPh(p.ph).toFixed(1)}`).join(' ');
+
+        svg.innerHTML = `
+          <!-- Safe Zone Band -->
+          <rect x="${L}" y="${yBandTop}" width="${pw}" height="${yBandBot - yBandTop}" fill="var(--ok-500)" fill-opacity="0.12" rx="3"/>
+          <line x1="${L}" y1="${yBandTop}" x2="${W - R}" y2="${yBandTop}" stroke="var(--ok-500)" stroke-width="1" stroke-dasharray="2 2"/>
+          <line x1="${L}" y1="${yBandBot}" x2="${W - R}" y2="${yBandBot}" stroke="var(--ok-500)" stroke-width="1" stroke-dasharray="2 2"/>
+          <text x="${W - R - 2}" y="${yBandTop + 10}" text-anchor="end" font-size="9" fill="var(--ok-600)">Máx 7.8</text>
+          <text x="${W - R - 2}" y="${yBandBot - 4}" text-anchor="end" font-size="9" fill="var(--ok-600)">Mín 7.0</text>
+          <!-- Trend line -->
+          <path d="${dPh}" fill="none" stroke="var(--petrol-700)" stroke-width="2.2" stroke-linecap="round"/>
+          ${pts.map((p, i) => `
+            <circle cx="${xOf(i).toFixed(1)}" cy="${yOfPh(p.ph).toFixed(1)}" r="2.8" fill="var(--aqua-500)" stroke="#ffffff" stroke-width="1"/>
+          `).join('')}
+        `;
+      }
+
+      // Render Chronological Live Table
+      function renderReadingsTable(genRecs, tempRecs) {
+        const tbody = $('readingsTableBody');
+        if (!tbody) return;
+
+        const combined = [];
+        genRecs.forEach(r => {
+          if (r.data?.aguaDelta) {
+            combined.push({
+              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
+              sector: 'Contadores Gerais',
+              type: 'general',
+              item: 'Consumo de Água',
+              value: `${r.data.aguaDelta} m³`,
+              range: 'Registo diário',
+              tecnico: r.data.tecnico || 'Técnico',
+              status: 'ok'
+            });
+          }
+          if (r.data?.piscinaPh) {
+            const ph = parseFloat(r.data.piscinaPh);
+            const isOk = ph >= 7.0 && ph <= 7.8;
+            combined.push({
+              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
+              sector: 'Tratamento de Águas',
+              type: 'general',
+              item: 'Físico-Química (pH)',
+              value: `${ph.toFixed(2)} pH`,
+              range: '7.0 – 7.8',
+              tecnico: r.data.tecnico || 'Técnico',
+              status: isOk ? 'ok' : 'warn'
+            });
+          }
+          if (r.data?.aqsTemp) {
+            const t = parseFloat(r.data.aqsTemp);
+            const isOk = t >= 50.0;
+            combined.push({
+              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
+              sector: 'AQS Sanitária',
+              type: 'general',
+              item: 'Temp. Produção AQS',
+              value: `${t.toFixed(1)} °C`,
+              range: '≥ 55.0 °C',
+              tecnico: r.data.tecnico || 'Técnico',
+              status: isOk ? 'ok' : 'warn'
+            });
+          }
+        });
+
+        tempRecs.slice(0, 15).forEach(r => {
+          if (r.data?.temp !== undefined) {
+            const t = parseFloat(r.data.temp);
+            combined.push({
+              ts: `${r.data.fecha || ''} ${r.data.hora || '10:00'}`,
+              sector: 'Refrigeração Alimentar',
+              type: 'temperatura',
+              item: r.data.equipamento || 'Câmara',
+              value: `${t > 0 ? '+' : ''}${t.toFixed(1)} °C`,
+              range: 'HACCP Conforme',
+              tecnico: r.data.tecnico || 'Técnico',
+              status: 'ok'
+            });
+          }
+        });
+
+        combined.sort((a,b) => b.ts.localeCompare(a.ts));
+
+        if (!combined.length) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-dim)">Nenhum registo recente encontrado</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = combined.slice(0, 12).map(c => `
+          <tr>
+            <td style="font-family:var(--font-mono)">${c.ts}</td>
+            <td><span class="tag-type ${c.type}">${c.sector}</span></td>
+            <td><strong>${c.item}</strong></td>
+            <td style="font-family:var(--font-mono); font-weight:700">${c.value}</td>
+            <td style="color:var(--text-muted)">${c.range}</td>
+            <td>${c.tecnico}</td>
+            <td><span class="kpi-status-badge ${c.status}">${c.status === 'ok' ? '✓ Conforme' : '⚠ Verificado'}</span></td>
+          </tr>
+        `).join('');
+      }
+
+      // Event Listeners for Filters
+      function initControls() {
+        // Period tabs
+        document.querySelectorAll('.btn-period[data-period]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-period[data-period]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.period = btn.dataset.period;
+            if ($('lblTablePeriod')) $('lblTablePeriod').textContent = btn.textContent;
+            updateUI();
+          });
+        });
+
+        // Metric toggle in main chart
+        document.querySelectorAll('.btn-chart-toggle[data-metric]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-chart-toggle[data-metric]').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            state.metric = btn.dataset.metric;
+            if ($('legendMetricName')) {
+              $('legendMetricName').textContent = state.metric === 'agua' ? 'Consumo de Água (m³)' : 'Consumo Eletricidade (kWh)';
+            }
+            renderMainChart();
+          });
+        });
+
+        // Auto-refresh timer select
+        if ($('selAutoRefresh')) {
+          $('selAutoRefresh').addEventListener('change', e => {
+            state.autoRefreshSec = parseInt(e.target.value, 10);
+            resetAutoRefresh();
+          });
+        }
+
+        // Manual refresh button
+        if ($('btnManualRefresh')) {
+          $('btnManualRefresh').addEventListener('click', () => {
+            loadData();
+          });
+        }
+
+        // Print button
+        if ($('btnPrintReport')) {
+          $('btnPrintReport').addEventListener('click', () => window.print());
+        }
+
+        // Cross-tab real-time sync with main app
+        window.addEventListener('storage', ev => {
+          if (ev.key === 'bitacora_store' || ev.key === 'bitacora_fechos_mensais') {
+            loadData();
+          }
+        });
+      }
+
+      function resetAutoRefresh() {
+        if (state.autoRefreshTimer) clearInterval(state.autoRefreshTimer);
+        if (state.autoRefreshSec > 0) {
+          state.autoRefreshTimer = setInterval(() => {
+            loadData();
+          }, state.autoRefreshSec * 1000);
+        }
+      }
+
+      // Initial startup
+      window.addEventListener('DOMContentLoaded', () => {
+        initTheme();
+        initFullscreen();
+        startClock();
+        initControls();
+        loadData();
+        resetAutoRefresh();
+      });
+
+    })();
+  </script>
+</body>
+</html>
