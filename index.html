@@ -216,51 +216,8 @@
   }
 
   // =========================================================================
-  // 3. Resilient Fetch Setter Shim & safeFetch
+  // 3. safeFetch Utility (Global Non-Mutating Wrapper with Timeout Handling)
   // =========================================================================
-  (function() {
-    try {
-      var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
-      if (!win) return;
-
-      var _fetch = win.fetch;
-      if (typeof _fetch === 'function') {
-        try { _fetch = _fetch.bind(win); } catch(eBind) {}
-      }
-
-      var getFetch = function() { return _fetch; };
-      var setFetch = function(fn) { _fetch = fn; };
-
-      // Ensure window.fetch can be set without "only a getter" error
-      try {
-        var dWin = Object.getOwnPropertyDescriptor(win, 'fetch');
-        if (!dWin || dWin.configurable) {
-          Object.defineProperty(win, 'fetch', {
-            get: getFetch,
-            set: setFetch,
-            configurable: true,
-            enumerable: true
-          });
-        }
-      } catch (eDefWin) {}
-
-      try {
-        if (typeof Window !== 'undefined' && Window.prototype) {
-          var dProto = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-          if (!dProto || dProto.configurable) {
-            Object.defineProperty(Window.prototype, 'fetch', {
-              get: getFetch,
-              set: setFetch,
-              configurable: true,
-              enumerable: true
-            });
-          }
-        }
-      } catch (eDefProto) {}
-    } catch(e) {}
-  })();
-
-  // Resilient safeFetch wrapper with timeout handling
   (function() {
     if (typeof window !== 'undefined') {
       window.safeFetch = async function(url, opts, timeoutMs) {

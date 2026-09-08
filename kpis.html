@@ -75,29 +75,32 @@
         return false;
       };
 
-      // Resilient fetch setter
-      try {
-        var _fetch = win.fetch;
-        if (typeof _fetch === 'function') {
-          try { _fetch = _fetch.bind(win); } catch(e) {}
-        }
-        var getF = function() { return _fetch; };
-        var setF = function(fn) { _fetch = fn; };
-        try {
-          var dWin = Object.getOwnPropertyDescriptor(win, 'fetch');
-          if (!dWin || dWin.configurable) {
-            Object.defineProperty(win, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true });
+      // safeFetch Utility (Non-Mutating Wrapper with Timeout Handling)
+      if (typeof window !== 'undefined') {
+        window.safeFetch = async function(url, opts, timeoutMs) {
+          timeoutMs = timeoutMs || 12000;
+          var fn = (typeof window !== 'undefined' && typeof window.fetch === 'function')
+            ? window.fetch
+            : (typeof fetch === 'function' ? fetch : null);
+          if (!fn) throw new Error('Fetch não disponível neste navegador.');
+
+          if (opts && opts.signal) {
+            return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, opts);
           }
-        } catch(e) {}
-        try {
-          if (typeof Window !== 'undefined' && Window.prototype) {
-            var dProto = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
-            if (!dProto || dProto.configurable) {
-              Object.defineProperty(Window.prototype, 'fetch', { get: getF, set: setF, configurable: true, enumerable: true });
-            }
+
+          var controller = new AbortController();
+          var timer = setTimeout(function() {
+            controller.abort(new Error('Tempo limite excedido (' + Math.round(timeoutMs / 1000) + 's)'));
+          }, timeoutMs);
+
+          try {
+            var mergedOpts = Object.assign({}, opts, { signal: controller.signal });
+            return await fn.call(typeof window !== 'undefined' ? window : globalThis, url, mergedOpts);
+          } finally {
+            clearTimeout(timer);
           }
-        } catch(e) {}
-      } catch(e) {}
+        };
+      }
     })();
 
     // Stubs for cross-page compatibility

@@ -101,8 +101,10 @@ class ApiService {
         const timer = setTimeout(() => controller.abort(), timeout);
         
         try {
-            // Use native fetch or polyfill
-            const fetchFn = typeof window !== 'undefined' ? window.fetch : fetch;
+            // Use safeFetch wrapper or native fetch
+            const fetchFn = (typeof window !== 'undefined' && typeof window.safeFetch === 'function')
+                ? window.safeFetch
+                : (typeof window !== 'undefined' ? window.fetch : fetch);
             return await fetchFn(url, { ...options, signal: controller.signal });
         } finally {
             clearTimeout(timer);

@@ -290,7 +290,8 @@
       const token = localStorage.getItem('bitacora_token');
       if (!apiUrl || !token) return;
 
-      const res = await fetch(`${apiUrl}?action=list&token=${encodeURIComponent(token)}`, {
+      const fetchFn = (typeof window !== 'undefined' && typeof window.safeFetch === 'function') ? window.safeFetch : fetch;
+      const res = await fetchFn(`${apiUrl}?action=list&token=${encodeURIComponent(token)}`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' }
       });
