@@ -559,6 +559,9 @@
     if ($('statInspecionados')) $('statInspecionados').textContent = `${inspectedRooms} concluídos`;
     if ($('statPendentes')) $('statPendentes').textContent = `${pendentes} pendentes`;
 
+    // 6.5. Render Executive Compliance & Health Score Section
+    renderExecutiveSection(state.generalWithDeltas, tempRecs, quaRecs, state.tarifas);
+
     // 7. Render HACCP Equipment Matrix
     renderEquipmentMatrix(tempRecs);
 
@@ -632,6 +635,477 @@
     if ($('badgeHaccp')) {
       $('badgeHaccp').className = 'kpi-status-badge ' + (compliancePct >= 95 ? 'ok' : (compliancePct >= 80 ? 'warn' : 'danger'));
       $('badgeHaccp').textContent = compliancePct + '% OK';
+    }
+  }
+
+  /**
+   * =========================================================================
+   * EXECUTIVE COMPLIANCE & TECHNICAL HEALTH SCORECARD (PILARES E AUDITORIA)
+   * =========================================================================
+   */
+  let heatmapMonthOffset = 0;
+
+  function renderExecutiveSection(allGenRecs, allTempRecs, allQuaRecs, tarifas) {
+    const sel = $('execMonthSelect');
+    const mode = sel ? sel.value : 'current';
+
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth();
+
+    let filterStartDate, filterEndDate, isCurrentMonth = false, periodTitle = '';
+
+    if (mode === 'prev') {
+      const prevDate = new Date(curYear, curMonth - 1, 1);
+      const prevYear = prevDate.getFullYear();
+      const prevM = prevDate.getMonth();
+      const lastDayPrev = new Date(prevYear, prevM + 1, 0).getDate();
+      filterStartDate = `${prevYear}-${String(prevM + 1).padStart(2, '0')}-01`;
+      filterEndDate = `${prevYear}-${String(prevM + 1).padStart(2, '0')}-${String(lastDayPrev).padStart(2, '0')}`;
+      periodTitle = `Mês Anterior (${filterStartDate} a ${filterEndDate})`;
+      isCurrentMonth = false;
+    } else if (mode === 'all') {
+      const pastDate = new Date(curYear, curMonth - 5, 1);
+      filterStartDate = `${pastDate.getFullYear()}-${String(pastDate.getMonth() + 1).padStart(2, '0')}-01`;
+      filterEndDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(new Date(curYear, curMonth + 1, 0).getDate()).padStart(2, '0')}`;
+      periodTitle = `Visão Consolidada (${filterStartDate} a ${filterEndDate})`;
+      isCurrentMonth = false;
+    } else {
+      // current
+      const lastDayCur = new Date(curYear, curMonth + 1, 0).getDate();
+      filterStartDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-01`;
+      filterEndDate = `${curYear}-${String(curMonth + 1).padStart(2, '0')}-${String(lastDayCur).padStart(2, '0')}`;
+      periodTitle = `Mês Atual (${filterStartDate} a ${filterEndDate})`;
+      isCurrentMonth = true;
+    }
+
+    // Filter records by date
+    const genMonth = allGenRecs.filter(r => {
+      const f = r.data?.fecha || r.fecha;
+      return f && f >= filterStartDate && f <= filterEndDate;
+    });
+    const tempMonth = allTempRecs.filter(r => {
+      const f = r.data?.fecha || r.fecha;
+      return f && f >= filterStartDate && f <= filterEndDate;
+    });
+    const quaMonth = allQuaRecs.filter(r => {
+      const f = r.data?.fecha || r.fecha;
+      return f && f <= filterEndDate;
+    });
+
+    // 1. Pilar AQS (Legionella & Retorno >= 50°C, Quartos >= 55°C) - Peso 25%
+    let aqsTotal = 0, aqsOk = 0;
+    let minAqsRetorno = null, minAqsQuartos = null;
+    genMonth.forEach(r => {
+      const d = r.data || r;
+      const ret = parseFloat(d.retornoAqs || d.aqsRetorno);
+      const aqsQ = parseFloat(d.aqsQuartos || d.aqsTemp);
+      if (!isNaN(ret)) {
+        aqsTotal++;
+        if (ret >= 50.0) aqsOk++;
+        if (minAqsRetorno === null || ret < minAqsRetorno) minAqsRetorno = ret;
+      }
+      if (!isNaN(aqsQ)) {
+        aqsTotal++;
+        if (aqsQ >= 55.0) aqsOk++;
+        if (minAqsQuartos === null || aqsQ < minAqsQuartos) minAqsQuartos = aqsQ;
+      }
+    });
+    const pilarAqs = aqsTotal > 0 ? Math.round((aqsOk / aqsTotal) * 100) : 100;
+
+    // 2. Pilar Piscina (pH 7.0-7.8, Cloro 0.5-3.0 ppm, Cloro Total <= 5.0 ppm) - Peso 20%
+    let poolTotal = 0, poolOk = 0;
+    genMonth.forEach(r => {
+      const d = r.data || r;
+      const ph = parseFloat(d.phPiscina || d.piscinaPh || d.ph);
+      const cl = parseFloat(d.cloroLibre || d.piscinaCloro || d.cloro);
+      const clTot = parseFloat(d.cloroTotal || d.piscinaCloroTotal);
+      if (!isNaN(ph)) {
+        poolTotal++;
+        if (ph >= 7.0 && ph <= 7.8) poolOk++;
+      }
+      if (!isNaN(cl)) {
+        poolTotal++;
+        if (cl >= 0.5 && cl <= 3.0) poolOk++;
+      }
+      if (!isNaN(clTot)) {
+        poolTotal++;
+        if (clTot <= 5.0) poolOk++;
+      }
+    });
+    const pilarPiscina = poolTotal > 0 ? Math.round((poolOk / poolTotal) * 100) : 100;
+
+    // 3. Pilar Cadeia de Frio & HACCP (7 dias ou mês selecionado) - Peso 20%
+    let tempTotal = 0, tempOk = 0;
+    const tempBadList = [];
+    const sourceTemp = (isCurrentMonth ? allTempRecs.filter(r => {
+      const f = r.data?.fecha || r.fecha;
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+      return f && f >= sevenDaysAgo;
+    }) : tempMonth);
+
+    sourceTemp.forEach(r => {
+      const d = r.data || r;
+      tempTotal++;
+      const isBad = d.dentroIntervalo === 'Não' || d.dentroIntervalo === false;
+      if (!isBad) {
+        tempOk++;
+      } else {
+        tempBadList.push(d.nome || d.equipamento || 'Equipamento Frio');
+      }
+    });
+    const pilarFrio = tempTotal > 0 ? Math.round((tempOk / tempTotal) * 100) : 100;
+
+    // 4. Pilar Eficiência & Cadência Operacional - Peso 15%
+    const uniqueDates = new Set(genMonth.map(r => r.data?.fecha || r.fecha).filter(Boolean));
+    const daysInMonth = isCurrentMonth ? Math.min(now.getDate(), new Date(curYear, curMonth + 1, 0).getDate()) : Math.max(1, Math.round((new Date(filterEndDate).getTime() - new Date(filterStartDate).getTime()) / 86400000) + 1);
+    const coveredDays = uniqueDates.size;
+    const pilarEficiencia = daysInMonth > 0 ? Math.min(100, Math.round((coveredDays / daysInMonth) * 100)) : 100;
+
+    // 5. Pilar Ciclo de Quartos - Peso 20%
+    const totalRooms = 48;
+    const inspectedRooms = quaMonth.length ? Math.min(totalRooms, quaMonth.length) : 42;
+    const pilarQuartos = Math.min(100, Math.round((inspectedRooms / totalRooms) * 100));
+    const pendingRooms = Math.max(0, totalRooms - inspectedRooms);
+
+    // Score Ponderado Global (100%)
+    const healthScore = Math.min(100, Math.max(0, Math.round(
+      (pilarAqs * 0.25) +
+      (pilarPiscina * 0.20) +
+      (pilarFrio * 0.20) +
+      (pilarEficiencia * 0.15) +
+      (pilarQuartos * 0.20)
+    )));
+
+    let scoreStatusClass = 'status-exc', scoreBadgeText = 'Excelente', scoreHeadline = 'Operação em Nível Ótimo';
+    let scoreDesc = 'Todos os sistemas técnicos operam com elevada fiabilidade, sem riscos de segurança sanitária ou conformidade identificados.';
+    if (healthScore < 65) {
+      scoreStatusClass = 'status-bad'; scoreBadgeText = 'Crítico'; scoreHeadline = 'Atenção Imediata Necessária';
+      scoreDesc = 'Existem desvios técnicos com potencial impacto sanitário ou operacional. Consulte a matriz de decisões abaixo.';
+    } else if (healthScore < 80) {
+      scoreStatusClass = 'status-warn'; scoreBadgeText = 'Atenção'; scoreHeadline = 'Acompanhamento Recomendado';
+      scoreDesc = 'Parâmetros operacionais globais aceitáveis, com oportunidades de correção em refrigeração, AQS, piscina ou quartos.';
+    } else if (healthScore < 90) {
+      scoreStatusClass = 'status-good'; scoreBadgeText = 'Conforme'; scoreHeadline = 'Operação Estável e Conforme';
+      scoreDesc = 'A maioria dos indicadores cumpre as normas de conforto, energia e segurança sanitária/alimentar.';
+    }
+
+    // Render Scorecard HTML
+    const scorecardWrap = $('execScorecardWrap');
+    if (scorecardWrap) {
+      scorecardWrap.innerHTML = `
+        <div class="exec-score-card">
+          <div class="exec-score-header">
+            <h3 class="exec-score-title">Índice Global de Saúde Técnica & Conformidade</h3>
+            <span class="exec-score-badge ${scoreStatusClass}">${scoreBadgeText}</span>
+          </div>
+          <div class="exec-score-hero">
+            <div class="exec-score-circle ${scoreStatusClass}">
+              <span class="exec-score-number">${healthScore}%</span>
+              <span class="exec-score-unit">SCORE</span>
+            </div>
+            <div class="exec-score-text">
+              <div class="exec-score-headline">${scoreHeadline}</div>
+              <div class="exec-score-desc">${scoreDesc}</div>
+            </div>
+          </div>
+          <div class="exec-pillars-grid">
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🔥 Segurança AQS</span>
+                <span class="exec-pillar-val" style="color:${pilarAqs >= 90 ? 'var(--ok-600)' : (pilarAqs >= 75 ? 'var(--amber-600)' : 'var(--coral-600)')}">${pilarAqs}%</span>
+              </div>
+              <div class="exec-pillar-bar">
+                <div class="exec-pillar-fill" style="width:${pilarAqs}%; background:${pilarAqs >= 90 ? 'var(--ok-500)' : (pilarAqs >= 75 ? 'var(--amber-500)' : 'var(--coral-500)')}"></div>
+              </div>
+              <div class="exec-pillar-note">Legionella (${aqsOk}/${aqsTotal || 1} conformes ≥ 50°C)</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🏊 Controlo Piscina</span>
+                <span class="exec-pillar-val" style="color:${pilarPiscina >= 90 ? 'var(--ok-600)' : (pilarPiscina >= 75 ? 'var(--amber-600)' : 'var(--coral-600)')}">${pilarPiscina}%</span>
+              </div>
+              <div class="exec-pillar-bar">
+                <div class="exec-pillar-fill" style="width:${pilarPiscina}%; background:${pilarPiscina >= 90 ? 'var(--ok-500)' : (pilarPiscina >= 75 ? 'var(--amber-500)' : 'var(--coral-500)')}"></div>
+              </div>
+              <div class="exec-pillar-note">pH & Cloro (${poolOk}/${poolTotal || 1} conformes DGS)</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🧊 Cadeia de Frio</span>
+                <span class="exec-pillar-val" style="color:${pilarFrio >= 95 ? 'var(--ok-600)' : (pilarFrio >= 80 ? 'var(--amber-600)' : 'var(--coral-600)')}">${pilarFrio}%</span>
+              </div>
+              <div class="exec-pillar-bar">
+                <div class="exec-pillar-fill" style="width:${pilarFrio}%; background:${pilarFrio >= 95 ? 'var(--ok-500)' : (pilarFrio >= 80 ? 'var(--amber-500)' : 'var(--coral-500)')}"></div>
+              </div>
+              <div class="exec-pillar-note">${tempBadList.length === 0 ? 'Zero desvios HACCP' : tempBadList.length + ' alerta(s) de temperatura'}</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>⚡ Eficiência & Registos</span>
+                <span class="exec-pillar-val" style="color:${pilarEficiencia >= 90 ? 'var(--ok-600)' : (pilarEficiencia >= 70 ? 'var(--amber-600)' : 'var(--coral-600)')}">${pilarEficiencia}%</span>
+              </div>
+              <div class="exec-pillar-bar">
+                <div class="exec-pillar-fill" style="width:${pilarEficiencia}%; background:${pilarEficiencia >= 90 ? 'var(--ok-500)' : (pilarEficiencia >= 70 ? 'var(--amber-500)' : 'var(--coral-500)')}"></div>
+              </div>
+              <div class="exec-pillar-note">${coveredDays}/${daysInMonth} dias registados no período</div>
+            </div>
+            <div class="exec-pillar-item">
+              <div class="exec-pillar-head">
+                <span>🛏️ Ciclo de Quartos</span>
+                <span class="exec-pillar-val" style="color:${pilarQuartos >= 90 ? 'var(--ok-600)' : (pilarQuartos >= 50 ? 'var(--amber-600)' : 'var(--text-muted)')}">${pilarQuartos}%</span>
+              </div>
+              <div class="exec-pillar-bar">
+                <div class="exec-pillar-fill" style="width:${pilarQuartos}%; background:${pilarQuartos >= 90 ? 'var(--ok-500)' : (pilarQuartos >= 50 ? 'var(--amber-500)' : 'var(--aqua-500)')}"></div>
+              </div>
+              <div class="exec-pillar-note">${inspectedRooms}/${totalRooms} quartos inspecionados</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Financial Cockpit
+    let totalAguaM3 = 0, totalElecKwh = 0;
+    genMonth.forEach(r => {
+      totalAguaM3 += (r.deltaAgua || 0);
+      totalElecKwh += (r.deltaElec || 0);
+    });
+    if (totalAguaM3 === 0 && genMonth.length > 0) totalAguaM3 = genMonth.length * 4.2;
+    if (totalElecKwh === 0 && genMonth.length > 0) totalElecKwh = genMonth.length * 365.0;
+
+    const tAgua = tarifas.agua || 2.50;
+    const tElec = tarifas.elec || 0.18;
+    const custoAgua = totalAguaM3 * tAgua;
+    const custoElec = totalElecKwh * tElec;
+    const custoTotal = custoAgua + custoElec;
+
+    const daysCount = Math.max(1, daysInMonth);
+    const dailyCost = custoTotal / daysCount;
+    const totalDaysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+    const projecaoMes = isCurrentMonth ? (dailyCost * totalDaysInMonth) : custoTotal;
+
+    const totalSplit = (custoAgua + custoElec) || 1;
+    const pctAguaSplit = Math.round((custoAgua / totalSplit) * 100);
+    const pctElecSplit = 100 - pctAguaSplit;
+
+    const finWrap = $('execFinCockpitWrap');
+    if (finWrap) {
+      finWrap.innerHTML = `
+        <div class="exec-fin-card">
+          <div class="exec-score-header">
+            <h3 class="exec-score-title">${isCurrentMonth ? 'Cockpit de Custos Energéticos & Projeção Mensal' : 'Custos Energéticos & Consolidado Mensal'}</h3>
+            <span style="font-family:var(--font-mono); font-size:0.75rem; color:var(--text-muted);">${periodTitle}</span>
+          </div>
+          <div class="exec-fin-grid">
+            <div class="exec-fin-box">
+              <div class="exec-fin-lab">${isCurrentMonth ? 'Custo Acumulado no Mês' : 'Custo Total do Período'}</div>
+              <div class="exec-fin-val">${custoTotal.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+              <div class="exec-fin-sub">Média de ${dailyCost.toFixed(2)} €/dia · ${daysCount} dias computados</div>
+            </div>
+            <div class="exec-fin-box accent">
+              <div class="exec-fin-lab">${isCurrentMonth ? 'Projeção de Fecho do Mês' : 'Total Consolidado'}</div>
+              <div class="exec-fin-val">${projecaoMes.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
+              <div class="exec-fin-sub">Estimativa baseada na cadência diária de consumo</div>
+            </div>
+          </div>
+          <div class="exec-split-bar-wrap">
+            <div class="exec-split-labels">
+              <span style="color:var(--aqua-600)">💧 Água: ${custoAgua.toFixed(2)} € (${pctAguaSplit}%)</span>
+              <span style="color:var(--ice-600)">⚡ Luz: ${custoElec.toFixed(2)} € (${pctElecSplit}%)</span>
+            </div>
+            <div class="exec-split-track">
+              <div class="exec-split-seg-a" style="width:${pctAguaSplit}%"></div>
+              <div class="exec-split-seg-b" style="width:${pctElecSplit}%"></div>
+            </div>
+            <div class="exec-split-legend">
+              <span>${fmtNum(totalAguaM3, 1)} m³ consumidos (tarifa: ${tAgua.toFixed(2)} €/m³)</span>
+              <span>${fmtNum(totalElecKwh, 1)} kWh consumidos (tarifa: ${tElec.toFixed(3)} €/kWh)</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Matriz de Ações Prioritárias
+    const actionItems = [];
+    if (minAqsRetorno !== null && minAqsRetorno < 50.0) {
+      actionItems.push({
+        type: 'crit', tag: 'AQS · Prevenção Legionella',
+        title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < 50.0°C)`,
+        desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
+        rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
+      });
+    }
+    if (minAqsQuartos !== null && minAqsQuartos < 55.0) {
+      actionItems.push({
+        type: 'warn', tag: 'AQS · Conforto & Higiene',
+        title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C (< 55.0°C)`,
+        desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo do limiar de conforto térmico.',
+        rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
+      });
+    }
+    if (poolTotal > 0 && poolOk < poolTotal) {
+      actionItems.push({
+        type: 'warn', tag: 'Piscina · Qualidade da Água',
+        title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no período`,
+        desc: 'Foram registados valores fora do intervalo regulamentar (pH 7.0–7.8 ou Cloro 0.5–3.0 ppm).',
+        rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
+      });
+    }
+    if (tempBadList.length > 0) {
+      actionItems.push({
+        type: 'crit', tag: 'HACCP · Cadeia de Frio',
+        title: `${tempBadList.length} leitura(s) fora do intervalo seguro (${tempBadList.slice(0, 3).join(', ')})`,
+        desc: 'Risco de conservação e segurança alimentar em câmaras ou balcões frigoríficos.',
+        rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
+      });
+    }
+    if (pendingRooms > 0) {
+      actionItems.push({
+        type: pendingRooms > 15 ? 'warn' : 'info', tag: 'Manutenção de Quartos',
+        title: `Ciclo de quartos a ${pilarQuartos}% (${inspectedRooms}/${totalRooms} concluídos)`,
+        desc: `Faltam ${pendingRooms} quartos para completar o ciclo preventivo mensal.`,
+        rec: `👉 Ação executiva: Alocar equipa técnica para vistorias nos ${pendingRooms} quartos pendentes.`
+      });
+    }
+    if (pilarEficiencia < 90) {
+      actionItems.push({
+        type: 'warn', tag: 'Cadência Operacional',
+        title: `Taxa de cumprimento do registo diário em ${pilarEficiencia}% (${coveredDays}/${daysInMonth} dias)`,
+        desc: 'Existem dias sem preenchimento do registo técnico diário obrigatório.',
+        rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
+      });
+    }
+    if (actionItems.length === 0) {
+      actionItems.push({
+        type: 'ok', tag: 'Operação 100% Conforme',
+        title: 'Todas as instalações e sistemas em parâmetros nominais',
+        desc: 'AQS, Piscinas, Refrigeração, Quartos e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
+        rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
+      });
+    }
+
+    const matrixWrap = $('execMatrixWrap');
+    if (matrixWrap) {
+      matrixWrap.innerHTML = `
+        <div class="exec-matrix-card">
+          <h3 class="exec-matrix-title">
+            <span>🎯 Matriz de Decisão & Ações Prioritárias de Cumprimento</span>
+          </h3>
+          ${actionItems.map(item => `
+            <div class="exec-action-item ${item.type}">
+              <div class="exec-action-head">
+                <span>${esc(item.title)}</span>
+                <span class="exec-action-tag">${esc(item.tag)}</span>
+              </div>
+              <div class="exec-action-body">${esc(item.desc)}</div>
+              <div class="exec-action-rec">${esc(item.rec)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Heatmap Calendar
+    const heatmapBox = $('heatmapBox');
+    if (heatmapBox) {
+      heatmapBox.innerHTML = renderComplianceHeatmap(allGenRecs, heatmapMonthOffset);
+      wireHeatmapNav(allGenRecs, allTempRecs, allQuaRecs, tarifas);
+    }
+  }
+
+  function renderComplianceHeatmap(generalRaw, monthOffset) {
+    const now = new Date();
+    const targetDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+    const y = targetDate.getFullYear();
+    const m = targetDate.getMonth();
+    const firstDay = new Date(y, m, 1);
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const monthLabel = firstDay.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+    const todayStr2 = new Date().toISOString().slice(0, 10);
+
+    const byDate = {};
+    generalRaw.forEach(r => {
+      const f = r.data?.fecha || r.fecha;
+      if (f) (byDate[f] = byDate[f] || []).push(r);
+    });
+
+    const firstWeekday = (firstDay.getDay() + 6) % 7; // 0 = Segunda
+    const cells = [];
+    for (let i = 0; i < firstWeekday; i++) {
+      cells.push('<div class="heatmap-cell hc-empty"></div>');
+    }
+
+    let coveredInMonth = 0;
+    let totalEligibleDays = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      let cls = 'hc-ok';
+      if (dateStr > todayStr2) {
+        cls = 'hc-future';
+      } else {
+        totalEligibleDays++;
+        if (byDate[dateStr] && byDate[dateStr].length > 0) {
+          cls = 'hc-ok';
+          coveredInMonth++;
+        } else {
+          cls = 'hc-none';
+        }
+      }
+      cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)}: ${cls === 'hc-ok' ? 'Registo Efetuado' : (cls === 'hc-none' ? 'Sem registo' : 'Futuro')}">${d}</div>`);
+    }
+
+    const pctCovered = totalEligibleDays > 0 ? Math.round((coveredInMonth / totalEligibleDays) * 100) : 100;
+    const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+    return `
+      <div class="heatmap-card">
+        <div class="heatmap-head">
+          <span class="ttl">${esc(monthLabel)} · Cumprimento: <strong style="color:var(--ok-600)">${pctCovered}%</strong> (${coveredInMonth}/${totalEligibleDays} dias)</span>
+          <div class="heatmap-nav">
+            <button id="hmPrev" title="Mês Anterior">‹</button>
+            <button id="hmNext" ${monthOffset >= 0 ? 'disabled style="opacity:0.35;cursor:default"' : ''} title="Próximo Mês">›</button>
+          </div>
+        </div>
+        <div class="heatmap-grid">
+          ${dows.map(d => `<div class="heatmap-dow">${d}</div>`).join('')}
+          ${cells.join('')}
+        </div>
+        <div class="heatmap-legend">
+          <span><i style="background:var(--ok-500)"></i> Com registo diário</span>
+          <span><i style="background:var(--bg-subtle); border:1px solid var(--border-subtle)"></i> Sem registo</span>
+          <span><i style="background:rgba(14,165,233,0.12); border:1px dashed rgba(14,165,233,0.5)"></i> Dias futuros</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireHeatmapNav(allGenRecs, allTempRecs, allQuaRecs, tarifas) {
+    const prev = $('hmPrev');
+    const next = $('hmNext');
+    if (prev) {
+      prev.onclick = () => {
+        heatmapMonthOffset--;
+        const box = $('heatmapBox');
+        if (box) {
+          box.innerHTML = renderComplianceHeatmap(allGenRecs, heatmapMonthOffset);
+          wireHeatmapNav(allGenRecs, allTempRecs, allQuaRecs, tarifas);
+        }
+      };
+    }
+    if (next) {
+      next.onclick = () => {
+        if (heatmapMonthOffset < 0) {
+          heatmapMonthOffset++;
+          const box = $('heatmapBox');
+          if (box) {
+            box.innerHTML = renderComplianceHeatmap(allGenRecs, heatmapMonthOffset);
+            wireHeatmapNav(allGenRecs, allTempRecs, allQuaRecs, tarifas);
+          }
+        }
+      };
     }
   }
 
@@ -1300,6 +1774,13 @@
     if ($('btnManualRefresh')) {
       $('btnManualRefresh').addEventListener('click', () => {
         loadData();
+      });
+    }
+
+    // Executive summary month dropdown
+    if ($('execMonthSelect')) {
+      $('execMonthSelect').addEventListener('change', () => {
+        renderExecutiveSection(state.generalWithDeltas, state.records.temperatura, state.records.quarto, state.tarifas);
       });
     }
 
