@@ -106,6 +106,9 @@
     if (typeof globalThis !== 'undefined') globalThis.refreshConsumoResumen = refreshConsumoResumen;
   </script>
 
+  <!-- D3.js Visualization Library -->
+  <script src="/node_modules/d3/dist/d3.min.js"></script>
+
   <style>
     :root {
       /* Theme - Moon and Sun Petrol & Clean Neutrals */
@@ -1050,6 +1053,27 @@
         </div>
       </article>
 
+      <!-- Card Gastos: Estimativa Total de Custos -->
+      <article class="kpi-card" id="cardGastos">
+        <div class="kpi-card-head">
+          <div class="kpi-card-title">💶 Estimativa de Gastos</div>
+          <span class="kpi-status-badge ok" id="badgeGastos">Tarifário Ativo</span>
+        </div>
+        <div>
+          <div class="kpi-value-row">
+            <span class="kpi-big-number" id="valGastosTotal">0</span>
+            <span class="kpi-unit">€</span>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted)">
+            Água: <strong id="valGastosAgua">0 €</strong> · Elet.: <strong id="valGastosElec">0 €</strong>
+          </div>
+        </div>
+        <div class="kpi-card-foot">
+          <span id="valGastosDiario">Média: 0 €/dia</span>
+          <span id="valGastosProjecao" style="font-weight:700; color:var(--ok-600)">Proj. Mês: 0 €</span>
+        </div>
+      </article>
+
       <!-- Card 3: Qualidade da Água (pH & Cloro) -->
       <article class="kpi-card" id="cardPiscina">
         <div class="kpi-card-head">
@@ -1136,35 +1160,34 @@
 
     </section>
 
-    <!-- Interactive Bento Analytics Grid -->
-    <div class="bento-charts-grid">
+    <!-- Interactive Bento Analytics Grid: Row 1 (Consumos & Custos D3) -->
+    <div class="bento-charts-grid" style="margin-bottom:20px;">
       
-      <!-- Primary Interactive Chart: Consumption & Trends -->
+      <!-- Panel 1: D3 Interactive Consumption Trend Chart -->
       <section class="dashboard-panel" id="panelConsumo">
         <div class="panel-head">
           <div class="panel-head-titles">
             <h2>
-              <span>📈 Tendência de Consumo Diário</span>
+              <span>📈 Tendência de Consumo Diário (D3.js)</span>
               <span class="brand-badge">Interativo</span>
             </h2>
-            <p>Evolução diária dos contadores, custos e médias móveis (7 dias)</p>
+            <p>Evolução diária dos contadores, custos reais e médias móveis (7 dias)</p>
           </div>
           <div class="chart-controls-strip">
             <button type="button" class="btn-chart-toggle active" data-metric="agua" id="btnMetricAgua">💧 Água (m³)</button>
             <button type="button" class="btn-chart-toggle" data-metric="elec" id="btnMetricElec">⚡ Eletricidade (kWh)</button>
-            <button type="button" class="btn-chart-toggle" data-metric="both" id="btnMetricBoth">🔄 Comparativo</button>
+            <button type="button" class="btn-chart-toggle" data-metric="cost" id="btnMetricCost">💶 Gastos (€)</button>
           </div>
         </div>
 
         <div class="chart-container-box" id="mainChartWrap">
-          <svg class="chart-svg-root" id="mainChartSvg" viewBox="0 0 760 280"></svg>
-          <div class="chart-tooltip" id="mainChartTooltip"></div>
+          <!-- D3 SVG injected dynamically -->
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--text-muted); padding-top:4px; border-top:1px solid var(--border-subtle)">
           <div style="display:flex; gap:16px; align-items:center">
             <span style="display:inline-flex; align-items:center; gap:5px">
-              <span style="width:12px; height:3px; background:var(--ice-500); border-radius:2px"></span>
+              <span style="width:12px; height:3px; background:var(--aqua-500); border-radius:2px"></span>
               <span id="legendMetricName">Consumo Registado</span>
             </span>
             <span style="display:inline-flex; align-items:center; gap:5px">
@@ -1176,32 +1199,93 @@
         </div>
       </section>
 
-      <!-- Secondary Panel: Physicochemical Water Quality & AQS -->
-      <section class="dashboard-panel" id="panelQualidade">
+      <!-- Panel 2: D3 Financial Cost Breakdown & Projections -->
+      <section class="dashboard-panel" id="panelGastos">
         <div class="panel-head">
           <div class="panel-head-titles">
-            <h2><span>🔬 Parâmetros Físico-Químicos</span></h2>
-            <p>Faixas de segurança legal de pH e desinfeção</p>
+            <h2><span>💶 Estimativa de Gastos & Repartição (D3.js)</span></h2>
+            <p>Proporção financeira Água vs Eletricidade e projeções</p>
+          </div>
+          <span class="brand-badge" style="background:var(--ok-100); color:var(--ok-600)">Tarifário</span>
+        </div>
+
+        <div class="chart-container-box" style="height:220px;" id="costChartWrap">
+          <!-- D3 Donut & Breakdown injected dynamically -->
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:0.78rem; padding-top:6px; border-top:1px solid var(--border-subtle)">
+          <div style="display:flex; justify-content:space-between">
+            <span>Tarifa Água Base:</span>
+            <strong>2.50 € / m³</strong>
+          </div>
+          <div style="display:flex; justify-content:space-between">
+            <span>Tarifa Eletricidade Base:</span>
+            <strong>0.18 € / kWh</strong>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Interactive Bento Analytics Grid: Row 2 (Piscina D3 & Quartos D3) -->
+    <div class="bento-charts-grid" style="margin-bottom:20px;">
+      
+      <!-- Panel 3: D3 Pool Physicochemical Quality -->
+      <section class="dashboard-panel" id="panelPiscina">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2>
+              <span>🏊 Qualidade Físico-Química da Água (D3.js)</span>
+              <span class="brand-badge" style="background:var(--ice-100); color:var(--ice-600)">DGS Conforme</span>
+            </h2>
+            <p>Monitorização de pH (escala 6.6–8.2) e Cloro Livre/Total com faixas seguras sombreadas</p>
+          </div>
+          <div style="display:flex; gap:12px; font-size:0.76rem;">
+            <span style="display:inline-flex; align-items:center; gap:4px; color:#0284c7; font-weight:600">
+              <span style="width:10px; height:3px; background:#0284c7; border-radius:1px"></span> pH Piscina
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:4px; color:#10b981; font-weight:600">
+              <span style="width:10px; height:3px; background:#10b981; border-radius:1px"></span> Cloro Livre
+            </span>
           </div>
         </div>
 
-        <div class="chart-container-box" style="height:190px;" id="waterChartWrap">
-          <svg class="chart-svg-root" id="waterChartSvg" viewBox="0 0 380 190"></svg>
-          <div class="chart-tooltip" id="waterChartTooltip"></div>
+        <div class="chart-container-box" style="height:260px;" id="poolChartWrap">
+          <!-- D3 Pool Multi-series injected dynamically -->
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:8px; font-size:0.78rem; padding-top:6px; border-top:1px solid var(--border-subtle)">
-          <div style="display:flex; justify-content:space-between">
-            <span>Zona Óptima de pH:</span>
-            <strong>7.0 a 7.8 pH</strong>
+        <div style="display:flex; justify-content:space-between; font-size:0.78rem; padding-top:6px; border-top:1px solid var(--border-subtle); color:var(--text-muted)">
+          <span>Faixa Ótima de pH: <strong style="color:var(--text-main)">7.0 a 7.8 pH</strong></span>
+          <span>Cloro Livre Recomendado: <strong style="color:var(--text-main)">0.5 a 3.0 ppm</strong></span>
+          <span>Cloro Total Máx: <strong style="color:var(--coral-600)">5.0 ppm</strong></span>
+        </div>
+      </section>
+
+      <!-- Panel 4: D3 Preventive Room Inspections -->
+      <section class="dashboard-panel" id="panelQuartos">
+        <div class="panel-head">
+          <div class="panel-head-titles">
+            <h2><span>🛎️ Inspeções Preventivas por Piso (D3.js)</span></h2>
+            <p>Controlo mensal de quartos (12 quartos por piso · 48 no total)</p>
           </div>
-          <div style="display:flex; justify-content:space-between">
-            <span>Cloro Livre Recomendado:</span>
-            <strong>0.5 a 3.0 ppm</strong>
+        </div>
+
+        <div class="chart-container-box" style="height:190px;" id="roomChartWrap">
+          <!-- D3 Bar Chart by floor injected dynamically -->
+        </div>
+
+        <div class="room-stats-list" style="border-top:1px solid var(--border-subtle); padding-top:10px;">
+          <div class="room-stat-row">
+            <span>Total de Quartos no Hotel:</span>
+            <strong>48 quartos</strong>
           </div>
-          <div style="display:flex; justify-content:space-between">
-            <span>Temperatura Proteção AQS:</span>
-            <strong style="color:var(--ok-600)">≥ 50 °C (Rede) / ≥ 55 °C (Depósito)</strong>
+          <div class="room-stat-row">
+            <span>Inspecionados neste ciclo:</span>
+            <strong id="statInspecionados" style="color:var(--ok-600)">42 concluídos</strong>
+          </div>
+          <div class="room-stat-row">
+            <span>Aguardam verificação técnica:</span>
+            <strong id="statPendentes" style="color:var(--amber-600)">6 pendentes</strong>
           </div>
         </div>
       </section>
@@ -1230,8 +1314,8 @@
       <section class="dashboard-panel" id="panelCicloQuartos">
         <div class="panel-head">
           <div class="panel-head-titles">
-            <h2><span>🛎️ Inspeções Preventivas de Quartos</span></h2>
-            <p>Estado do ciclo de controlo mensal de torneiras, sanitários e AC</p>
+            <h2><span>🛎️ Resumo do Ciclo de Quartos</span></h2>
+            <p>Estado global e indicador radial de conformidade</p>
           </div>
         </div>
 
@@ -1250,11 +1334,11 @@
             </div>
             <div class="room-stat-row">
               <span>Inspecionados neste ciclo:</span>
-              <strong id="statInspecionados" style="color:var(--ok-600)">42 concluídos</strong>
+              <strong style="color:var(--ok-600)">42 concluídos</strong>
             </div>
             <div class="room-stat-row">
               <span>Aguardam verificação técnica:</span>
-              <strong id="statPendentes" style="color:var(--amber-600)">6 pendentes</strong>
+              <strong style="color:var(--amber-600)">6 pendentes</strong>
             </div>
             <div class="room-stat-row">
               <span>Anomalias / Reparações abertas:</span>
@@ -1316,710 +1400,8 @@
     </div>
   </footer>
 
-  <!-- Application Logic -->
-  <script>
-    (function() {
-      'use strict';
+  <!-- D3.js Visualization Engine & State Controller -->
+  <script src="/indicadores.js"></script>
 
-      // State Management
-      const state = {
-        period: '30d',
-        metric: 'agua',
-        autoRefreshSec: 30,
-        autoRefreshTimer: null,
-        clockTimer: null,
-        theme: localStorage.getItem('bitacora_kpi_theme') || 'light',
-        records: {
-          general: [],
-          quarto: [],
-          temperatura: []
-        },
-        thresholds: {
-          phMin: 7.0, phMax: 7.8,
-          cloroMin: 0.5, cloroMax: 3.0,
-          cloroTotalMax: 5.0,
-          aqsMin: 50.0
-        },
-        tarifas: {
-          agua: 2.50,
-          elec: 0.18
-        }
-      };
-
-      // Equipment master specifications
-      const EQUIP_SPECS = [
-        { id: 'cam_carne', name: 'Câmara Carnes (+)', min: 0, max: 3, ideal: 1.5, defaultT: 1.8, unit: '°C' },
-        { id: 'cam_peixe', name: 'Câmara Peixe (+)', min: 0, max: 2, ideal: 1.0, defaultT: 1.2, unit: '°C' },
-        { id: 'cam_congelados', name: 'Câmara Congelados (-)', min: -24, max: -18, ideal: -20, defaultT: -19.5, unit: '°C' },
-        { id: 'balcao_pq', name: 'Balcão Pq. Almoço', min: 2, max: 5, ideal: 3.5, defaultT: 3.4, unit: '°C' },
-        { id: 'frigo_bar', name: 'Frigorífico Bar', min: 3, max: 6, ideal: 4.5, defaultT: 4.2, unit: '°C' },
-        { id: 'maq_gelo', name: 'Máquina de Gelo', min: -4, max: 0, ideal: -2.0, defaultT: -1.8, unit: '°C' }
-      ];
-
-      // Helpers
-      const $ = id => document.getElementById(id);
-      const fmtNum = (v, dec = 2) => (typeof v === 'number' && !isNaN(v) ? v.toFixed(dec) : '—');
-
-      // Theme toggle
-      function applyTheme(t) {
-        state.theme = t;
-        document.documentElement.setAttribute('data-theme', t);
-        localStorage.setItem('bitacora_kpi_theme', t);
-        if ($('themeIcon')) $('themeIcon').textContent = t === 'dark' ? '☀️' : '🌙';
-        if ($('themeLabel')) $('themeLabel').textContent = t === 'dark' ? 'Modo Claro' : 'Modo Noturno';
-      }
-
-      function initTheme() {
-        applyTheme(state.theme);
-        $('btnToggleTheme').addEventListener('click', () => {
-          applyTheme(state.theme === 'dark' ? 'light' : 'dark');
-          renderMainChart();
-          renderWaterChart();
-        });
-      }
-
-      // Fullscreen Toggle
-      function initFullscreen() {
-        $('btnFullscreen').addEventListener('click', () => {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          } else {
-            if (document.exitFullscreen) document.exitFullscreen();
-          }
-        });
-      }
-
-      // Live Clock
-      function startClock() {
-        function updateClock() {
-          const now = new Date();
-          if ($('liveClockTime')) {
-            $('liveClockTime').textContent = now.toLocaleTimeString('pt-PT');
-          }
-          if ($('liveClockDate')) {
-            const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-            $('liveClockDate').textContent = now.toLocaleDateString('pt-PT', options);
-          }
-        }
-        updateClock();
-        setInterval(updateClock, 1000);
-      }
-
-      // Data loader from Shared LocalStorage and fallback seed
-      function loadData() {
-        let hasRealData = false;
-        try {
-          const rawStore = localStorage.getItem('bitacora_store');
-          if (rawStore) {
-            const parsed = JSON.parse(rawStore);
-            if (parsed) {
-              if (Array.isArray(parsed.general?.items) && parsed.general.items.length) {
-                state.records.general = parsed.general.items;
-                hasRealData = true;
-              }
-              if (Array.isArray(parsed.quarto?.items) && parsed.quarto.items.length) {
-                state.records.quarto = parsed.quarto.items;
-                hasRealData = true;
-              }
-              if (Array.isArray(parsed.temperatura?.items) && parsed.temperatura.items.length) {
-                state.records.temperatura = parsed.temperatura.items;
-                hasRealData = true;
-              }
-            }
-          }
-        } catch(e) {
-          console.error('Error loading bitacora_store:', e);
-        }
-
-        // If store is empty, generate authentic realistic seed data for the Moon and Sun Hotel
-        if (!hasRealData) {
-          generateSeedData();
-        }
-
-        updateUI();
-        if ($('lastUpdatedLabel')) {
-          $('lastUpdatedLabel').textContent = 'Última leitura: ' + new Date().toLocaleTimeString('pt-PT');
-        }
-      }
-
-      // Realistic seed generator if browser storage is unpopulated
-      function generateSeedData() {
-        const today = new Date();
-        const general = [];
-        const quarto = [];
-        const temperatura = [];
-
-        // Generate past 35 days of continuous technical records
-        for (let i = 35; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(today.getDate() - i);
-          const dateStr = d.toISOString().split('T')[0];
-
-          // Water & Electricity daily counter differences
-          const baseWater = 18.5 + Math.sin(i * 0.4) * 3.5 + (Math.random() * 2);
-          const baseElec = 340 + Math.cos(i * 0.3) * 45 + (Math.random() * 20);
-          const ph = 7.25 + (Math.sin(i * 0.5) * 0.2) + (Math.random() * 0.1);
-          const cloro = 1.35 + (Math.cos(i * 0.6) * 0.3) + (Math.random() * 0.15);
-          const aqs = 55.5 + (Math.random() * 2.2);
-
-          general.push({
-            id: 'gen-' + i,
-            data: {
-              fecha: dateStr,
-              hora: '09:30',
-              aguaDelta: parseFloat(baseWater.toFixed(2)),
-              elecDelta: parseFloat(baseElec.toFixed(1)),
-              piscinaPh: parseFloat(ph.toFixed(2)),
-              piscinaCloro: parseFloat(cloro.toFixed(2)),
-              piscinaCloroTotal: parseFloat((cloro + 0.25).toFixed(2)),
-              aqsTemp: parseFloat(aqs.toFixed(1)),
-              aqsRetorno: parseFloat((aqs - 4.5).toFixed(1)),
-              tecnico: i % 2 === 0 ? 'Carlos Técnico' : 'Rui Manutenção'
-            }
-          });
-
-          // Equipment readings
-          EQUIP_SPECS.forEach(spec => {
-            const noise = (Math.random() - 0.5) * 0.4;
-            temperatura.push({
-              id: 'temp-' + spec.id + '-' + i,
-              data: {
-                fecha: dateStr,
-                hora: '10:15',
-                equipamento: spec.name,
-                temp: parseFloat((spec.defaultT + noise).toFixed(1)),
-                tecnico: i % 2 === 0 ? 'Carlos Técnico' : 'Rui Manutenção'
-              }
-            });
-          });
-        }
-
-        // Room inspections
-        for (let r = 101; r <= 148; r++) {
-          const isInspected = r <= 142;
-          if (isInspected) {
-            quarto.push({
-              id: 'q-' + r,
-              data: {
-                fecha: today.toISOString().split('T')[0],
-                hora: '11:00',
-                quarto: String(r),
-                estado: 'concluido',
-                tecnico: 'Carlos Técnico'
-              }
-            });
-          }
-        }
-
-        state.records.general = general;
-        state.records.quarto = quarto;
-        state.records.temperatura = temperatura;
-      }
-
-      // Filter records according to active period
-      function getFilteredRecords() {
-        const now = new Date();
-        const gen = state.records.general || [];
-        const temp = state.records.temperatura || [];
-        const qua = state.records.quarto || [];
-
-        let minDateStr = '';
-        if (state.period === 'today') {
-          minDateStr = now.toISOString().split('T')[0];
-        } else if (state.period === '7d') {
-          const d = new Date(); d.setDate(now.getDate() - 7);
-          minDateStr = d.toISOString().split('T')[0];
-        } else if (state.period === '30d') {
-          const d = new Date(); d.setDate(now.getDate() - 30);
-          minDateStr = d.toISOString().split('T')[0];
-        } else if (state.period === 'month') {
-          minDateStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-        }
-
-        const filterFn = r => !minDateStr || (r.data && r.data.fecha && r.data.fecha >= minDateStr);
-        return {
-          general: gen.filter(filterFn),
-          temperatura: temp.filter(filterFn),
-          quarto: qua.filter(filterFn)
-        };
-      }
-
-      // Update all indicators, cards, gauges, charts and tables
-      function updateUI() {
-        const filtered = getFilteredRecords();
-        const genRecs = filtered.general;
-        const tempRecs = filtered.temperatura;
-        const quaRecs = filtered.quarto;
-
-        // 1. Water Consumption
-        let totalAgua = 0;
-        let aguaCount = 0;
-        genRecs.forEach(r => {
-          const v = parseFloat(r.data?.aguaDelta || r.data?.consumoAgua || 0);
-          if (!isNaN(v) && v > 0) { totalAgua += v; aguaCount++; }
-        });
-        const mediaAgua = aguaCount > 0 ? (totalAgua / aguaCount) : 0;
-        const custoAgua = totalAgua * state.tarifas.agua;
-
-        if ($('valAguaTotal')) $('valAguaTotal').textContent = fmtNum(totalAgua, 2);
-        if ($('valAguaMedia')) $('valAguaMedia').textContent = fmtNum(mediaAgua, 2);
-        if ($('valAguaCusto')) $('valAguaCusto').textContent = Math.round(custoAgua) + ' €';
-        if ($('metaAguaLeituras')) $('metaAguaLeituras').textContent = aguaCount + ' dias de registo';
-
-        // 2. Electricity Consumption
-        let totalElec = 0;
-        let elecCount = 0;
-        genRecs.forEach(r => {
-          const v = parseFloat(r.data?.elecDelta || r.data?.consumoElec || 0);
-          if (!isNaN(v) && v > 0) { totalElec += v; elecCount++; }
-        });
-        const mediaElec = elecCount > 0 ? (totalElec / elecCount) : 0;
-        const custoElec = totalElec * state.tarifas.elec;
-
-        if ($('valElecTotal')) $('valElecTotal').textContent = Math.round(totalElec).toLocaleString('pt-PT');
-        if ($('valElecMedia')) $('valElecMedia').textContent = Math.round(mediaElec).toLocaleString('pt-PT');
-        if ($('valElecCusto')) $('valElecCusto').textContent = Math.round(custoElec).toLocaleString('pt-PT') + ' €';
-        if ($('metaElecLeituras')) $('metaElecLeituras').textContent = elecCount + ' dias de registo';
-
-        // 3. Water Quality (pH & Chlorine)
-        let sumPh = 0, countPh = 0;
-        let latestPh = 7.35, latestCloro = 1.40, latestCloroTotal = 1.60;
-        if (genRecs.length) {
-          const sorted = genRecs.slice().sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''));
-          const last = sorted[0];
-          if (last.data?.piscinaPh) latestPh = parseFloat(last.data.piscinaPh);
-          if (last.data?.piscinaCloro) latestCloro = parseFloat(last.data.piscinaCloro);
-          if (last.data?.piscinaCloroTotal) latestCloroTotal = parseFloat(last.data.piscinaCloroTotal);
-
-          genRecs.forEach(r => {
-            const p = parseFloat(r.data?.piscinaPh);
-            if (!isNaN(p)) { sumPh += p; countPh++; }
-          });
-        }
-        const avgPh = countPh > 0 ? (sumPh / countPh) : latestPh;
-        if ($('valPhMedio')) $('valPhMedio').textContent = fmtNum(latestPh, 2);
-        if ($('valCloroLivre')) $('valCloroLivre').textContent = fmtNum(latestCloro, 2);
-        if ($('valCloroTotal')) $('valCloroTotal').textContent = fmtNum(latestCloroTotal, 2);
-
-        // 4. AQS Temperature
-        let latestAqs = 56.4, latestRetorno = 51.8;
-        if (genRecs.length) {
-          const sorted = genRecs.slice().sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''));
-          const last = sorted[0];
-          if (last.data?.aqsTemp) latestAqs = parseFloat(last.data.aqsTemp);
-          if (last.data?.aqsRetorno) latestRetorno = parseFloat(last.data.aqsRetorno);
-        }
-        if ($('valAqsTemp')) $('valAqsTemp').textContent = fmtNum(latestAqs, 1);
-        if ($('valAqsRetorno')) $('valAqsRetorno').textContent = fmtNum(latestRetorno, 1) + ' °C';
-
-        // 5. Refrigeration Compliance
-        renderEquipmentMatrix(tempRecs);
-
-        // 6. Preventive Room Cycle
-        const totalRooms = 48;
-        const inspectedRooms = quaRecs.length ? quaRecs.length : 42;
-        const pct = Math.min(100, Math.round((inspectedRooms / totalRooms) * 100));
-        const pendentes = Math.max(0, totalRooms - inspectedRooms);
-
-        if ($('valQuartosPct')) $('valQuartosPct').textContent = pct + '%';
-        if ($('valQuartosFeitos')) $('valQuartosFeitos').textContent = inspectedRooms;
-        if ($('valQuartosPendentes')) $('valQuartosPendentes').textContent = pendentes;
-        if ($('radialText')) $('radialText').textContent = pct + '%';
-        if ($('radialFill')) {
-          $('radialFill').setAttribute('stroke-dasharray', `${pct}, 100`);
-        }
-        if ($('statInspecionados')) $('statInspecionados').textContent = `${inspectedRooms} concluídos`;
-        if ($('statPendentes')) $('statPendentes').textContent = `${pendentes} pendentes`;
-
-        // 7. Render Charts
-        renderMainChart();
-        renderWaterChart();
-
-        // 8. Render Table
-        renderReadingsTable(genRecs, tempRecs);
-      }
-
-      // Render Refrigeration Equipment Cards
-      function renderEquipmentMatrix(tempRecs) {
-        const grid = $('equipmentGrid');
-        if (!grid) return;
-
-        let totalPoints = 0;
-        let compliantPoints = 0;
-
-        grid.innerHTML = EQUIP_SPECS.map(spec => {
-          // Find latest reading for this equipment
-          const matches = tempRecs.filter(r => r.data?.equipamento && r.data.equipamento.toLowerCase().includes(spec.name.toLowerCase().slice(0, 10)));
-          let currT = spec.defaultT;
-          let timeAgo = 'Hoje 10:15';
-          let tecnico = 'Carlos Técnico';
-
-          if (matches.length) {
-            const last = matches.sort((a,b) => (b.data?.fecha || '').localeCompare(a.data?.fecha || ''))[0];
-            if (last.data?.temp !== undefined) currT = parseFloat(last.data.temp);
-            if (last.data?.hora) timeAgo = `${last.data.fecha || ''} ${last.data.hora}`;
-            if (last.data?.tecnico) tecnico = last.data.tecnico;
-          }
-
-          const isOk = currT >= spec.min && currT <= spec.max;
-          totalPoints++;
-          if (isOk) compliantPoints++;
-
-          const span = spec.max - spec.min || 1;
-          const pct = Math.max(5, Math.min(95, ((currT - spec.min) / span) * 100));
-          const statusColor = isOk ? 'var(--ok-500)' : 'var(--coral-500)';
-
-          return `
-            <div class="equip-card">
-              <div class="equip-top">
-                <span class="equip-name">${spec.name}</span>
-                <span class="equip-dot" style="background:${statusColor}"></span>
-              </div>
-              <div class="equip-temp" style="color:${isOk ? 'var(--text-main)' : 'var(--coral-600)'}">
-                ${currT > 0 ? '+' : ''}${currT.toFixed(1)} ${spec.unit}
-              </div>
-              <div class="equip-bar-wrap">
-                <div class="equip-bar-fill" style="width:${pct}%; background:${statusColor}"></div>
-              </div>
-              <div class="equip-meta">
-                <span>Norma: ${spec.min}° a ${spec.max}°C</span>
-                <span>${isOk ? '✓ Conforme' : '⚠ Atenção'}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-        const compliancePct = totalPoints > 0 ? Math.round((compliantPoints / totalPoints) * 100) : 100;
-        if ($('valFrioConformidade')) $('valFrioConformidade').textContent = compliancePct + '%';
-        if ($('badgeHaccp')) {
-          $('badgeHaccp').className = 'kpi-status-badge ' + (compliancePct >= 95 ? 'ok' : (compliancePct >= 80 ? 'warn' : 'danger'));
-          $('badgeHaccp').textContent = compliancePct + '% OK';
-        }
-      }
-
-      // Render Main Interactive SVG Chart (Water / Electricity)
-      function renderMainChart() {
-        const svg = $('mainChartSvg');
-        const tip = $('mainChartTooltip');
-        if (!svg) return;
-
-        const filtered = getFilteredRecords();
-        const records = (filtered.general || []).slice().sort((a,b) => (a.data?.fecha || '').localeCompare(b.data?.fecha || ''));
-
-        if (!records.length) {
-          svg.innerHTML = `<text x="380" y="140" text-anchor="middle" fill="var(--text-dim)" font-size="14">Sem registos no período selecionado</text>`;
-          return;
-        }
-
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        const W = 760, H = 280, L = 50, R = 30, T = 25, B = 35;
-        const pw = W - L - R, ph = H - T - B;
-
-        const isWater = state.metric === 'agua';
-        const isBoth = state.metric === 'both';
-
-        // Extract daily values
-        const dataPoints = records.map(r => {
-          const date = r.data?.fecha || '';
-          const water = parseFloat(r.data?.aguaDelta || r.data?.consumoAgua || 0);
-          const elec = parseFloat(r.data?.elecDelta || r.data?.consumoElec || 0);
-          return { date, water, elec, val: isWater ? water : elec };
-        });
-
-        const maxVal = Math.max(...dataPoints.map(p => isBoth ? p.water : p.val), 1) * 1.15;
-        const maxElec = Math.max(...dataPoints.map(p => p.elec), 1) * 1.15;
-
-        const n = dataPoints.length;
-        const xOf = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
-        const yOf = v => T + ph - (v / maxVal) * ph;
-        const yOfElec = v => T + ph - (v / maxElec) * ph;
-
-        // Moving average (7 days)
-        const ma7 = dataPoints.map((p, i) => {
-          const start = Math.max(0, i - 6);
-          const slice = dataPoints.slice(start, i + 1);
-          const sum = slice.reduce((a, b) => a + b.val, 0);
-          return sum / slice.length;
-        });
-
-        let gridLines = '';
-        for (let s = 0; s <= 4; s++) {
-          const y = T + (ph / 4) * s;
-          const valLabel = (maxVal * (1 - s / 4)).toFixed(isWater ? 1 : 0);
-          gridLines += `
-            <line x1="${L}" y1="${y}" x2="${W - R}" y2="${y}" stroke="${isDark ? '#1e4558' : '#e2e8f0'}" stroke-width="1" stroke-dasharray="3 3"/>
-            <text x="${L - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="var(--text-dim)" font-family="var(--font-mono)">${valLabel}</text>
-          `;
-        }
-
-        // Area & Line paths
-        const mainLineColor = isWater ? 'var(--ice-500)' : 'var(--amber-500)';
-        const dLine = dataPoints.map((p, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOf(p.val).toFixed(1)}`).join(' ');
-        const dArea = `${dLine} L${xOf(n - 1).toFixed(1)},${T + ph} L${xOf(0).toFixed(1)},${T + ph} Z`;
-        const dMA = ma7.map((v, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
-
-        // Date X Axis Labels
-        let xLabels = '';
-        const step = Math.max(1, Math.floor(n / 6));
-        for (let i = 0; i < n; i += step) {
-          const p = dataPoints[i];
-          const parts = p.date.split('-');
-          const label = parts.length === 3 ? `${parts[2]}/${parts[1]}` : p.date;
-          xLabels += `<text x="${xOf(i).toFixed(1)}" y="${H - 12}" text-anchor="middle" font-size="10" fill="var(--text-dim)" font-family="var(--font-mono)">${label}</text>`;
-        }
-
-        svg.innerHTML = `
-          <defs>
-            <linearGradient id="mainAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stop-color="${isWater ? '#0ea5e9' : '#f59e0b'}" stop-opacity="${isDark ? '0.35' : '0.2'}"/>
-              <stop offset="100%" stop-color="${isWater ? '#0ea5e9' : '#f59e0b'}" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          ${gridLines}
-          ${xLabels}
-          <path d="${dArea}" fill="url(#mainAreaGrad)"/>
-          <path d="${dLine}" fill="none" stroke="${mainLineColor}" stroke-width="2.5" stroke-linecap="round"/>
-          <path d="${dMA}" fill="none" stroke="var(--petrol-600)" stroke-width="1.8" stroke-dasharray="4 4"/>
-          ${dataPoints.map((p, i) => `
-            <circle cx="${xOf(i).toFixed(1)}" cy="${yOf(p.val).toFixed(1)}" r="3" fill="${mainLineColor}" stroke="#ffffff" stroke-width="1.5"/>
-          `).join('')}
-          <rect id="chartOverlay" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" style="cursor:crosshair"/>
-        `;
-
-        // Interactive Tooltip Hover
-        const overlay = svg.querySelector('#chartOverlay');
-        if (overlay && tip) {
-          overlay.addEventListener('pointermove', e => {
-            const rect = svg.getBoundingClientRect();
-            const relX = ((e.clientX - rect.left) / rect.width) * W;
-            const boundedX = Math.max(L, Math.min(W - R, relX));
-            const i = Math.min(n - 1, Math.max(0, Math.round(((boundedX - L) / pw) * (n - 1))));
-            const d = dataPoints[i];
-
-            const unit = isWater ? 'm³' : 'kWh';
-            const cost = isWater ? (d.val * state.tarifas.agua) : (d.val * state.tarifas.elec);
-
-            tip.innerHTML = `
-              <div style="font-weight:700; margin-bottom:2px">${d.date}</div>
-              <div style="color:var(--aqua-300)">Leitura: <strong>${d.val.toFixed(2)} ${unit}</strong></div>
-              <div style="font-size:0.7rem; color:#cbd5e1">Custo est.: ~${Math.round(cost)} €</div>
-            `;
-            tip.style.left = ((xOf(i) / W) * 100) + '%';
-            tip.style.top = (yOf(d.val) - 12) + 'px';
-            tip.classList.add('show');
-          });
-
-          overlay.addEventListener('pointerleave', () => tip.classList.remove('show'));
-        }
-      }
-
-      // Render Water Quality Trend SVG (pH & Chlorine)
-      function renderWaterChart() {
-        const svg = $('waterChartSvg');
-        if (!svg) return;
-
-        const filtered = getFilteredRecords();
-        const records = (filtered.general || []).slice().sort((a,b) => (a.data?.fecha || '').localeCompare(b.data?.fecha || ''));
-
-        if (!records.length) {
-          svg.innerHTML = `<text x="190" y="95" text-anchor="middle" fill="var(--text-dim)" font-size="12">Sem dados físico-químicos</text>`;
-          return;
-        }
-
-        const W = 380, H = 190, L = 35, R = 15, T = 15, B = 25;
-        const pw = W - L - R, ph = H - T - B;
-
-        const pts = records.map(r => ({
-          date: r.data?.fecha || '',
-          ph: parseFloat(r.data?.piscinaPh || 7.3),
-          cloro: parseFloat(r.data?.piscinaCloro || 1.4)
-        }));
-
-        const n = pts.length;
-        const xOf = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
-        // pH range scale (6.5 to 8.5)
-        const yOfPh = p => T + ph - ((p - 6.5) / 2.0) * ph;
-
-        // Optimal pH tolerance band (7.0 to 7.8)
-        const yBandTop = yOfPh(7.8);
-        const yBandBot = yOfPh(7.0);
-
-        const dPh = pts.map((p, i) => `${i ? 'L' : 'M'}${xOf(i).toFixed(1)},${yOfPh(p.ph).toFixed(1)}`).join(' ');
-
-        svg.innerHTML = `
-          <!-- Safe Zone Band -->
-          <rect x="${L}" y="${yBandTop}" width="${pw}" height="${yBandBot - yBandTop}" fill="var(--ok-500)" fill-opacity="0.12" rx="3"/>
-          <line x1="${L}" y1="${yBandTop}" x2="${W - R}" y2="${yBandTop}" stroke="var(--ok-500)" stroke-width="1" stroke-dasharray="2 2"/>
-          <line x1="${L}" y1="${yBandBot}" x2="${W - R}" y2="${yBandBot}" stroke="var(--ok-500)" stroke-width="1" stroke-dasharray="2 2"/>
-          <text x="${W - R - 2}" y="${yBandTop + 10}" text-anchor="end" font-size="9" fill="var(--ok-600)">Máx 7.8</text>
-          <text x="${W - R - 2}" y="${yBandBot - 4}" text-anchor="end" font-size="9" fill="var(--ok-600)">Mín 7.0</text>
-          <!-- Trend line -->
-          <path d="${dPh}" fill="none" stroke="var(--petrol-700)" stroke-width="2.2" stroke-linecap="round"/>
-          ${pts.map((p, i) => `
-            <circle cx="${xOf(i).toFixed(1)}" cy="${yOfPh(p.ph).toFixed(1)}" r="2.8" fill="var(--aqua-500)" stroke="#ffffff" stroke-width="1"/>
-          `).join('')}
-        `;
-      }
-
-      // Render Chronological Live Table
-      function renderReadingsTable(genRecs, tempRecs) {
-        const tbody = $('readingsTableBody');
-        if (!tbody) return;
-
-        const combined = [];
-        genRecs.forEach(r => {
-          if (r.data?.aguaDelta) {
-            combined.push({
-              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
-              sector: 'Contadores Gerais',
-              type: 'general',
-              item: 'Consumo de Água',
-              value: `${r.data.aguaDelta} m³`,
-              range: 'Registo diário',
-              tecnico: r.data.tecnico || 'Técnico',
-              status: 'ok'
-            });
-          }
-          if (r.data?.piscinaPh) {
-            const ph = parseFloat(r.data.piscinaPh);
-            const isOk = ph >= 7.0 && ph <= 7.8;
-            combined.push({
-              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
-              sector: 'Tratamento de Águas',
-              type: 'general',
-              item: 'Físico-Química (pH)',
-              value: `${ph.toFixed(2)} pH`,
-              range: '7.0 – 7.8',
-              tecnico: r.data.tecnico || 'Técnico',
-              status: isOk ? 'ok' : 'warn'
-            });
-          }
-          if (r.data?.aqsTemp) {
-            const t = parseFloat(r.data.aqsTemp);
-            const isOk = t >= 50.0;
-            combined.push({
-              ts: `${r.data.fecha || ''} ${r.data.hora || '09:00'}`,
-              sector: 'AQS Sanitária',
-              type: 'general',
-              item: 'Temp. Produção AQS',
-              value: `${t.toFixed(1)} °C`,
-              range: '≥ 55.0 °C',
-              tecnico: r.data.tecnico || 'Técnico',
-              status: isOk ? 'ok' : 'warn'
-            });
-          }
-        });
-
-        tempRecs.slice(0, 15).forEach(r => {
-          if (r.data?.temp !== undefined) {
-            const t = parseFloat(r.data.temp);
-            combined.push({
-              ts: `${r.data.fecha || ''} ${r.data.hora || '10:00'}`,
-              sector: 'Refrigeração Alimentar',
-              type: 'temperatura',
-              item: r.data.equipamento || 'Câmara',
-              value: `${t > 0 ? '+' : ''}${t.toFixed(1)} °C`,
-              range: 'HACCP Conforme',
-              tecnico: r.data.tecnico || 'Técnico',
-              status: 'ok'
-            });
-          }
-        });
-
-        combined.sort((a,b) => b.ts.localeCompare(a.ts));
-
-        if (!combined.length) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-dim)">Nenhum registo recente encontrado</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = combined.slice(0, 12).map(c => `
-          <tr>
-            <td style="font-family:var(--font-mono)">${c.ts}</td>
-            <td><span class="tag-type ${c.type}">${c.sector}</span></td>
-            <td><strong>${c.item}</strong></td>
-            <td style="font-family:var(--font-mono); font-weight:700">${c.value}</td>
-            <td style="color:var(--text-muted)">${c.range}</td>
-            <td>${c.tecnico}</td>
-            <td><span class="kpi-status-badge ${c.status}">${c.status === 'ok' ? '✓ Conforme' : '⚠ Verificado'}</span></td>
-          </tr>
-        `).join('');
-      }
-
-      // Event Listeners for Filters
-      function initControls() {
-        // Period tabs
-        document.querySelectorAll('.btn-period[data-period]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('.btn-period[data-period]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.period = btn.dataset.period;
-            if ($('lblTablePeriod')) $('lblTablePeriod').textContent = btn.textContent;
-            updateUI();
-          });
-        });
-
-        // Metric toggle in main chart
-        document.querySelectorAll('.btn-chart-toggle[data-metric]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            document.querySelectorAll('.btn-chart-toggle[data-metric]').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            state.metric = btn.dataset.metric;
-            if ($('legendMetricName')) {
-              $('legendMetricName').textContent = state.metric === 'agua' ? 'Consumo de Água (m³)' : 'Consumo Eletricidade (kWh)';
-            }
-            renderMainChart();
-          });
-        });
-
-        // Auto-refresh timer select
-        if ($('selAutoRefresh')) {
-          $('selAutoRefresh').addEventListener('change', e => {
-            state.autoRefreshSec = parseInt(e.target.value, 10);
-            resetAutoRefresh();
-          });
-        }
-
-        // Manual refresh button
-        if ($('btnManualRefresh')) {
-          $('btnManualRefresh').addEventListener('click', () => {
-            loadData();
-          });
-        }
-
-        // Print button
-        if ($('btnPrintReport')) {
-          $('btnPrintReport').addEventListener('click', () => window.print());
-        }
-
-        // Cross-tab real-time sync with main app
-        window.addEventListener('storage', ev => {
-          if (ev.key === 'bitacora_store' || ev.key === 'bitacora_fechos_mensais') {
-            loadData();
-          }
-        });
-      }
-
-      function resetAutoRefresh() {
-        if (state.autoRefreshTimer) clearInterval(state.autoRefreshTimer);
-        if (state.autoRefreshSec > 0) {
-          state.autoRefreshTimer = setInterval(() => {
-            loadData();
-          }, state.autoRefreshSec * 1000);
-        }
-      }
-
-      // Initial startup
-      window.addEventListener('DOMContentLoaded', () => {
-        initTheme();
-        initFullscreen();
-        startClock();
-        initControls();
-        loadData();
-        resetAutoRefresh();
-      });
-
-    })();
-  </script>
 </body>
 </html>
