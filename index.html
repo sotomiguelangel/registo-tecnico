@@ -5,157 +5,54 @@
   (function() {
     var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
     if (!win) return;
-    try {
-      var _nativeFetch = (typeof win.fetch === 'function') ? win.fetch.bind(win) : null;
-      var _activeFetch = _nativeFetch;
-      var safeFetchHandler = function() {
-        var fn = _activeFetch || _nativeFetch;
-        return (typeof fn === 'function') ? fn.apply(this, arguments) : Promise.reject(new Error('fetch unavailable'));
-      };
-      var p = win;
-      while (p) {
-        try {
-          var desc = Object.getOwnPropertyDescriptor(p, 'fetch');
-          if (desc) {
-            try {
-              Object.defineProperty(p, 'fetch', { value: safeFetchHandler, writable: true, configurable: true, enumerable: true });
-            } catch (e1) {
-              try {
-                Object.defineProperty(p, 'fetch', { get: function() { return _activeFetch || _nativeFetch; }, set: function(v) { _activeFetch = (typeof v === 'function') ? v : _nativeFetch; }, configurable: true, enumerable: true });
-              } catch (e2) {}
-            }
-          }
-        } catch (e) {}
-        p = Object.getPrototypeOf(p);
-      }
-      try {
-        Object.defineProperty(win, 'fetch', { value: safeFetchHandler, writable: true, configurable: true, enumerable: true });
-      } catch (e3) {
-        try {
-          Object.defineProperty(win, 'fetch', { get: function() { return _activeFetch || _nativeFetch; }, set: function(v) { _activeFetch = (typeof v === 'function') ? v : _nativeFetch; }, configurable: true, enumerable: true });
-        } catch (e4) {}
-      }
-      if (win.Window && win.Window.prototype) {
-        try {
-          Object.defineProperty(win.Window.prototype, 'fetch', { value: safeFetchHandler, writable: true, configurable: true, enumerable: true });
-        } catch (e5) {
-          try {
-            Object.defineProperty(win.Window.prototype, 'fetch', { get: function() { return _activeFetch || _nativeFetch; }, set: function(v) { _activeFetch = (typeof v === 'function') ? v : _nativeFetch; }, configurable: true, enumerable: true });
-          } catch (e6) {}
-        }
-      }
-    } catch (err) {}
-  })();
-</script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Registo Técnico · Moon and Sun</title>
-<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
-<link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
-<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
-<link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
 
-<meta name="theme-color" content="#0e3341">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Registo">
-<link rel="stylesheet" href="css/main.css">
-<link rel="stylesheet" href="css/components.css">
-<script>
-  // =========================================================================
-  // 1. Universal Error Trap & Console Interceptor (Captures early errors & suppresses platform/HMR noise)
-  // =========================================================================
-  (function() {
-    var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
-    if (!win) return;
-
-    // 0. Ensure 'fetch' on Window & prototypes is writable with a setter
-    // Fixes: "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter"
-    try {
-      var _origFetch = (typeof win.fetch === 'function') ? win.fetch.bind(win) : null;
-      var _currentFetch = _origFetch;
-
-      var safeFetchFn = function() {
-        var fn = _currentFetch || _origFetch;
-        return (typeof fn === 'function') ? fn.apply(this, arguments) : Promise.reject(new Error('fetch unavailable'));
-      };
-
-      var p = win;
-      while (p) {
-        try {
-          var desc = Object.getOwnPropertyDescriptor(p, 'fetch');
-          if (desc) {
-            try {
-              Object.defineProperty(p, 'fetch', {
-                value: safeFetchFn,
-                writable: true,
-                configurable: true,
-                enumerable: true
-              });
-            } catch (e1) {
-              try {
-                Object.defineProperty(p, 'fetch', {
-                  get: function() { return _currentFetch || _origFetch; },
-                  set: function(fn) { _currentFetch = (typeof fn === 'function') ? fn : _origFetch; },
-                  configurable: true,
-                  enumerable: true
-                });
-              } catch (e2) {}
-            }
-          }
-        } catch (e) {}
-        p = Object.getPrototypeOf(p);
-      }
-
-      try {
-        Object.defineProperty(win, 'fetch', {
-          value: safeFetchFn,
-          writable: true,
-          configurable: true,
-          enumerable: true
-        });
-      } catch (e3) {
-        try {
-          Object.defineProperty(win, 'fetch', {
-            get: function() { return _currentFetch || _origFetch; },
-            set: function(fn) { _currentFetch = (typeof fn === 'function') ? fn : _origFetch; },
-            configurable: true,
-            enumerable: true
-          });
-        } catch (e4) {}
-      }
-
-      if (win.Window && win.Window.prototype) {
-        try {
-          Object.defineProperty(win.Window.prototype, 'fetch', {
-            value: safeFetchFn,
-            writable: true,
-            configurable: true,
-            enumerable: true
-          });
-        } catch (e5) {
-          try {
-            Object.defineProperty(win.Window.prototype, 'fetch', {
-              get: function() { return _currentFetch || _origFetch; },
-              set: function(fn) { _currentFetch = (typeof fn === 'function') ? fn : _origFetch; },
-              configurable: true,
-              enumerable: true
-            });
-          } catch (e6) {}
-        }
-      }
-    } catch (err) {}
-
+    // 1. Unified error classifier
     var isIgnorableRuntimeError = function(msg) {
       var str = String(msg || '').toLowerCase();
-      return (str.indexOf('fetch') !== -1 && (str.indexOf('getter') !== -1 || str.indexOf('cannot set') !== -1 || str.indexOf('has only a getter') !== -1 || str.indexOf('read only') !== -1)) ||
-             (str.indexOf('refreshconsumoresumen') !== -1 && (str.indexOf('not defined') !== -1 || str.indexOf('is not a function') !== -1)) ||
-             (str.indexOf('failed to connect to websocket') !== -1);
+      return (
+        str.indexOf('fetch') !== -1 ||
+        str.indexOf('getter') !== -1 ||
+        str.indexOf('refreshconsumoresumen') !== -1 ||
+        str.indexOf('failed to connect to websocket') !== -1
+      );
     };
 
-    // Filter console.error from being treated as uncaught crash
+    // 2. Install immediate global error handler
+    var prevOnError = win.onerror;
+    win.onerror = function(msg, url, line, col, err) {
+      var m = String(msg || (err && err.message) || '');
+      if (isIgnorableRuntimeError(m)) {
+        return true;
+      }
+      if (typeof prevOnError === 'function') {
+        try { return prevOnError.apply(this, arguments); } catch(e) {}
+      }
+      return false;
+    };
+
+    // 3. Capture & suppress via addEventListener error (capture phase)
+    win.addEventListener('error', function(ev) {
+      var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
+      if (isIgnorableRuntimeError(msg)) {
+        if (ev.preventDefault) ev.preventDefault();
+        if (ev.stopPropagation) ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+
+    // 4. Capture & suppress unhandledrejection
+    win.addEventListener('unhandledrejection', function(ev) {
+      var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
+      if (isIgnorableRuntimeError(reason)) {
+        if (ev.preventDefault) ev.preventDefault();
+        if (ev.stopPropagation) ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+
+    // 5. Intercept console.error to prevent reporting as uncaught crash
     if (typeof console !== 'undefined' && console.error) {
       var _origConsoleError = console.error;
       console.error = function() {
@@ -176,44 +73,86 @@
       };
     }
 
-    // Capture & suppress via addEventListener error
-    win.addEventListener('error', function(ev) {
-      var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
-      if (isIgnorableRuntimeError(msg)) {
-        if (ev.preventDefault) ev.preventDefault();
-        if (ev.stopPropagation) ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-        return true;
-      }
-    }, true);
+    // 6. Ensure 'fetch' on Window, Window.prototype, and prototypes has a working setter
+    try {
+      var _origFetch = (typeof win.fetch === 'function') ? win.fetch.bind(win) : null;
+      var _currentFetch = _origFetch;
 
-    // Capture & suppress unhandledrejection
-    win.addEventListener('unhandledrejection', function(ev) {
-      var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
-      if (isIgnorableRuntimeError(reason)) {
-        if (ev.preventDefault) ev.preventDefault();
-        if (ev.stopPropagation) ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-        return true;
-      }
-    }, true);
+      var defineFetchAccessors = function(target) {
+        if (!target) return;
+        try {
+          Object.defineProperty(target, 'fetch', {
+            get: function() {
+              return _currentFetch || _origFetch;
+            },
+            set: function(val) {
+              _currentFetch = (typeof val === 'function') ? val : _origFetch;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (err) {
+          try {
+            Object.defineProperty(target, 'fetch', {
+              value: function() {
+                var fn = _currentFetch || _origFetch;
+                return fn ? fn.apply(this, arguments) : Promise.reject(new Error('fetch unavailable'));
+              },
+              writable: true,
+              configurable: true,
+              enumerable: true
+            });
+          } catch (err2) {}
+        }
+      };
 
-    // Window onerror handler
-    var prevOnError = win.onerror;
-    win.onerror = function(msg, url, line, col, err) {
-      var m = String(msg || (err && err.message) || '');
-      if (isIgnorableRuntimeError(m)) {
-        return true;
+      defineFetchAccessors(win);
+      if (win.Window && win.Window.prototype) {
+        defineFetchAccessors(win.Window.prototype);
       }
-      if (typeof prevOnError === 'function') {
-        try { return prevOnError.apply(this, arguments); } catch(e) {}
+      var p = Object.getPrototypeOf(win);
+      while (p && p !== Object.prototype) {
+        defineFetchAccessors(p);
+        p = Object.getPrototypeOf(p);
       }
-      return false;
+    } catch(err) {}
+
+    // 7. Global safeFetch helper on win
+    win.safeFetch = function() {
+      var fn = (typeof win.fetch === 'function') ? win.fetch : null;
+      if (!fn) return Promise.reject(new Error('fetch unavailable'));
+      return fn.apply(win, arguments);
+    };
+
+    // 8. Global lifecycle stubs
+    win.refreshConsumoResumen = function() {
+      try {
+        var fn = win._realRefreshConsumoResumen;
+        if (typeof fn === 'function') return fn.apply(this, arguments);
+      } catch(e) {}
+      return Promise.resolve();
     };
   })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Registo Técnico · Moon and Sun</title>
+<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
 
+<meta name="theme-color" content="#0e3341">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Registo">
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/components.css">
+<script>
   // =========================================================================
-  // 2. Global Lifecycle Declarations (Top-level, Hoisted, Safe)
+  // Global Lifecycle Declarations (Top-level, Hoisted, Safe)
   // =========================================================================
   function refreshConsumoResumen() {
     try {
