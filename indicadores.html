@@ -1,16 +1,115 @@
-<!DOCTYPE html>
-<html lang="pt-PT">
-<head>
-  <meta charset="UTF-8">
+<meta>
+  <meta>
+  <title>Comprobación de indicadores · Moon & Sun</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #123;
+    }
+    main {
+      max-width: 750px;
+      margin: auto;
+      padding: 24px;
+      background: white;
+      border: 2px solid #14b8a6;
+      border-radius: 12px;
+    }
+    h1 { color: #0e3341; }
+    p { line-height: 1.6; }
+    pre {
+      padding: 16px;
+      background: #e5f0f3;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    button, a {
+      display: inline-block;
+      margin: 8px 8px 8px 0;
+      padding: 12px;
+    }
+  </style>
 
 
-  <title>Indicadores & KPIs · Registo Técnico Moon and Sun</title>
+  <main>
+    Moon & Sun — PRUEBA 02
+    
+      Si ves este mensaje, el HTML de prueba se está mostrando.
+      Esta página solo consulta la copia local de los registros.
+    
 
+    El HTML está visible. Esperando JavaScript...
 
-  <link>
-  <link>
-  <link>
+    Comprobar registros
+    Abrir app principal
 
+    
+      Utiliza el mismo navegador y perfil donde inicias sesión
+      en la app. No borres los datos del navegador.
+    
+  </main>
+
+  <script>
+    function comprobar() {
+      var resultado = document.getElementById('resultado');
+
+      try {
+        var raw = localStorage.getItem('bitacora_store');
+
+        if (!raw) {
+          resultado.textContent =
+            'JavaScript funciona.\n\n' +
+            'No se encontró bitacora_store.\n' +
+            'Abre la app principal, inicia sesión y consulta sus registros.\n' +
+            'Después vuelve aquí y pulsa Comprobar registros.';
+          return;
+        }
+
+        var datos = JSON.parse(raw);
+
+        if (!datos || typeof datos !== 'object' || Array.isArray(datos)) {
+          throw new Error('El almacenamiento no tiene el formato esperado.');
+        }
+
+        var lineas = [
+          'JavaScript funciona.',
+          'Almacenamiento local accesible.',
+          ''
+        ];
+
+        ['general', 'quarto', 'temperatura'].forEach(function(tipo) {
+          var entrada = datos[tipo];
+
+          if (entrada == null) {
+            lineas.push(tipo + ': colección ausente');
+            return;
+          }
+
+          var registros = Array.isArray(entrada)
+            ? entrada
+            : entrada.items;
+
+          if (!Array.isArray(registros)) {
+            lineas.push(tipo + ': formato no reconocido');
+            return;
+          }
+
+          lineas.push(tipo + ': ' + registros.length + ' registros');
+        });
+
+        lineas.push('');
+        lineas.push('Estos recuentos no confirman actualización del servidor.');
+        resultado.textContent = lineas.join('\n');
+      } catch (error) {
+        resultado.textContent = 'Error de lectura: ' + error.message;
+      }
+    }
+
+    document.getElementById('actualizar').addEventListener('click', comprobar);
+    comprobar();
+  </script>
   <style>
     :root {
       --petrol-950:#071922;
