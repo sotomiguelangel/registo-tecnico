@@ -25,8 +25,8 @@ const CONFIG = Object.freeze({
   CACHE_MAX_AGE: 5 * 60_000,
 
   // Timeouts
-  API_TIMEOUT: 12_000,
-  SYNC_TIMEOUT: 16_000,
+  API_TIMEOUT: 35_000,
+  SYNC_TIMEOUT: 35_000,
 
   // Pagination and virtualization
   PAGE_SIZE: 50,

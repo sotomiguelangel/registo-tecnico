@@ -253,7 +253,7 @@
   (function() {
     if (typeof window !== 'undefined') {
       window.safeFetch = async function(url, opts, timeoutMs) {
-        timeoutMs = timeoutMs || 12000;
+        timeoutMs = timeoutMs || 35000;
         var fn = (typeof window !== 'undefined' && typeof window.fetch === 'function')
           ? window.fetch
           : (typeof fetch === 'function' ? fetch : null);
@@ -2080,7 +2080,7 @@
   function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
   function nowTimeStr(){ const d=new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 
-  async function safeFetch(url, opts, timeoutMs = 12000){ // 12 segundos por defeito
+  async function safeFetch(url, opts, timeoutMs = 35000){ // 35 segundos por defeito (resiliente a Google Apps Script)
     if (typeof window !== 'undefined' && typeof window.safeFetch === 'function' && window.safeFetch !== safeFetch) {
       return await window.safeFetch(url, opts, timeoutMs);
     }
@@ -2682,7 +2682,7 @@
       const url = new URL(API_URL);
       Object.keys(params).forEach(k=> url.searchParams.set(k, params[k]));
       const tk = getToken(); if(tk) url.searchParams.set('token', tk);
-      const res = await safeFetch(url.toString(), {}, 12000);
+      const res = await safeFetch(url.toString(), {}, 35000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -2706,7 +2706,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
-      }, 16000);
+      }, 35000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -2727,7 +2727,7 @@
     const controller = new AbortController();
     const timeout = setTimeout(function () {
       controller.abort();
-    }, 30000);
+    }, 40000);
 
     try {
       const response = await fetch(API_URL, {

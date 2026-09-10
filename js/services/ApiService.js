@@ -5,7 +5,7 @@
 class ApiService {
     constructor(config = {}) {
         this.apiUrl = config.apiUrl || (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : '');
-        this.timeout = config.timeout || (typeof CONFIG !== 'undefined' ? CONFIG.API_TIMEOUT : 12000);
+        this.timeout = config.timeout || (typeof CONFIG !== 'undefined' ? CONFIG.API_TIMEOUT : 35000);
         this.token = null;
         this.retryCount = 0;
         this.maxRetries = 3;

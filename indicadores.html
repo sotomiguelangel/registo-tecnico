@@ -89,7 +89,7 @@
 
       // 7. Global safeFetch helper on win
       win.safeFetch = async function(url, opts, timeoutMs) {
-        timeoutMs = timeoutMs || 12000;
+        timeoutMs = timeoutMs || 35000;
         var fn = (typeof win.fetch === 'function') ? win.fetch : null;
         if (!fn) throw new Error('Fetch não disponível.');
 
@@ -3616,7 +3616,7 @@
 
     function renderCalendar() {
       const now = new Date();
-      const first = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+      const first = new Date(now.getFullYear(), now.getMonth() + currentMonthOffset, 1);
       const year = first.getFullYear();
       const month = first.getMonth();
       const days = new Date(year, month + 1, 0).getDate();
@@ -3626,7 +3626,7 @@
 
       text('calendarTitle', ' · ' + first.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }));
       const nextBtn = $('nextMonth');
-      if (nextBtn) nextBtn.disabled = monthOffset >= 0;
+      if (nextBtn) nextBtn.disabled = currentMonthOffset >= 0;
 
       const host = $('calendar');
       if (!host) return;
@@ -4118,11 +4118,105 @@
       timer = seconds > 0 ? setInterval(load, seconds * 1000) : null;
     }
 
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
+    let isSyncing = false;
+
+    async function syncBackendData(showStatusNotice = false) {
+      if (isSyncing) return;
+      isSyncing = true;
+      const refBtn = $('refreshButton');
+      const prevHtml = refBtn ? refBtn.innerHTML : '';
+      if (refBtn) {
+        refBtn.disabled = true;
+        refBtn.innerHTML = '⏳ A sincronizar...';
+      }
+
+      try {
+        const fetchFn = (typeof window !== 'undefined' && typeof window.safeFetch === 'function')
+          ? window.safeFetch
+          : fetch;
+
+        let data = null;
+        // 1. Tentar obter via POST
+        try {
+          const res = await fetchFn(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'bootstrap' })
+          }, 35000);
+          if (res && res.ok) {
+            data = await res.json();
+          }
+        } catch (postErr) {
+          console.warn('POST bootstrap falhou, a tentar GET:', postErr);
+        }
+
+        // 2. Fallback via GET
+        if (!data || (!data.ok && !data.success)) {
+          try {
+            const getUrl = new URL(API_URL);
+            getUrl.searchParams.set('action', 'bootstrap');
+            const res = await fetchFn(getUrl.toString(), {}, 35000);
+            if (res && res.ok) {
+              data = await res.json();
+            }
+          } catch (getErr) {
+            console.warn('GET bootstrap falhou:', getErr);
+          }
+        }
+
+        if (data && (data.ok || data.success) && data.records) {
+          const rawStore = {
+            general: (data.records.general || []).map(d => ({ key: d.id, data: d })),
+            quarto: (data.records.quarto || []).map(d => ({ key: d.id, data: d })),
+            temperatura: (data.records.temperatura || []).map(d => ({ key: d.id, data: d }))
+          };
+          try {
+            localStorage.setItem('bitacora_store', JSON.stringify(rawStore));
+            if (data.config) {
+              if (data.config.tarifas) {
+                localStorage.setItem('bitacora_tarifas', typeof data.config.tarifas === 'string' ? data.config.tarifas : JSON.stringify(data.config.tarifas));
+              }
+              const bLines = {
+                aguaBaseline: data.config.baselineAgua ? (typeof data.config.baselineAgua === 'string' ? JSON.parse(data.config.baselineAgua) : data.config.baselineAgua) : null,
+                elecBaseline: data.config.baselineElectricidad ? (typeof data.config.baselineElectricidad === 'string' ? JSON.parse(data.config.baselineElectricidad) : data.config.baselineElectricidad) : null
+              };
+              localStorage.setItem('bitacora_baselines', JSON.stringify(bLines));
+            }
+          } catch(e) {}
+
+          loadTariffsOnce();
+          load();
+          setStatus(
+            'Sincronizado diretamente com a folha Google Sheets · ' + new Date().toLocaleTimeString('pt-PT'),
+            totals.general + ' registos gerais · ' +
+            totals.quarto + ' de quartos · ' +
+            totals.temperatura + ' de temperatura. Dados atualizados e consistentes.',
+            ''
+          );
+        } else {
+          load();
+          if (showStatusNotice) {
+            setStatus('Cópia local preservada', 'Não foi possível ligar à folha técnica neste momento. Os dados locais continuam ativos.', 'warning');
+          }
+        }
+      } catch (err) {
+        console.warn('Erro ao sincronizar backend:', err);
+        load();
+      } finally {
+        isSyncing = false;
+        if (refBtn) {
+          refBtn.disabled = false;
+          refBtn.innerHTML = prevHtml || '↻ Ler dados novamente';
+        }
+      }
+    }
+
     const addClick = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
     const addChange = (id, fn) => { const el = $(id); if (el) el.addEventListener('change', fn); };
     const addInput = (id, fn) => { const el = $(id); if (el) el.addEventListener('input', fn); };
 
-    addClick('refreshButton', load);
+    addClick('refreshButton', () => syncBackendData(true));
 
     addChange('period', () => {
       const p = $('period') ? $('period').value : 'month-current';
@@ -4243,10 +4337,15 @@
     addClick('nextMonth', stepNextMonth);
 
     window.addEventListener('storage', event => {
-      if (event.key === 'bitacora_store' || event.key === null) load();
+      if (event.key === 'bitacora_store' || event.key === 'bitacora_tarifas' || event.key === 'bitacora_baselines' || event.key === null) {
+        loadTariffsOnce();
+        load();
+      }
     });
 
-    window.addEventListener('focus', load);
+    window.addEventListener('focus', () => {
+      load();
+    });
 
     // Initial theme restoration
     try {
@@ -4260,6 +4359,7 @@
     loadTariffsOnce();
     load();
     resetTimer();
+    syncBackendData(false);
   })();
   </script>
 </body>
