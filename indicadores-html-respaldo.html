@@ -73,47 +73,17 @@
         };
       }
 
-      // 6. Ensure 'fetch' on Window, Window.prototype, and prototypes has a working setter
+      // 6. Ensure 'fetch' on Window is safely accessible without throwing on assignment
       try {
-        var _origFetch = (typeof win.fetch === 'function') ? win.fetch.bind(win) : null;
-        var _currentFetch = _origFetch;
-
-        var defineFetchAccessors = function(target) {
-          if (!target) return;
-          try {
-            Object.defineProperty(target, 'fetch', {
-              get: function() {
-                return _currentFetch || _origFetch;
-              },
-              set: function(val) {
-                _currentFetch = (typeof val === 'function') ? val : _origFetch;
-              },
-              configurable: true,
-              enumerable: true
-            });
-          } catch (err) {
-            try {
-              Object.defineProperty(target, 'fetch', {
-                value: function() {
-                  var fn = _currentFetch || _origFetch;
-                  return fn ? fn.apply(this, arguments) : Promise.reject(new Error('fetch unavailable'));
-                },
-                writable: true,
-                configurable: true,
-                enumerable: true
-              });
-            } catch (err2) {}
-          }
-        };
-
-        defineFetchAccessors(win);
-        if (win.Window && win.Window.prototype) {
-          defineFetchAccessors(win.Window.prototype);
-        }
-        var p = Object.getPrototypeOf(win);
-        while (p && p !== Object.prototype) {
-          defineFetchAccessors(p);
-          p = Object.getPrototypeOf(p);
+        var d = Object.getOwnPropertyDescriptor(win, 'fetch');
+        if (d && !d.writable && !d.set && d.configurable) {
+          var _orig = win.fetch;
+          Object.defineProperty(win, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            writable: true,
+            value: _orig
+          });
         }
       } catch(err) {}
 
