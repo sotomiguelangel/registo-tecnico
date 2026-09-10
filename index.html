@@ -2722,6 +2722,87 @@
     });
   }
 
+  // ---------- Comunicação e Autenticação Rápida em 2 Passos (Fast Login) ----------
+  async function llamarApi(payload) {
+    const controller = new AbortController();
+    const timeout = setTimeout(function () {
+      controller.abort();
+    }, 30000);
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify({
+          ...payload,
+          appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '3.3.0'
+        }),
+        signal: controller.signal
+      });
+
+      const result = await response.json();
+      return result;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async function iniciarSesion(usuario, pin) {
+    /*
+     * Primera solicitud: autenticar (Fast Login).
+     */
+    const login = await llamarApi({
+      action: 'login',
+      usuario: usuario,
+      pin: pin
+    });
+
+    if (!login || !login.ok) {
+      throw new Error(
+        (login && login.error) || 'No fue posible iniciar sesión'
+      );
+    }
+
+    try {
+      localStorage.setItem('sessionToken', login.token);
+      localStorage.setItem('sessionUser', JSON.stringify(login.user));
+    } catch(e) {}
+
+    setToken(login.token);
+    rememberUser(login.user);
+
+    /*
+     * En este momento ya puedes cerrar la pantalla
+     * de "Iniciando sesión" y mostrar "Cargando datos".
+     */
+    const hint = $('loginHint');
+    if (hint) hint.textContent = 'Sessão iniciada. A carregar dados...';
+
+    const bootstrap = await llamarApi({
+      action: 'bootstrap',
+      token: login.token
+    });
+
+    if (!bootstrap || !bootstrap.ok) {
+      throw new Error(
+        (bootstrap && bootstrap.error) || 'La sesión se inició, pero no fue posible cargar los datos'
+      );
+    }
+
+    return {
+      user: login.user,
+      token: login.token,
+      boot: bootstrap
+    };
+  }
+
+  if (typeof window !== 'undefined') {
+    window.llamarApi = llamarApi;
+    window.iniciarSesion = iniciarSesion;
+  }
+
   // ---------- Fila de Sincronização em Segundo Plano (Local-First / Resiliente) ----------
   const SYNC_QUEUE_KEY = 'bitacora_sync_queue';
   let syncQueue = [];
@@ -3242,9 +3323,11 @@
     if(!usuario || !pin){ $('loginHint').textContent = 'Escreva o seu utilizador e insira o PIN.'; return; }
     const btn = $('btnLogin'); setLoading(btn, true);
     try{
-      const r = await apiPost({ action:'login', usuario, pin });
-      setToken(r.token);
-      currentUser = r.user || {};
+      $('loginHint').textContent = 'A autenticar...';
+      const sesion = await iniciarSesion(usuario, pin);
+
+      setToken(sesion.token);
+      currentUser = sesion.user || {};
 
       // Compatibilidad: el backend puede usar "nome" o "nombre".
       if (!currentUser.nome && currentUser.nombre) {
@@ -3255,7 +3338,7 @@
       }
 
       rememberUser(currentUser);
-      if(r.boot) preloadedBoot = r.boot;
+      if(sesion.boot) preloadedBoot = sesion.boot;
       $('loginScreen').classList.remove('show');
       $('login-pin').value = '';
       sessionChecked = true;

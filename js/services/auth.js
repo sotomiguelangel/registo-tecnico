@@ -59,6 +59,21 @@ class AuthService {
                 const res = await api.login(username, pin);
                 if (res && res.ok && res.user) {
                     this.setUser(res.user, res.token || 'auth-token');
+                    if (typeof localStorage !== 'undefined') {
+                        try {
+                            localStorage.setItem('sessionToken', res.token || '');
+                            localStorage.setItem('sessionUser', JSON.stringify(res.user));
+                        } catch (e) {}
+                    }
+                    // 2-step login: fetch bootstrap data asynchronously
+                    if (api && typeof api.bootstrap === 'function') {
+                        try {
+                            const boot = await api.bootstrap();
+                            res.boot = boot;
+                        } catch (bErr) {
+                            console.warn('Bootstrap after login warning:', bErr);
+                        }
+                    }
                     return res.user;
                 }
             }
