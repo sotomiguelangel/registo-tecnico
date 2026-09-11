@@ -1232,37 +1232,16 @@
         <div id="rateSummary" class="small muted" style="margin-top:10px;"></div>
       </section>
 
-      <!-- Operational References and Calendar Grid -->
-      <div class="grid" id="operationsGrid">
-        <!-- Quality & Operational References -->
-        <section class="panel" id="qualitySection">
-          <h2>🧪 Leituras dentro das referências operacionais</h2>
-          <p class="small muted">Apenas medições numéricas disponíveis no período. Campos ausentes não entram no cálculo.</p>
-          <div id="qualitySummary" style="margin-top:14px;"></div>
-          <p class="small muted" style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
-            pH: 7,0–7,8 · Cloro livre: 0,5–3,0 ppm · Cloro total: 0–5,0 ppm.<br>
-            Confirmar a adequação destas referências com o responsável técnico.
-          </p>
-        </section>
-
-        <!-- General Records Calendar -->
-        <section class="panel" id="calendarSection">
-          <div class="panel-head">
-            <div>
-              <h2>📅 Dias com registo geral<span id="calendarTitle"></span></h2>
-            </div>
-            <div class="actions">
-              <button id="previousMonth" type="button" aria-label="Mês anterior">‹</button>
-              <button id="nextMonth" type="button" aria-label="Mês seguinte">›</button>
-            </div>
-          </div>
-          <div id="calendar" class="calendar"></div>
-          <div id="calendarNote" class="small muted" style="margin-top:12px;"></div>
-          <p class="small muted" style="margin-top:8px;">
-            Calendário independente do filtro superior. Uma data assinalada indica existência de registo, não preenchimento completo.
-          </p>
-        </section>
-      </div>
+      <!-- Quality & Operational References -->
+      <section class="panel" id="qualitySection">
+        <h2>🧪 Leituras dentro das referências operacionais</h2>
+        <p class="small muted">Apenas medições numéricas disponíveis no período. Campos ausentes não entram no cálculo.</p>
+        <div id="qualitySummary" style="margin-top:14px;"></div>
+        <p class="small muted" style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+          pH: 7,0–7,8 · Cloro livre: 0,5–3,0 ppm · Cloro total: 0–5,0 ppm.<br>
+          Confirmar a adequação destas referências com o responsável técnico.
+        </p>
+      </section>
 
       <!-- Equipment Table -->
       <section class="panel" id="equipmentSection">
@@ -1447,11 +1426,18 @@
       let s = value.trim();
       if (!s) return null;
 
-      // Acepta decimal con punto o coma, pero no interpreta
-      // separadores de miles ambiguos ni unidades incrustadas.
-      if (!/^[+-]?\d+(?:[.,]\d+)?$/.test(s)) return null;
+      // Remove any common unit or label suffix (m³, kWh, ppm, °C, etc.)
+      s = s.replace(/(?:m[³3]|kwh|ppm|°c|c|€)\b/gi, '').trim();
 
-      const n = Number(s.replace(',', '.'));
+      if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+        s = s.replace(/,/g, '');
+      } else {
+        s = s.replace(',', '.');
+      }
+
+      const n = parseFloat(s);
       return Number.isFinite(n) ? n : null;
     }
 
@@ -1782,7 +1768,23 @@
       };
     }
 
-    function computeConsumption(list) {
+    function computeConsumption(list, deltasList) {
+      if (Array.isArray(deltasList) && deltasList.length) {
+        return deltasList
+          .filter(r => !r.isBaseline && r.date && r.date <= dayKey(new Date()))
+          .map(r => ({
+            ...r,
+            water: (r.deltaAgua !== null && !isNaN(r.deltaAgua) && r.deltaAgua >= 0) ? r.deltaAgua : null,
+            energy: (r.deltaElec !== null && !isNaN(r.deltaElec) && r.deltaElec >= 0) ? r.deltaElec : null,
+            rawWater: field(r.data, FIELDS.water),
+            rawEnergy: field(r.data, FIELDS.energy),
+            issues: [
+              ...(r.deltaAgua !== null && r.deltaAgua < 0 ? ['water: consumo negativo ignorado'] : []),
+              ...(r.deltaElec !== null && r.deltaElec < 0 ? ['energy: consumo negativo ignorado'] : [])
+            ]
+          }));
+      }
+
       const previous = { water: null, energy: null };
 
       return list
@@ -3614,56 +3616,6 @@
       }
     }
 
-    function renderCalendar() {
-      const now = new Date();
-      const first = new Date(now.getFullYear(), now.getMonth() + currentMonthOffset, 1);
-      const year = first.getFullYear();
-      const month = first.getMonth();
-      const days = new Date(year, month + 1, 0).getDate();
-      const prefix = dayKey(first).slice(0, 7);
-      const today = dayKey(now);
-      const recorded = new Set(records.general.map(r => r.date).filter(Boolean));
-
-      text('calendarTitle', ' · ' + first.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' }));
-      const nextBtn = $('nextMonth');
-      if (nextBtn) nextBtn.disabled = currentMonthOffset >= 0;
-
-      const host = $('calendar');
-      if (!host) return;
-      host.replaceChildren();
-
-      ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].forEach(name => {
-        const div = document.createElement('div');
-        div.className = 'weekday';
-        div.textContent = name;
-        host.appendChild(div);
-      });
-
-      const offset = (first.getDay() + 6) % 7;
-      for (let i = 0; i < offset; i++) host.appendChild(document.createElement('div'));
-
-      let eligible = 0, covered = 0;
-
-      for (let d = 1; d <= days; d++) {
-        const key = prefix + '-' + String(d).padStart(2, '0');
-        const future = key > today;
-        const has = recorded.has(key);
-        if (!future) {
-          eligible++;
-          if (has) covered++;
-        }
-
-        const div = document.createElement('div');
-        div.className = 'day' + (future ? ' future' : has ? ' recorded' : '');
-        div.textContent = d;
-        div.title = key + ': ' + (future ? 'Futuro' : has ? 'Com registo' : 'Sem registo na cópia local');
-        host.appendChild(div);
-      }
-
-      text('calendarNote', covered + ' de ' + eligible +
-        ' dias decorridos com registo geral na cópia local.');
-    }
-
     function recordSummary(record) {
       const d = record && record.data ? record.data : {};
       const parts = [];
@@ -3936,7 +3888,6 @@
       renderQuality(filtered.general, filtered.temperatura);
       renderEquipment(filtered.temperatura);
       renderTable(filtered);
-      renderCalendar();
       renderNotes();
     }
 
@@ -4046,6 +3997,26 @@
           if (rawBaselines) {
             baselines = JSON.parse(rawBaselines) || { aguaBaseline: null, elecBaseline: null };
           }
+          if (!baselines.aguaBaseline || !baselines.elecBaseline) {
+            const rawConfig = localStorage.getItem('bitacora_config');
+            if (rawConfig) {
+              const cfg = JSON.parse(rawConfig);
+              let aBl = baselines.aguaBaseline, eBl = baselines.elecBaseline;
+              if (!aBl && cfg.baselineAgua) {
+                try {
+                  const p = typeof cfg.baselineAgua === 'string' ? JSON.parse(cfg.baselineAgua) : cfg.baselineAgua;
+                  if (p && p.valor !== '' && p.fecha) aBl = p;
+                } catch(e) {}
+              }
+              if (!eBl && cfg.baselineElectricidad) {
+                try {
+                  const p = typeof cfg.baselineElectricidad === 'string' ? JSON.parse(cfg.baselineElectricidad) : cfg.baselineElectricidad;
+                  if (p && p.valor !== '' && p.fecha) eBl = p;
+                } catch(e) {}
+              }
+              baselines = { aguaBaseline: aBl, elecBaseline: eBl };
+            }
+          }
         } catch(e) {}
 
         malformed = 0;
@@ -4054,7 +4025,7 @@
         TYPES.forEach(type => next[type] = readType(parsed, type));
         records = next;
         genWithDeltas = buildGenWithDeltas(records.general);
-        consumptions = computeConsumption(records.general);
+        consumptions = computeConsumption(records.general, genWithDeltas);
 
         const count = TYPES.reduce((sum, type) => sum + records[type].length, 0);
         validStore = true;
@@ -4090,10 +4061,19 @@
 
     function loadTariffsOnce() {
       try {
-        const raw = localStorage.getItem('bitacora_tarifas');
-        if (!raw) return;
+        let raw = localStorage.getItem('bitacora_tarifas');
+        let rates = raw ? JSON.parse(raw) : null;
+        if (!rates || rates.agua === undefined || rates.elec === undefined) {
+          const rawCfg = localStorage.getItem('bitacora_config');
+          if (rawCfg) {
+            const cfg = JSON.parse(rawCfg);
+            rates = rates || {};
+            if (rates.agua === undefined && cfg.tarifaAgua) rates.agua = parseFloat(cfg.tarifaAgua);
+            if (rates.elec === undefined && cfg.tarifaElectricidad) rates.elec = parseFloat(cfg.tarifaElectricidad);
+          }
+        }
+        if (!rates) return;
 
-        const rates = JSON.parse(raw);
         const water = numeric(rates && rates.agua);
         const energy = numeric(rates && rates.elec);
 
@@ -4101,7 +4081,7 @@
         const eInput = $('energyRate');
         if (wInput && water !== null && water >= 0) wInput.value = water;
         if (eInput && energy !== null && energy >= 0) eInput.value = energy;
-        tariffMessage = 'Valores iniciais lidos de bitacora_tarifas; confirme-os.';
+        tariffMessage = 'Tarifas sincronizadas com as configurações da aplicação principal.';
       } catch (error) {
         tariffMessage = 'Não foi possível ler as tarifas locais; introduza-as manualmente.';
       }
@@ -4136,13 +4116,16 @@
           ? window.safeFetch
           : fetch;
 
+        const token = localStorage.getItem('bitacora_token') || localStorage.getItem('sessionToken') || '';
         let data = null;
         // 1. Tentar obter via POST
         try {
+          const bodyPayload = { action: 'bootstrap' };
+          if (token) bodyPayload.token = token;
           const res = await fetchFn(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'bootstrap' })
+            body: JSON.stringify(bodyPayload)
           }, 35000);
           if (res && res.ok) {
             data = await res.json();
@@ -4156,6 +4139,7 @@
           try {
             const getUrl = new URL(API_URL);
             getUrl.searchParams.set('action', 'bootstrap');
+            if (token) getUrl.searchParams.set('token', token);
             const res = await fetchFn(getUrl.toString(), {}, 35000);
             if (res && res.ok) {
               data = await res.json();
@@ -4174,8 +4158,11 @@
           try {
             localStorage.setItem('bitacora_store', JSON.stringify(rawStore));
             if (data.config) {
-              if (data.config.tarifas) {
-                localStorage.setItem('bitacora_tarifas', typeof data.config.tarifas === 'string' ? data.config.tarifas : JSON.stringify(data.config.tarifas));
+              localStorage.setItem('bitacora_config', JSON.stringify(data.config));
+              const tAgua = data.config.tarifaAgua ? parseFloat(data.config.tarifaAgua) : null;
+              const tElec = data.config.tarifaElectricidad ? parseFloat(data.config.tarifaElectricidad) : null;
+              if (tAgua !== null || tElec !== null) {
+                localStorage.setItem('bitacora_tarifas', JSON.stringify({ agua: tAgua || 2.15, elec: tElec || 0.185 }));
               }
               const bLines = {
                 aguaBaseline: data.config.baselineAgua ? (typeof data.config.baselineAgua === 'string' ? JSON.parse(data.config.baselineAgua) : data.config.baselineAgua) : null,
@@ -4332,9 +4319,6 @@
       try { localStorage.setItem('bitacora_kpi_theme', dark ? 'dark' : 'light'); } catch(e) {}
       text('themeButton', dark ? 'Modo claro' : 'Modo noturno');
     });
-
-    addClick('previousMonth', stepPrevMonth);
-    addClick('nextMonth', stepNextMonth);
 
     window.addEventListener('storage', event => {
       if (event.key === 'bitacora_store' || event.key === 'bitacora_tarifas' || event.key === 'bitacora_baselines' || event.key === null) {

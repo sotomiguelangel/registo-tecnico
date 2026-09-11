@@ -1358,19 +1358,11 @@
     <button data-view="reportes">Relatórios</button>
     <button data-view="usuarios" id="navUsuarios" style="display:none">Utilizadores</button>
     <button data-view="importar" id="navImportar">Importar</button>
-    <a href="/indicadores.html" target="_blank" rel="noopener" class="tab-link-kpi" id="tabLinkKpiPage" title="Abrir página independente de Indicadores e KPIs">📊 Monitor de KPIs ↗</a>
   </nav>
 
   <main id="main-content">
 
     <section class="view" id="view-dashboard">
-      <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; background:var(--petrol-50, #f0f7f9); border:1px solid rgba(14,51,65,0.15); border-radius:10px; padding:12px 16px;">
-        <div>
-          <strong style="color:var(--petrol-900); font-size:13px;">🖥️ Prefere visualizar todos os gráficos e indicadores numa página separada / ecrã inteiro?</strong>
-          <div style="color:var(--ink-600); font-size:12px; margin-top:2px;">Criámos um monitor dedicado e independente com auto-atualização para wallboards e tablets.</div>
-        </div>
-        <a href="/indicadores.html" target="_blank" rel="noopener" style="display:inline-flex; align-items:center; gap:6px; background:var(--petrol-900); color:#fff; text-decoration:none; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:700; white-space:nowrap;">Abrir Monitor de KPIs ↗</a>
-      </div>
       <p class="section-title">Painel operacional</p>
       <p class="dashboard-period" id="dashboardPeriod">A carregar indicadores…</p>
       <button class="primary" id="btnRefreshDashboard" style="margin-bottom:16px"><span class="spinner"></span><span class="lbl-text">Atualizar painel</span></button>
@@ -3121,6 +3113,50 @@
   const configStore = {};
   let configSnapshotLoadedAt = 0;
 
+  function persistConfig(){
+    try{
+      const plainConfig = {};
+      Object.keys(configStore).forEach(k=>{
+        plainConfig[k] = configStore[k] ? configStore[k].value : null;
+      });
+      localStorage.setItem('bitacora_config', JSON.stringify(plainConfig));
+
+      let aguaBaseline = null, elecBaseline = null;
+      if(plainConfig.baselineAgua){
+        try{
+          const p = typeof plainConfig.baselineAgua === 'string' ? JSON.parse(plainConfig.baselineAgua) : plainConfig.baselineAgua;
+          if(p && p.valor !== '' && p.fecha) aguaBaseline = p;
+        }catch(e){}
+      }
+      if(plainConfig.baselineElectricidad){
+        try{
+          const p = typeof plainConfig.baselineElectricidad === 'string' ? JSON.parse(plainConfig.baselineElectricidad) : plainConfig.baselineElectricidad;
+          if(p && p.valor !== '' && p.fecha) elecBaseline = p;
+        }catch(e){}
+      }
+      localStorage.setItem('bitacora_baselines', JSON.stringify({ aguaBaseline, elecBaseline }));
+
+      const tAgua = plainConfig.tarifaAgua !== undefined && plainConfig.tarifaAgua !== null ? parseFloat(plainConfig.tarifaAgua) : 2.15;
+      const tElec = plainConfig.tarifaElectricidad !== undefined && plainConfig.tarifaElectricidad !== null ? parseFloat(plainConfig.tarifaElectricidad) : 0.185;
+      localStorage.setItem('bitacora_tarifas', JSON.stringify({ agua: isNaN(tAgua) ? 2.15 : tAgua, elec: isNaN(tElec) ? 0.185 : tElec }));
+    }catch(e){}
+  }
+
+  function restoreConfigFromStorage(){
+    try{
+      const raw = localStorage.getItem('bitacora_config');
+      if(raw){
+        const parsed = JSON.parse(raw);
+        Object.keys(parsed || {}).forEach(k=>{
+          if(!configStore[k]){
+            configStore[k] = { value: parsed[k], ts: Date.now() };
+          }
+        });
+      }
+    }catch(e){}
+  }
+  restoreConfigFromStorage();
+
   async function loadConfigSnapshot(){
     if(Date.now() - configSnapshotLoadedAt < CONFIG_TTL_MS) return;
     try{
@@ -3129,6 +3165,7 @@
         configStore[k] = { value:r.config[k], ts:Date.now() };
       });
       configSnapshotLoadedAt = Date.now();
+      persistConfig();
     }catch(e){}
   }
 
@@ -3137,6 +3174,7 @@
     if(c && (Date.now() - c.ts) < CONFIG_TTL_MS) return c.value;
     const r = await apiGet({ action:'getConfig', key });
     configStore[key] = { value:r.value, ts:Date.now() };
+    persistConfig();
     return r.value;
   }
   function invalidateConfig(key){
@@ -7451,6 +7489,9 @@
       const v = await getConfigCached('baselineElectricidad');
       if(v){ const p = JSON.parse(v); if(p && p.valor !== '' && p.fecha) elecBaseline = p; }
     }catch(e){}
+    try{
+      localStorage.setItem('bitacora_baselines', JSON.stringify({ aguaBaseline, elecBaseline }));
+    }catch(e){}
     return { aguaBaseline, elecBaseline };
   }
 
@@ -11678,6 +11719,7 @@
     let agua = null, elec = null;
     try{ const v = await getConfigCached('tarifaAgua'); if(v!==null && v!==undefined && String(v).trim()!==''){ const n = parseFloat(v); if(!isNaN(n) && n>0) agua = n; } }catch(e){}
     try{ const v = await getConfigCached('tarifaElectricidad'); if(v!==null && v!==undefined && String(v).trim()!==''){ const n = parseFloat(v); if(!isNaN(n) && n>0) elec = n; } }catch(e){}
+    try{ localStorage.setItem('bitacora_tarifas', JSON.stringify({ agua: agua || 2.15, elec: elec || 0.185 })); }catch(e){}
     return { agua, elec };
   }
 
