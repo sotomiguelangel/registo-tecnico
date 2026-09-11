@@ -73,17 +73,43 @@
         };
       }
 
-      // 6. Ensure 'fetch' on Window is safely accessible without throwing on assignment
+      // 6. Ensure 'fetch' on Window is safely accessible and assignable without throwing
       try {
-        var d = Object.getOwnPropertyDescriptor(win, 'fetch');
-        if (d && !d.writable && !d.set && d.configurable) {
-          var _orig = win.fetch;
-          Object.defineProperty(win, 'fetch', {
-            configurable: true,
-            enumerable: true,
-            writable: true,
-            value: _orig
-          });
+        var _origFetch = win.fetch;
+        var _fetchVal = (typeof _origFetch === 'function') ? function() {
+          return _origFetch.apply(win, arguments);
+        } : _origFetch;
+
+        var _installFetchAccessor = function(target) {
+          if (!target) return;
+          try {
+            var d = Object.getOwnPropertyDescriptor(target, 'fetch');
+            if (!d || d.configurable) {
+              Object.defineProperty(target, 'fetch', {
+                get: function() {
+                  return _fetchVal;
+                },
+                set: function(fn) {
+                  _fetchVal = fn;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch(e) {}
+        };
+
+        _installFetchAccessor(win);
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          _installFetchAccessor(Window.prototype);
+        }
+        var proto = Object.getPrototypeOf ? Object.getPrototypeOf(win) : win.__proto__;
+        while (proto && proto !== Object.prototype) {
+          _installFetchAccessor(proto);
+          proto = Object.getPrototypeOf ? Object.getPrototypeOf(proto) : proto.__proto__;
+        }
+        if (typeof globalThis !== 'undefined' && globalThis !== win) {
+          _installFetchAccessor(globalThis);
         }
       } catch(err) {}
 
@@ -809,6 +835,232 @@
     font-size: 0.75rem;
     color: var(--muted);
     margin-top: 6px;
+  }
+
+  /* Matriz de Decisões & Ações Prioritárias */
+  .exec-matrix-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 3px 12px -4px rgba(10, 37, 48, 0.07);
+  }
+  .exec-matrix-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--brand);
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  :root[data-theme="dark"] .exec-matrix-title {
+    color: var(--text);
+  }
+  .exec-action-item {
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    border-left: 5px solid;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .exec-action-item:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Critical (Coral / Red) */
+  .exec-action-item.crit {
+    background: #fbe6da;
+    border-color: #e0602b;
+    color: #8b3d1d;
+  }
+  .exec-action-item.crit .exec-action-head > span:first-child {
+    color: #8b2500;
+  }
+  .exec-action-item.crit .exec-action-tag {
+    background: #e0602b;
+    color: #ffffff;
+  }
+  .exec-action-item.crit .exec-action-body {
+    color: #4c6570;
+  }
+  .exec-action-item.crit .exec-action-rec {
+    color: #8b3d1d;
+  }
+
+  /* Warning (Amber / Gold) */
+  .exec-action-item.warn {
+    background: #fbf0d9;
+    border-color: #e0a12b;
+    color: #8a5f0f;
+  }
+  .exec-action-item.warn .exec-action-head > span:first-child {
+    color: #8a5f0f;
+  }
+  .exec-action-item.warn .exec-action-tag {
+    background: #e0a12b;
+    color: #ffffff;
+  }
+  .exec-action-item.warn .exec-action-body {
+    color: #4c6570;
+  }
+  .exec-action-item.warn .exec-action-rec {
+    color: #8a5f0f;
+  }
+
+  /* Info (Teal / Petrol) */
+  .exec-action-item.info {
+    background: #e3f7f5;
+    border-color: #1b5568;
+    color: #0e3341;
+  }
+  .exec-action-item.info .exec-action-head > span:first-child {
+    color: #0e3341;
+  }
+  .exec-action-item.info .exec-action-tag {
+    background: #1b5568;
+    color: #ffffff;
+  }
+  .exec-action-item.info .exec-action-body {
+    color: #4c6570;
+  }
+  .exec-action-item.info .exec-action-rec {
+    color: #0e3341;
+  }
+
+  /* Ok (Green) */
+  .exec-action-item.ok {
+    background: #e1f3e9;
+    border-color: #3ea472;
+    color: #28704b;
+  }
+  .exec-action-item.ok .exec-action-head > span:first-child {
+    color: #1e5e3a;
+  }
+  .exec-action-item.ok .exec-action-tag {
+    background: #3ea472;
+    color: #ffffff;
+  }
+  .exec-action-item.ok .exec-action-body {
+    color: #4c6570;
+  }
+  .exec-action-item.ok .exec-action-rec {
+    color: #1e5e3a;
+  }
+
+  /* Dark theme overrides */
+  :root[data-theme="dark"] .exec-action-item.crit {
+    background: rgba(224, 96, 43, 0.16);
+    border-color: #f87171;
+    color: #fca5a5;
+  }
+  :root[data-theme="dark"] .exec-action-item.crit .exec-action-head > span:first-child {
+    color: #fca5a5;
+  }
+  :root[data-theme="dark"] .exec-action-item.crit .exec-action-tag {
+    background: #dc2626;
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .exec-action-item.crit .exec-action-body {
+    color: #fed7aa;
+  }
+  :root[data-theme="dark"] .exec-action-item.crit .exec-action-rec {
+    color: #fca5a5;
+  }
+
+  :root[data-theme="dark"] .exec-action-item.warn {
+    background: rgba(224, 161, 43, 0.16);
+    border-color: #fbbf24;
+    color: #fde68a;
+  }
+  :root[data-theme="dark"] .exec-action-item.warn .exec-action-head > span:first-child {
+    color: #fde68a;
+  }
+  :root[data-theme="dark"] .exec-action-item.warn .exec-action-tag {
+    background: #d97706;
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .exec-action-item.warn .exec-action-body {
+    color: #fef08a;
+  }
+  :root[data-theme="dark"] .exec-action-item.warn .exec-action-rec {
+    color: #fde68a;
+  }
+
+  :root[data-theme="dark"] .exec-action-item.info {
+    background: rgba(34, 184, 176, 0.16);
+    border-color: #2dd4bf;
+    color: #99f6e4;
+  }
+  :root[data-theme="dark"] .exec-action-item.info .exec-action-head > span:first-child {
+    color: #99f6e4;
+  }
+  :root[data-theme="dark"] .exec-action-item.info .exec-action-tag {
+    background: #0f766e;
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .exec-action-item.info .exec-action-body {
+    color: #ccfbf1;
+  }
+  :root[data-theme="dark"] .exec-action-item.info .exec-action-rec {
+    color: #99f6e4;
+  }
+
+  :root[data-theme="dark"] .exec-action-item.ok {
+    background: rgba(62, 164, 114, 0.16);
+    border-color: #4ade80;
+    color: #bbf7d0;
+  }
+  :root[data-theme="dark"] .exec-action-item.ok .exec-action-head > span:first-child {
+    color: #bbf7d0;
+  }
+  :root[data-theme="dark"] .exec-action-item.ok .exec-action-tag {
+    background: #16a34a;
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .exec-action-item.ok .exec-action-body {
+    color: #dcfce7;
+  }
+  :root[data-theme="dark"] .exec-action-item.ok .exec-action-rec {
+    color: #bbf7d0;
+  }
+
+  .exec-action-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .exec-action-head > span:first-child {
+    flex: 1;
+  }
+  .exec-action-tag {
+    font-family: ui-monospace, 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.2;
+  }
+  .exec-action-body {
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .exec-action-rec {
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    margin-top: 2px;
   }
 
   /* Heatmap Compliance Calendar */
@@ -1995,10 +2247,10 @@
       const actionItems = [];
       if (minAqsRetorno !== null && minAqsRetorno < DASH_THRESHOLDS.aqsMin) {
         actionItems.push({
-          type: 'crit', tag: 'AQS · Prevenção Legionella',
-          title: `Retorno AQS abaixo do limite regulamentar (${minAqsRetorno.toFixed(1)}°C < ${DASH_THRESHOLDS.aqsMin.toFixed(1)}°C)`,
+          type: 'crit', tag: 'AQS · Risco Legionella',
+          title: `Retorno AQS abaixo do limite legal (${minAqsRetorno.toFixed(1)}°C < ${DASH_THRESHOLDS.aqsMin.toFixed(1)}°C)`,
           desc: 'A temperatura de retorno da água quente sanitária está abaixo do patamar de segurança preventiva contra Legionella.',
-          rec: '👉 Ação executiva: Verificar caldeiras, queimadores e bombas de recirculação imediata com a equipa técnica.'
+          rec: '👉 Ação executiva: Verificar caldeiras, queima e bombas de recirculação imediata com a equipa técnica.'
         });
       }
       if (minAqsQuartos !== null && minAqsQuartos < DASH_THRESHOLDS.aqsQuartosMin) {
@@ -2006,13 +2258,13 @@
           type: 'warn', tag: 'AQS · Conforto & Higiene',
           title: `AQS dos quartos registou mínimo de ${minAqsQuartos.toFixed(1)}°C (< ${DASH_THRESHOLDS.aqsQuartosMin.toFixed(1)}°C)`,
           desc: 'Pelo menos uma leitura de água quente nos quartos ficou abaixo do limiar de conforto térmico.',
-          rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica das prumadas dos pisos.'
+          rec: '👉 Ação executiva: Purgar ramais terminais e avaliar equilibragem hidráulica dos pisos.'
         });
       }
       if (poolTotal > 0 && poolOk < poolTotal) {
         actionItems.push({
-          type: 'warn', tag: 'Piscina · Qualidade da Água',
-          title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no período`,
+          type: 'warn', tag: 'Qualidade da Água · Piscina',
+          title: `${poolTotal - poolOk} registo(s) com desvio de pH ou Cloro no mês`,
           desc: `Foram registados valores fora do intervalo regulamentar (pH ${DASH_THRESHOLDS.phMin}–${DASH_THRESHOLDS.phMax} ou Cloro ${DASH_THRESHOLDS.cloroMin}–${DASH_THRESHOLDS.cloroMax} ppm).`,
           rec: '👉 Ação executiva: Calibrar sondas dos doseadores automáticos e repor níveis de corretor de pH/cloro.'
         });
@@ -2022,16 +2274,16 @@
         actionItems.push({
           type: 'crit', tag: 'HACCP · Cadeia de Frio',
           title: `${tempBad7.length} leitura(s) fora do intervalo seguro no período selecionado`,
-          desc: `Equipamentos com desvio: ${equipNomes}. Risco de conservação e conformidade alimentar.`,
+          desc: `Equipamentos com desvio: ${equipNomes}. Risco de conservação e segurança alimentar.`,
           rec: '👉 Ação executiva: Inspecionar vedantes de portas, condensadores e agendar manutenção corretiva.'
         });
       }
       if (pending > 0) {
         actionItems.push({
           type: pending > 15 ? 'warn' : 'info', tag: 'Manutenção de Quartos',
-          title: `Ciclo de quartos a ${roomsPct}% (${done}/${totalRooms} inspecionados)`,
-          desc: `Faltam ${pending} quartos para completar a amostragem do ciclo trimestral.`,
-          rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} rondas adicionais.`
+          title: `Ciclo de quartos a ${roomsPct}% (${done}/${totalRooms} concluídos)`,
+          desc: `Faltam ${pending} quartos para completar a amostragem trimestral de cloro e pH.`,
+          rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} turnos adicionais.`
         });
       }
       if (comp.pct < 90) {
@@ -2044,10 +2296,10 @@
       }
       if (!actionItems.length) {
         actionItems.push({
-          type: 'info', tag: 'Status Geral',
-          title: 'Todos os indicadores operacionais em conformidade',
-          desc: 'Não foram detetados desvios nos registos técnicos do período avaliado.',
-          rec: '👉 Manter plano de rondas preventivas programadas.'
+          type: 'ok', tag: 'Operação 100% Conforme',
+          title: 'Todas as instalações e sistemas em parâmetros nominais',
+          desc: 'AQS, Piscinas, Refrigeração, Quartos e Consumos encontram-se dentro de todas as tolerâncias regulamentares e orçamentais.',
+          rec: '✓ Nenhuma intervenção corretiva urgente necessária de momento.'
         });
       }
 
@@ -2300,7 +2552,9 @@
           </div>
 
           <div class="exec-matrix-card">
-            <h3 class="exec-matrix-title">🎯 Matriz de Decisão & Ações Prioritárias</h3>
+            <h3 class="exec-matrix-title">
+              <span>🎯 Matriz de Decisão & Ações Prioritárias</span>
+            </h3>
             ${d.actionItems.map(item => `
               <div class="exec-action-item ${item.type}">
                 <div class="exec-action-head">

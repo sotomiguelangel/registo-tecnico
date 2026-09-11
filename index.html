@@ -73,25 +73,65 @@
       };
     }
 
-    // 6. Ensure 'fetch' on Window is safely accessible without throwing on assignment
+    // 6. Ensure 'fetch' on Window is safely accessible and assignable without throwing
     try {
-      var d = Object.getOwnPropertyDescriptor(win, 'fetch');
-      if (d && !d.writable && !d.set && d.configurable) {
-        var _orig = win.fetch;
-        Object.defineProperty(win, 'fetch', {
-          configurable: true,
-          enumerable: true,
-          writable: true,
-          value: _orig
-        });
+      var _origFetch = win.fetch;
+      var _fetchVal = (typeof _origFetch === 'function') ? function() {
+        return _origFetch.apply(win, arguments);
+      } : _origFetch;
+
+      var _installFetchAccessor = function(target) {
+        if (!target) return;
+        try {
+          var d = Object.getOwnPropertyDescriptor(target, 'fetch');
+          if (!d || d.configurable) {
+            Object.defineProperty(target, 'fetch', {
+              get: function() {
+                return _fetchVal;
+              },
+              set: function(fn) {
+                _fetchVal = fn;
+              },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch(e) {}
+      };
+
+      _installFetchAccessor(win);
+      if (typeof Window !== 'undefined' && Window.prototype) {
+        _installFetchAccessor(Window.prototype);
+      }
+      var proto = Object.getPrototypeOf ? Object.getPrototypeOf(win) : win.__proto__;
+      while (proto && proto !== Object.prototype) {
+        _installFetchAccessor(proto);
+        proto = Object.getPrototypeOf ? Object.getPrototypeOf(proto) : proto.__proto__;
+      }
+      if (typeof globalThis !== 'undefined' && globalThis !== win) {
+        _installFetchAccessor(globalThis);
       }
     } catch(err) {}
 
     // 7. Global safeFetch helper on win
-    win.safeFetch = function() {
+    win.safeFetch = async function(url, opts, timeoutMs) {
+      timeoutMs = timeoutMs || 35000;
       var fn = (typeof win.fetch === 'function') ? win.fetch : null;
-      if (!fn) return Promise.reject(new Error('fetch unavailable'));
-      return fn.apply(win, arguments);
+      if (!fn) throw new Error('Fetch não disponível.');
+
+      if (opts && opts.signal) {
+        return await fn.call(win, url, opts);
+      }
+      var controller = new AbortController();
+      var timer = setTimeout(function() {
+        controller.abort(new Error('Tempo limite excedido (' + Math.round(timeoutMs / 1000) + 's)'));
+      }, timeoutMs);
+      try {
+        var mergedOpts = Object.assign({}, opts, { signal: controller.signal });
+        return await fn.call(win, url, mergedOpts);
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     // 8. Global lifecycle stubs
