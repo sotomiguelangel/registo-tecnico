@@ -708,8 +708,12 @@
     border:5px solid var(--ok-500); background:#fbfcfc;
   }
   .exec-score-circle.status-good{ border-color:var(--aqua-500); }
+  .exec-score-circle.status-good .exec-score-number{ color:var(--aqua-500); }
   .exec-score-circle.status-warn{ border-color:var(--amber-500); }
+  .exec-score-circle.status-warn .exec-score-number{ color:var(--amber-500); }
   .exec-score-circle.status-bad{ border-color:var(--coral-500); }
+  .exec-score-circle.status-bad .exec-score-number{ color:var(--coral-500); }
+  .exec-score-circle.status-exc .exec-score-number{ color:var(--ok-500); }
   .exec-score-circle.status-zero{ border-color:#cbd5e1; background:#f8fafc; }
   .exec-score-circle.status-zero .exec-score-number{ color:#64748b; }
   .exec-score-number{ font-family:var(--mono); font-size:22px; font-weight:800; color:var(--petrol-900); line-height:1; }
@@ -719,12 +723,46 @@
   .exec-score-desc{ font-size:12px; color:var(--ink-600); line-height:1.45; }
 
   .exec-pillars-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .exec-pillar-item{ background:#fbfcfc; border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
-  .exec-pillar-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; font-size:11.5px; font-weight:700; color:var(--petrol-900); }
-  .exec-pillar-val{ font-family:var(--mono); font-size:11.5px; font-weight:700; }
-  .exec-pillar-bar{ height:5px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .exec-pillar-item{
+    background:#fbfcfc; border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+    display:flex; flex-direction:column; justify-content:space-between; transition:all .2s ease;
+  }
+  .exec-pillar-item.status-bad {
+    border-color: rgba(224, 96, 43, 0.45);
+    background: linear-gradient(180deg, rgba(251, 230, 218, 0.4) 0%, #ffffff 100%);
+    box-shadow: 0 2px 8px -2px rgba(224, 96, 43, 0.15);
+  }
+  .exec-pillar-item.status-warn {
+    border-color: rgba(224, 161, 43, 0.45);
+    background: linear-gradient(180deg, rgba(251, 240, 217, 0.4) 0%, #ffffff 100%);
+    box-shadow: 0 2px 8px -2px rgba(224, 161, 43, 0.12);
+  }
+  .exec-pillar-item.status-ok {
+    border-color: rgba(62, 164, 114, 0.35);
+    background: linear-gradient(180deg, rgba(225, 243, 233, 0.3) 0%, #ffffff 100%);
+  }
+  .exec-pillar-item.status-zero {
+    border-color: var(--line);
+    background: #f8fafc;
+  }
+  .exec-pillar-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:11.5px; font-weight:700; color:var(--petrol-900); }
+  .exec-pillar-title{ display:inline-flex; align-items:center; gap:4px; font-weight:700; color:var(--petrol-900); }
+  .exec-pillar-val-wrap{ display:inline-flex; align-items:center; gap:5px; }
+  .exec-pillar-tag{
+    font-family:var(--mono); font-size:9px; font-weight:700; padding:2px 5px; border-radius:4px;
+    letter-spacing:.02em; text-transform:uppercase; white-space:nowrap;
+  }
+  .exec-pillar-tag.bad { background:var(--coral-100); color:var(--coral-500); border:1px solid rgba(224,96,43,.3); }
+  .exec-pillar-tag.warn { background:var(--amber-100); color:#92400e; border:1px solid rgba(224,161,43,.35); }
+  .exec-pillar-tag.ok { background:var(--ok-100); color:#166534; border:1px solid rgba(62,164,114,.35); }
+  .exec-pillar-tag.zero { background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; }
+
+  .exec-pillar-val{ font-family:var(--mono); font-size:12px; font-weight:800; }
+  .exec-pillar-bar{ height:6px; background:#e8eeee; border-radius:4px; overflow:hidden; }
   .exec-pillar-fill{ height:100%; border-radius:4px; transition:width .4s ease; }
-  .exec-pillar-note{ font-family:var(--mono); font-size:9.5px; color:var(--ink-400); margin-top:4px; }
+  .exec-pillar-note{ font-family:var(--mono); font-size:9.5px; color:var(--ink-400); margin-top:5px; line-height:1.3; }
+  .exec-pillar-item.status-bad .exec-pillar-note{ color:#b91c1c; }
+  .exec-pillar-item.status-warn .exec-pillar-note{ color:#92400e; }
 
   /* Cockpit Financeiro */
   .exec-fin-card{
@@ -10349,6 +10387,65 @@
       cachedExecMonths = d.months;
       cachedExecMeta = { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw };
 
+      // Dynamic color & status classification for executive pillars
+      let pAqs = { class: 'status-zero', color: 'var(--ink-400)', barColor: 'var(--line)', tag: 'Sem Leituras', tagClass: 'zero' };
+      if (d.aqsTotal > 0) {
+        if (d.pilarAqs >= 90) {
+          pAqs = { class: 'status-ok', color: 'var(--ok-500)', barColor: 'var(--ok-500)', tag: 'Conforme', tagClass: 'ok' };
+        } else if (d.pilarAqs >= 75) {
+          pAqs = { class: 'status-warn', color: 'var(--amber-500)', barColor: 'var(--amber-500)', tag: 'Atenção', tagClass: 'warn' };
+        } else {
+          pAqs = { class: 'status-bad', color: 'var(--coral-500)', barColor: 'var(--coral-500)', tag: '⚠️ Crítico', tagClass: 'bad' };
+        }
+      }
+
+      let pPool = { class: 'status-zero', color: 'var(--ink-400)', barColor: 'var(--line)', tag: 'Sem Leituras', tagClass: 'zero' };
+      if (d.poolTotal > 0) {
+        if (d.pilarPiscina >= 90) {
+          pPool = { class: 'status-ok', color: 'var(--ok-500)', barColor: 'var(--ok-500)', tag: 'Conforme', tagClass: 'ok' };
+        } else if (d.pilarPiscina >= 75) {
+          pPool = { class: 'status-warn', color: 'var(--amber-500)', barColor: 'var(--amber-500)', tag: 'Atenção', tagClass: 'warn' };
+        } else {
+          pPool = { class: 'status-bad', color: 'var(--coral-500)', barColor: 'var(--coral-500)', tag: '⚠️ Desvio', tagClass: 'bad' };
+        }
+      }
+
+      let pFrio = { class: 'status-zero', color: 'var(--ink-400)', barColor: 'var(--line)', tag: 'Sem Leituras', tagClass: 'zero' };
+      if (d.temp7.length > 0) {
+        if (d.tempBad7.length === 0 || d.pilarFrio >= 95) {
+          pFrio = { class: 'status-ok', color: 'var(--ok-500)', barColor: 'var(--ok-500)', tag: 'Conforme', tagClass: 'ok' };
+        } else if (d.pilarFrio >= 80) {
+          pFrio = { class: 'status-warn', color: 'var(--amber-500)', barColor: 'var(--amber-500)', tag: 'Atenção', tagClass: 'warn' };
+        } else {
+          pFrio = { class: 'status-bad', color: 'var(--coral-500)', barColor: 'var(--coral-500)', tag: '⚠️ Crítico', tagClass: 'bad' };
+        }
+      }
+
+      let pEfic = { class: 'status-zero', color: 'var(--ink-400)', barColor: 'var(--line)', tag: 'Sem Registos', tagClass: 'zero' };
+      if (d.comp.total > 0 && d.comp.covered > 0) {
+        if (d.pilarEficiencia >= 90) {
+          pEfic = { class: 'status-ok', color: 'var(--ok-500)', barColor: 'var(--ok-500)', tag: 'Conforme', tagClass: 'ok' };
+        } else if (d.pilarEficiencia >= 70) {
+          pEfic = { class: 'status-warn', color: 'var(--amber-500)', barColor: 'var(--amber-500)', tag: 'Regular', tagClass: 'warn' };
+        } else {
+          pEfic = { class: 'status-bad', color: 'var(--coral-500)', barColor: 'var(--coral-500)', tag: '⚠️ Baixo', tagClass: 'bad' };
+        }
+      }
+
+      let pQuartos = { class: 'status-zero', color: 'var(--ink-400)', barColor: 'var(--line)', tag: 'Por Iniciar', tagClass: 'zero' };
+      if (d.done > 0 && d.totalRooms > 0) {
+        const expectedPct = (d.isCurrentMonth && d.daysInMonth > 0) ? Math.round((d.daysElapsed / d.daysInMonth) * 100) : 50;
+        if (d.roomsPct >= 85) {
+          pQuartos = { class: 'status-ok', color: 'var(--ok-500)', barColor: 'var(--ok-500)', tag: 'Avançado', tagClass: 'ok' };
+        } else if (d.roomsPct >= 50 || d.roomsPct >= expectedPct - 5) {
+          pQuartos = { class: 'status-ok', color: 'var(--aqua-500)', barColor: 'var(--aqua-500)', tag: 'Bom Ritmo', tagClass: 'ok' };
+        } else if (d.roomsPct < 25 && expectedPct >= 40) {
+          pQuartos = { class: 'status-bad', color: 'var(--coral-500)', barColor: 'var(--coral-500)', tag: '⚠️ Atrasado', tagClass: 'bad' };
+        } else {
+          pQuartos = { class: 'status-warn', color: 'var(--amber-500)', barColor: 'var(--amber-500)', tag: 'Em Progresso', tagClass: 'warn' };
+        }
+      }
+
       // Scorecard HTML (5 pilares separados: AQS, Piscina, Frio, Cadência, Quartos)
       const scorecardHTML = `
         <div class="exec-score-card">
@@ -10367,45 +10464,60 @@
             </div>
           </div>
           <div class="exec-pillars-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
-            <div class="exec-pillar-item">
+            <div class="exec-pillar-item ${pAqs.class}">
               <div class="exec-pillar-head">
-                <span>🔥 Segurança AQS</span>
-                <span class="exec-pillar-val" style="color:${d.aqsTotal===0?'var(--ink-400)':(d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarAqs}%</span>
+                <span class="exec-pillar-title">🔥 Segurança AQS</span>
+                <div class="exec-pillar-val-wrap">
+                  <span class="exec-pillar-tag ${pAqs.tagClass}">${pAqs.tag}</span>
+                  <span class="exec-pillar-val" style="color:${pAqs.color}">${d.pilarAqs}%</span>
+                </div>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarAqs}%; background:${d.aqsTotal===0?'var(--line)':(d.pilarAqs>=90?'var(--ok-500)':(d.pilarAqs>=75?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
-              <div class="exec-pillar-note">${d.aqsTotal===0 ? 'Aguardando leituras de AQS (0%)' : `Legionella (${d.aqsOk}/${d.aqsTotal} conformes ≥ ${DASH_THRESHOLDS.aqsMin}°C)`}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarAqs}%; background:${pAqs.barColor}"></div></div>
+              <div class="exec-pillar-note">${d.aqsTotal===0 ? 'Aguardando leituras de AQS (0%)' : (d.pilarAqs < 75 ? `Legionella (${d.aqsOk}/${d.aqsTotal} conformes · <strong>${d.aqsTotal - d.aqsOk} sob ${DASH_THRESHOLDS.aqsMin}°C</strong>)` : `Legionella (${d.aqsOk}/${d.aqsTotal} conformes ≥ ${DASH_THRESHOLDS.aqsMin}°C)`)}</div>
             </div>
-            <div class="exec-pillar-item">
+            <div class="exec-pillar-item ${pPool.class}">
               <div class="exec-pillar-head">
-                <span>🏊 Controlo Piscina</span>
-                <span class="exec-pillar-val" style="color:${d.poolTotal===0?'var(--ink-400)':(d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarPiscina}%</span>
+                <span class="exec-pillar-title">🏊 Controlo Piscina</span>
+                <div class="exec-pillar-val-wrap">
+                  <span class="exec-pillar-tag ${pPool.tagClass}">${pPool.tag}</span>
+                  <span class="exec-pillar-val" style="color:${pPool.color}">${d.pilarPiscina}%</span>
+                </div>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarPiscina}%; background:${d.poolTotal===0?'var(--line)':(d.pilarPiscina>=90?'var(--ok-500)':(d.pilarPiscina>=75?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
-              <div class="exec-pillar-note">${d.poolTotal===0 ? 'Aguardando leituras de piscina (0%)' : `pH & Cloro (${d.poolOk}/${d.poolTotal} conformes)`}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarPiscina}%; background:${pPool.barColor}"></div></div>
+              <div class="exec-pillar-note">${d.poolTotal===0 ? 'Aguardando leituras de piscina (0%)' : (d.poolOk < d.poolTotal ? `pH & Cloro (${d.poolOk}/${d.poolTotal} conformes · <strong>${d.poolTotal - d.poolOk} desvio(s)</strong>)` : `pH & Cloro (${d.poolOk}/${d.poolTotal} conformes)`)}</div>
             </div>
-            <div class="exec-pillar-item">
+            <div class="exec-pillar-item ${pFrio.class}">
               <div class="exec-pillar-head">
-                <span>🧊 Cadeia de Frio (${esc(d.frioPeriodLabel)})</span>
-                <span class="exec-pillar-val" style="color:${d.temp7.length===0?'var(--ink-400)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarFrio}%</span>
+                <span class="exec-pillar-title">🧊 Cadeia de Frio (${esc(d.frioPeriodLabel)})</span>
+                <div class="exec-pillar-val-wrap">
+                  <span class="exec-pillar-tag ${pFrio.tagClass}">${pFrio.tag}</span>
+                  <span class="exec-pillar-val" style="color:${pFrio.color}">${d.pilarFrio}%</span>
+                </div>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${d.temp7.length===0?'var(--line)':(d.pilarFrio>=95?'var(--ok-500)':(d.pilarFrio>=80?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
-              <div class="exec-pillar-note">${d.temp7.length===0?'Sem leituras no período selecionado (0%)':(d.tempBad7.length===0?'Zero desvios':d.tempBad7.length+' alerta(s) detetado(s)')}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarFrio}%; background:${pFrio.barColor}"></div></div>
+              <div class="exec-pillar-note">${d.temp7.length===0?'Sem leituras no período selecionado (0%)':(d.tempBad7.length===0?`Zero desvios (${d.temp7.length} leituras)`:`<strong>${d.tempBad7.length} alerta(s) de temperatura detetado(s)</strong>`)}</div>
             </div>
-            <div class="exec-pillar-item">
+            <div class="exec-pillar-item ${pEfic.class}">
               <div class="exec-pillar-head">
-                <span>⚡ Eficiência & Registos</span>
-                <span class="exec-pillar-val" style="color:${(d.comp.total===0||d.comp.covered===0)?'var(--ink-400)':(d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)'))}">${d.pilarEficiencia}%</span>
+                <span class="exec-pillar-title">⚡ Eficiência & Registos</span>
+                <div class="exec-pillar-val-wrap">
+                  <span class="exec-pillar-tag ${pEfic.tagClass}">${pEfic.tag}</span>
+                  <span class="exec-pillar-val" style="color:${pEfic.color}">${d.pilarEficiencia}%</span>
+                </div>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarEficiencia}%; background:${(d.comp.total===0||d.comp.covered===0)?'var(--line)':(d.pilarEficiencia>=90?'var(--ok-500)':(d.pilarEficiencia>=70?'var(--amber-500)':'var(--coral-500)'))}"></div></div>
-              <div class="exec-pillar-note">${(d.comp.total===0||d.comp.covered===0)?'Início de mês (0 dias registados)':d.comp.covered+'/'+d.comp.total+' dias registados no mês'}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.pilarEficiencia}%; background:${pEfic.barColor}"></div></div>
+              <div class="exec-pillar-note">${(d.comp.total===0||d.comp.covered===0)?'Início de mês (0 dias registados)':`${d.comp.covered}/${d.comp.total} dias registados no mês`}</div>
             </div>
-            <div class="exec-pillar-item">
+            <div class="exec-pillar-item ${pQuartos.class}">
               <div class="exec-pillar-head">
-                <span>🛏️ Ciclo de Quartos</span>
-                <span class="exec-pillar-val" style="color:${d.done===0?'var(--ink-400)':(d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--amber-500)':'var(--ink-600)'))}">${d.roomsPct}%</span>
+                <span class="exec-pillar-title">🛏️ Ciclo de Quartos</span>
+                <div class="exec-pillar-val-wrap">
+                  <span class="exec-pillar-tag ${pQuartos.tagClass}">${pQuartos.tag}</span>
+                  <span class="exec-pillar-val" style="color:${pQuartos.color}">${d.roomsPct}%</span>
+                </div>
               </div>
-              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.roomsPct}%; background:${d.done===0?'var(--line)':(d.roomsPct>=90?'var(--ok-500)':(d.roomsPct>=50?'var(--amber-500)':'var(--ink-600)'))}"></div></div>
-              <div class="exec-pillar-note">${d.done===0?'0 quartos inspecionados este mês':d.done+'/'+d.totalRooms+' quartos inspecionados'}</div>
+              <div class="exec-pillar-bar"><div class="exec-pillar-fill" style="width:${d.roomsPct}%; background:${pQuartos.barColor}"></div></div>
+              <div class="exec-pillar-note">${d.done===0?'0 quartos inspecionados este mês':`${d.done}/${d.totalRooms} quartos concluídos (${d.pending} pendentes)`}</div>
             </div>
           </div>
         </div>
