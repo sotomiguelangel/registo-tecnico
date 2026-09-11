@@ -321,6 +321,7 @@
     font-size:.75rem;
   }
   .tag.ok { color:var(--ok); }
+  .tag.warning, .tag.warn { color:var(--warn, #d97706); }
   .tag.bad { color:var(--bad); }
   .tag.unknown { color:var(--muted); }
   .progress-row { margin:16px 0; }
@@ -1438,11 +1439,11 @@
       <section class="panel" id="roomQualitySection">
         <div class="panel-head">
           <div>
-            <h2>🛏️ Qualidade da Água nos Quartos · pH & Cloro (Água Quente e Fria)</h2>
-            <p class="small muted">Amostragem higiénico-sanitária nos quartos no período selecionado (DGS / Norma Técnica: pH 7.0–7.8 / Cloro livre 0.5–3.0 ppm).</p>
+            <h2>🛏️ Amostragem Operacional da Rede Predial · Quartos (pH & Cloro)</h2>
+            <p class="small muted">Monitorização de rotina de água fria e quente nos quartos (referencial predial DL 69/2023: pH 6.5–8.8 / Cloro residual 0.08–0.60 ppm). Valores inferiores a 0.08 ppm sugerem purga preventiva de torneiras.</p>
           </div>
           <div class="actions">
-            <span class="tag ok" id="roomComplianceBadge">Conformidade: —</span>
+            <span class="tag ok" id="roomComplianceBadge">Amostragem Conforme: —</span>
           </div>
         </div>
 
@@ -1459,7 +1460,7 @@
                 <th>Cloro Quente (Livre / Total)</th>
                 <th>pH Água Fria</th>
                 <th>Cloro Fria (Livre / Total)</th>
-                <th>Estado Sanitário</th>
+                <th>Estado Operacional</th>
               </tr>
             </thead>
             <tbody id="roomQualityBody"></tbody>
@@ -1596,7 +1597,12 @@
       cloroMin: 0.5, cloroMax: 3.0,
       cloroTotalMax: 5.0,
       aqsMin: 45.0,
-      aqsQuartosMin: 45.0
+      aqsQuartosMin: 45.0,
+      // Referencial predial para quartos (DL 69/2023 - Água para Consumo Humano / DGS)
+      roomPhMin: 6.5,
+      roomPhMax: 8.8,
+      roomCloroMin: 0.08,
+      roomCloroMax: 0.60
     };
 
     function pad(n) { return String(n).padStart(2, '0'); }
@@ -2619,7 +2625,7 @@
       }
     }
 
-    // ---------- Qualidade da Água nos Quartos (pH e Cloro) ----------
+    // ---------- Amostragem Operacional da Rede Predial · Quartos (pH e Cloro) ----------
     function renderRoomSanitaryQuality(quartoList) {
       const body = $('roomQualityBody');
       const badge = $('roomComplianceBadge');
@@ -2644,7 +2650,13 @@
       let hotClSum = 0, hotClCount = 0;
       let coldPhSum = 0, coldPhCount = 0;
       let coldClSum = 0, coldClCount = 0;
-      let conformCount = 0;
+      let nominalCount = 0;
+      let observacaoCount = 0;
+
+      const rMinPh = DASH_THRESHOLDS.roomPhMin ?? 6.5;
+      const rMaxPh = DASH_THRESHOLDS.roomPhMax ?? 8.8;
+      const rMinCl = DASH_THRESHOLDS.roomCloroMin ?? 0.08;
+      const rMaxCl = DASH_THRESHOLDS.roomCloroMax ?? 0.60;
 
       sorted.forEach(r => {
         const d = r.data || {};
@@ -2660,13 +2672,34 @@
         if (phCold !== null) { coldPhSum += phCold; coldPhCount++; }
         if (clCold !== null) { coldClSum += clCold; coldClCount++; }
 
-        const isHotPhOk = (phHot === null) || (phHot >= DASH_THRESHOLDS.phMin && phHot <= DASH_THRESHOLDS.phMax);
-        const isHotClOk = (clHot === null) || (clHot >= DASH_THRESHOLDS.cloroMin && clHot <= DASH_THRESHOLDS.cloroMax);
-        const isColdPhOk = (phCold === null) || (phCold >= DASH_THRESHOLDS.phMin && phCold <= DASH_THRESHOLDS.phMax);
-        const isColdClOk = (clCold === null) || (clCold >= DASH_THRESHOLDS.cloroMin && clCold <= DASH_THRESHOLDS.cloroMax);
+        const isHotPhOk = (phHot === null) || (phHot >= rMinPh && phHot <= rMaxPh);
+        const isColdPhOk = (phCold === null) || (phCold >= rMinPh && phCold <= rMaxPh);
+
+        const isHotClOk = (clHot === null) || (clHot >= rMinCl && clHot <= rMaxCl);
+        const isColdClOk = (clCold === null) || (clCold >= rMinCl && clCold <= rMaxCl);
+
+        const isHotClObs = (clHot !== null) && (clHot < rMinCl) && (clHot >= 0);
+        const isColdClObs = (clCold !== null) && (clCold < rMinCl) && (clCold >= 0);
 
         const isOverallOk = isHotPhOk && isHotClOk && isColdPhOk && isColdClOk;
-        if (isOverallOk) conformCount++;
+        const isObservacao = !isOverallOk && isHotPhOk && isColdPhOk && (isHotClObs || isColdClObs);
+
+        let statusClass = 'ok';
+        let statusLabel = 'Nominal';
+        let statusTitle = 'Parâmetros operacionais normais da rede predial';
+
+        if (isOverallOk) {
+          nominalCount++;
+        } else if (isObservacao) {
+          observacaoCount++;
+          statusClass = 'warning';
+          statusLabel = 'Em Observação';
+          statusTitle = 'Cloro residual baixo na torneira; recomenda-se purga preventiva';
+        } else {
+          statusClass = 'bad';
+          statusLabel = 'Desvio';
+          statusTitle = 'Valor fora das tolerâncias recomendadas';
+        }
 
         const row = document.createElement('tr');
         cell(row, displayDate(r));
@@ -2680,7 +2713,7 @@
         // Hot Chlorine
         const clHotText = (clHot !== null ? format(clHot, 2) : '—') + (clTotHot !== null ? ' / ' + format(clTotHot, 2) : '') + (clHot !== null ? ' ppm' : '');
         const tdClHot = cell(row, clHotText);
-        if (clHot !== null) tdClHot.style.color = isHotClOk ? 'var(--ok)' : 'var(--error)';
+        if (clHot !== null) tdClHot.style.color = isHotClOk ? 'var(--ok)' : (isHotClObs ? '#d97706' : 'var(--error)');
 
         // Cold pH
         const tdPhCold = cell(row, phCold !== null ? format(phCold, 2) : '—');
@@ -2689,30 +2722,34 @@
         // Cold Chlorine
         const clColdText = (clCold !== null ? format(clCold, 2) : '—') + (clTotCold !== null ? ' / ' + format(clTotCold, 2) : '') + (clCold !== null ? ' ppm' : '');
         const tdClCold = cell(row, clColdText);
-        if (clCold !== null) tdClCold.style.color = isColdClOk ? 'var(--ok)' : 'var(--error)';
+        if (clCold !== null) tdClCold.style.color = isColdClOk ? 'var(--ok)' : (isColdClObs ? '#d97706' : 'var(--error)');
 
         // Status
         const tdStatus = document.createElement('td');
         const span = document.createElement('span');
-        span.className = 'tag ' + (isOverallOk ? 'ok' : 'bad');
-        span.textContent = isOverallOk ? 'Conforme' : 'Alerta';
+        span.className = 'tag ' + statusClass;
+        span.textContent = statusLabel;
+        if (statusTitle) span.title = statusTitle;
         tdStatus.appendChild(span);
         row.appendChild(tdStatus);
 
         body.appendChild(row);
       });
 
-      const confPct = Math.round((conformCount / sorted.length) * 100);
+      const totalSamples = sorted.length;
+      const nominalPct = Math.round((nominalCount / totalSamples) * 100);
+      const acceptablePct = Math.round(((nominalCount + observacaoCount) / totalSamples) * 100);
+
       if (badge) {
-        badge.className = 'tag ' + (confPct >= 90 ? 'ok' : (confPct >= 75 ? 'warning' : 'bad'));
-        badge.textContent = `Conformidade: ${confPct}% (${conformCount}/${sorted.length})`;
+        badge.className = 'tag ' + (nominalPct >= 80 ? 'ok' : (acceptablePct >= 80 ? 'warning' : 'bad'));
+        badge.textContent = `Amostragem Conforme: ${nominalPct}% (${nominalCount}/${totalSamples})`;
       }
 
       if (strip) {
         strip.innerHTML = `
-          <div class="d3-stat-pill ${confPct >= 90 ? 'ok' : (confPct >= 75 ? 'warn' : 'bad')}">
-            <span class="p-lbl">Conformidade Sanitária</span>
-            <span class="p-val">${confPct}% <small>(${conformCount}/${sorted.length})</small></span>
+          <div class="d3-stat-pill ${nominalPct >= 80 ? 'ok' : (acceptablePct >= 80 ? 'warn' : 'bad')}">
+            <span class="p-lbl">Amostragem Conforme</span>
+            <span class="p-val">${nominalPct}% <small>(${nominalCount}/${totalSamples} nominais)</small></span>
           </div>
           <div class="d3-stat-pill">
             <span class="p-lbl">Média pH Quente</span>
@@ -4255,6 +4292,11 @@
             const rawConfig = localStorage.getItem('bitacora_config');
             if (rawConfig) {
               const cfg = JSON.parse(rawConfig);
+              if (cfg.ref_phCalMin && !isNaN(parseFloat(cfg.ref_phCalMin))) DASH_THRESHOLDS.roomPhMin = parseFloat(cfg.ref_phCalMin);
+              if (cfg.ref_phCalMax && !isNaN(parseFloat(cfg.ref_phCalMax))) DASH_THRESHOLDS.roomPhMax = parseFloat(cfg.ref_phCalMax);
+              if (cfg.ref_cloroCalMin && !isNaN(parseFloat(cfg.ref_cloroCalMin))) DASH_THRESHOLDS.roomCloroMin = parseFloat(cfg.ref_cloroCalMin);
+              if (cfg.ref_cloroCalMax && !isNaN(parseFloat(cfg.ref_cloroCalMax))) DASH_THRESHOLDS.roomCloroMax = parseFloat(cfg.ref_cloroCalMax);
+
               let aBl = baselines.aguaBaseline, eBl = baselines.elecBaseline;
               if (!aBl && cfg.baselineAgua) {
                 try {

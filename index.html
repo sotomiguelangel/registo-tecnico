@@ -1902,31 +1902,31 @@
           <label class="field"><span class="lbl">AQS Quartos Mín. <span class="unit">(°C)</span></span><input type="number" step="0.5" min="20" max="80" id="cfg_aqsQuartosMin" placeholder="45.0"></label>
         </div>
 
-        <div style="font-size:12px; font-weight:700; color:var(--amber-700); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">🚿 Quartos · Água Quente</div>
+        <div style="font-size:12px; font-weight:700; color:var(--amber-700); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">🚿 Quartos · Água Quente (Rede Predial)</div>
         <div class="row2">
-          <label class="field"><span class="lbl">pH Quente Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMin" placeholder="7.0"></label>
-          <label class="field"><span class="lbl">pH Quente Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMax" placeholder="7.8"></label>
+          <label class="field"><span class="lbl">pH Quente Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMin" placeholder="6.5"></label>
+          <label class="field"><span class="lbl">pH Quente Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phCalMax" placeholder="8.8"></label>
         </div>
         <div class="row2">
-          <label class="field"><span class="lbl">Cloro Livre Quente Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroCalMin" placeholder="0.5"></label>
-          <label class="field"><span class="lbl">Cloro Livre Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroCalMax" placeholder="3.0"></label>
+          <label class="field"><span class="lbl">Cloro Livre Quente Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroCalMin" placeholder="0.08"></label>
+          <label class="field"><span class="lbl">Cloro Livre Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroCalMax" placeholder="0.60"></label>
         </div>
         <div class="row2">
-          <label class="field"><span class="lbl">Cloro Total Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroTotalCalMax" placeholder="5.0"></label>
+          <label class="field"><span class="lbl">Cloro Total Quente Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroTotalCalMax" placeholder="1.20"></label>
           <div></div>
         </div>
 
-        <div style="font-size:12px; font-weight:700; color:var(--ice-500); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">❄️ Quartos · Água Fria</div>
+        <div style="font-size:12px; font-weight:700; color:var(--ice-500); margin:14px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px;">❄️ Quartos · Água Fria (Rede Predial)</div>
         <div class="row2">
-          <label class="field"><span class="lbl">pH Frio Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMin" placeholder="7.0"></label>
-          <label class="field"><span class="lbl">pH Frio Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMax" placeholder="7.8"></label>
+          <label class="field"><span class="lbl">pH Frio Mín.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMin" placeholder="6.5"></label>
+          <label class="field"><span class="lbl">pH Frio Máx.</span><input type="number" step="0.1" min="0" max="14" id="cfg_phFriaMax" placeholder="8.8"></label>
         </div>
         <div class="row2">
-          <label class="field"><span class="lbl">Cloro Livre Frio Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroFriaMin" placeholder="0.5"></label>
-          <label class="field"><span class="lbl">Cloro Livre Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroFriaMax" placeholder="3.0"></label>
+          <label class="field"><span class="lbl">Cloro Livre Frio Mín. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroFriaMin" placeholder="0.08"></label>
+          <label class="field"><span class="lbl">Cloro Livre Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroFriaMax" placeholder="0.60"></label>
         </div>
         <div class="row2">
-          <label class="field"><span class="lbl">Cloro Total Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.1" min="0" max="10" id="cfg_cloroTotalFriaMax" placeholder="5.0"></label>
+          <label class="field"><span class="lbl">Cloro Total Frio Máx. <span class="unit">(ppm)</span></span><input type="number" step="0.05" min="0" max="10" id="cfg_cloroTotalFriaMax" placeholder="1.20"></label>
           <div></div>
         </div>
 
@@ -10998,10 +10998,10 @@
         { label:'Cloro livre', m:mClLivre, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' },
         { label:'Retorno AQS', m:mRetorno, min:DASH_THRESHOLDS.aqsMin, max:null, dec:1, unit:'°C' },
         { label:'AQS quartos', m:mAqsQ, min:DASH_THRESHOLDS.aqsMin, max:null, dec:1, unit:'°C' },
-        { label:'pH quente', m:mPhCal, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
-        { label:'pH fria', m:mPhFria, min:DASH_THRESHOLDS.phMin, max:DASH_THRESHOLDS.phMax, dec:2, unit:'' },
-        { label:'Cloro quente', m:mClCal, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' },
-        { label:'Cloro fria', m:mClFria, min:DASH_THRESHOLDS.cloroMin, max:DASH_THRESHOLDS.cloroMax, dec:2, unit:'ppm' }
+        { label:'pH quente', m:mPhCal, min:DASH_THRESHOLDS.phCalMin, max:DASH_THRESHOLDS.phCalMax, dec:2, unit:'' },
+        { label:'pH fria', m:mPhFria, min:DASH_THRESHOLDS.phFriaMin, max:DASH_THRESHOLDS.phFriaMax, dec:2, unit:'' },
+        { label:'Cloro quente', m:mClCal, min:DASH_THRESHOLDS.cloroCalMin, max:DASH_THRESHOLDS.cloroCalMax, dec:2, unit:'ppm' },
+        { label:'Cloro fria', m:mClFria, min:DASH_THRESHOLDS.cloroFriaMin, max:DASH_THRESHOLDS.cloroFriaMax, dec:2, unit:'ppm' }
       ];
       const opBanner = buildOpBanner(opMetrics);
 
@@ -11137,12 +11137,12 @@
 
         <h2 class="report-heading">Quartos · última medição</h2>
         <div class="dashboard-grid">
-          ${statusCard('pH quente', mPhCal, DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax, '', 2)}
-          ${statusCard('pH fria', mPhFria, DASH_THRESHOLDS.phMin, DASH_THRESHOLDS.phMax, '', 2)}
-          ${statusCard('Cloro livre quente', mClCal, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroMax, 'ppm', 2)}
-          ${statusCard('Cloro livre fria', mClFria, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroMax, 'ppm', 2)}
-          ${statusCard('Cloro total quente', mClTotCal, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroTotalMax, 'ppm', 2)}
-          ${statusCard('Cloro total fria', mClTotFria, DASH_THRESHOLDS.cloroMin, DASH_THRESHOLDS.cloroTotalMax, 'ppm', 2)}
+          ${statusCard('pH quente', mPhCal, DASH_THRESHOLDS.phCalMin, DASH_THRESHOLDS.phCalMax, '', 2)}
+          ${statusCard('pH fria', mPhFria, DASH_THRESHOLDS.phFriaMin, DASH_THRESHOLDS.phFriaMax, '', 2)}
+          ${statusCard('Cloro livre quente', mClCal, DASH_THRESHOLDS.cloroCalMin, DASH_THRESHOLDS.cloroCalMax, 'ppm', 2)}
+          ${statusCard('Cloro livre fria', mClFria, DASH_THRESHOLDS.cloroFriaMin, DASH_THRESHOLDS.cloroFriaMax, 'ppm', 2)}
+          ${statusCard('Cloro total quente', mClTotCal, DASH_THRESHOLDS.cloroCalMin, DASH_THRESHOLDS.cloroTotalCalMax, 'ppm', 2)}
+          ${statusCard('Cloro total fria', mClTotFria, DASH_THRESHOLDS.cloroFriaMin, DASH_THRESHOLDS.cloroTotalFriaMax, 'ppm', 2)}
         </div>
 
         <h2 class="report-heading">Cobertura e alertas</h2>
@@ -11671,17 +11671,17 @@
       DASH_THRESHOLDS.aqsMin = getNum('ref_aqsMin', 45.0);
       DASH_THRESHOLDS.aqsQuartosMin = getNum('ref_aqsQuartosMin', 45.0);
 
-      DASH_THRESHOLDS.phCalMin = getNum('ref_phCalMin', 7.0);
-      DASH_THRESHOLDS.phCalMax = getNum('ref_phCalMax', 7.8);
-      DASH_THRESHOLDS.cloroCalMin = getNum('ref_cloroCalMin', 0.5);
-      DASH_THRESHOLDS.cloroCalMax = getNum('ref_cloroCalMax', 3.0);
-      DASH_THRESHOLDS.cloroTotalCalMax = getNum('ref_cloroTotalCalMax', 5.0);
+      DASH_THRESHOLDS.phCalMin = getNum('ref_phCalMin', 6.5);
+      DASH_THRESHOLDS.phCalMax = getNum('ref_phCalMax', 8.8);
+      DASH_THRESHOLDS.cloroCalMin = getNum('ref_cloroCalMin', 0.08);
+      DASH_THRESHOLDS.cloroCalMax = getNum('ref_cloroCalMax', 0.60);
+      DASH_THRESHOLDS.cloroTotalCalMax = getNum('ref_cloroTotalCalMax', 1.20);
 
-      DASH_THRESHOLDS.phFriaMin = getNum('ref_phFriaMin', 7.0);
-      DASH_THRESHOLDS.phFriaMax = getNum('ref_phFriaMax', 7.8);
-      DASH_THRESHOLDS.cloroFriaMin = getNum('ref_cloroFriaMin', 0.5);
-      DASH_THRESHOLDS.cloroFriaMax = getNum('ref_cloroFriaMax', 3.0);
-      DASH_THRESHOLDS.cloroTotalFriaMax = getNum('ref_cloroTotalFriaMax', 5.0);
+      DASH_THRESHOLDS.phFriaMin = getNum('ref_phFriaMin', 6.5);
+      DASH_THRESHOLDS.phFriaMax = getNum('ref_phFriaMax', 8.8);
+      DASH_THRESHOLDS.cloroFriaMin = getNum('ref_cloroFriaMin', 0.08);
+      DASH_THRESHOLDS.cloroFriaMax = getNum('ref_cloroFriaMax', 0.60);
+      DASH_THRESHOLDS.cloroTotalFriaMax = getNum('ref_cloroTotalFriaMax', 1.20);
     }catch(e){}
   }
 
