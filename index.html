@@ -146,8 +146,8 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Registo Técnico · Moon and Sun</title>
-<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no hotel Moon and Sun.">
+<title>Manutenção · MS Funchal</title>
+<meta name="description" content="Aplicação de registo técnico e manutenção para controlo diário de instalações, quartos e refrigeração no MS Funchal.">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
@@ -1394,7 +1394,7 @@
   <header class="top">
     <div class="brand-row">
       <div>
-        <p class="brand-eyebrow">Manutenção · Moon and Sun</p>
+        <p class="brand-eyebrow">Manutenção · MS Funchal</p>
         <h1 class="brand-title">Registo Técnico</h1>
       </div>
       <div class="clock">
@@ -5043,7 +5043,7 @@
     const html = `
       <div class="off-page">
         <div class="off-header">
-          <div class="off-title">Moon & Sun · Relatório Técnico de Ciclo de Quartos (AQS / Legionela)</div>
+          <div class="off-title">MS Funchal · Relatório Técnico de Ciclo de Quartos (AQS / Legionela)</div>
           <div class="off-meta">Ciclo #${cycle.index} ${cycle.isActive?'(Em Curso)':'(Concluído)'} · Período: ${cycle.fechaInicio} a ${cycle.fechaFin} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(getCurrentUserName())}</div>
         </div>
 
@@ -5114,7 +5114,7 @@
         </table>
 
         <div style="font-size:10px; color:#777; margin-top:20px; border-top:1px solid #ddd; padding-top:8px;">
-          Documento gerado automaticamente pelo Sistema de Gestão Técnica Moon & Sun em conformidade com o plano de prevenção e controlo sanitário.
+          Documento gerado automaticamente pelo Sistema de Gestão Técnica MS Funchal em conformidade com o plano de prevenção e controlo sanitário.
         </div>
       </div>
     `;
@@ -10766,7 +10766,7 @@
 
     return `<div class="off-doc">
       <h1>Relatório Executivo de Gestão Técnica & Sustentabilidade</h1>
-      <div class="off-sub">Moon and Sun · Painel Estratégico para Tomada de Decisão e Direção de Operações</div>
+      <div class="off-sub">MS Funchal · Painel Estratégico para Tomada de Decisão e Direção de Operações</div>
       <div class="off-meta">Período: ${d.desde} a ${d.hasta} · Emitido em ${todayStr()} às ${nowTimeStr()} · Utilizador: ${esc(getCurrentUserName())} · App Registo Técnico v${APP_VERSION}</div>
 
       <h2>1. Índice Global de Saúde Técnica & Conformidade (${d.healthScore}%)</h2>
@@ -10943,7 +10943,7 @@
       document.body.classList.add('previewing-official');
       window.scrollTo(0,0);
       $('btnOffDoPrint').addEventListener('click', ()=> printOfficialDocument('Relatório Executivo'));
-      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Executivo · Moon and Sun'));
+      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Executivo · MS Funchal'));
       $('btnOffClose').addEventListener('click', closeOfficialPreview);
       setTimeout(()=> printOfficialDocument('Relatório Executivo'), 300);
     }catch(e){
@@ -12006,7 +12006,7 @@
     });
     return `<div class="off-doc">
       <h1>Relatório Mensal de Controlo — Piscina, AQS e Refrigeração</h1>
-      <div class="off-sub">Moon and Sun · Manutenção · Documento de cumprimento (DGS — prevenção da legionela · HACCP/APPCC)</div>
+      <div class="off-sub">MS Funchal · Manutenção · Documento de cumprimento (DGS — prevenção da legionela · HACCP/APPCC)</div>
       <div class="off-meta">Período: ${desde} a ${hasta} · Gerado em ${todayStr()} às ${nowTimeStr()} · App Registo Técnico v${APP_VERSION}</div>
       <div class="off-sum">
         <div><b>${comp.pct}%</b>cumprimento (${comp.covered}/${comp.total} dias)</div>
@@ -12074,7 +12074,7 @@
       document.body.classList.add('previewing-official');
       window.scrollTo(0,0);
       $('btnOffDoPrint').addEventListener('click', ()=> printOfficialDocument('Relatório Oficial'));
-      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Oficial · Moon and Sun'));
+      $('btnOffNewWin').addEventListener('click', ()=> openPrintableWindow(reportHtml, 'Relatório Oficial · MS Funchal'));
       $('btnOffClose').addEventListener('click', closeOfficialPreview);
       setTimeout(()=> printOfficialDocument('Relatório Oficial'), 300);
     }catch(e){

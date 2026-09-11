@@ -1,6 +1,6 @@
 {
-  "name": "Registo Técnico · Moon and Sun",
-  "short_name": "Registo",
+  "name": "Manutenção · MS Funchal",
+  "short_name": "MS Funchal",
   "description": "Registo diário de manutenção: piscinas, AQS, consumos e quartos.",
   "start_url": "./",
   "scope": "./",
