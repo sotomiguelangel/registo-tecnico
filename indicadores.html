@@ -1290,6 +1290,255 @@
   }
   .room-param-box .lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; }
   .room-param-box .val { font-weight: 700; color: var(--text); }
+
+  /* Operational References & Quality Scale Styles */
+  .quality-legend-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 0.76rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    flex-wrap: wrap;
+  }
+  .q-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text);
+  }
+  .q-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .q-dot.ok { background: #16a34a; }
+  .q-dot.warn { background: #d97706; }
+  .q-dot.bad { background: #dc2626; }
+
+  .quality-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .quality-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.2s ease;
+  }
+  .quality-card.status-ok {
+    border-color: rgba(34, 197, 94, 0.4);
+    background: linear-gradient(180deg, rgba(34, 197, 94, 0.04) 0%, var(--surface) 100%);
+  }
+  .quality-card.status-warn {
+    border-color: rgba(217, 119, 6, 0.45);
+    background: linear-gradient(180deg, rgba(251, 191, 36, 0.08) 0%, var(--surface) 100%);
+    box-shadow: 0 2px 8px -2px rgba(217, 119, 6, 0.15);
+  }
+  .quality-card.status-bad {
+    border-color: rgba(220, 38, 38, 0.5);
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, var(--surface) 100%);
+    box-shadow: 0 2px 10px -2px rgba(220, 38, 38, 0.18);
+  }
+  .quality-card.status-zero {
+    border-color: var(--border);
+    background: var(--subtle);
+  }
+
+  .quality-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .quality-card-title-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .quality-card-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .quality-ref-tag {
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-family: var(--mono, monospace);
+  }
+  .quality-status-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .quality-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .quality-badge.ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.35);
+  }
+  .quality-badge.warn {
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+  }
+  .quality-badge.bad {
+    background: rgba(239, 68, 68, 0.18);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+  }
+  .quality-badge.zero {
+    background: var(--subtle);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  :root[data-theme="dark"] .quality-badge.ok {
+    background: rgba(74, 222, 128, 0.18);
+    color: #86efac;
+    border-color: rgba(74, 222, 128, 0.4);
+  }
+  :root[data-theme="dark"] .quality-badge.warn {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fde68a;
+    border-color: rgba(251, 191, 36, 0.45);
+  }
+  :root[data-theme="dark"] .quality-badge.bad {
+    background: rgba(248, 113, 113, 0.2);
+    color: #fca5a5;
+    border-color: rgba(248, 113, 113, 0.45);
+  }
+
+  .quality-num {
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-family: var(--mono, monospace);
+  }
+  .quality-num.ok { color: #15803d; }
+  .quality-num.warn { color: #b45309; }
+  .quality-num.bad { color: #dc2626; }
+  .quality-num.zero { color: var(--muted); }
+
+  :root[data-theme="dark"] .quality-num.ok { color: #4ade80; }
+  :root[data-theme="dark"] .quality-num.warn { color: #fbbf24; }
+  :root[data-theme="dark"] .quality-num.bad { color: #f87171; }
+
+  .quality-track {
+    height: 8px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  :root[data-theme="dark"] .quality-track {
+    background: #1e3a47;
+  }
+  .quality-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.4s ease;
+  }
+  .quality-fill.ok { background: #16a34a; }
+  .quality-fill.warn { background: #d97706; }
+  .quality-fill.bad { background: #dc2626; }
+  .quality-fill.zero { background: var(--border); }
+
+  .quality-alert-box {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .quality-alert-box.warn {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #92400e;
+  }
+  .quality-alert-box.bad {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #991b1b;
+  }
+  .quality-alert-box.ok {
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: #166534;
+  }
+  :root[data-theme="dark"] .quality-alert-box.warn {
+    background: rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.35);
+    color: #fde68a;
+  }
+  :root[data-theme="dark"] .quality-alert-box.bad {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.35);
+    color: #fca5a5;
+  }
+  :root[data-theme="dark"] .quality-alert-box.ok {
+    background: rgba(74, 222, 128, 0.1);
+    border-color: rgba(74, 222, 128, 0.25);
+    color: #86efac;
+  }
+
+  .quality-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .quality-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+  .quality-chip.ok {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .quality-chip.warn {
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+  }
+  .quality-chip.bad {
+    background: rgba(239, 68, 68, 0.18);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+  }
+  .quality-chip.neutral {
+    background: var(--subtle);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
   </style>
 </head>
 <body>
@@ -1603,12 +1852,21 @@
 
       <!-- Quality & Operational References -->
       <section class="panel" id="qualitySection">
-        <h2>🧪 Leituras dentro das referências operacionais</h2>
-        <p class="small muted">Apenas medições numéricas disponíveis no período. Campos ausentes não entram no cálculo.</p>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
+          <div>
+            <h2 style="margin:0 0 4px 0;">🧪 Leituras dentro das referências operacionais</h2>
+            <p class="small muted" style="margin:0;">Classificação automática segundo normas de saúde pública e HACCP. Cores semânticas indicam criticidade imediata.</p>
+          </div>
+          <div class="quality-legend-bar">
+            <span class="q-legend-item"><span class="q-dot ok"></span> <strong>Conforme</strong> (≥ 90%)</span>
+            <span class="q-legend-item"><span class="q-dot warn"></span> <strong>Atenção</strong> (75%–89%)</span>
+            <span class="q-legend-item"><span class="q-dot bad"></span> <strong>Crítico</strong> (&lt; 75%)</span>
+          </div>
+        </div>
         <div id="qualitySummary" style="margin-top:14px;"></div>
-        <p class="small muted" style="margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
-          pH: 7,0–7,8 · Cloro livre: 0,5–3,0 ppm · Cloro total: 0–5,0 ppm.<br>
-          Confirmar a adequação destas referências com o responsável técnico.
+        <p class="small muted" style="margin-top:16px; border-top:1px solid var(--border); padding-top:10px; line-height:1.6;">
+          <strong>Intervalos regulamentares ideais:</strong> pH: 7,0–7,8 · Cloro livre: 0,5–3,0 ppm · Cloro total: 0–5,0 ppm.<br>
+          Cadeia de frio (HACCP): conformidade declarada por equipamento de refrigeração/congelação. Em caso de desvio amarelo ou vermelho, verificar calibração e doseamento.
         </p>
       </section>
 
@@ -3053,64 +3311,243 @@
       }
     }
 
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function renderQuality(general, temperatures) {
       const host = $('qualitySummary');
       if (!host) return;
       host.replaceChildren();
 
+      const container = document.createElement('div');
+      container.className = 'quality-grid';
+
       const definitions = [
-        { name: 'pH', names: FIELDS.ph, min: 7, max: 7.8 },
-        { name: 'Cloro livre', names: FIELDS.chlorine, min: .5, max: 3 },
-        { name: 'Cloro total', names: FIELDS.totalChlorine, min: 0, max: 5 }
+        { 
+          name: 'pH da Água (Piscina)', 
+          shortName: 'pH',
+          icon: '💧',
+          unit: '',
+          names: FIELDS.ph, 
+          min: 7.0, 
+          max: 7.8,
+          refText: '7,0 – 7,8',
+          subtextLow: 'Abaixo de 7,0 (água ácida: risco de corrosão de tubagens e ardor ocular)',
+          subtextHigh: 'Acima de 7,8 (água alcalina: inativa o cloro e turva a água)'
+        },
+        { 
+          name: 'Cloro Livre (Desinfeção Ativa)', 
+          shortName: 'Cloro livre',
+          icon: '🧪',
+          unit: ' ppm',
+          names: FIELDS.chlorine, 
+          min: 0.5, 
+          max: 3.0,
+          refText: '0,5 – 3,0 ppm',
+          subtextLow: 'Abaixo de 0,5 ppm (desinfeção insuficiente: risco de bactérias/algas)',
+          subtextHigh: 'Acima de 3,0 ppm (sobredosagem: forte odor a cloro e irritação cutânea)'
+        },
+        { 
+          name: 'Cloro Total (Residual Combinado)', 
+          shortName: 'Cloro total',
+          icon: '⚗️',
+          unit: ' ppm',
+          names: FIELDS.totalChlorine, 
+          min: 0.0, 
+          max: 5.0,
+          refText: '0,0 – 5,0 ppm',
+          subtextLow: 'Abaixo de 0 ppm',
+          subtextHigh: 'Acima de 5,0 ppm (acumulação excessiva de cloraminas)'
+        }
       ];
 
       definitions.forEach(def => {
-        const values = general.map(r => field(r.data, def.names)).filter(v => v !== null);
-        const ok = values.filter(v => v >= def.min && v <= def.max).length;
+        const readings = [];
+        general.forEach(r => {
+          const v = field(r.data, def.names);
+          if (v !== null) {
+            const dateStr = (r.data.fecha || r.data.date || '');
+            const timeStr = (r.data.hora || r.data.time || '');
+            const dt = [dateStr, timeStr].filter(Boolean).join(' ');
+            readings.push({ val: v, dt: dt || 'Registo' });
+          }
+        });
 
-        const row = document.createElement('div');
-        row.className = 'progress-row';
+        const total = readings.length;
+        const okReadings = readings.filter(x => x.val >= def.min && x.val <= def.max);
+        const ok = okReadings.length;
+        const outReadings = readings.filter(x => x.val < def.min || x.val > def.max);
+        const outCount = outReadings.length;
+        const pct = total ? Math.round((ok / total) * 1000) / 10 : 0;
 
-        const label = document.createElement('div');
-        label.className = 'progress-label';
+        let statusClass = 'status-zero';
+        let badgeClass = 'zero';
+        let badgeText = '⚪ Sem Dados';
+        let numColorClass = 'zero';
+        let fillColorClass = 'zero';
 
-        const name = document.createElement('span');
-        name.textContent = def.name;
+        if (total > 0) {
+          if (pct >= 90) {
+            statusClass = 'status-ok';
+            badgeClass = 'ok';
+            badgeText = (pct === 100) ? '🟢 Conforme · Nível Ótimo' : `🟢 Conforme (${outCount} desvio pontual)`;
+            numColorClass = 'ok';
+            fillColorClass = 'ok';
+          } else if (pct >= 75) {
+            statusClass = 'status-warn';
+            badgeClass = 'warn';
+            badgeText = `🟡 Atenção (${outCount} desvio${outCount > 1 ? 's' : ''})`;
+            numColorClass = 'warn';
+            fillColorClass = 'warn';
+          } else {
+            statusClass = 'status-bad';
+            badgeClass = 'bad';
+            badgeText = `🔴 Crítico (${outCount} desvio${outCount > 1 ? 's' : ''})`;
+            numColorClass = 'bad';
+            fillColorClass = 'bad';
+          }
+        }
 
-        const result = document.createElement('strong');
-        result.textContent = values.length
-          ? ok + '/' + values.length + ' · ' + format(ok / values.length * 100, 1) + '%'
-          : 'Sem dados';
+        const card = document.createElement('div');
+        card.className = `quality-card ${statusClass}`;
 
-        label.append(name, result);
-        row.appendChild(label);
+        let alertHtml = '';
+        if (total > 0) {
+          if (outCount > 0) {
+            const isWarn = pct >= 75;
+            const detailsList = outReadings.slice(0, 3).map(d => {
+              const isLow = d.val < def.min;
+              const reason = isLow ? def.subtextLow : def.subtextHigh;
+              return `• <strong>${format(d.val, 2)}${def.unit}</strong> ${d.dt ? '(' + escapeHtml(d.dt) + ')' : ''} — ${escapeHtml(reason)}`;
+            }).join('<br>');
+            const more = outReadings.length > 3 ? `<br><em>... e mais ${outReadings.length - 3} leitura(s) fora da norma.</em>` : '';
+            alertHtml = `
+              <div class="quality-alert-box ${isWarn ? 'warn' : 'bad'}">
+                <strong>${isWarn ? '⚠️' : '⛔'} ${outCount} de ${total} medições fora da referência (${def.refText}):</strong>
+                <div style="margin-top:4px; font-size:0.75rem; line-height:1.45;">
+                  ${detailsList}${more}
+                </div>
+              </div>
+            `;
+          } else {
+            alertHtml = `
+              <div class="quality-alert-box ok">
+                ✅ <strong>100% Conforme:</strong> Todas as ${total} medições realizadas encontram-se dentro da faixa ideal regulamentar (${def.refText}).
+              </div>
+            `;
+          }
+        } else {
+          alertHtml = `
+            <div class="small muted" style="margin-top:6px;">Sem medições numéricas de ${escapeHtml(def.shortName)} no período selecionado.</div>
+          `;
+        }
 
-        const track = document.createElement('div');
-        track.className = 'track';
-        const fill = document.createElement('div');
-        fill.className = 'fill';
-        fill.style.width = (values.length ? (ok / values.length * 100) : 0) + '%';
-        track.appendChild(fill);
-        row.appendChild(track);
-
-        const note = document.createElement('div');
-        note.className = 'small';
-        note.textContent = (general.length - values.length) +
-          ' registo(s) gerais sem esta medição numérica.';
-        row.appendChild(note);
-        host.appendChild(row);
+        card.innerHTML = `
+          <div class="quality-card-head">
+            <div class="quality-card-title-group">
+              <span class="quality-card-title">${def.icon} ${escapeHtml(def.name)}</span>
+              <span class="quality-ref-tag">Ref: ${def.refText}</span>
+            </div>
+            <div class="quality-status-group">
+              <span class="quality-badge ${badgeClass}">${badgeText}</span>
+              <span class="quality-num ${numColorClass}">${total ? `${ok}/${total} · ${format(pct, 1)}%` : 'Sem dados'}</span>
+            </div>
+          </div>
+          <div class="quality-track">
+            <div class="quality-fill ${fillColorClass}" style="width: ${total ? pct : 0}%"></div>
+          </div>
+          ${alertHtml}
+          <div class="small muted" style="margin-top:6px; font-size:0.75rem;">
+            ${general.length - total} registo(s) gerais sem esta medição numérica no período.
+          </div>
+        `;
+        container.appendChild(card);
       });
 
+      // Cold chain card (HACCP)
       const states = temperatures.map(r => declaredState(r.data.dentroIntervalo));
       const yes = states.filter(s => s.className === 'ok').length;
       const no = states.filter(s => s.className === 'bad').length;
-      const p = document.createElement('p');
-      p.className = 'small';
-      p.style.marginTop = '12px';
-      p.textContent = 'Frio — estado declarado nos registos: ' +
-        yes + ' dentro · ' + no + ' fora · ' +
-        (states.length - yes - no) + ' não informado. Não recalculado a partir de limites.';
-      host.appendChild(p);
+      const unknown = states.length - yes - no;
+      const evaluated = yes + no;
+      const coldPct = evaluated > 0 ? Math.round((yes / evaluated) * 100) : (states.length > 0 ? 100 : 0);
+
+      let coldStatusClass = 'status-zero';
+      let coldBadgeClass = 'zero';
+      let coldBadgeText = '⚪ Sem Registos';
+      let coldNumColor = 'zero';
+      let coldFillClass = 'zero';
+
+      if (states.length > 0) {
+        if (no === 0) {
+          coldStatusClass = 'status-ok';
+          coldBadgeClass = 'ok';
+          coldBadgeText = '🟢 Conforme · 100% Estável';
+          coldNumColor = 'ok';
+          coldFillClass = 'ok';
+        } else if (coldPct >= 80) {
+          coldStatusClass = 'status-warn';
+          coldBadgeClass = 'warn';
+          coldBadgeText = `🟡 Atenção (${no} desvio${no > 1 ? 's' : ''})`;
+          coldNumColor = 'warn';
+          coldFillClass = 'warn';
+        } else {
+          coldStatusClass = 'status-bad';
+          coldBadgeClass = 'bad';
+          coldBadgeText = `🔴 Crítico (${no} desvio${no > 1 ? 's' : ''})`;
+          coldNumColor = 'bad';
+          coldFillClass = 'bad';
+        }
+      }
+
+      const coldCard = document.createElement('div');
+      coldCard.className = `quality-card ${coldStatusClass}`;
+
+      let coldAlertHtml = '';
+      if (states.length > 0) {
+        if (no > 0) {
+          coldAlertHtml = `
+            <div class="quality-alert-box ${coldPct >= 80 ? 'warn' : 'bad'}">
+              <strong>${coldPct >= 80 ? '⚠️' : '⛔'} ${no} equipamento(s) registados fora da temperatura segura:</strong>
+              <div style="margin-top:4px; font-size:0.75rem;">
+                Risco de rutura na cadeia de frio e deterioração alimentar segundo normas HACCP. Verificar compressores e fecho de portas.
+              </div>
+            </div>
+          `;
+        } else {
+          coldAlertHtml = `
+            <div class="quality-alert-box ok">
+              ✅ <strong>100% Conforme:</strong> Zero incidentes térmicos registados. Todas as medições válidas dentro dos limites definidos por equipamento.
+            </div>
+          `;
+        }
+      }
+
+      coldCard.innerHTML = `
+        <div class="quality-card-head">
+          <div class="quality-card-title-group">
+            <span class="quality-card-title">🧊 Cadeia de Frio dos Equipamentos (HACCP)</span>
+            <span class="quality-ref-tag">Ref: Temperaturas declaradas por câmara</span>
+          </div>
+          <div class="quality-status-group">
+            <span class="quality-badge ${coldBadgeClass}">${coldBadgeText}</span>
+            <span class="quality-num ${coldNumColor}">${evaluated > 0 ? `${yes}/${evaluated} · ${coldPct}%` : (states.length ? `${yes} dentro` : 'Sem dados')}</span>
+          </div>
+        </div>
+        <div class="quality-track">
+          <div class="quality-fill ${coldFillClass}" style="width: ${coldPct}%"></div>
+        </div>
+        ${coldAlertHtml}
+        <div class="quality-chips-row">
+          <span class="quality-chip ${yes > 0 ? 'ok' : 'neutral'}">✓ ${yes} Dentro do Intervalo</span>
+          <span class="quality-chip ${no > 0 ? 'bad' : 'ok'}">${no > 0 ? '⚠️ ' + no + ' Fora do Intervalo' : '✓ 0 Fora'}</span>
+          ${unknown > 0 ? `<span class="quality-chip neutral">${unknown} Não informado</span>` : ''}
+        </div>
+      `;
+      container.appendChild(coldCard);
+
+      host.appendChild(container);
     }
 
     function svgElement(name, attributes = {}, content) {
