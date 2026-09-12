@@ -97,7 +97,20 @@
       globalThis.safeFetch = win.safeFetch;
     }
 
-    // 7. Global lifecycle stubs
+    // 7. Global esc and escapeHtml helpers
+    win.esc = function(s) {
+      return String(s === undefined || s === null ? '' : s)
+        .replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+    };
+    win.escapeHtml = win.esc;
+    if (typeof globalThis !== 'undefined') {
+      globalThis.esc = win.esc;
+      globalThis.escapeHtml = win.esc;
+    }
+
+    // 8. Global lifecycle stubs
     win.refreshConsumoResumen = function() {
       try {
         var fn = win._realRefreshConsumoResumen;

@@ -97,7 +97,20 @@
         globalThis.safeFetch = win.safeFetch;
       }
 
-      // 7. Global lifecycle stubs
+      // 7. Global esc and escapeHtml helpers
+      win.esc = function(s) {
+        return String(s === undefined || s === null ? '' : s)
+          .replace(/[&<>"']/g, function(c) {
+            return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+          });
+      };
+      win.escapeHtml = win.esc;
+      if (typeof globalThis !== 'undefined') {
+        globalThis.esc = win.esc;
+        globalThis.escapeHtml = win.esc;
+      }
+
+      // 8. Global lifecycle stubs
       win.refreshConsumoResumen = function() {
         return Promise.resolve();
       };
@@ -2350,6 +2363,12 @@
   <script>
   (function () {
     'use strict';
+
+    const esc = (typeof window !== 'undefined' && typeof window.esc === 'function')
+      ? window.esc
+      : (s => String(s === undefined || s === null ? '' : s)
+          .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const escapeHtml = esc;
 
     const $ = id => document.getElementById(id);
     const TYPES = ['general', 'quarto', 'temperatura'];
@@ -4625,10 +4644,6 @@
       if (unidentified) {
         emptyTable(body, 4, unidentified + ' registo(s) sem identificação de equipamento.');
       }
-    }
-
-    function escapeHtml(s) {
-      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function renderQuality(general, temperatures) {
