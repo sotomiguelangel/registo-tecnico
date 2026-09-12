@@ -73,50 +73,10 @@
       };
     }
 
-    // 6. Ensure 'fetch' on Window is safely accessible and assignable without throwing
-    try {
-      var _origFetch = win.fetch;
-      var _fetchVal = (typeof _origFetch === 'function') ? function() {
-        return _origFetch.apply(win, arguments);
-      } : _origFetch;
-
-      var _installFetchAccessor = function(target) {
-        if (!target) return;
-        try {
-          var d = Object.getOwnPropertyDescriptor(target, 'fetch');
-          if (!d || d.configurable) {
-            Object.defineProperty(target, 'fetch', {
-              get: function() {
-                return _fetchVal;
-              },
-              set: function(fn) {
-                _fetchVal = fn;
-              },
-              configurable: true,
-              enumerable: true
-            });
-          }
-        } catch(e) {}
-      };
-
-      _installFetchAccessor(win);
-      if (typeof Window !== 'undefined' && Window.prototype) {
-        _installFetchAccessor(Window.prototype);
-      }
-      var proto = Object.getPrototypeOf ? Object.getPrototypeOf(win) : win.__proto__;
-      while (proto && proto !== Object.prototype) {
-        _installFetchAccessor(proto);
-        proto = Object.getPrototypeOf ? Object.getPrototypeOf(proto) : proto.__proto__;
-      }
-      if (typeof globalThis !== 'undefined' && globalThis !== win) {
-        _installFetchAccessor(globalThis);
-      }
-    } catch(err) {}
-
-    // 7. Global safeFetch helper on win
+    // 6. Global safeFetch helper on win & globalThis (Non-mutating wrapper)
     win.safeFetch = async function(url, opts, timeoutMs) {
       timeoutMs = timeoutMs || 35000;
-      var fn = (typeof win.fetch === 'function') ? win.fetch : null;
+      var fn = (typeof win.fetch === 'function') ? win.fetch : (typeof fetch === 'function' ? fetch : null);
       if (!fn) throw new Error('Fetch não disponível.');
 
       if (opts && opts.signal) {
@@ -133,8 +93,11 @@
         clearTimeout(timer);
       }
     };
+    if (typeof globalThis !== 'undefined') {
+      globalThis.safeFetch = win.safeFetch;
+    }
 
-    // 8. Global lifecycle stubs
+    // 7. Global lifecycle stubs
     win.refreshConsumoResumen = function() {
       try {
         var fn = win._realRefreshConsumoResumen;
