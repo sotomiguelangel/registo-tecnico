@@ -595,6 +595,119 @@
   .week-pill.ok{ background:var(--ok-100); color:#28704b; }
   .week-pill.pend{ background:var(--amber-100); color:#8a5f0f; }
 
+  /* Refrigeração Grid / Matriz (Paridade com Quartos) */
+  .equip-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .equip-chip{
+    min-height: 70px;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    background: #fbfcfc;
+    padding: 8px 9px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    cursor: pointer;
+    position: relative;
+    text-align: left;
+    transition: all 0.15s ease;
+  }
+  .equip-chip:hover{
+    border-color: var(--ice-500);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+  }
+  .equip-chip.done{
+    background: var(--ok-100);
+    border-color: var(--ok-500);
+  }
+  .equip-chip.bad{
+    background: #fff1f1;
+    border-color: var(--coral-500);
+  }
+  .equip-chip.selected{
+    background: var(--petrol-900);
+    border-color: var(--petrol-900);
+    color: #fff;
+  }
+  .equip-chip .dot{
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6.5px;
+    height: 6.5px;
+    border-radius: 50%;
+    background: var(--ok-500);
+  }
+  .equip-chip.bad .dot{
+    background: var(--coral-500);
+  }
+  .equip-chip.selected .dot{
+    background: var(--aqua-400);
+  }
+  .equip-view-mode{
+    display: flex;
+    gap: 4px;
+    background: var(--paper);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
+  .equip-view-btn{
+    border: none;
+    background: transparent;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-600);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .equip-view-btn.active{
+    background: #fff;
+    color: var(--petrol-900);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  /* Mini Floor Progress in Dashboard */
+  .dash-floor-item{
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .dash-floor-head{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--mono);
+    margin-bottom: 4px;
+  }
+  .dash-floor-title{
+    font-weight: 700;
+    color: var(--petrol-900);
+  }
+  .dash-floor-pct{
+    font-weight: 700;
+  }
+  .dash-floor-track{
+    height: 6px;
+    border-radius: 3px;
+    background: #eef2f1;
+    overflow: hidden;
+  }
+  .dash-floor-fill{
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+
   .period-toggle{ display:flex; gap:8px; margin-bottom:16px; }
   .period-toggle button{
     flex:1; padding:10px 6px; border-radius:10px; border:1.5px solid var(--line);
@@ -836,22 +949,23 @@
   .cost-tag.on-dark{ color:var(--aqua-400); }
 
   /* Heatmap de cumprimento */
-  .heatmap-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:16px; }
+  .heatmap-card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:0 auto 16px auto; max-width:440px; box-shadow:0 1px 3px rgba(0,0,0,0.02); }
   .heatmap-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-  .heatmap-head .ttl{ font-family:var(--mono); font-size:12px; font-weight:700; color:var(--petrol-700); text-transform:uppercase; letter-spacing:.06em; }
-  .heatmap-nav{ display:flex; gap:6px; }
-  .heatmap-nav button{ background:var(--aqua-100); border:none; color:var(--petrol-700); font-weight:700; font-size:12px; padding:4px 10px; border-radius:8px; cursor:pointer; }
-  .heatmap-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; }
-  .heatmap-dow{ font-family:var(--mono); font-size:9px; color:var(--ink-400); text-align:center; text-transform:uppercase; }
-  .heatmap-cell{ aspect-ratio:1; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:10px; font-weight:600; }
+  .heatmap-head .ttl{ font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--petrol-700); text-transform:uppercase; letter-spacing:.04em; }
+  .heatmap-nav{ display:flex; gap:5px; }
+  .heatmap-nav button{ background:var(--aqua-100); border:none; color:var(--petrol-700); font-weight:700; font-size:11.5px; padding:3px 8px; border-radius:6px; cursor:pointer; }
+  .heatmap-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .heatmap-dow{ font-family:var(--mono); font-size:8.5px; color:var(--ink-400); text-align:center; text-transform:uppercase; font-weight:700; padding-bottom:2px; }
+  .heatmap-cell{ height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:9.5px; font-weight:700; transition:transform 0.1s; }
+  .heatmap-cell:hover:not(.hc-empty){ transform:scale(1.05); }
   .heatmap-cell.hc-empty{ background:transparent; }
   .heatmap-cell.hc-none{ background:#eef2f1; color:var(--ink-400); }
   .heatmap-cell.hc-ok{ background:var(--ok-500); color:#fff; }
   .heatmap-cell.hc-bad{ background:var(--coral-500); color:#fff; }
-  .heatmap-cell.hc-future{ background:rgba(56,189,248,0.1); border:1px dashed rgba(56,189,248,0.5); color:var(--ink-400); }
-  .heatmap-legend{ display:flex; gap:12px; margin-top:10px; font-family:var(--mono); font-size:10px; color:var(--ink-600); }
+  .heatmap-cell.hc-future{ background:rgba(56,189,248,0.08); border:1px dashed rgba(56,189,248,0.45); color:var(--ink-400); }
+  .heatmap-legend{ display:flex; justify-content:center; gap:12px; margin-top:10px; font-family:var(--mono); font-size:9.5px; color:var(--ink-600); flex-wrap:wrap; }
   .heatmap-legend span{ display:flex; align-items:center; gap:5px; }
-  .heatmap-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+  .heatmap-legend i{ width:9px; height:9px; border-radius:2px; display:inline-block; }
 
   /* Dashboard */
   .dashboard-period{ font-family:var(--mono); font-size:11px; color:var(--ink-400); margin:-6px 0 16px; }
@@ -5406,6 +5520,69 @@
     selectEquip(sel.value);
   }
 
+  let tempViewMode = 'grid'; // 'grid' | 'list'
+
+  async function openTempDetailAndEditDialog(rec, equip, wr){
+    const d = rec.data;
+    const canModify = !isViewer();
+    const vin = isVinera(equip);
+    const icon = vin ? '🍷' : (String(equip.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+    const parsed = parseTempReading(d.temperatura, equip);
+    const isBad = parsed.isBad || String(d.dentroIntervalo) === 'Não';
+
+    const title = `${icon} ${equip.nome} · Leitura Semanal (${wr ? wr.desde + ' a ' + wr.hasta : d.fecha})`;
+    const htmlBody = `
+      <div style="font-family:var(--mono); font-size:11.5px; color:var(--ink-400); margin-bottom:12px;">
+        📅 Registado em <b>${esc(d.fecha || '—')}</b> às <b>${esc(d.hora || '—')}</b> por 👤 <b>${esc(d.usuario || 'Técnico')}</b>
+      </div>
+      <div style="background:var(--paper); padding:12px; border-radius:12px; border:1px solid var(--line); margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:13px; color:var(--petrol-900);">${esc(equip.nome)} · ${esc(equip.tipo)}</div>
+            <div style="font-size:11px; color:var(--ink-400); font-family:var(--mono);">📍 ${esc(equip.ubicacao || 'Sem localização')}</div>
+          </div>
+          <span class="week-pill ${isBad ? 'bad' : 'ok'}" style="font-size:11px;">
+            ${isBad ? '⚠️ Fora do Intervalo' : '✓ Conforme'}
+          </span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; border-top:1px dashed var(--line); padding-top:8px; font-family:var(--mono); font-size:11.5px;">
+          <div>
+            <div style="color:var(--ink-400); font-size:10px; text-transform:uppercase;">Temperatura Medida</div>
+            <div style="font-weight:800; font-size:14px; color:${isBad ? 'var(--coral-500)' : '#16a34a'};">${esc(parsed.formatted)}</div>
+          </div>
+          <div>
+            <div style="color:var(--ink-400); font-size:10px; text-transform:uppercase;">Referência Regulamentar</div>
+            <div style="font-weight:700; font-size:13px; color:var(--petrol-900);">${esc(String(equip.min))} a ${esc(String(equip.max))} °C</div>
+          </div>
+        </div>
+        ${d.observacoes ? `
+          <div style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--line); font-size:11.5px; color:#8a5f0f;">
+            📝 <b>Observações:</b> ${esc(d.observacoes)}
+          </div>
+        ` : ''}
+        ${(d.modificadoPor || d.editado === 'Sim') ? `
+          <div style="margin-top:6px; font-size:10px; color:var(--ink-400); font-family:var(--mono);">
+            ✏️ Editado por ${esc(d.modificadoPor || '—')}
+          </div>
+        ` : ''}
+      </div>
+      <p style="font-size:12px; color:var(--ink-600); margin:0 0 4px; line-height:1.4;">
+        ${canModify ? 'Clique em <b>Carregar no Formulário para Modificar</b> para retificar este registo de temperatura.' : 'Registo oficial gravado para auditoria HACCP.'}
+      </p>
+    `;
+
+    const ok = await confirmDialog(
+      title,
+      htmlBody,
+      canModify ? '✏️ Carregar no Formulário para Modificar' : 'Fechar',
+      canModify ? 'Fechar' : ''
+    );
+
+    if(ok && canModify){
+      startEditTempRecord(d);
+    }
+  }
+
   async function renderTempWeek(){
     const box = $('tempWeekBox');
     try{
@@ -5425,9 +5602,9 @@
 
       let medidosCount = 0;
       let alertasCount = 0;
+      const equipStateMap = new Map();
 
-      const cardsHtml = ativos.map(eq => {
-        // Encontra a leitura mais recente deste equipamento na semana
+      ativos.forEach(eq => {
         const eqReadings = weekRecords.filter(r => String(r.data.equipamentoId) === String(eq.id) || String(r.data.nome).trim().toLowerCase() === String(eq.nome).trim().toLowerCase());
         const hasReading = eqReadings.length > 0;
         let lastReading = null;
@@ -5444,7 +5621,77 @@
             alertasCount++;
           }
         }
+        equipStateMap.set(String(eq.id), { eq, hasReading, lastReading, isBad, readingFormatted });
+      });
 
+      // 1. Visão de Grelha por Localização (paridade com Quartos)
+      const locGroups = {};
+      ativos.forEach(eq => {
+        const loc = String(eq.ubicacao || 'Outras Localizações').trim() || 'Outras Localizações';
+        (locGroups[loc] = locGroups[loc] || []).push(eq);
+      });
+
+      const gridHtml = Object.keys(locGroups).sort().map(loc => {
+        const eqList = locGroups[loc];
+        let locDone = 0;
+        let locAlerts = 0;
+        eqList.forEach(eq => {
+          const st = equipStateMap.get(String(eq.id));
+          if(st && st.hasReading){
+            locDone++;
+            if(st.isBad) locAlerts++;
+          }
+        });
+        const locTotal = eqList.length;
+
+        const chipsHtml = eqList.map(eq => {
+          const st = equipStateMap.get(String(eq.id)) || {};
+          const vin = isVinera(eq);
+          const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+          const isDone = st.hasReading;
+          const isBad = st.isBad;
+          const formatted = st.readingFormatted;
+
+          return `
+            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : ''}" data-equipchip="${esc(eq.id)}" title="${esc(eq.nome)}: ${esc(eq.tipo)} [${esc(String(eq.min))} a ${esc(String(eq.max))} °C]">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                <span style="font-weight:800; font-size:12px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.nome)}</span>
+                ${isDone ? '<span class="dot"></span>' : ''}
+              </div>
+              <div style="font-size:10px; color:var(--ink-600); margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                ${icon} ${esc(eq.tipo)}
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; font-size:10px; font-family:var(--mono);">
+                <span style="color:var(--ink-400); font-size:9px;">${esc(String(eq.min))} a ${esc(String(eq.max))}°C</span>
+                ${isDone
+                  ? `<span style="font-weight:800; font-size:11px; color:${isBad ? 'var(--coral-500)' : '#16a34a'};">${isBad ? '⚠️' : '✓'} ${esc(formatted)}</span>`
+                  : `<span style="color:var(--ink-400); font-style:italic; font-size:9.5px;">Pendente</span>`
+                }
+              </div>
+            </button>
+          `;
+        }).join('');
+
+        return `
+          <div class="floor-label" style="display:flex; justify-content:space-between; align-items:center; margin:12px 0 6px;">
+            <span>📍 ${esc(loc)}</span>
+            <span style="font-weight:600; text-transform:none; font-size:10.5px; color:${locDone === locTotal ? '#16a34a' : 'var(--ink-600)'};">
+              ${locDone} / ${locTotal} medidos ${locAlerts > 0 ? `· <span style="color:var(--coral-500); font-weight:700;">⚠️ ${locAlerts} fora do intervalo</span>` : (locDone === locTotal ? '· ✓ completo' : '')}
+            </span>
+          </div>
+          <div class="equip-grid">
+            ${chipsHtml}
+          </div>
+        `;
+      }).join('');
+
+      // 2. Visão em Lista Detalhada
+      const cardsHtml = ativos.map(eq => {
+        const st = equipStateMap.get(String(eq.id)) || {};
+        const hasReading = st.hasReading;
+        const lastReading = st.lastReading;
+        const isBad = st.isBad;
+        const readingFormatted = st.readingFormatted;
         const vin = isVinera(eq);
         const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
 
@@ -5495,8 +5742,8 @@
       const totalCount = ativos.length;
       const faltamCount = totalCount - medidosCount;
       const pct = Math.round((medidosCount / (totalCount || 1)) * 100);
-
       const isZeroProg = medidosCount === 0;
+
       box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--ink-600); margin-bottom:12px; background:var(--paper); padding:8px 12px; border-radius:8px; border:1px solid var(--line);">
           <div>
@@ -5508,10 +5755,68 @@
             : (alertasCount > 0 ? `<div style="color:var(--coral-500); font-weight:700;">⚠️ ${alertasCount} fora do intervalo</div>` : '<div style="color:#28704b; font-weight:600;">✓ Todas conformes</div>')
           }
         </div>
-        ${cardsHtml}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+          <div class="equip-view-mode">
+            <button type="button" class="equip-view-btn ${tempViewMode === 'grid' ? 'active' : ''}" id="btnTempGridMode">▦ Grelha Visual (Localização)</button>
+            <button type="button" class="equip-view-btn ${tempViewMode === 'list' ? 'active' : ''}" id="btnTempListMode">☰ Lista Detalhada</button>
+          </div>
+          <div style="font-family:var(--mono); font-size:11px; color:var(--ink-400);">
+            Toque num equipamento para registar ou consultar
+          </div>
+        </div>
+
+        <div id="tempViewContainer">
+          ${tempViewMode === 'grid' ? gridHtml : cardsHtml}
+        </div>
       `;
 
-      // Delegated clicks inside tempWeekBox
+      // Eventos dos botões de alternância de modo
+      const btnGrid = $('btnTempGridMode');
+      if(btnGrid){
+        btnGrid.addEventListener('click', ()=>{
+          tempViewMode = 'grid';
+          renderTempWeek();
+        });
+      }
+      const btnList = $('btnTempListMode');
+      if(btnList){
+        btnList.addEventListener('click', ()=>{
+          tempViewMode = 'list';
+          renderTempWeek();
+        });
+      }
+
+      // Eventos da Grelha Visual (chips)
+      box.querySelectorAll('button[data-equipchip]').forEach(chip => {
+        chip.addEventListener('click', async () => {
+          const eqId = chip.dataset.equipchip;
+          const st = equipStateMap.get(String(eqId));
+          if(!st) return;
+
+          if(st.hasReading && st.lastReading){
+            await openTempDetailAndEditDialog(st.lastReading, st.eq, wr);
+            return;
+          }
+
+          if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
+
+          $('t-equipamento').value = eqId;
+          selectEquip(eqId);
+          $('t-fecha').value = wr.desde;
+          const eq = selectedEquip();
+          if(isVinera(eq) && $('t-temp-min')){
+            $('t-temp-min').focus();
+            $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } else {
+            $('t-temperatura').focus();
+            $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          showToast(`Equipamento ${eq.nome} selecionado para medição`);
+        });
+      });
+
+      // Delegated clicks inside tempWeekBox para modo lista
       box.querySelectorAll('button[data-edittempreg]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = btn.dataset.edittempreg;
@@ -9877,21 +10182,29 @@
     const firstWeekday = (first.getDay()+6)%7; // 0=segunda
     const cells = [];
     for(let i=0;i<firstWeekday;i++) cells.push('<div class="heatmap-cell hc-empty"></div>');
+    let recordedDays = 0, elapsedDays = 0;
     for(let d=1; d<=daysInMonth; d++){
       const dateStr = fmt(new Date(y,m,d));
       let cls, label = d;
       if(dateStr > todayStr2){ cls = 'hc-future'; }
       else{
+        elapsedDays++;
         const st = dayStatusFromRecords(byDate[dateStr] || []);
-        cls = st === 'none' ? 'hc-none' : (st === 'bad' ? 'hc-bad' : 'hc-ok');
+        if(st === 'none'){
+          cls = 'hc-none';
+        } else {
+          cls = st === 'bad' ? 'hc-bad' : 'hc-ok';
+          recordedDays++;
+        }
       }
       cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)}">${label}</div>`);
     }
 
+    const pctMonth = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
     const dows = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
     return `<div class="heatmap-card">
       <div class="heatmap-head">
-        <span class="ttl">${esc(monthLabel)}</span>
+        <span class="ttl">${esc(monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1))} <small style="font-weight:600; font-size:11px; color:var(--ink-400); margin-left:6px;">(${recordedDays}/${elapsedDays} dias · ${pctMonth}%)</small></span>
         <div class="heatmap-nav">
           <button id="hmPrev">‹</button>
           <button id="hmNext" ${monthOffset>=0?'disabled style="opacity:.4;cursor:default"':''}>›</button>
@@ -11005,6 +11318,11 @@
   }
 
   function wireDashboardEvents(){
+    const btnGoQ = $('btnDashGoQuartos');
+    if(btnGoQ && !btnGoQ.dataset.bound){
+      btnGoQ.dataset.bound = '1';
+      btnGoQ.addEventListener('click', () => switchToTab('quarto'));
+    }
     const btnBase = $('btnSetBaseline');
     if(btnBase && !btnBase.dataset.bound){
       btnBase.dataset.bound = '1';
@@ -11196,6 +11514,7 @@
 
       output.innerHTML = `
         ${renderComplianceBox(generalRaw)}
+        ${renderQuartosComplianceDashboardCard(quartosRaw, roomsList, displayCycleDash)}
         ${opBanner}
         
         <div class="card" style="margin-bottom:18px;">
@@ -11948,6 +12267,136 @@
           ? 'Sem registo: ' + esc(c.missing.slice(-6).join(', ')) + (c.missing.length>6?` +${c.missing.length-6} mais`:'')
           : '✓ Todos os dias com leitura — 100% em conformidade')}</div>
     </div>`;
+  }
+
+  function renderQuartosComplianceDashboardCard(quartosRaw, rList, cycle){
+    const total = (rList && rList.length) ? rList.length : 40;
+    const done = cycle ? (cycle.doneCount || 0) : 0;
+    const pending = Math.max(0, total - done);
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    const isZero = done === 0;
+    const isCompleted = cycle ? cycle.isCompleted : false;
+    const tone = isZero ? 'zero' : (pct >= 90 ? 'good' : (pct >= 50 ? '' : 'alert'));
+
+    // Calcular conformidade térmica e sanitária dos quartos medidos neste ciclo
+    const uniqueRooms = cycle ? (cycle.uniqueRooms || []) : [];
+    const roomsMap = cycle ? (cycle.roomsMap || new Map()) : new Map();
+
+    let hotTempOk = 0, hotTempCount = 0;
+    let clOk = 0, clCount = 0;
+
+    uniqueRooms.forEach(rNum => {
+      const rec = roomsMap.get(rNum);
+      if(rec && rec.data){
+        const tCal = parseFloat(rec.data.tempCaliente || rec.data.temperaturaCaliente || rec.data.tempAgua);
+        if(!isNaN(tCal)){
+          hotTempCount++;
+          if(tCal >= 50.0) hotTempOk++;
+        }
+        const clCal = parseFloat(rec.data.cloroCaliente || rec.data.cloroLibreCaliente);
+        if(!isNaN(clCal)){
+          clCount++;
+          if(clCal >= 0.08 && clCal <= 0.60) clOk++;
+        }
+      }
+    });
+
+    // Desglose por piso (Piso 0 ao Piso 4)
+    const floors = ['0', '1', '2', '3', '4'];
+    const floorBars = floors.map(f => {
+      const totalF = rList.filter(r => normRoom(r).startsWith(f)).length;
+      if(!totalF) return '';
+      const doneF = uniqueRooms.filter(r => normRoom(r).startsWith(f)).length;
+      const pctF = Math.round((doneF / totalF) * 100);
+      const colorF = pctF >= 80 ? '#16a34a' : (pctF >= 40 ? '#0284c7' : (pctF > 0 ? '#ea580c' : 'var(--ink-400)'));
+      return `
+        <div class="dash-floor-item">
+          <div class="dash-floor-head">
+            <span class="dash-floor-title">Piso ${f}</span>
+            <span class="dash-floor-pct" style="color:${colorF}">${doneF} / ${totalF} (${pctF}%)</span>
+          </div>
+          <div class="dash-floor-track">
+            <div class="dash-floor-fill" style="width:${pctF}%; background:${colorF};"></div>
+          </div>
+        </div>
+      `;
+    }).filter(Boolean).join('');
+
+    const cycleTitle = cycle
+      ? `Ciclo #${cycle.index} ${cycle.isActive ? '(Em Curso)' : (isCompleted ? '(Concluído)' : '(Incompleto)')}`
+      : 'Ciclo em curso';
+    const cycleRange = (cycle && cycle.fechaInicio)
+      ? `${cycle.fechaInicio} a ${cycle.fechaFin || 'atual'}`
+      : 'Período atual';
+
+    return `
+      <h2 class="report-heading" style="display:flex; justify-content:space-between; align-items:center; margin-top:20px;">
+        <span>🛏️ Cumprimento do Ciclo de Quartos (AQS / Legionela)</span>
+        <button type="button" class="cycle-btn primary" id="btnDashGoQuartos" style="font-size:11px; padding:4px 10px; font-weight:700;">Ver grelha de quartos →</button>
+      </h2>
+      <div class="dashboard-card ${tone}" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+          <div>
+            <div class="lab" style="margin-bottom:2px;">${cycleTitle} · <span style="font-weight:400; text-transform:none;">${cycleRange}</span></div>
+            <div class="value">${done} / ${total} quartos <span style="font-size:12px; font-weight:600;">(${pct}%)</span></div>
+          </div>
+          <span class="week-pill ${isZero ? 'pend' : (pct >= 80 ? 'ok' : 'pend')}" style="font-size:11px;">
+            ${isZero ? 'A aguardar leituras' : (isCompleted ? '✓ Ciclo Concluído' : `${pending} pendentes`)}
+          </span>
+        </div>
+        <div class="progress-track" style="margin-bottom:12px;">
+          <div class="progress-fill ${isZero ? 'zero' : ''}" style="width:${pct}%; background:${pct >= 80 ? '#16a34a' : (pct >= 40 ? '#0284c7' : '#ea580c')}"></div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+          <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+            <div style="font-size:10px; color:var(--ink-400); font-family:var(--mono); text-transform:uppercase;">Quartos Medidos</div>
+            <div style="font-weight:800; font-size:13.5px; color:var(--petrol-900);">${done} / ${total}</div>
+            <div style="font-size:10px; color:var(--ink-600);">${pct}% do ciclo concluído</div>
+          </div>
+          <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+            <div style="font-size:10px; color:var(--ink-400); font-family:var(--mono); text-transform:uppercase;">Quartos Pendentes</div>
+            <div style="font-weight:800; font-size:13.5px; color:${pending > 0 ? '#8a5f0f' : '#16a34a'};">${pending}</div>
+            <div style="font-size:10px; color:var(--ink-600);">${pending > 0 ? 'necessários p/ fecho' : 'nenhum pendente'}</div>
+          </div>
+          <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+            <div style="font-size:10px; color:var(--ink-400); font-family:var(--mono); text-transform:uppercase;">AQS Sanitária (≥50°C)</div>
+            <div style="font-weight:800; font-size:13.5px; color:${hotTempCount > 0 && hotTempOk === hotTempCount ? '#16a34a' : (hotTempCount > 0 ? '#ea580c' : 'var(--ink-400)')};">
+              ${hotTempCount > 0 ? `${hotTempOk}/${hotTempCount}` : '—'}
+            </div>
+            <div style="font-size:10px; color:var(--ink-600);">${hotTempCount > 0 ? `${Math.round((hotTempOk/hotTempCount)*100)}% conformes` : 'sem dados temp.'}</div>
+          </div>
+          <div style="background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+            <div style="font-size:10px; color:var(--ink-400); font-family:var(--mono); text-transform:uppercase;">Cloro Residual (0.08–0.60)</div>
+            <div style="font-weight:800; font-size:13.5px; color:${clCount > 0 && clOk === clCount ? '#16a34a' : (clCount > 0 ? '#ea580c' : 'var(--ink-400)')};">
+              ${clCount > 0 ? `${clOk}/${clCount}` : '—'}
+            </div>
+            <div style="font-size:10px; color:var(--ink-600);">${clCount > 0 ? `${Math.round((clOk/clCount)*100)}% conformes` : 'sem dados cloro'}</div>
+          </div>
+        </div>
+
+        ${floorBars ? `
+          <div style="background:var(--paper); padding:10px 12px; border-radius:10px; border:1px solid var(--line);">
+            <div style="font-size:10.5px; font-weight:700; color:var(--petrol-900); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px; font-family:var(--mono);">
+              Desglose de Cobertura por Piso
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px;">
+              ${floorBars}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="meta" style="margin-top:10px;">
+          ${isZero
+            ? 'Início de ciclo: ainda sem quartos inspecionados neste ciclo de rotina predial.'
+            : (isCompleted
+              ? '✓ Todos os quartos do ciclo foram medidos — conformidade total atingida.'
+              : `Restam ${pending} quartos para completar a amostragem do ciclo. O ciclo reinicia ao completar a totalidade dos quartos.`
+            )
+          }
+        </div>
+      </div>
+    `;
   }
 
   function renderLastNote(generalRaw){
