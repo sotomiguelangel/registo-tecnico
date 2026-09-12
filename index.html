@@ -3710,7 +3710,12 @@
     loadTarifasAdmin();
     loadParametrosAdmin();
     resetIdleTimer();
-    switchToTab('ejecutivo', { render: false });
+    const hashView = (window.location.hash || '').replace('#', '');
+    if (hashView && views.includes(hashView)) {
+      switchToTab(hashView, { render: false });
+    } else {
+      switchToTab('ejecutivo', { render: false });
+    }
     initMainApp();
   }
 
@@ -3750,6 +3755,11 @@
     btn.addEventListener('click', ()=>{
       switchToTab(btn.dataset.view);
     });
+  });
+
+  window.addEventListener('hashchange', () => {
+    const h = (window.location.hash || '').replace('#', '');
+    if (h && views.includes(h)) switchToTab(h);
   });
 
   if($('btnRefreshDashboard')) $('btnRefreshDashboard').onclick = () => renderDashboard(true);
@@ -12568,8 +12578,12 @@
     await Promise.all([ loadRooms(), loadCycleDone(), loadEquipamentos().catch(()=>{}) ]);
     await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen(), updateActivePeriodUI().catch(()=>{}) ]);
     const activeTab = document.querySelector('nav.tabs button.active');
-    if(activeTab && activeTab.dataset.view === 'ejecutivo'){
-      renderEjecutivo();
+    if(activeTab){
+      if(activeTab.dataset.view === 'ejecutivo'){
+        renderEjecutivo();
+      } else {
+        switchToTab(activeTab.dataset.view);
+      }
     }
     updateSyncStatusUI();
     triggerSyncQueue(400);

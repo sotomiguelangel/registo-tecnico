@@ -328,6 +328,174 @@
   .tag.warning, .tag.warn { color:var(--warn, #d97706); }
   .tag.bad { color:var(--bad); }
   .tag.unknown { color:var(--muted); }
+
+  /* Cycle Card in Indicadores (Avance da Revisão de Quartos) */
+  .dashboard-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+    transition: all 0.2s ease;
+  }
+  .dashboard-card .lab {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .dashboard-card .value {
+    font-family: var(--mono, monospace);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin: 4px 0 8px;
+  }
+  .dashboard-card .meta {
+    font-family: var(--mono, monospace);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+  .dashboard-card.alert {
+    border-color: #ea580c;
+    background: #fff7ed;
+  }
+  :root[data-theme="dark"] .dashboard-card.alert {
+    border-color: #ea580c;
+    background: rgba(234, 88, 12, 0.12);
+  }
+  .dashboard-card.alert .value {
+    color: #ea580c;
+  }
+  :root[data-theme="dark"] .dashboard-card.alert .value {
+    color: #fb923c;
+  }
+  .dashboard-card.good {
+    border-color: #16a34a;
+    background: #f0fdf4;
+  }
+  :root[data-theme="dark"] .dashboard-card.good {
+    border-color: #16a34a;
+    background: rgba(22, 163, 74, 0.12);
+  }
+  .dashboard-card.good .value {
+    color: #16a34a;
+  }
+  :root[data-theme="dark"] .dashboard-card.good .value {
+    color: #4ade80;
+  }
+  .dashboard-card.zero {
+    background: var(--subtle);
+    border-color: var(--border);
+  }
+
+  .progress-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+  }
+  :root[data-theme="dark"] .progress-track {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .week-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: var(--mono, monospace);
+  }
+  .week-pill.ok {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+  }
+  .week-pill.pend {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+  }
+  .week-pill.zero {
+    background: var(--subtle);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  .cycle-btn {
+    padding: 5px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+  .cycle-btn.primary {
+    background: #0e3341;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+  .cycle-btn.primary:hover {
+    background: #164e63;
+  }
+  :root[data-theme="dark"] .cycle-btn.primary {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  :root[data-theme="dark"] .cycle-btn.primary:hover {
+    background: #0369a1;
+  }
+
+  /* Mini Floor Progress in Cycle Card */
+  .dash-floor-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+  }
+  .dash-floor-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    font-family: var(--mono, monospace);
+    margin-bottom: 4px;
+  }
+  .dash-floor-title {
+    font-weight: 700;
+    color: var(--text);
+  }
+  .dash-floor-pct {
+    font-weight: 700;
+  }
+  .dash-floor-track {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+  :root[data-theme="dark"] .dash-floor-track {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .dash-floor-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
   .progress-row { margin:16px 0; }
   .progress-label {
     display:flex;
@@ -1857,6 +2025,9 @@
         </div>
       </section>
 
+      <!-- Avance da Revisão de Quartos (Cumprimento do Ciclo de Quartos · AQS / Legionela) -->
+      <div id="roomCycleProgressWrap"></div>
+
       <!-- Room Sanitary Quality Panel (pH e Cloro dos Quartos) -->
       <section class="panel" id="roomQualitySection">
         <div class="panel-head">
@@ -2376,9 +2547,17 @@
       return { agua, elec };
     }
 
-    function normRoom(r) {
-      const s = String(r ?? '').trim();
-      return s ? s.padStart(3, '0') : '';
+    function normRoom(n) {
+      if (n === undefined || n === null) return '';
+      let s = String(n).trim();
+      if (!s) return '';
+      const match = s.match(/(?:quarto|hab|room|q\.?)?\s*(\d+)/i);
+      if (match && match[1]) {
+        let num = match[1];
+        if (num.length < 3) num = num.padStart(3, '0');
+        return num;
+      }
+      return s.padStart(3, '0');
     }
 
     function defaultRooms() {
@@ -2408,10 +2587,24 @@
       const targetSize = roomList.length || 40;
 
       if (!rawRecords || rawRecords.length === 0) {
+        const emptyCycle = {
+          index: 1,
+          cycleIndex: 1,
+          doneCount: 0,
+          targetSize,
+          isCompleted: false,
+          isActive: true,
+          label: `Ciclo em curso (0/${targetSize})`,
+          fechaInicio: '—',
+          fechaFin: '—',
+          roomsMap: new Map(),
+          uniqueRooms: [],
+          records: []
+        };
         return {
           completedCycles: [],
-          currentCycle: { doneCount: 0, targetSize, isCompleted: false, label: `Ciclo em curso (0/${targetSize})` },
-          allCycles: []
+          currentCycle: emptyCycle,
+          allCycles: [emptyCycle]
         };
       }
 
@@ -2423,32 +2616,61 @@
 
       const completedCycles = [];
       let cycleIndex = 1;
+      let cycleRecords = [];
       let cycleRoomsMap = new Map();
+
+      function finalizeCycle(isActive) {
+        const uniqueRooms = Array.from(cycleRoomsMap.keys());
+        let fechaInicio = '—', fechaFin = '—';
+        if (cycleRecords.length) {
+          const s = cycleRecords.slice().sort((a, b) => {
+            const da = (a.date || a.data?.fecha || '') + ' ' + (a.time || a.data?.hora || '');
+            const db = (b.date || b.data?.fecha || '') + ' ' + (b.time || b.data?.hora || '');
+            return da.localeCompare(db);
+          });
+          fechaInicio = s[0].date || s[0].data?.fecha || '—';
+          fechaFin = s[s.length - 1].date || s[s.length - 1].data?.fecha || '—';
+        }
+        const isCompleted = uniqueRooms.length >= targetSize;
+        const label = isCompleted
+          ? `Ciclo #${cycleIndex} completo (${uniqueRooms.length}/${targetSize}) ✓`
+          : `Ciclo #${cycleIndex} em curso (${uniqueRooms.length}/${targetSize})`;
+        return {
+          index: cycleIndex,
+          cycleIndex,
+          label,
+          fechaInicio,
+          fechaFin,
+          targetSize,
+          totalRooms: targetSize,
+          doneCount: uniqueRooms.length,
+          isCompleted,
+          isActive: !!isActive,
+          records: cycleRecords,
+          roomsMap: cycleRoomsMap,
+          uniqueRooms
+        };
+      }
 
       sorted.forEach(record => {
         const roomNum = normRoom(record.data?.numero || record.data?.quarto || record.data?.quartoNumero);
+        cycleRecords.push(record);
         if (!roomNum || !validRooms.has(roomNum)) return;
         cycleRoomsMap.set(roomNum, record);
         if (roomList.every(room => cycleRoomsMap.has(room))) {
-          completedCycles.push({
-            cycleIndex,
-            doneCount: targetSize,
-            targetSize,
-            isCompleted: true,
-            label: `Ciclo #${cycleIndex} completo (${targetSize}/${targetSize}) ✓`
-          });
+          const finished = finalizeCycle(false);
+          finished.isCompleted = true;
+          finished.isActive = false;
+          completedCycles.push(finished);
           cycleIndex++;
+          cycleRecords = [];
           cycleRoomsMap = new Map();
         }
       });
 
-      const currentCycle = {
-        cycleIndex,
-        doneCount: cycleRoomsMap.size,
-        targetSize,
-        isCompleted: false,
-        label: `Ciclo #${cycleIndex} em curso (${cycleRoomsMap.size}/${targetSize})`
-      };
+      const currentCycle = finalizeCycle(true);
+      currentCycle.isActive = true;
+      currentCycle.isCompleted = false;
 
       return {
         completedCycles,
@@ -2749,6 +2971,7 @@
         pilarFrio, temp7, tempBad7, frioPeriodLabel,
         pilarEficiencia, comp,
         pilarQuartos, done, totalRooms, roomsPct, pending,
+        displayCycle, roomsList, quartosUntilEnd,
         monthStats, prevMonthStats,
         aguaVal, elecVal, costAgua, costElec, costTotal,
         projectedCost, dailyCost, varCostPct,
@@ -3168,6 +3391,146 @@
           </div>
         `;
       }
+    }
+
+    // ---------- Avance da Revisão de Quartos (Ciclo AQS / Legionela) ----------
+    function renderQuartosComplianceDashboardCard(quartosRaw, rList, cycle) {
+      const roomList = (rList && rList.length) ? rList : getRoomsList();
+      const total = roomList.length || 40;
+      const done = cycle ? (cycle.doneCount || 0) : 0;
+      const pending = Math.max(0, total - done);
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const isZero = done === 0;
+      const isCompleted = cycle ? cycle.isCompleted : false;
+      const tone = isZero ? 'zero' : (pct >= 90 ? 'good' : (pct >= 50 ? '' : 'alert'));
+
+      // Conformidade térmica e sanitária dos quartos medidos neste ciclo
+      const uniqueRooms = cycle ? (cycle.uniqueRooms || []) : [];
+      const roomsMap = cycle ? (cycle.roomsMap || new Map()) : new Map();
+
+      let hotTempOk = 0, hotTempCount = 0;
+      let clOk = 0, clCount = 0;
+
+      uniqueRooms.forEach(rNum => {
+        const rec = roomsMap.get(rNum);
+        if (rec && rec.data) {
+          const tCal = parseFloat(rec.data.tempCaliente || rec.data.temperaturaCaliente || rec.data.tempAgua || rec.data.temp);
+          if (!isNaN(tCal)) {
+            hotTempCount++;
+            if (tCal >= 50.0) hotTempOk++;
+          }
+          const clCal = parseFloat(rec.data.cloroCaliente || rec.data.cloroLibreCaliente || rec.data.cloroQuente || rec.data.cloro);
+          if (!isNaN(clCal)) {
+            clCount++;
+            if (clCal >= 0.08 && clCal <= 0.60) clOk++;
+          }
+        }
+      });
+
+      // Desglose por piso (Piso 0 ao Piso 4)
+      const floors = ['0', '1', '2', '3', '4'];
+      const floorBars = floors.map(f => {
+        const totalF = roomList.filter(r => normRoom(r).startsWith(f)).length;
+        if (!totalF) return '';
+        const doneF = uniqueRooms.filter(r => normRoom(r).startsWith(f)).length;
+        const pctF = Math.round((doneF / totalF) * 100);
+        const colorF = pctF >= 80 ? '#16a34a' : (pctF >= 40 ? '#0284c7' : (pctF > 0 ? '#ea580c' : 'var(--muted)'));
+        return `
+          <div class="dash-floor-item">
+            <div class="dash-floor-head">
+              <span class="dash-floor-title">Piso ${f}</span>
+              <span class="dash-floor-pct" style="color:${colorF}">${doneF} / ${totalF} (${pctF}%)</span>
+            </div>
+            <div class="dash-floor-track">
+              <div class="dash-floor-fill" style="width:${pctF}%; background:${colorF};"></div>
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+
+      const cycleTitle = cycle
+        ? `Ciclo #${cycle.index || cycle.cycleIndex || 1} ${cycle.isActive ? '(Em Curso)' : (isCompleted ? '(Concluído)' : '(Incompleto)')}`
+        : 'Ciclo em curso';
+      const cycleRange = (cycle && cycle.fechaInicio && cycle.fechaInicio !== '—')
+        ? `${cycle.fechaInicio} a ${cycle.fechaFin || 'atual'}`
+        : 'Período atual';
+
+      return `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+          <h2 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+            <span>🛏️ Cumprimento do Ciclo de Quartos (AQS / Legionela)</span>
+          </h2>
+          <a href="index.html#quarto" class="cycle-btn primary" id="btnDashGoQuartos">
+            Ver grelha de quartos →
+          </a>
+        </div>
+        <div class="dashboard-card ${tone}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+            <div>
+              <div class="lab" style="margin-bottom:2px; font-size:11px; font-weight:700; font-family:monospace;">
+                ${cycleTitle} · <span style="font-weight:400; text-transform:none;">${cycleRange}</span>
+              </div>
+              <div class="value" style="font-size:24px; font-weight:800; line-height:1.2;">
+                ${done} / ${total} quartos <span style="font-size:14px; font-weight:700;">(${pct}%)</span>
+              </div>
+            </div>
+            <span class="week-pill ${isZero ? 'zero' : (pct >= 80 ? 'ok' : 'pend')}">
+              ${isZero ? 'A aguardar leituras' : (isCompleted ? '✓ Ciclo Concluído' : `${pending} pendentes`)}
+            </span>
+          </div>
+          <div class="progress-track" style="margin-bottom:12px;">
+            <div class="progress-fill ${isZero ? 'zero' : ''}" style="width:${pct}%; background:${pct >= 80 ? '#16a34a' : (pct >= 40 ? '#0284c7' : '#ea580c')}"></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:12px;">
+            <div style="background:var(--surface); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; color:var(--muted); font-family:monospace; text-transform:uppercase; font-weight:700;">Quartos Medidos</div>
+              <div style="font-weight:800; font-size:14px; color:var(--text); margin-top:2px;">${done} / ${total}</div>
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">${pct}% do ciclo concluído</div>
+            </div>
+            <div style="background:var(--surface); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; color:var(--muted); font-family:monospace; text-transform:uppercase; font-weight:700;">Quartos Pendentes</div>
+              <div style="font-weight:800; font-size:14px; color:${pending > 0 ? '#b45309' : '#15803d'}; margin-top:2px;">${pending}</div>
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">${pending > 0 ? 'necessários p/ fecho' : 'nenhum pendente'}</div>
+            </div>
+            <div style="background:var(--surface); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; color:var(--muted); font-family:monospace; text-transform:uppercase; font-weight:700;">AQS Sanitária (≥50°C)</div>
+              <div style="font-weight:800; font-size:14px; color:${hotTempCount > 0 && hotTempOk === hotTempCount ? '#15803d' : (hotTempCount > 0 ? '#ea580c' : 'var(--muted)')}; margin-top:2px;">
+                ${hotTempCount > 0 ? `${hotTempOk}/${hotTempCount}` : '—'}
+              </div>
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">${hotTempCount > 0 ? `${Math.round((hotTempOk/hotTempCount)*100)}% conformes` : 'sem dados temp.'}</div>
+            </div>
+            <div style="background:var(--surface); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; color:var(--muted); font-family:monospace; text-transform:uppercase; font-weight:700;">Cloro Residual (0.08–0.60)</div>
+              <div style="font-weight:800; font-size:14px; color:${clCount > 0 && clOk === clCount ? '#15803d' : (clCount > 0 ? '#ea580c' : 'var(--muted)')}; margin-top:2px;">
+                ${clCount > 0 ? `${clOk}/${clCount}` : '—'}
+              </div>
+              <div style="font-size:10.5px; color:var(--muted); margin-top:2px;">${clCount > 0 ? `${Math.round((clOk/clCount)*100)}% conformes` : 'sem dados cloro'}</div>
+            </div>
+          </div>
+
+          ${floorBars ? `
+            <div style="background:var(--surface); padding:10px 12px; border-radius:10px; border:1px solid var(--border); margin-bottom:10px;">
+              <div style="font-size:10.5px; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:8px; font-family:monospace;">
+                Desglose de Cobertura por Piso
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:6px;">
+                ${floorBars}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="meta" style="font-size:11px; color:var(--muted); font-family:monospace; line-height:1.4;">
+            ${isZero
+              ? 'Início de ciclo: ainda sem quartos inspecionados neste ciclo de rotina predial.'
+              : (isCompleted
+                ? '✓ Todos os quartos do ciclo foram medidos — conformidade total atingida.'
+                : `Restam ${pending} quartos para completar a amostragem do ciclo. O ciclo reinicia ao completar a totalidade dos quartos.`
+              )
+            }
+          </div>
+        </div>
+      `;
     }
 
     // ---------- Amostragem Operacional da Rede Predial · Quartos (pH e Cloro) ----------
@@ -4892,6 +5255,16 @@
       } else {
         text('aqsValue', '—');
         text('aqsNote', 'Sem medições de AQS.');
+      }
+
+      // Avance da Revisão de Quartos (Ciclo de Quartos · AQS / Legionela)
+      const cycleWrap = $('roomCycleProgressWrap');
+      if (cycleWrap && execData) {
+        cycleWrap.innerHTML = renderQuartosComplianceDashboardCard(
+          execData.quartosUntilEnd || records.quarto,
+          execData.roomsList || getRoomsList(),
+          execData.displayCycle
+        );
       }
 
       // Room Sanitary Quality Table (pH e Cloro nos Quartos)
