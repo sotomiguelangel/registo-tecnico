@@ -1180,15 +1180,56 @@
     margin-top: 2px;
   }
 
+  /* Heatmap Card in KPI grid (fills the empty space in the KPI card section) */
+  .card.card-heatmap {
+    grid-column: span 4;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  @media (max-width: 1350px) {
+    .card.card-heatmap {
+      grid-column: span 3;
+    }
+  }
+  @media (max-width: 1120px) {
+    .card.card-heatmap {
+      grid-column: span 2;
+    }
+  }
+  @media (max-width: 660px) {
+    .card.card-heatmap {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .card-heatmap-inner {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .card-heatmap-calendar {
+    flex: 1 1 320px;
+    max-width: 440px;
+    min-width: 280px;
+  }
+  .card-heatmap-stats {
+    flex: 1 1 220px;
+    min-width: 200px;
+  }
+
   /* Heatmap Compliance Calendar */
   .heatmap-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: transparent;
+    border: none;
     border-radius: 14px;
-    padding: 14px 16px;
-    margin: 0 auto 18px auto;
-    max-width: 440px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+    box-shadow: none;
   }
   .heatmap-head {
     display: flex;
@@ -1658,10 +1699,7 @@
         <!-- 2. Cockpit Financeiro & Projeção Mensal -->
         <div id="execFinWrap"></div>
 
-        <!-- 3. Heatmap de Cumprimento & Cadência Diária -->
-        <div id="execHeatmapWrap"></div>
-
-        <!-- 4. Histórico Mensal Comparativo (Últimos 6 Meses) -->
+        <!-- 3. Histórico Mensal Comparativo (Últimos 6 Meses) -->
         <div id="execHistoryWrap"></div>
       </section>
 
@@ -1714,6 +1752,9 @@
           <div class="value" id="aqsValue">—</div>
           <div class="small" id="aqsNote"></div>
         </div>
+
+        <!-- Heatmap de Cumprimento & Cadência Diária (Posicionado no espaço vago dos cartões) -->
+        <div class="card card-heatmap" id="execHeatmapWrap"></div>
       </section>
 
       <!-- Consumption Chart Panel (D3.js) -->
@@ -2770,6 +2811,7 @@
       }
 
       let recordedDays = 0, elapsedDays = 0;
+      const missingDays = [];
       for (let d = 1; d <= daysInMonth; d++) {
         const dateStr = fmt(new Date(y, m, d));
         let cls, label = d;
@@ -2782,6 +2824,7 @@
             recordedDays++;
           } else {
             cls = 'hc-none';
+            missingDays.push(d);
           }
         }
         cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr}">${label}</div>`);
@@ -2789,24 +2832,57 @@
 
       const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
       const pctMonth = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
+      const isOk = pctMonth >= 90;
+      const isWarn = pctMonth >= 70 && !isOk;
+      const statusClass = isOk ? 'ok' : (isWarn ? 'warn' : 'bad');
+      const statusText = isOk ? 'Conforme (≥90%)' : (isWarn ? 'Atenção (<90%)' : 'Crítico (<70%)');
 
       return `
-        <div class="heatmap-card">
-          <div class="heatmap-head">
-            <span class="ttl">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} <small style="font-weight:600; font-size:12px; color:var(--muted); margin-left:8px;">(${recordedDays}/${elapsedDays} dias · ${pctMonth}%)</small></span>
-            <div class="heatmap-nav">
-              <button type="button" id="hmPrev" title="Mês anterior">‹</button>
-              <button type="button" id="hmNext" title="Mês seguinte" ${offset >= 0 ? 'disabled style="opacity:.4; cursor:default"' : ''}>›</button>
+        <div class="card-heatmap-inner">
+          <div class="card-heatmap-calendar">
+            <div class="heatmap-head">
+              <span class="ttl">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} <small style="font-weight:600; font-size:12px; color:var(--muted); margin-left:8px;">(${recordedDays}/${elapsedDays} dias · ${pctMonth}%)</small></span>
+              <div class="heatmap-nav">
+                <button type="button" id="hmPrev" title="Mês anterior">‹</button>
+                <button type="button" id="hmNext" title="Mês seguinte" ${offset >= 0 ? 'disabled style="opacity:.4; cursor:default"' : ''}>›</button>
+              </div>
+            </div>
+            <div class="heatmap-grid">
+              ${dows.map(d => `<div class="heatmap-dow">${d}</div>`).join('')}
+              ${cells.join('')}
+            </div>
+            <div class="heatmap-legend">
+              <span><i style="background:#22c55e"></i>Com registo</span>
+              <span><i style="background:var(--subtle); border:1px solid var(--border)"></i>Sem registo</span>
+              <span><i style="background:transparent; border:1px dashed var(--border)"></i>Dias futuros</span>
             </div>
           </div>
-          <div class="heatmap-grid">
-            ${dows.map(d => `<div class="heatmap-dow">${d}</div>`).join('')}
-            ${cells.join('')}
-          </div>
-          <div class="heatmap-legend">
-            <span><i style="background:#22c55e"></i>Com registo</span>
-            <span><i style="background:var(--subtle); border:1px solid var(--border)"></i>Sem registo</span>
-            <span><i style="background:transparent; border:1px dashed var(--border)"></i>Dias futuros</span>
+          <div class="card-heatmap-stats">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.86rem; font-weight:700; color:var(--text);">📋 Cadência Operacional</span>
+              <span class="exec-pillar-tag ${statusClass}">${statusText}</span>
+            </div>
+            <div style="font-size:1.6rem; font-weight:800; font-variant-numeric:tabular-nums; margin:6px 0; color:${isOk ? '#16a34a' : (isWarn ? '#d97706' : '#dc2626')};">
+              ${pctMonth}% <span style="font-size:0.85rem; font-weight:600; color:var(--muted);">cumprimento</span>
+            </div>
+            <div style="height:6px; background:var(--subtle); border-radius:4px; overflow:hidden; margin-bottom:10px;">
+              <div style="height:100%; width:${pctMonth}%; background:${isOk ? '#22c55e' : (isWarn ? '#f59e0b' : '#ef4444')}; border-radius:4px; transition:width 0.3s ease;"></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px;">
+              <div style="background:var(--subtle); padding:6px 8px; border-radius:6px; border:1px solid var(--border);">
+                <div style="color:var(--muted); font-size:0.68rem; text-transform:uppercase;">Com Registo</div>
+                <div style="font-weight:700; font-size:0.95rem; color:#16a34a;">${recordedDays} / ${elapsedDays} d</div>
+              </div>
+              <div style="background:var(--subtle); padding:6px 8px; border-radius:6px; border:1px solid var(--border);">
+                <div style="color:var(--muted); font-size:0.68rem; text-transform:uppercase;">Dias em Falta</div>
+                <div style="font-weight:700; font-size:0.95rem; color:${missingDays.length > 0 ? '#dc2626' : '#16a34a'};">${missingDays.length} d</div>
+              </div>
+            </div>
+            <div class="small" style="font-size:0.75rem; color:var(--muted); line-height:1.35; min-height:auto;">
+              ${missingDays.length > 0 
+                ? `⚠️ Sem registo: <strong>${missingDays.slice(0, 6).join(', ')}${missingDays.length > 6 ? ` +${missingDays.length - 6}` : ''}</strong>`
+                : '✓ Todos os dias decorridos com leitura técnica registada.'}
+            </div>
           </div>
         </div>
       `;
