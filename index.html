@@ -3382,7 +3382,16 @@
       const r = await apiGet({ action:'listEquipamentos' });
       equipamentos = r.equipamentos || [];
       equipamentosLoadedAt = Date.now();
-    }catch(e){ if(!equipamentos.length) throw e; }
+      try{ localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); }catch(e){}
+    }catch(e){
+      if(!equipamentos.length){
+        try{
+          const saved = localStorage.getItem('bitacora_equipamentos');
+          if(saved) equipamentos = JSON.parse(saved);
+        }catch(ex){}
+      }
+      if(!equipamentos.length) throw e;
+    }
     return equipamentos;
   }
   function invalidateEquipamentos(){ equipamentos = []; equipamentosLoadedAt = 0; }
