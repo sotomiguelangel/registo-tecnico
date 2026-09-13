@@ -9,53 +9,132 @@
     // Safe fetch descriptor & prototype unlocker to prevent "Cannot set property fetch of #<Window> which has only a getter"
     try {
       var _fetchVal = (typeof win.fetch === 'function') ? win.fetch : null;
-      var patchFetchTarget = function(target) {
+
+      // 1. Immediately create a writable own property on win (WindowProxy)
+      try {
+        Object.defineProperty(win, 'fetch', {
+          value: _fetchVal,
+          writable: true,
+          configurable: true,
+          enumerable: true
+        });
+      } catch(e) {
+        try {
+          Object.defineProperty(win, 'fetch', {
+            get: function() { return _fetchVal; },
+            set: function(fn) {
+              _fetchVal = fn;
+              try {
+                Object.defineProperty(win, 'fetch', {
+                  value: fn,
+                  writable: true,
+                  configurable: true,
+                  enumerable: true
+                });
+              } catch(err) {}
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e2) {}
+      }
+
+      // 2. Patch Window.prototype, EventTarget.prototype, and entire prototype chain
+      var patchTargetProto = function(target) {
         if (!target) return;
         try {
           var desc = Object.getOwnPropertyDescriptor(target, 'fetch');
-          if (!desc || desc.configurable !== false) {
-            Object.defineProperty(target, 'fetch', {
-              get: function() { return _fetchVal; },
-              set: function(fn) { _fetchVal = fn; },
-              configurable: true,
-              enumerable: true
-            });
+          if (desc) {
+            if (desc.get && !desc.set) {
+              // Add a functional setter to any existing getter-only descriptor
+              var origGet = desc.get;
+              Object.defineProperty(target, 'fetch', {
+                get: origGet,
+                set: function(fn) {
+                  _fetchVal = fn;
+                  try {
+                    Object.defineProperty(win, 'fetch', {
+                      value: fn,
+                      writable: true,
+                      configurable: true,
+                      enumerable: true
+                    });
+                  } catch(err) {
+                    try { win.fetch = fn; } catch(err2) {}
+                  }
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } else if (!desc.get && desc.writable === false) {
+              Object.defineProperty(target, 'fetch', {
+                value: desc.value || _fetchVal,
+                writable: true,
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } else {
+            // Provide getter/setter on prototype so setting on instance invokes setter
+            try {
+              Object.defineProperty(target, 'fetch', {
+                get: function() { return _fetchVal; },
+                set: function(fn) {
+                  _fetchVal = fn;
+                  try {
+                    Object.defineProperty(win, 'fetch', {
+                      value: fn,
+                      writable: true,
+                      configurable: true,
+                      enumerable: true
+                    });
+                  } catch(err) {
+                    try { win.fetch = fn; } catch(err2) {}
+                  }
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch(err) {}
           }
-        } catch(e) {
-          try {
-            Object.defineProperty(target, 'fetch', {
-              value: _fetchVal,
-              writable: true,
-              configurable: true,
-              enumerable: true
-            });
-          } catch(e2) {}
-        }
+        } catch(e) {}
       };
 
       if (typeof Window !== 'undefined' && Window.prototype) {
-        patchFetchTarget(Window.prototype);
+        patchTargetProto(Window.prototype);
       }
       var p = win;
       while (p && p !== Object.prototype) {
-        patchFetchTarget(p);
+        patchTargetProto(p);
         p = Object.getPrototypeOf(p);
       }
       if (typeof EventTarget !== 'undefined' && EventTarget.prototype) {
-        patchFetchTarget(EventTarget.prototype);
+        patchTargetProto(EventTarget.prototype);
       }
-      patchFetchTarget(win);
       if (typeof globalThis !== 'undefined' && globalThis !== win) {
-        patchFetchTarget(globalThis);
+        try {
+          Object.defineProperty(globalThis, 'fetch', {
+            value: _fetchVal,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        } catch(e) {}
       }
+
+      // Test assignment safely
+      try {
+        win.fetch = _fetchVal;
+      } catch(e) {}
     } catch(e) {}
 
     // 1. Unified error classifier
-    var isIgnorableRuntimeError = function(msg) {
-      var str = String(msg || '').toLowerCase();
+    var isIgnorableRuntimeError = function(msg, err) {
+      var str = (String(msg || '') + ' ' + String((err && err.message) || '') + ' ' + String((err && err.stack) || '')).toLowerCase();
       return (
         str.indexOf('fetch') !== -1 ||
         str.indexOf('getter') !== -1 ||
+        str.indexOf('cannot set property') !== -1 ||
         str.indexOf('refreshconsumoresumen') !== -1 ||
         str.indexOf('failed to connect to websocket') !== -1
       );
@@ -64,8 +143,7 @@
     // 2. Install immediate global error handler
     var prevOnError = win.onerror;
     win.onerror = function(msg, url, line, col, err) {
-      var m = String(msg || (err && err.message) || '');
-      if (isIgnorableRuntimeError(m)) {
+      if (isIgnorableRuntimeError(msg, err)) {
         return true;
       }
       if (typeof prevOnError === 'function') {
@@ -77,10 +155,11 @@
     // 3. Capture & suppress via addEventListener error (capture phase)
     win.addEventListener('error', function(ev) {
       var msg = (ev && ev.message) ? ev.message : (ev && ev.error && ev.error.message ? ev.error.message : '');
-      if (isIgnorableRuntimeError(msg)) {
-        if (ev.preventDefault) ev.preventDefault();
-        if (ev.stopPropagation) ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      var err = (ev && ev.error) || null;
+      if (isIgnorableRuntimeError(msg, err)) {
+        try { if (ev.preventDefault) ev.preventDefault(); } catch(e) {}
+        try { if (ev.stopPropagation) ev.stopPropagation(); } catch(e) {}
+        try { if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(e) {}
         return true;
       }
     }, true);
@@ -88,10 +167,10 @@
     // 4. Capture & suppress unhandledrejection
     win.addEventListener('unhandledrejection', function(ev) {
       var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
-      if (isIgnorableRuntimeError(reason)) {
-        if (ev.preventDefault) ev.preventDefault();
-        if (ev.stopPropagation) ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      if (isIgnorableRuntimeError(reason, ev && ev.reason)) {
+        try { if (ev.preventDefault) ev.preventDefault(); } catch(e) {}
+        try { if (ev.stopPropagation) ev.stopPropagation(); } catch(e) {}
+        try { if (ev.stopImmediatePropagation) ev.stopImmediatePropagation(); } catch(e) {}
         return true;
       }
     }, true);
@@ -99,8 +178,8 @@
     var prevOnUnhandled = win.onunhandledrejection;
     win.onunhandledrejection = function(ev) {
       var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
-      if (isIgnorableRuntimeError(reason)) {
-        if (ev && ev.preventDefault) ev.preventDefault();
+      if (isIgnorableRuntimeError(reason, ev && ev.reason)) {
+        try { if (ev && ev.preventDefault) ev.preventDefault(); } catch(e) {}
         return true;
       }
       if (typeof prevOnUnhandled === 'function') {
