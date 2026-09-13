@@ -6,6 +6,17 @@
       var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
       if (!win) return;
 
+      // Safe fetch descriptor to prevent "Cannot set property fetch of #<Window> which has only a getter"
+      try {
+        var _currFetch = win.fetch;
+        Object.defineProperty(win, 'fetch', {
+          get: function() { return _currFetch; },
+          set: function(fn) { _currFetch = fn; },
+          configurable: true,
+          enumerable: true
+        });
+      } catch(e) {}
+
       // 1. Unified error classifier
       var isIgnorableRuntimeError = function(msg) {
         var str = String(msg || '').toLowerCase();
@@ -2105,7 +2116,12 @@
             <h2>📈 Tendência de Consumo · Água e Eletricidade <span class="tag" style="background:#0284c7; color:#fff; font-weight:700; font-size:11px; margin-left:6px">D3.js Interativo</span></h2>
             <p class="small muted">Evolução diária dos contadores, médias móveis e comparativo bimetálico com eixos duplos.</p>
           </div>
-          <div class="d3-controls-row" style="margin-bottom:0;">
+          <div class="d3-controls-row" style="margin-bottom:0; gap:10px;">
+            <div class="d3-btn-group" id="d3ConsumoPeriodGroup" title="Filtrar período deste gráfico e indicadores">
+              <button type="button" class="d3-toggle-btn" data-period="7d" id="btnConsumoPeriod7d">⏱️ Últimos 7 dias</button>
+              <button type="button" class="d3-toggle-btn active" data-period="month-current" id="btnConsumoPeriodCurrent">📅 Mês em curso</button>
+              <button type="button" class="d3-toggle-btn" data-period="month-prev" id="btnConsumoPeriodPrev">📅 Mês anterior</button>
+            </div>
             <div class="d3-btn-group" id="d3ConsumoMetricGroup">
               <button type="button" class="d3-toggle-btn active" data-metric="water" id="btnConsumoAgua">💧 Água (m³)</button>
               <button type="button" class="d3-toggle-btn" data-metric="energy" id="btnConsumoElec">⚡ Eletricidade (kWh)</button>
@@ -4889,6 +4905,7 @@
     }
 
     // D3 Charts State
+    let d3ConsumoPeriod = 'month-current'; // '7d' | 'month-current' | 'month-prev'
     let d3ConsumoMetric = 'water'; // 'water' | 'energy' | 'both'
     let d3ConsumoShowMA7 = true;
     let d3ConsumoShowArea = true;
@@ -4897,6 +4914,28 @@
     let d3ScatterCloroParam = 'libre'; // 'libre' | 'total'
     let d3ScatterShowRegression = true;
     let lastSelectedConsumption = [];
+
+    function range7Days() {
+      const end = new Date();
+      const start = new Date(end.getTime() - 6 * 86400000);
+      return [fmt(start), fmt(end)];
+    }
+
+    function getConsumoSectionRange(period) {
+      const p = period || d3ConsumoPeriod;
+      if (p === '7d') {
+        return range7Days();
+      }
+      if (p === 'month-prev') {
+        return monthRangeOffset(-1);
+      }
+      return monthRangeOffset(0); // 'month-current'
+    }
+
+    function getConsumoDataForSection(period) {
+      const [desde, hasta] = getConsumoSectionRange(period);
+      return (consumptions || []).filter(r => r.date && r.date >= desde && r.date <= hasta);
+    }
 
     // Helper: calculate Pearson correlation and linear regression
     function calculateStatsAndRegression(pts) {
@@ -4921,7 +4960,8 @@
 
     // D3 Consumption Chart (Water & Electricity)
     function renderD3ConsumoChart(list) {
-      lastSelectedConsumption = list || [];
+      const activeList = (list !== undefined && list !== null) ? list : getConsumoDataForSection();
+      lastSelectedConsumption = activeList;
       const host = $('consumptionChart');
       if (!host) return;
       host.replaceChildren();
@@ -4937,13 +4977,24 @@
         p.className = 'empty';
         p.textContent = 'A carregar biblioteca D3.js...';
         host.appendChild(p);
-        setTimeout(() => renderD3ConsumoChart(list), 300);
+        setTimeout(() => renderD3ConsumoChart(activeList), 300);
         return;
       }
 
-      // Group consumption by date
+      // Pre-map all available consumptions to compute accurate 7-day MA even at the beginning of filtered periods
+      const fullMap = new Map();
+      (consumptions || []).forEach(record => {
+        if (!fullMap.has(record.date)) {
+          fullMap.set(record.date, { date: record.date, water: 0, energy: 0 });
+        }
+        const e = fullMap.get(record.date);
+        if (record.water !== null && !isNaN(record.water)) e.water += Number(record.water);
+        if (record.energy !== null && !isNaN(record.energy)) e.energy += Number(record.energy);
+      });
+
+      // Group consumption by date for the active filtered period
       const map = new Map();
-      (list || []).forEach(record => {
+      (activeList || []).forEach(record => {
         if (!map.has(record.date)) {
           map.set(record.date, { date: record.date, water: 0, energy: 0, hasWater: false, hasEnergy: false });
         }
@@ -4963,10 +5014,19 @@
 
       // Compute Moving Average (7-day MA)
       points.forEach((pt, i) => {
-        const slice = points.slice(Math.max(0, i - 6), i + 1);
-        pt.waterMA7 = slice.reduce((s, d) => s + d.water, 0) / slice.length;
-        pt.energyMA7 = slice.reduce((s, d) => s + d.energy, 0) / slice.length;
-        pt.parsedDate = new Date(pt.date + 'T00:00:00');
+        const ptDate = new Date(pt.date + 'T00:00:00');
+        const pastDays = [];
+        for (let off = 6; off >= 0; off--) {
+          const pastD = new Date(ptDate.getTime() - off * 86400000);
+          const pastStr = fmt(pastD);
+          if (fullMap.has(pastStr)) {
+            pastDays.push(fullMap.get(pastStr));
+          }
+        }
+        const slice = pastDays.length ? pastDays : points.slice(Math.max(0, i - 6), i + 1);
+        pt.waterMA7 = slice.reduce((s, d) => s + (d.water || 0), 0) / slice.length;
+        pt.energyMA7 = slice.reduce((s, d) => s + (d.energy || 0), 0) / slice.length;
+        pt.parsedDate = ptDate;
       });
 
       // Update Stat Strip
@@ -5005,9 +5065,14 @@
         `;
       }
 
-      // Update Chart Note
+      // Update Chart Note with active period information
+      const [secDesde, secHasta] = getConsumoSectionRange();
+      const periodLabel = (d3ConsumoPeriod === '7d')
+        ? 'Últimos 7 dias'
+        : (d3ConsumoPeriod === 'month-prev' ? 'Mês anterior' : 'Mês em curso');
       text('chartNote',
-        (all.length > 60 ? 'Mostradas as últimas 60 datas com consumo calculável. ' : '') +
+        `Período desta secção: ${periodLabel} (${secDesde} a ${secHasta}). ` +
+        (all.length > 60 ? 'Mostradas as últimas 60 datas calculáveis. ' : '') +
         'Os totais e estimativas monetárias baseiam-se no período visível (' +
         (wRate ? 'Tarifa Água: ' + format(wRate, 2) + '€/m³; ' : '') +
         (eRate ? 'Tarifa Elec: ' + format(eRate, 2) + '€/kWh' : '') + '). ' +
@@ -6147,7 +6212,7 @@
       renderRoomSanitaryQuality(filtered.quarto);
 
       // Interactive D3 Charts & Auxiliary Tables
-      renderD3ConsumoChart(selectedConsumption);
+      renderD3ConsumoChart(getConsumoDataForSection());
       renderD3ScatterChart(records);
       renderQuality(filtered.general, filtered.temperatura);
       renderEquipmentVisualGrid(filtered.temperatura);
@@ -6514,6 +6579,15 @@
       if (customWrap) customWrap.style.display = (p === 'custom') ? 'inline-flex' : 'none';
       if (monthNav) monthNav.style.display = (p === 'month-current') ? 'inline-flex' : 'none';
       if (p === 'month-current') currentMonthOffset = 0;
+      if (p === '7d' || p === 'month-current' || p === 'month-prev') {
+        d3ConsumoPeriod = p;
+        const btn7d = $('btnConsumoPeriod7d');
+        const btnCur = $('btnConsumoPeriodCurrent');
+        const btnPrev = $('btnConsumoPeriodPrev');
+        if (btn7d) btn7d.classList.toggle('active', p === '7d');
+        if (btnCur) btnCur.classList.toggle('active', p === 'month-current');
+        if (btnPrev) btnPrev.classList.toggle('active', p === 'month-prev');
+      }
       safeRender();
     });
 
@@ -6564,6 +6638,21 @@
     });
 
     // D3 Consumption UI Controls
+    function setConsumoPeriod(period) {
+      d3ConsumoPeriod = period;
+      const btn7d = $('btnConsumoPeriod7d');
+      const btnCur = $('btnConsumoPeriodCurrent');
+      const btnPrev = $('btnConsumoPeriodPrev');
+      if (btn7d) btn7d.classList.toggle('active', period === '7d');
+      if (btnCur) btnCur.classList.toggle('active', period === 'month-current');
+      if (btnPrev) btnPrev.classList.toggle('active', period === 'month-prev');
+      renderD3ConsumoChart(getConsumoDataForSection());
+    }
+
+    addClick('btnConsumoPeriod7d', () => setConsumoPeriod('7d'));
+    addClick('btnConsumoPeriodCurrent', () => setConsumoPeriod('month-current'));
+    addClick('btnConsumoPeriodPrev', () => setConsumoPeriod('month-prev'));
+
     function setConsumoMetric(metric) {
       d3ConsumoMetric = metric;
       const btnW = $('btnConsumoAgua');

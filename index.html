@@ -6,6 +6,17 @@
     var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
     if (!win) return;
 
+    // Safe fetch descriptor to prevent "Cannot set property fetch of #<Window> which has only a getter"
+    try {
+      var _currFetch = win.fetch;
+      Object.defineProperty(win, 'fetch', {
+        get: function() { return _currFetch; },
+        set: function(fn) { _currFetch = fn; },
+        configurable: true,
+        enumerable: true
+      });
+    } catch(e) {}
+
     // 1. Unified error classifier
     var isIgnorableRuntimeError = function(msg) {
       var str = String(msg || '').toLowerCase();
@@ -8792,7 +8803,8 @@
     return Object.keys(byDay).sort().map(d=> byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length);
   }
 
-  // ---------- Módulo D3.js: Gráfico de Linhas Interativo de Consumo (Água e Eletricidade - 30 Dias) ----------
+  // ---------- Módulo D3.js: Gráfico de Linhas Interativo de Consumo (Água e Eletricidade) ----------
+  let d3ConsumoPeriod = 'month-current'; // '7d' | 'month-current' | 'month-prev'
   let d3ConsumoMetric = 'both'; // 'both' | 'agua' | 'elec'
   let d3ConsumoShowMA7 = true;
   let d3ConsumoShowArea = true;
@@ -8813,11 +8825,23 @@
               <span>Tendência de Consumo · Água e Eletricidade</span>
               <span class="d3-badge-tag">D3.js Interativo</span>
             </div>
-            <p class="d3-line-sub">Variação diária e média móvel dos últimos 30 dias calculada por leitura de contadores.</p>
+            <p class="d3-line-sub" id="d3ConsumoLineSub">Variação diária e média móvel calculada por leitura de contadores.</p>
           </div>
         </div>
 
-        <div class="d3-line-controls">
+        <div class="d3-line-controls" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+          <div class="d3-metric-toggle" id="d3ConsumoPeriodToggle" title="Período do gráfico">
+            <button type="button" class="d3-metric-btn ${d3ConsumoPeriod==='7d'?'active':''}" data-period="7d" id="btnD3Period7d">
+              ⏱️ Últimos 7 dias
+            </button>
+            <button type="button" class="d3-metric-btn ${d3ConsumoPeriod==='month-current'?'active':''}" data-period="month-current" id="btnD3PeriodCurrent">
+              📅 Mês em curso
+            </button>
+            <button type="button" class="d3-metric-btn ${d3ConsumoPeriod==='month-prev'?'active':''}" data-period="month-prev" id="btnD3PeriodPrev">
+              📅 Mês anterior
+            </button>
+          </div>
+
           <div class="d3-metric-toggle" id="d3ConsumoMetricToggle">
             <button type="button" class="d3-metric-btn ${d3ConsumoMetric==='both'?'active':''}" data-metric="both" id="btnD3Both">
               🔄 Comparativo (Ambos)
@@ -8885,6 +8909,21 @@
   }
 
   function wireD3ConsumoEvents(){
+    const pToggle = $('d3ConsumoPeriodToggle');
+    if(pToggle && !pToggle.dataset.bound){
+      pToggle.dataset.bound = '1';
+      pToggle.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.d3-metric-btn');
+        if(!btn) return;
+        const period = btn.dataset.period;
+        if(!period || period === d3ConsumoPeriod) return;
+        d3ConsumoPeriod = period;
+        pToggle.querySelectorAll('.d3-metric-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        drawD3ConsumoLineChart();
+      });
+    }
+
     const toggle = $('d3ConsumoMetricToggle');
     if(toggle && !toggle.dataset.bound){
       toggle.dataset.bound = '1';
@@ -8949,17 +8988,37 @@
     const tip = $('d3ConsumoLineTip');
     if(tip) tip.classList.remove('show');
 
-    // Preparar série contínua dos últimos 30 dias
+    // Preparar datas com base no período selecionado (7d, mês em curso ou mês anterior)
     const dailyAgua = (d3CachedDailyData && d3CachedDailyData.agua) || {};
     const dailyElec = (d3CachedDailyData && d3CachedDailyData.elec) || {};
 
-    const data = [];
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    for(let i = 29; i >= 0; i--){
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
+    let startDate, endDate, periodLabel, periodBadge;
+    if (d3ConsumoPeriod === '7d') {
+      endDate = new Date(today);
+      startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6);
+      periodLabel = '7 dias';
+      periodBadge = 'Últimos 7 dias';
+    } else if (d3ConsumoPeriod === 'month-prev') {
+      const prevM = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      startDate = new Date(prevM.getFullYear(), prevM.getMonth(), 1);
+      endDate = new Date(prevM.getFullYear(), prevM.getMonth() + 1, 0); // último dia do mês anterior
+      periodLabel = 'Mês anterior';
+      periodBadge = PT_MONTHS_SHORT[startDate.getMonth()] + ' ' + startDate.getFullYear();
+    } else { // 'month-current'
+      startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+      endDate = new Date(today);
+      periodLabel = 'Mês em curso';
+      periodBadge = PT_MONTHS_SHORT[startDate.getMonth()] + ' ' + startDate.getFullYear();
+    }
+
+    const data = [];
+    const cur = new Date(startDate);
+    while (cur <= endDate) {
+      const d = new Date(cur);
       const dStr = fmt(d);
       const aVal = (typeof dailyAgua[dStr] === 'number') ? Math.max(0, dailyAgua[dStr]) : 0;
       const eVal = (typeof dailyElec[dStr] === 'number') ? Math.max(0, dailyElec[dStr]) : 0;
@@ -8971,22 +9030,32 @@
         hasAgua: (dStr in dailyAgua),
         hasElec: (dStr in dailyElec)
       });
+      cur.setDate(cur.getDate() + 1);
     }
 
-    // Calcular Médias Móveis de 7 dias
+    // Calcular Médias Móveis de 7 dias com histórico contínuo dos contadores
     for(let i = 0; i < data.length; i++){
-      const slice = data.slice(Math.max(0, i - 6), i + 1);
-      data[i].aguaMA7 = slice.reduce((sum, item) => sum + item.agua, 0) / slice.length;
-      data[i].elecMA7 = slice.reduce((sum, item) => sum + item.elec, 0) / slice.length;
+      const d = data[i].date;
+      const past7 = [];
+      for(let off = 6; off >= 0; off--){
+        const checkD = new Date(d);
+        checkD.setDate(d.getDate() - off);
+        const checkStr = fmt(checkD);
+        const aVal = (typeof dailyAgua[checkStr] === 'number') ? Math.max(0, dailyAgua[checkStr]) : data[i].agua;
+        const eVal = (typeof dailyElec[checkStr] === 'number') ? Math.max(0, dailyElec[checkStr]) : data[i].elec;
+        past7.push({ agua: aVal, elec: eVal });
+      }
+      data[i].aguaMA7 = past7.reduce((sum, item) => sum + item.agua, 0) / past7.length;
+      data[i].elecMA7 = past7.reduce((sum, item) => sum + item.elec, 0) / past7.length;
     }
 
     // Totais e Médias
     const totalAgua = data.reduce((s, d) => s + d.agua, 0);
-    const avgAgua = totalAgua / data.length;
+    const avgAgua = data.length ? totalAgua / data.length : 0;
     const maxAguaObj = data.reduce((m, d) => d.agua > m.agua ? d : m, { agua: 0, dateStr: '—' });
 
     const totalElec = data.reduce((s, d) => s + d.elec, 0);
-    const avgElec = totalElec / data.length;
+    const avgElec = data.length ? totalElec / data.length : 0;
     const maxElecObj = data.reduce((m, d) => d.elec > m.elec ? d : m, { elec: 0, dateStr: '—' });
 
     const tarifaAgua = (d3CachedTarifas && d3CachedTarifas.agua) || 0;
@@ -8995,20 +9064,26 @@
     const custoElecTot = totalElec * tarifaElec;
     const custoTotal = custoAguaTot + custoElecTot;
 
+    // Atualizar texto do subtítulo da secção
+    const subTitle = $('d3ConsumoLineSub');
+    if(subTitle) {
+      subTitle.textContent = `Variação diária e média móvel (${periodBadge} · ${data.length} dias) calculada por leitura de contadores.`;
+    }
+
     // Atualizar pills de resumo
     const summaryStrip = $('d3ConsumoSummaryStrip');
-    if(summaryStrip){
+    if(summaryStrip && data.length){
       if(d3ConsumoMetric === 'agua'){
         summaryStrip.innerHTML = `
           <div class="d3-summary-pill water">
-            <div class="s-lbl">💧 Consumo Total 30d</div>
+            <div class="s-lbl">💧 Total (${periodLabel})</div>
             <div class="s-val">${fmtNum(totalAgua)} m³</div>
             <div class="s-sub">${tarifaAgua ? '~' + custoAguaTot.toFixed(2) + ' €' : 'Consumo acumulado'}</div>
           </div>
           <div class="d3-summary-pill water">
             <div class="s-lbl">📊 Média Diária</div>
             <div class="s-val">${fmtNum(avgAgua)} m³/dia</div>
-            <div class="s-sub">Base 30 dias</div>
+            <div class="s-sub">${periodBadge} · ${data.length}d</div>
           </div>
           <div class="d3-summary-pill">
             <div class="s-lbl">⛰ Pico Máximo</div>
@@ -9019,14 +9094,14 @@
       } else if(d3ConsumoMetric === 'elec'){
         summaryStrip.innerHTML = `
           <div class="d3-summary-pill elec">
-            <div class="s-lbl">⚡ Consumo Total 30d</div>
+            <div class="s-lbl">⚡ Total (${periodLabel})</div>
             <div class="s-val">${fmtNum(totalElec)} kWh</div>
             <div class="s-sub">${tarifaElec ? '~' + custoElecTot.toFixed(2) + ' €' : 'Consumo acumulado'}</div>
           </div>
           <div class="d3-summary-pill elec">
             <div class="s-lbl">📊 Média Diária</div>
             <div class="s-val">${fmtNum(avgElec)} kWh/dia</div>
-            <div class="s-sub">Base 30 dias</div>
+            <div class="s-sub">${periodBadge} · ${data.length}d</div>
           </div>
           <div class="d3-summary-pill">
             <div class="s-lbl">⛰ Pico Máximo</div>
@@ -9037,12 +9112,12 @@
       } else {
         summaryStrip.innerHTML = `
           <div class="d3-summary-pill water">
-            <div class="s-lbl">💧 Total Água</div>
+            <div class="s-lbl">💧 Total Água (${periodLabel})</div>
             <div class="s-val">${fmtNum(totalAgua)} m³</div>
             <div class="s-sub">Média: ${fmtNum(avgAgua)} m³/d ${tarifaAgua ? '· ~' + custoAguaTot.toFixed(0) + '€' : ''}</div>
           </div>
           <div class="d3-summary-pill elec">
-            <div class="s-lbl">⚡ Total Eletricidade</div>
+            <div class="s-lbl">⚡ Total Eletricidade (${periodLabel})</div>
             <div class="s-val">${fmtNum(totalElec)} kWh</div>
             <div class="s-sub">Média: ${fmtNum(avgElec)} kWh/d ${tarifaElec ? '· ~' + custoElecTot.toFixed(0) + '€' : ''}</div>
           </div>
@@ -9052,9 +9127,9 @@
             <div class="s-sub">${tarifaAgua || tarifaElec ? 'Tarifas ativas' : 'Definir tarifas'}</div>
           </div>
           <div class="d3-summary-pill">
-            <div class="s-lbl">📅 Janela</div>
+            <div class="s-lbl">📅 Período Ativo</div>
             <div class="s-val" style="font-size:12.5px">${data[0].dateStr.slice(5)} a ${data[data.length-1].dateStr.slice(5)}</div>
-            <div class="s-sub">30 dias</div>
+            <div class="s-sub">${periodBadge} (${data.length}d)</div>
           </div>
         `;
       }
