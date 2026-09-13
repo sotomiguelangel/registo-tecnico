@@ -1,8 +1,8 @@
-// sw.js - Versão melhorada PWA Moon and Sun
-const CACHE_NAME = 'registo-tecnico-v3.3.0';
+// sw.js - Versão 3.5.0 PWA Moon and Sun (No HTML Caching)
+const CACHE_NAME = 'registo-tecnico-v3.5.0';
+
+// Note: NEVER cache '/' or HTML files so changes and patches take effect immediately
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
     '/css/main.css',
     '/css/components.css',
     '/css/views.css',
@@ -14,80 +14,66 @@ const STATIC_ASSETS = [
     '/manifest.webmanifest'
 ];
 
-// Precargar recursos críticos
+// Precarregar recursos estáticos críticos (sem HTML)
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                // Add static assets safely (ignore individual failures to avoid install abort)
                 return Promise.allSettled(
                     STATIC_ASSETS.map(asset => cache.add(asset))
                 );
             })
-            .then(() => self.skipWaiting())
     );
 });
 
-// Estratégia: Network First para API, Cache First para estáticos
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
-    
-    // API calls ou Google Sheets Apps Script - Network first
-    if (url.pathname.includes('/exec') || url.pathname.includes('/api') || url.pathname.endsWith('version.json')) {
-        event.respondWith(networkFirst(event.request));
-        return;
-    }
-    
-    // Ignorar requisições não GET
-    if (event.request.method !== 'GET') {
-        return;
-    }
-    
-    // Static assets - Cache first
-    event.respondWith(cacheFirst(event.request));
-});
-
-async function networkFirst(request) {
-    try {
-        const response = await fetch(request);
-        if (response && response.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch (error) {
-        const cached = await caches.match(request);
-        return cached || new Response(JSON.stringify({ error: 'Offline', offline: true }), {
-            status: 503,
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
-}
-
-async function cacheFirst(request) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    
-    try {
-        const response = await fetch(request);
-        if (response && response.status === 200) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch (error) {
-        return new Response('Recurso não disponível offline', { status: 404 });
-    }
-}
-
-// Limpar caches antigas na ativação
+// Limpar TODAS as caches antigas na ativação e assumir clientes imediatamente
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
             return Promise.all(
-                keys.filter((key) => key !== CACHE_NAME)
-                    .map((key) => caches.delete(key))
+                keys.map((key) => caches.delete(key))
             );
         }).then(() => self.clients.claim())
+    );
+});
+
+// Estratégia de requisições:
+// NUNCA interceptar ou guardar em cache ficheiros HTML, chamadas à API ou navegação
+self.addEventListener('fetch', (event) => {
+    const url = new URL(event.request.url);
+
+    // Ignorar requisições não GET
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
+    // Bypass completo da cache para navegação, HTML, rotas de API e Google scripts
+    if (
+        event.request.mode === 'navigate' ||
+        url.pathname === '/' ||
+        url.pathname.endsWith('.html') ||
+        url.pathname.includes('/api') ||
+        url.pathname.includes('/exec') ||
+        url.pathname.endsWith('version.json')
+    ) {
+        return; // Deixa o navegador ir direto à rede nativamente
+    }
+
+    // Para outros ficheiros estáticos (CSS, JS, imagens), Network First com fallback na cache
+    event.respondWith(
+        fetch(event.request)
+            .then((response) => {
+                if (response && response.status === 200) {
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(event.request, clone);
+                    }).catch(() => {});
+                }
+                return response;
+            })
+            .catch(() => {
+                return caches.match(event.request);
+            })
     );
 });
