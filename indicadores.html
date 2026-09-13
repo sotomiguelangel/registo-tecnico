@@ -6,15 +6,48 @@
       var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
       if (!win) return;
 
-      // Safe fetch descriptor to prevent "Cannot set property fetch of #<Window> which has only a getter"
+      // Safe fetch descriptor & prototype unlocker to prevent "Cannot set property fetch of #<Window> which has only a getter"
       try {
-        var _currFetch = win.fetch;
-        Object.defineProperty(win, 'fetch', {
-          get: function() { return _currFetch; },
-          set: function(fn) { _currFetch = fn; },
-          configurable: true,
-          enumerable: true
-        });
+        var _fetchVal = (typeof win.fetch === 'function') ? win.fetch : null;
+        var patchFetchTarget = function(target) {
+          if (!target) return;
+          try {
+            var desc = Object.getOwnPropertyDescriptor(target, 'fetch');
+            if (!desc || desc.configurable !== false) {
+              Object.defineProperty(target, 'fetch', {
+                get: function() { return _fetchVal; },
+                set: function(fn) { _fetchVal = fn; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch(e) {
+            try {
+              Object.defineProperty(target, 'fetch', {
+                value: _fetchVal,
+                writable: true,
+                configurable: true,
+                enumerable: true
+              });
+            } catch(e2) {}
+          }
+        };
+
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          patchFetchTarget(Window.prototype);
+        }
+        var p = win;
+        while (p && p !== Object.prototype) {
+          patchFetchTarget(p);
+          p = Object.getPrototypeOf(p);
+        }
+        if (typeof EventTarget !== 'undefined' && EventTarget.prototype) {
+          patchFetchTarget(EventTarget.prototype);
+        }
+        patchFetchTarget(win);
+        if (typeof globalThis !== 'undefined' && globalThis !== win) {
+          patchFetchTarget(globalThis);
+        }
       } catch(e) {}
 
       // 1. Unified error classifier
@@ -62,6 +95,18 @@
           return true;
         }
       }, true);
+
+      var prevOnUnhandled = win.onunhandledrejection;
+      win.onunhandledrejection = function(ev) {
+        var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : '';
+        if (isIgnorableRuntimeError(reason)) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          return true;
+        }
+        if (typeof prevOnUnhandled === 'function') {
+          try { return prevOnUnhandled.apply(this, arguments); } catch(e) {}
+        }
+      };
 
       // 5. Intercept console.error to prevent reporting as uncaught crash
       if (typeof console !== 'undefined' && console.error) {
