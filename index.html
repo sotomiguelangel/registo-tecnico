@@ -810,51 +810,127 @@
     margin-bottom: 12px;
   }
   .equip-chip{
-    min-height: 70px;
+    min-height: 86px;
     border-radius: 10px;
-    border: 1.5px solid var(--line);
-    background: #fbfcfc;
-    padding: 8px 9px;
+    border: 1.5px dashed #93c5fd;
+    background: linear-gradient(145deg, #f8fafc 0%, #f0f9ff 100%);
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     cursor: pointer;
     position: relative;
     text-align: left;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.05);
   }
   .equip-chip:hover{
-    border-color: var(--ice-500);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+    border-color: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(2, 132, 199, 0.14);
   }
   .equip-chip.done{
-    background: var(--ok-100);
-    border-color: var(--ok-500);
+    background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
+    border: 1.5px solid #86efac;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.08);
   }
   .equip-chip.bad{
-    background: #fff1f1;
-    border-color: var(--coral-500);
+    background: linear-gradient(145deg, #fff1f2 0%, #fee2e2 100%);
+    border: 1.5px solid #f87171;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.14);
   }
   .equip-chip.selected{
-    background: var(--petrol-900);
-    border-color: var(--petrol-900);
+    background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+    border: 1.5px solid #0284c7;
     color: #fff;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
   }
   .equip-chip .dot{
     position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 6.5px;
-    height: 6.5px;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: var(--ok-500);
+    background: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
   }
   .equip-chip.bad .dot{
-    background: var(--coral-500);
+    background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
   }
   .equip-chip.selected .dot{
-    background: var(--aqua-400);
+    background: #38bdf8;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4);
+  }
+  .equip-type-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.3;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .equip-type-tag.freeze {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+  }
+  .equip-type-tag.fridge {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #bbf7d0;
+  }
+  .equip-type-tag.wine {
+    background: #fdf2f8;
+    color: #9d174d;
+    border-color: #fbcfe8;
+  }
+  .equip-type-tag.other {
+    background: #fef3c7;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+  .equip-val-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--mono, monospace);
+    border: 1px solid transparent;
+  }
+  .equip-val-pill.done {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+  }
+  .equip-val-pill.bad {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+  }
+  .equip-val-pill.zero {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+  }
+  .equip-range-pill {
+    display: inline-block;
+    font-size: 9.5px;
+    font-family: var(--mono, monospace);
+    font-weight: 600;
+    color: var(--ink-600);
+    background: rgba(0, 0, 0, 0.04);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
   }
   .equip-view-mode{
     display: flex;
@@ -3140,9 +3216,93 @@
     }
   }
 
+  let isBootstrappingBackground = false;
+  async function syncBootstrapInBackground(token) {
+    if (!token || isBootstrappingBackground) return;
+    isBootstrappingBackground = true;
+    try {
+      const res = await safeFetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ 
+          action: 'bootstrap', 
+          token: token,
+          appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.14.0'
+        })
+      }, 25000);
+
+      if (res && res.ok) {
+        const text = await res.text();
+        const r = JSON.parse(text);
+        if (r && r.ok) {
+          if (r.user) {
+            currentUser = r.user;
+            if (!currentUser.nome && currentUser.nombre) currentUser.nome = currentUser.nombre;
+            if (!currentUser.nombre && currentUser.nome) currentUser.nombre = currentUser.nome;
+            rememberUser(currentUser);
+          }
+          if (r.config) {
+            Object.keys(r.config).forEach(k => {
+              configStore[k] = { value: r.config[k], ts: Date.now() };
+            });
+            configSnapshotLoadedAt = Date.now();
+            persistConfig();
+            syncThresholdsFromConfig();
+          }
+          if (r.records) {
+            ['general', 'quarto', 'temperatura'].forEach(t => {
+              if (r.records[t]) {
+                mergeServerRecordsWithPending(t, r.records[t]);
+                dataStore[t].ts = Date.now();
+              }
+            });
+            persistStore();
+          }
+          if (Array.isArray(r.equipamentos) && r.equipamentos.length > 0) {
+            equipamentos = r.equipamentos;
+            equipamentosLoadedAt = Date.now();
+            try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(r.equipamentos)); } catch(e) {}
+          }
+          refreshChips();
+          refreshConsumoResumen();
+          refreshActiveViewSilently();
+        } else if (r && (r.code === 'AUTH' || r.code === 'UNAUTHORIZED')) {
+          console.warn('Sessão expirada no servidor:', r.error);
+          showToast('A sua sessão expirou. Por favor inicie sessão novamente.', true);
+          doLogout();
+        }
+      }
+    } catch(e) {
+      console.log('Background bootstrap sync notice (continuing local-first):', e.message);
+    } finally {
+      isBootstrappingBackground = false;
+      updateSyncStatusUI();
+    }
+  }
+
+  function refreshActiveViewSilently(type){
+    try{
+      refreshChips();
+      const activeTab = document.querySelector('nav.tabs button.active');
+      const view = activeTab ? activeTab.dataset.view : '';
+      if(view === 'ejecutivo'){
+        renderEjecutivo(null, null, { silent: true });
+      } else if(view === 'dashboard'){
+        renderDashboard(false, { silent: true });
+      } else if(view === 'general' && (!type || type === 'general')){
+        updateActivePeriodUI();
+      } else if(view === 'quarto' && (!type || type === 'quarto')){
+        renderRoomGrid();
+      } else if(view === 'temperatura' && (!type || type === 'temperatura')){
+        renderTempView();
+      }
+    }catch(e){}
+  }
+
   async function iniciarSesion(usuario, pin) {
     /*
-     * Primera solicitud: autenticar (Fast Login).
+     * Autenticação ultra-rápida (Fast Login).
+     * Não bloqueia no download massivo de dados; entra imediatamente.
      */
     const login = await llamarApi({
       action: 'login',
@@ -3152,46 +3312,35 @@
 
     if (!login || !login.ok) {
       throw new Error(
-        (login && login.error) || 'No fue posible iniciar sesión'
+        (login && login.error) || 'Não foi possível iniciar sessão. Verifique o utilizador e PIN.'
       );
     }
 
     try {
       localStorage.setItem('sessionToken', login.token);
       localStorage.setItem('sessionUser', JSON.stringify(login.user));
+      localStorage.setItem('bitacora_last_username', usuario);
     } catch(e) {}
 
     setToken(login.token);
     rememberUser(login.user);
 
-    /*
-     * En este momento ya puedes cerrar la pantalla
-     * de "Iniciando sesión" y mostrar "Cargando datos".
-     */
-    const hint = $('loginHint');
-    if (hint) hint.textContent = 'Sessão iniciada. A carregar dados...';
-
-    const bootstrap = await llamarApi({
-      action: 'bootstrap',
-      token: login.token
-    });
-
-    if (!bootstrap || !bootstrap.ok) {
-      throw new Error(
-        (bootstrap && bootstrap.error) || 'La sesión se inició, pero no fue posible cargar los datos'
-      );
-    }
+    // Disparar sincronização bootstrap em segundo plano sem bloquear a entrada do utilizador
+    setTimeout(() => {
+      syncBootstrapInBackground(login.token);
+    }, 40);
 
     return {
       user: login.user,
       token: login.token,
-      boot: bootstrap
+      boot: null
     };
   }
 
   if (typeof window !== 'undefined') {
     window.llamarApi = llamarApi;
     window.iniciarSesion = iniciarSesion;
+    window.syncBootstrapInBackground = syncBootstrapInBackground;
   }
 
   // ---------- Fila de Sincronização em Segundo Plano (Local-First / Resiliente) ----------
@@ -3345,9 +3494,19 @@
     try{
       const s = JSON.parse(localStorage.getItem('bitacora_store') || 'null');
       if(s){
-        if(s.general) dataStore.general = s.general;
-        if(s.quarto) dataStore.quarto = s.quarto;
-        if(s.temperatura) dataStore.temperatura = s.temperatura;
+        if(s.general && Array.isArray(s.general.items)) dataStore.general = s.general;
+        if(s.quarto && Array.isArray(s.quarto.items)) dataStore.quarto = s.quarto;
+        if(s.temperatura && Array.isArray(s.temperatura.items)) dataStore.temperatura = s.temperatura;
+      }
+      const savedExec = localStorage.getItem('bitacora_exec_cache_html');
+      if(savedExec){
+        cachedEjecutivoData = savedExec;
+        cachedEjecutivoTimestamp = Date.now();
+      }
+      const savedDash = localStorage.getItem('bitacora_dash_cache_html');
+      if(savedDash){
+        cachedDashboardData = savedDash;
+        cachedDashboardTimestamp = Date.now();
       }
     }catch(e){}
   }
@@ -3389,11 +3548,12 @@
   async function listRecords(type, opts){
     const forceFresh = opts && opts.fresh;
     const entry = dataStore[type];
-    const age = Date.now() - entry.ts;
-    const usable = entry.items && age < CACHE_TTL_MS;
+    if(!entry) return [];
 
-    if(!forceFresh && usable){
-      // Stale-while-revalidate em segundo plano se tiver mais de 25s
+    // Local-First: devolve imediatamente do armazenamento local sem aguardar pela rede (0 ms)
+    if(!forceFresh && Array.isArray(entry.items) && entry.items.length > 0){
+      const age = Date.now() - (entry.ts || 0);
+      // Revalidação em segundo plano se os dados tiverem mais de 25 segundos
       if(age > CACHE_STALE_MS && !entry.revalidating){
         entry.revalidating = true;
         apiGet({ action:'list', type }).then(r=>{
@@ -3401,6 +3561,7 @@
           entry.ts = Date.now();
           entry.revalidating = false;
           persistStore();
+          refreshActiveViewSilently(type);
         }).catch(()=>{ entry.revalidating = false; });
       }
       return entry.items.slice();
@@ -3784,7 +3945,7 @@
       setToken(sesion.token);
       currentUser = sesion.user || {};
 
-      // Compatibilidad: el backend puede usar "nome" o "nombre".
+      // Compatibilidade: backend com "nome" ou "nombre"
       if (!currentUser.nome && currentUser.nombre) {
         currentUser.nome = currentUser.nombre;
       }
@@ -3802,6 +3963,26 @@
       $('loginHint').textContent = e.message;
     }finally{ setLoading(btn, false); }
   });
+
+  const pinInputEl = $('login-pin');
+  if(pinInputEl){
+    pinInputEl.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        $('btnLogin').click();
+      }
+    });
+  }
+
+  const userInputEl = $('login-usuario');
+  if(userInputEl){
+    userInputEl.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        if(pinInputEl) pinInputEl.focus();
+      }
+    });
+  }
 
   function doLogout(){
     closeOfficialPreview();
@@ -8119,18 +8300,58 @@
     return { aguaBaseline, elecBaseline };
   }
 
+  const WATER_FIELDS = ['agua', 'contadorAgua'];
+  const ENERGY_FIELDS = ['electricidad', 'contadorElec'];
+
+  function parseSafeNumeric(value){
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    if (value === null || value === undefined) return null;
+    if (typeof value !== 'string') return null;
+
+    let s = value.trim();
+    if (!s) return null;
+
+    // Remover sufixos de unidades comuns (m³, kWh, ppm, etc.)
+    s = s.replace(/(?:m[³3]|kwh|ppm|°c|c|€)\b/gi, '').trim();
+
+    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) {
+      s = s.replace(/,/g, '');
+    } else {
+      s = s.replace(',', '.');
+    }
+
+    const n = parseFloat(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function extractFieldNumeric(data, fieldNames){
+    if (!data || typeof data !== 'object') return null;
+    for (const name of fieldNames) {
+      const v = parseSafeNumeric(data[name]);
+      if (v !== null) return v;
+    }
+    return null;
+  }
+
   async function buildGenWithDeltas(genAllRaw, baselines){
     const bl = baselines || await loadBaselines();
-    const cacheKey = (genAllRaw ? genAllRaw.length : 0) + '_' + (genAllRaw && genAllRaw.length ? (genAllRaw[0]?.data?.fecha||'') + (genAllRaw[genAllRaw.length-1]?.data?.fecha||'') : '') + '_' + (bl.aguaBaseline ? bl.aguaBaseline.valor : '') + '_' + (bl.elecBaseline ? bl.elecBaseline.valor : '');
+    const cacheKey = (genAllRaw ? genAllRaw.length : 0) + '_' + (genAllRaw && genAllRaw.length ? ((genAllRaw[0]?.date || genAllRaw[0]?.data?.fecha||'') + (genAllRaw[genAllRaw.length-1]?.date || genAllRaw[genAllRaw.length-1]?.data?.fecha||'')) : '') + '_' + (bl.aguaBaseline ? bl.aguaBaseline.valor : '') + '_' + (bl.elecBaseline ? bl.elecBaseline.valor : '');
 
     if(memoCache.deltas && memoCache.deltasKey === cacheKey){
       return memoCache.deltas;
     }
 
     const synthetic = [];
-    if(bl.aguaBaseline){ synthetic.push({ key:'baseline-agua', isBaseline:true, data:{ fecha: bl.aguaBaseline.fecha, hora:'00:00', agua: bl.aguaBaseline.valor } }); }
-    if(bl.elecBaseline){ synthetic.push({ key:'baseline-elec', isBaseline:true, data:{ fecha: bl.elecBaseline.fecha, hora:'00:00', electricidad: bl.elecBaseline.valor } }); }
-    const asc = [...synthetic, ...genAllRaw].sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
+    if(bl.aguaBaseline){ synthetic.push({ key:'baseline-agua', isBaseline:true, date:bl.aguaBaseline.fecha, data:{ fecha: bl.aguaBaseline.fecha, hora:'00:00', agua: bl.aguaBaseline.valor } }); }
+    if(bl.elecBaseline){ synthetic.push({ key:'baseline-elec', isBaseline:true, date:bl.elecBaseline.fecha, data:{ fecha: bl.elecBaseline.fecha, hora:'00:00', electricidad: bl.elecBaseline.valor } }); }
+    
+    const asc = [...synthetic, ...(genAllRaw || [])].sort((a,b)=> {
+      const da = (a.date || a.data?.fecha || '') + ' ' + (a.time || a.data?.hora || '00:00');
+      const db = (b.date || b.data?.fecha || '') + ' ' + (b.time || b.data?.hora || '00:00');
+      return da.localeCompare(db);
+    });
     const result = computeDeltas(asc);
 
     memoCache.deltas = result;
@@ -8139,35 +8360,41 @@
   }
 
   function diffDays(fechaA, fechaB){
+    if (!fechaA || !fechaB) return 1;
     const a = new Date(fechaA+'T00:00:00');
     const b = new Date(fechaB+'T00:00:00');
     const ms = b - a;
     return Math.max(1, Math.round(ms / 86400000));
   }
+
   function computeDeltas(genRecordsAsc){
     let prevAgua = null, prevAguaFecha = null;
     let prevElec = null, prevElecFecha = null;
     return genRecordsAsc.map(r=>{
-      const agua = parseFloat(r.data.agua);
-      const elec = parseFloat(r.data.electricidad);
+      const d = r.data || {};
+      const agua = extractFieldNumeric(d, WATER_FIELDS);
+      const elec = extractFieldNumeric(d, ENERGY_FIELDS);
+      const rFecha = r.date || d.fecha || '';
+
       let deltaAgua = null, deltaElec = null, diasAgua = null, diasElec = null;
-      if(prevAgua !== null && !isNaN(agua)){
+      if(prevAgua !== null && agua !== null && !isNaN(agua)){
         deltaAgua = agua - prevAgua;
-        diasAgua = diffDays(prevAguaFecha, r.data.fecha);
+        diasAgua = diffDays(prevAguaFecha, rFecha);
       }
-      if(prevElec !== null && !isNaN(elec)){
+      if(prevElec !== null && elec !== null && !isNaN(elec)){
         deltaElec = elec - prevElec;
-        diasElec = diffDays(prevElecFecha, r.data.fecha);
+        diasElec = diffDays(prevElecFecha, rFecha);
       }
-      if(!isNaN(agua)){ prevAgua = agua; prevAguaFecha = r.data.fecha; }
-      if(!isNaN(elec)){ prevElec = elec; prevElecFecha = r.data.fecha; }
+      if(agua !== null && !isNaN(agua)){ prevAgua = agua; prevAguaFecha = rFecha; }
+      if(elec !== null && !isNaN(elec)){ prevElec = elec; prevElecFecha = rFecha; }
       return Object.assign({}, r, { deltaAgua, deltaElec, diasAgua, diasElec });
     });
   }
+
   function statsForRange(genWithDeltas, desde, hasta){
-    const inRange = genWithDeltas.filter(r=> !r.isBaseline && r.data.fecha >= desde && r.data.fecha <= hasta);
-    const aguaReadingCount = inRange.filter(r=> !isNaN(parseFloat(r.data.agua))).length;
-    const elecReadingCount = inRange.filter(r=> !isNaN(parseFloat(r.data.electricidad))).length;
+    const inRange = genWithDeltas.filter(r=> !r.isBaseline && (r.date || r.data?.fecha) >= desde && (r.date || r.data?.fecha) <= hasta);
+    const aguaReadingCount = inRange.filter(r=> extractFieldNumeric(r.data, WATER_FIELDS) !== null).length;
+    const elecReadingCount = inRange.filter(r=> extractFieldNumeric(r.data, ENERGY_FIELDS) !== null).length;
 
     const aguaEntriesRaw = inRange.filter(r=> r.deltaAgua!==null && !isNaN(r.deltaAgua));
     const elecEntriesRaw = inRange.filter(r=> r.deltaElec!==null && !isNaN(r.deltaElec));
@@ -10927,12 +11154,13 @@
   }
 
   // ---------- Render principal do Resumo Executivo ----------
-  async function renderEjecutivo(forcedDesde, forcedHasta){
+  async function renderEjecutivo(forcedDesde, forcedHasta, opts){
     const output = $('ejecutivoOutput');
     const button = $('btnRefreshEjecutivo');
+    const isSilent = opts && opts.silent;
 
-    // Cada render tiene un identificador para evitar que una petición antigua
-    // sobrescriba el resultado de una selección más reciente.
+    // Cada render tem um identificador para evitar que uma requisição antiga
+    // substitua o resultado de uma seleção mais recente.
     const requestId = ++executivoRenderRequestId;
 
     let selectedDesde = forcedDesde;
@@ -10967,30 +11195,36 @@
 
     const hasValidCache =
       cachedEjecutivoData !== null &&
-      cachedEjecutivoPeriodKey === periodCacheKey;
+      (cachedEjecutivoPeriodKey === periodCacheKey || !cachedEjecutivoPeriodKey);
 
     if(hasValidCache && !isStale){
-      if(output) output.innerHTML = cachedEjecutivoData;
-
-      const periodLabel = $('ejecutivoPeriod');
-      if(periodLabel && cachedExecPeriodText){
-        periodLabel.textContent = cachedExecPeriodText;
+      if(output && (!output.innerHTML || output.innerHTML.trim() === '')) {
+        output.innerHTML = cachedEjecutivoData;
+        const periodLabel = $('ejecutivoPeriod');
+        if(periodLabel && cachedExecPeriodText){
+          periodLabel.textContent = cachedExecPeriodText;
+        }
+        mountCharts(output);
+        renderExecInteractiveChart();
+        if(cachedExecMeta){
+          wireHeatmapNav(cachedExecMeta.generalRaw);
+          wireExecEvents(cachedExecMonths, cachedExecMeta);
+        }
       }
-
-      mountCharts(output);
-      renderExecInteractiveChart();
-
-      if(cachedExecMeta){
-        wireHeatmapNav(cachedExecMeta.generalRaw);
-        wireExecEvents(cachedExecMonths, cachedExecMeta);
-      }
-
       return;
     }
 
-    setLoading(button, true);
-    output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
-    <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
+    // Se temos dados em cache (mesmo expirados), apresentar IMEDIATAMENTE (0 ms)
+    if(output && (!output.innerHTML || output.innerHTML.trim() === '') && cachedEjecutivoData){
+      output.innerHTML = cachedEjecutivoData;
+      mountCharts(output);
+      renderExecInteractiveChart();
+    } else if(output && (!output.innerHTML || output.innerHTML.trim() === '')){
+      output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
+      <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
+    }
+
+    if(!isSilent && button) setLoading(button, true);
     try{
       const desde = selectedDesde;
       const hasta = selectedHasta;
@@ -11263,6 +11497,7 @@
         cachedEjecutivoData = output.innerHTML;
         cachedEjecutivoTimestamp = Date.now();
         cachedEjecutivoPeriodKey = periodCacheKey;
+        try { localStorage.setItem('bitacora_exec_cache_html', output.innerHTML); } catch(e){}
       }
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o resumo executivo.<br>${esc(e.message)}</div>`;
@@ -11669,9 +11904,10 @@
     }
   }
 
-  async function renderDashboard(forceFresh){
+  async function renderDashboard(forceFresh, opts){
     const output = $('dashboardOutput');
     const button = $('btnRefreshDashboard');
+    const isSilent = opts && opts.silent;
 
     // Verificar cache em memória
     const now = Date.now();
@@ -11679,19 +11915,31 @@
     const hasCache = cachedDashboardData !== null;
 
     if(!forceFresh && hasCache && !isStale){
-      if(output) output.innerHTML = cachedDashboardData;
+      if(output && (!output.innerHTML || output.innerHTML.trim() === '')) {
+        output.innerHTML = cachedDashboardData;
+        mountCharts(output);
+        initD3ConsumoLineChart(lastDailyData, lastConsumoDetail, d3CachedTarifas);
+        initD3Scatter(cachedGeneralRaw, cachedQuartosRaw);
+        wireDashboardEvents();
+      }
+      return;
+    }
+
+    // Se temos dados em cache (mesmo expirados), apresentar IMEDIATAMENTE (0 ms)
+    if(output && (!output.innerHTML || output.innerHTML.trim() === '') && cachedDashboardData){
+      output.innerHTML = cachedDashboardData;
       mountCharts(output);
       initD3ConsumoLineChart(lastDailyData, lastConsumoDetail, d3CachedTarifas);
       initD3Scatter(cachedGeneralRaw, cachedQuartosRaw);
       wireDashboardEvents();
-      return;
+    } else if(output && (!output.innerHTML || output.innerHTML.trim() === '')){
+      output.innerHTML = `
+        <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
+        <div class="skel" style="height:210px; margin-bottom:16px"></div>
+        <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
     }
 
-    setLoading(button, true);
-    output.innerHTML = `
-      <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
-      <div class="skel" style="height:210px; margin-bottom:16px"></div>
-      <div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>`;
+    if(!isSilent && button) setLoading(button, true);
     try{
       const [generalRaw, quartosRaw, tempRaw] = await Promise.all([
         listRecords('general', { fresh: !!forceFresh }),
@@ -11912,6 +12160,7 @@
       if(output && output.innerHTML){
         cachedDashboardData = output.innerHTML;
         cachedDashboardTimestamp = Date.now();
+        try { localStorage.setItem('bitacora_dash_cache_html', output.innerHTML); } catch(e){}
       }
     }catch(e){
       output.innerHTML = `<div class="empty"><span class="glyph">⚠</span>Não foi possível carregar o painel.<br>${esc(e.message)}</div>`;
@@ -12868,20 +13117,26 @@
       }catch(e){}
       preloadedBoot = null;
     }
-    await loadConfigSnapshot();
-    await syncThresholdsFromConfig();
-    await Promise.all([ loadRooms(), loadCycleDone(), loadEquipamentos().catch(()=>{}) ]);
-    await Promise.all([ renderRoomGrid(), refreshChips(), refreshConsumoResumen(), updateActivePeriodUI().catch(()=>{}) ]);
+    // 1. Apresentar IMEDIATAMENTE a vista ativa com dados locais sem atraso de rede (0 ms)
     const activeTab = document.querySelector('nav.tabs button.active');
-    if(activeTab){
-      if(activeTab.dataset.view === 'ejecutivo'){
-        renderEjecutivo();
-      } else {
-        switchToTab(activeTab.dataset.view);
-      }
+    const viewName = activeTab ? activeTab.dataset.view : 'ejecutivo';
+    if(viewName === 'ejecutivo'){
+      renderEjecutivo();
+    } else if(viewName === 'dashboard'){
+      renderDashboard();
+    } else {
+      switchToTab(viewName);
     }
-    updateSyncStatusUI();
-    triggerSyncQueue(400);
+
+    // 2. Carregar configurações e detalhes em segundo plano sem bloquear a interface
+    (async () => {
+      await loadConfigSnapshot();
+      await syncThresholdsFromConfig();
+      await Promise.all([ loadRooms().catch(()=>{}), loadCycleDone().catch(()=>{}), loadEquipamentos().catch(()=>{}) ]);
+      await Promise.all([ renderRoomGrid().catch(()=>{}), refreshChips(), refreshConsumoResumen(), updateActivePeriodUI().catch(()=>{}) ]);
+      updateSyncStatusUI();
+      triggerSyncQueue(400);
+    })().catch(()=>{});
   }
   if (typeof window !== 'undefined') {
     window._realInitMainApp = initMainApp;
@@ -13307,64 +13562,45 @@
       return;
     }
 
-    // Verificação simples e rápida de sessão
+    // Verificação instantânea de sessão guardada (0 ms - impercetível)
     const savedToken = getToken();
     const savedUser = recallUser();
     
-    // Se há sessão guardada, tentar restaurar silenciosamente
+    // Se há sessão guardada, entrar IMEDIATAMENTE sem esperar pela rede
     if(savedToken && savedUser){
-      $('loginScreen').classList.add('show');
-      
-      // Timeout reduzido para não bloquear
-      try {
-        const res = await safeFetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ 
-            action: 'bootstrap', 
-            token: savedToken 
-          })
-        }, 8000);
-        
-        if(res.ok){
-          const text = await res.text();
-          const r = JSON.parse(text);
-          
-          if(r.ok){
-            // Sessão válida, continuar
-            currentUser = r.user || savedUser || {};
-
-            if (!currentUser.nome && currentUser.nombre) {
-              currentUser.nome = currentUser.nombre;
-            }
-            if (!currentUser.nombre && currentUser.nome) {
-              currentUser.nombre = currentUser.nome;
-            }
-
-            rememberUser(currentUser);
-            
-            if(r.config || r.records) {
-              preloadedBoot = { 
-                config: r.config, 
-                records: r.records, 
-                equipamentos: r.equipamentos 
-              };
-            }
-            
-            $('loginScreen').classList.remove('show');
-            sessionChecked = true;
-            onLoggedIn();
-            return;
-          }
-        }
-      } catch(e) {
-        console.log('Session restore failed:', e.message);
-        // Continuar para o login normal se falhar
+      currentUser = savedUser;
+      if (!currentUser.nome && currentUser.nombre) {
+        currentUser.nome = currentUser.nombre;
       }
+      if (!currentUser.nombre && currentUser.nome) {
+        currentUser.nombre = currentUser.nome;
+      }
+      rememberUser(currentUser);
+      sessionChecked = true;
+      
+      // Assegurar que o ecrã de login permanece oculto
+      $('loginScreen').classList.remove('show');
+      
+      // Arranque imediato da interface com dados locais
+      onLoggedIn();
+      
+      // Revalidação assíncrona em segundo plano (Stale-While-Revalidate)
+      syncBootstrapInBackground(savedToken);
+      return;
     }
     
-    // Mostrar ecrã de login normal
+    // Se não há sessão, mostrar ecrã de login com pré-preenchimento
     $('loginScreen').classList.add('show');
+    try {
+      const lastUser = localStorage.getItem('bitacora_last_username');
+      if (lastUser && $('login-usuario') && !$('login-usuario').value) {
+        $('login-usuario').value = lastUser;
+        setTimeout(() => {
+          const pinEl = $('login-pin');
+          if (pinEl) pinEl.focus();
+        }, 60);
+      }
+    } catch(e) {}
     refreshSeedNote();
     checkApiHealth(); // Verificar ligação sem bloquear
   })();

@@ -957,15 +957,20 @@
     transition: width 0.3s ease;
   }
 
-  /* Refrigeração / Cadeia de Frio · Grelha Visual e Chips (Paridade com Registo Técnico) */
+  /* Refrigeração / Cadeia de Frio · Grelha Visual e Chips (HACCP Color Scheme) */
+  #equipmentVisualSection {
+    border-top: 4px solid #0284c7;
+    position: relative;
+    background: linear-gradient(180deg, rgba(2, 132, 199, 0.03) 0%, var(--surface) 120px);
+  }
   .equip-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
     gap: 10px;
     margin-bottom: 14px;
   }
   .equip-chip {
-    min-height: 88px;
+    min-height: 94px;
     border-radius: 10px;
     border: 1.5px solid var(--border);
     background: var(--surface);
@@ -976,52 +981,169 @@
     cursor: pointer;
     position: relative;
     text-align: left;
-    transition: all 0.15s ease;
+    transition: all 0.18s ease;
     text-decoration: none;
     color: inherit;
     box-sizing: border-box;
   }
   .equip-chip:hover {
-    border-color: var(--accent);
-    transform: translateY(-1.5px);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+    border-color: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(2, 132, 199, 0.15);
   }
   .equip-chip.done {
-    background: #f0fdf4;
+    background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
     border-color: #86efac;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.08);
   }
   :root[data-theme="dark"] .equip-chip.done {
-    background: rgba(22, 163, 74, 0.12);
+    background: linear-gradient(145deg, rgba(22, 163, 74, 0.18) 0%, rgba(22, 163, 74, 0.08) 100%);
     border-color: #16a34a;
   }
   .equip-chip.bad {
-    background: #fef2f2;
-    border-color: #fca5a5;
+    background: linear-gradient(145deg, #fff1f2 0%, #fee2e2 100%);
+    border-color: #f87171;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
   }
   :root[data-theme="dark"] .equip-chip.bad {
-    background: rgba(239, 68, 68, 0.12);
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.22) 0%, rgba(239, 68, 68, 0.1) 100%);
     border-color: #ef4444;
   }
   .equip-chip.zero {
-    background: var(--surface);
-    border-color: var(--border);
-    opacity: 0.88;
+    background: linear-gradient(145deg, #f8fafc 0%, #f0f9ff 100%);
+    border: 1.5px dashed #93c5fd;
+    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.06);
+  }
+  :root[data-theme="dark"] .equip-chip.zero {
+    background: linear-gradient(145deg, rgba(2, 132, 199, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-color: #0284c7;
   }
   .equip-chip .dot {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 7px;
-    height: 7px;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
   }
   .equip-chip.bad .dot {
     background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
   }
   .equip-chip.zero .dot {
-    background: var(--muted);
-    opacity: 0.4;
+    background: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+  }
+  .equip-type-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.3;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .equip-type-tag.freeze {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+  }
+  :root[data-theme="dark"] .equip-type-tag.freeze {
+    background: rgba(14, 165, 233, 0.2);
+    color: #38bdf8;
+    border-color: rgba(14, 165, 233, 0.4);
+  }
+  .equip-type-tag.fridge {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #bbf7d0;
+  }
+  :root[data-theme="dark"] .equip-type-tag.fridge {
+    background: rgba(22, 163, 74, 0.2);
+    color: #4ade80;
+    border-color: rgba(22, 163, 74, 0.4);
+  }
+  .equip-type-tag.wine {
+    background: #fdf2f8;
+    color: #9d174d;
+    border-color: #fbcfe8;
+  }
+  :root[data-theme="dark"] .equip-type-tag.wine {
+    background: rgba(244, 63, 94, 0.2);
+    color: #fb7185;
+    border-color: rgba(244, 63, 94, 0.4);
+  }
+  .equip-type-tag.other {
+    background: #fef3c7;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+  :root[data-theme="dark"] .equip-type-tag.other {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  .equip-val-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: var(--mono, monospace);
+    border: 1px solid transparent;
+  }
+  .equip-val-pill.done {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #86efac;
+  }
+  :root[data-theme="dark"] .equip-val-pill.done {
+    background: rgba(22, 163, 74, 0.25);
+    color: #86efac;
+    border-color: #16a34a;
+  }
+  .equip-val-pill.bad {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+  }
+  :root[data-theme="dark"] .equip-val-pill.bad {
+    background: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+    border-color: #ef4444;
+  }
+  .equip-val-pill.zero {
+    background: #e0f2fe;
+    color: #0369a1;
+    border-color: #bae6fd;
+  }
+  :root[data-theme="dark"] .equip-val-pill.zero {
+    background: rgba(2, 132, 199, 0.25);
+    color: #7dd3fc;
+    border-color: #0284c7;
+  }
+  .equip-range-pill {
+    display: inline-block;
+    font-size: 9.5px;
+    font-family: var(--mono, monospace);
+    font-weight: 600;
+    color: var(--muted);
+    background: rgba(0, 0, 0, 0.04);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+  :root[data-theme="dark"] .equip-range-pill {
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.1);
   }
   .equip-view-mode {
     display: inline-flex;
@@ -1098,22 +1220,34 @@
     display: inline-block;
     font-size: 9.5px;
     font-weight: 600;
-    color: var(--muted);
+    color: #475569;
     font-family: var(--mono, monospace);
-    background: var(--subtle);
+    background: #f1f5f9;
     padding: 1px 5px;
     border-radius: 4px;
-    border: 1px solid var(--border);
+    border: 1px solid #cbd5e1;
     line-height: 1.2;
     white-space: nowrap;
+  }
+  :root[data-theme="dark"] .ref-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.15);
   }
   .loc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 16px 0 8px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid var(--border);
+    margin: 18px 0 10px;
+    padding: 7px 12px;
+    background: linear-gradient(90deg, rgba(2, 132, 199, 0.08) 0%, rgba(2, 132, 199, 0.01) 100%);
+    border-left: 3.5px solid #0284c7;
+    border-radius: 6px;
+    border-bottom: 1px solid rgba(2, 132, 199, 0.12);
+  }
+  :root[data-theme="dark"] .loc-header {
+    background: linear-gradient(90deg, rgba(2, 132, 199, 0.15) 0%, transparent 100%);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
   }
   .loc-title {
     font-size: 11.5px;
@@ -4871,64 +5005,79 @@
       const flatCount = statsList.filter(s => s.trend === 'flat').length;
       const pctCoverage = totalEquips > 0 ? Math.round((measuredCount / totalEquips) * 100) : 0;
 
-      // 1. Barra de Resumo (KPIs)
+      // Helper de categoria visual e cores para HACCP
+      function getEquipCategoryInfo(eq) {
+        const s = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+        if (s.includes('vin') || s.includes('adega') || s.includes('garrafeir') || s.includes('cave')) {
+          return { cls: 'wine', label: '🍷 Garrafeira' };
+        }
+        if (s.includes('congelador') || s.includes('arca') || s.includes('con')) {
+          return { cls: 'freeze', label: '❄️ Congelação' };
+        }
+        if (s.includes('balc') || s.includes('vitrine') || s.includes('bancada') || s.includes('prepar')) {
+          return { cls: 'other', label: '🥗 Balcão/Prep' };
+        }
+        return { cls: 'fridge', label: '🧊 Conservação' };
+      }
+
+      // 1. Barra de Resumo (KPIs) com cores de alto destaque
       summaryBar.innerHTML = `
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">
-          <div class="dash-floor-item" style="border-left: 3.5px solid var(--accent);">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div class="dash-floor-item" style="border: 1.5px solid #0284c7; background: linear-gradient(135deg, rgba(2, 132, 199, 0.09) 0%, rgba(2, 132, 199, 0.02) 100%);">
             <div class="dash-floor-head">
-              <span class="dash-floor-title">COBERTURA NO PERÍODO</span>
-              <span class="dash-floor-pct" style="color:var(--accent);">${pctCoverage}%</span>
+              <span class="dash-floor-title" style="color:#0369a1;">COBERTURA NO PERÍODO</span>
+              <span class="dash-floor-pct" style="color:#0284c7; font-weight:800;">${pctCoverage}%</span>
             </div>
-            <div style="font-size:1.15rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
-              ${measuredCount} / ${totalEquips} <span style="font-size:0.8rem; font-weight:500; color:var(--muted);">equipamentos</span>
+            <div style="font-size:1.25rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
+              ${measuredCount} / ${totalEquips} <span style="font-size:0.8rem; font-weight:600; color:var(--muted);">equipamentos</span>
             </div>
-            <div class="dash-floor-track" style="margin-top:6px;">
-              <div class="dash-floor-fill" style="width:${pctCoverage}%; background:var(--accent);"></div>
+            <div class="dash-floor-track" style="margin-top:8px; height:7px; background:rgba(2, 132, 199, 0.15);">
+              <div class="dash-floor-fill" style="width:${pctCoverage}%; background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
             </div>
           </div>
 
-          <div class="dash-floor-item" style="border-left: 3.5px solid #0284c7;">
+          <div class="dash-floor-item" style="border: 1.5px solid #2563eb; background: linear-gradient(135deg, rgba(37, 99, 235, 0.09) 0%, rgba(37, 99, 235, 0.02) 100%);">
             <div class="dash-floor-head">
-              <span class="dash-floor-title">TOTAL DE REGISTOS ATUALIZADOS</span>
-              <span class="dash-floor-pct" style="color:#0284c7;">${totalUpdatesAll} leituras</span>
+              <span class="dash-floor-title" style="color:#1d4ed8;">TOTAL DE REGISTOS</span>
+              <span class="dash-floor-pct" style="color:#2563eb; font-weight:800;">${totalUpdatesAll} leituras</span>
             </div>
-            <div style="font-size:1.15rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
-              ${totalUpdatesAll} <span style="font-size:0.8rem; font-weight:500; color:var(--muted);">atualizações registadas</span>
+            <div style="font-size:1.25rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
+              ${totalUpdatesAll} <span style="font-size:0.8rem; font-weight:600; color:var(--muted);">atualizações feitas</span>
             </div>
-            <div style="font-size:10.5px; color:var(--muted); margin-top:4px;">
+            <div style="font-size:11px; color:#475569; margin-top:6px; font-weight:500;">
               Média de ${measuredCount > 0 ? (totalUpdatesAll / measuredCount).toFixed(1) : '0'} leituras por equipamento ativo
             </div>
           </div>
 
-          <div class="dash-floor-item" style="border-left: 3.5px solid ${alertasCount > 0 ? '#ea580c' : '#16a34a'};">
+          <div class="dash-floor-item" style="border: 1.5px solid ${alertasCount > 0 ? '#ea580c' : '#16a34a'}; background: linear-gradient(135deg, ${alertasCount > 0 ? 'rgba(234, 88, 12, 0.1)' : 'rgba(22, 163, 74, 0.1)'} 0%, rgba(255, 255, 255, 0.02) 100%);">
             <div class="dash-floor-head">
-              <span class="dash-floor-title">DENTRO DO ESTIMADO (HACCP)</span>
-              <span class="dash-floor-pct" style="color:${alertasCount > 0 ? '#ea580c' : '#16a34a'};">
+              <span class="dash-floor-title" style="color:${alertasCount > 0 ? '#c2410c' : '#15803d'};">CONFORMIDADE TÉRMICA (HACCP)</span>
+              <span class="dash-floor-pct" style="color:${alertasCount > 0 ? '#ea580c' : '#16a34a'}; font-weight:800;">
                 ${alertasCount > 0 ? `${alertasCount} alerta(s)` : '100% conforme'}
               </span>
             </div>
-            <div style="font-size:1.15rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
+            <div style="font-size:1.25rem; font-weight:800; font-family:var(--mono, monospace); color:var(--text);">
               <span style="color:#16a34a;">✓ ${conformesCount}</span>
               ${alertasCount > 0 ? `<span style="color:#ea580c; margin-left:8px;">⚠️ ${alertasCount} fora</span>` : ''}
-              <span style="font-size:0.8rem; font-weight:500; color:var(--muted); margin-left:6px;">de ${measuredCount} medidos</span>
+              <span style="font-size:0.8rem; font-weight:600; color:var(--muted); margin-left:6px;">de ${measuredCount} medidos</span>
             </div>
-            <div style="font-size:10.5px; color:var(--muted); margin-top:4px;">
+            <div style="font-size:11px; color:#475569; margin-top:6px; font-weight:500;">
               ${alertasCount > 0 ? 'Existem equipamentos fora dos limites térmicos ideais' : 'Todos os equipamentos medidos respeitam as tolerâncias'}
             </div>
           </div>
 
-          <div class="dash-floor-item" style="border-left: 3.5px solid #8b5cf6;">
+          <div class="dash-floor-item" style="border: 1.5px solid #8b5cf6; background: linear-gradient(135deg, rgba(139, 92, 246, 0.09) 0%, rgba(139, 92, 246, 0.02) 100%);">
             <div class="dash-floor-head">
-              <span class="dash-floor-title">TENDÊNCIA TÉRMICA</span>
-              <span class="dash-floor-pct" style="color:#8b5cf6;">Variação</span>
+              <span class="dash-floor-title" style="color:#6d28d9;">TENDÊNCIA TÉRMICA</span>
+              <span class="dash-floor-pct" style="color:#8b5cf6; font-weight:800;">Variação</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; margin-top:2px; font-family:var(--mono, monospace); font-size:12px; font-weight:700;">
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px; font-family:var(--mono, monospace); font-size:11.5px; font-weight:700;">
               <span class="chip-tag trend-up" title="Equipamentos cuja temperatura aumentou">↑ ${upCount} subiram</span>
               <span class="chip-tag trend-down" title="Equipamentos cuja temperatura diminuiu">↓ ${downCount} desceram</span>
               <span class="chip-tag trend-flat" title="Equipamentos com temperatura estável">→ ${flatCount} estáveis</span>
             </div>
-            <div style="font-size:10.5px; color:var(--muted); margin-top:4px;">
-              Comparação da última leitura face à medição imediatamente anterior
+            <div style="font-size:11px; color:#475569; margin-top:6px; font-weight:500;">
+              Comparação face à medição imediatamente anterior
             </div>
           </div>
         </div>
@@ -4957,7 +5106,7 @@
           const isComplete = locMeasured === locTotal;
 
           const locWrap = document.createElement('div');
-          locWrap.style.marginBottom = '18px';
+          locWrap.style.marginBottom = '20px';
 
           // Cabeçalho da Localização
           const headEl = document.createElement('div');
@@ -4966,7 +5115,7 @@
             <span class="loc-title">
               <span>📍 ${esc(locName)}</span>
             </span>
-            <span class="loc-badge" style="color:${isComplete ? '#16a34a' : 'var(--muted)'};">
+            <span class="loc-badge" style="color:${isComplete ? '#16a34a' : '#0369a1'};">
               ${locMeasured} / ${locTotal} medidos · ${isComplete ? '✓ completo' : `faltam ${locTotal - locMeasured}`}
               ${locAlerts > 0 ? ` · <strong style="color:#ea580c;">⚠️ ${locAlerts} fora do intervalo</strong>` : ''}
             </span>
@@ -4980,6 +5129,7 @@
           groupStats.forEach(s => {
             const eq = s.eq;
             const icon = getEquipIcon(eq);
+            const cat = getEquipCategoryInfo(eq);
             const chip = document.createElement('div');
             chip.className = `equip-chip ${s.tone}`;
             chip.setAttribute('data-eqid', eq.id);
@@ -4987,32 +5137,39 @@
             chip.setAttribute('tabindex', '0');
             chip.title = `${eq.nome}: ${eq.tipo} [${eq.min} a ${eq.max} ºC] — Clique para histórico detalhado`;
 
-            const valColor = s.hasReading
-              ? (s.lastParsed.isBad ? '#ea580c' : '#16a34a')
-              : 'var(--muted)';
+            let valPillHtml = '';
+            if (s.hasReading) {
+              if (s.lastParsed.isBad) {
+                valPillHtml = `<span class="equip-val-pill bad">⚠️ ${s.lastParsed.formatted}</span>`;
+              } else {
+                valPillHtml = `<span class="equip-val-pill done">✓ ${s.lastParsed.formatted}</span>`;
+              }
+            } else {
+              valPillHtml = `<span class="equip-val-pill zero">⏳ Pendente</span>`;
+            }
 
             chip.innerHTML = `
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:12px; color:var(--text); line-height:1.2;">${esc(eq.nome)}</span>
+                  <span style="font-weight:800; font-size:12.5px; color:var(--text); line-height:1.2;">${esc(eq.nome)}</span>
                   <span class="dot"></span>
                 </div>
-                <div style="display:flex; align-items:center; gap:4px; margin:2px 0 2px; flex-wrap:wrap;">
-                  <span style="font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${icon} ${esc(eq.tipo)}
+                <div style="display:flex; align-items:center; gap:4px; margin:4px 0 3px; flex-wrap:wrap;">
+                  <span class="equip-type-tag ${cat.cls}">
+                    ${cat.label}
                   </span>
                   ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">${esc(eq.refShort)}</span>` : ''}
                 </div>
-                <div style="font-size:9.5px; color:var(--muted); font-family:var(--mono, monospace);">
-                  ${eq.min} a ${eq.max}ºC
+                <div style="margin-top:2px;">
+                  <span class="equip-range-pill" title="Intervalo ideal regulamentar">
+                    🎯 ${eq.min} a ${eq.max} ºC
+                  </span>
                 </div>
               </div>
 
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:flex-end; margin:4px 0 3px; font-family:var(--mono, monospace);">
-                  <span style="font-weight:800; font-size:11.5px; color:${valColor};">
-                    ${s.hasReading ? `${s.lastParsed.isBad ? '⚠️' : '✓'} ${s.lastParsed.formatted}` : 'Pendente'}
-                  </span>
+              <div style="margin-top:8px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
+                  ${valPillHtml}
                   ${s.hasReading && s.trendLabel ? `
                     <span class="chip-tag ${s.trend === 'up' ? 'trend-up' : (s.trend === 'down' ? 'trend-down' : 'trend-flat')}" title="${esc(s.trendDesc)}">
                       ${s.trendLabel}
@@ -5024,9 +5181,7 @@
                   <span class="chip-count-pill" title="${s.totalUpdates} registo(s) atualizado(s) no período">
                     📊 ${s.totalUpdates} ${s.totalUpdates === 1 ? 'registo' : 'registos'}
                   </span>
-                  <span style="font-size:9.5px; font-weight:700; color:${valColor};">
-                    ${s.hasReading ? (s.lastParsed.isBad ? 'Fora est.' : 'Conforme') : 'Pendente'}
-                  </span>
+                  <span style="font-size:9.5px; color:#0284c7; font-weight:700;">Histórico →</span>
                 </div>
               </div>
             `;
