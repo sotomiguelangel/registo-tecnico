@@ -3589,7 +3589,16 @@
       const r = await apiGet({ action:'listEquipamentos' });
       equipamentos = r.equipamentos || [];
       equipamentosLoadedAt = Date.now();
-      try{ localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); }catch(e){}
+      try{
+        const rawAliases = localStorage.getItem('bitacora_equip_aliases');
+        if(rawAliases){
+          const aliases = JSON.parse(rawAliases) || {};
+          equipamentos.forEach(eq => {
+            if(aliases[eq.id]) eq.nome = aliases[eq.id];
+          });
+        }
+        localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+      }catch(e){}
     }catch(e){
       if(!equipamentos.length){
         try{
@@ -6347,6 +6356,12 @@
         }
       });
       showToast(`Equipamento "${vals.nome}" atualizado ✓`);
+      try {
+        const rawAliases = localStorage.getItem('bitacora_equip_aliases');
+        const aliases = rawAliases ? JSON.parse(rawAliases) : {};
+        aliases[eq.id] = vals.nome;
+        localStorage.setItem('bitacora_equip_aliases', JSON.stringify(aliases));
+      } catch(e) {}
       invalidateEquipamentos();
       await renderTempView();
     }catch(e){ showToast('⚠️ ' + e.message, true); }

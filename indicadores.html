@@ -1094,6 +1094,19 @@
     background: rgba(255, 255, 255, 0.06);
     color: var(--muted);
   }
+  .ref-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: var(--muted);
+    font-family: var(--mono, monospace);
+    background: var(--subtle);
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
   .loc-header {
     display: flex;
     justify-content: space-between;
@@ -2827,9 +2840,12 @@
             <h2 style="margin:0 0 4px 0;">❄️ Monitorização de Equipamentos de Frio (HACCP)</h2>
             <p class="small muted" style="margin:0;">Matriz visual de conformidade térmica, total de registos atualizados no período e análise de tendência (aumento / diminuição).</p>
           </div>
-          <div class="actions" style="margin:0;">
-            <a href="index.html#temperatura" class="cycle-btn primary" id="btnGoRefrigeracao" style="text-decoration:none;">
-              Registar / Gerir na App Principal →
+          <div class="actions" style="margin:0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="cycle-btn" id="btnManageEquipNames" style="padding:6px 12px; font-size:12px; background:var(--surface); border:1.5px solid var(--border); font-weight:700;">
+              ⚙️ Nomes dos Equipamentos
+            </button>
+            <a href="index.html#temperatura" class="cycle-btn primary" id="btnGoRefrigeracao" style="text-decoration:none; padding:6px 12px; font-size:12px;">
+              Registar na App Principal →
             </a>
           </div>
         </div>
@@ -4447,12 +4463,64 @@
 
     function equipmentId(record) {
       const d = record && record.data ? record.data : {};
-      return String(d.equipamentoId ?? d.nome ?? d.equipamento ?? '').trim();
+      return String(d.equipamentoId ?? d.nome ?? d.equipo ?? d.equipamento ?? '').trim();
+    }
+
+    // Deteta se uma string é apenas um código de referência interna ou ID técnico
+    function isReferenceCode(str) {
+      if (!str) return true;
+      const s = String(str).trim();
+      if (!s) return true;
+      // 1. Identificadores gerados por sistema (ex: eq_1787746301541_6584, id_..., sq_...)
+      if (/^(eq|id|sq)_[0-9]+(_[a-z0-9]+)?$/i.test(s)) return true;
+      // 2. Códigos técnicos com prefixo HACCP curto (ex: REF09, REF-10, CON02, VIH03, VIH_01, FRIG01)
+      if (/^(REF|CON|VIH|GAR|FRIG)[\d_-]+$/i.test(s)) return true;
+      // 3. Códigos compactos sem espaços com 1-4 letras e 1-4 dígitos (ex: REF1, C02, F01)
+      if (/^[a-zA-Z]{1,4}[0-9]{1,4}$/.test(s)) return true;
+      // 4. Hashes hexadecimais longos ou UUIDs
+      if (/^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s)) return true;
+      return false;
+    }
+
+    // Devolve uma abreviatura curta para a referência técnica
+    function formatRefShort(refId) {
+      if (!refId) return '';
+      const s = String(refId).trim();
+      if (/^eq_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+        const m = s.match(/^eq_[0-9]+_([a-z0-9]+)$/i);
+        return '#' + m[1];
+      }
+      if (/^eq_([0-9]+)$/i.test(s)) {
+        const m = s.match(/^eq_([0-9]+)$/i);
+        return '#' + m[1].slice(-4);
+      }
+      if (/^id_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+        const m = s.match(/^id_[0-9]+_([a-z0-9]+)$/i);
+        return '#' + m[1];
+      }
+      return s;
     }
 
     function equipmentName(record) {
       const d = record && record.data ? record.data : {};
-      return String(d.nome ?? d.equipamento ?? d.equipamentoId ?? 'Sem identificação');
+      const rId = String(d.equipamentoId || d.equipoId || d.id || '').trim();
+      const rNome = String(d.nome || d.equipo || d.equipamento || '').trim();
+
+      // Procura primeiro na lista de equipamentos com resolução inteligente de nomes
+      try {
+        const equips = getHotelEquipamentos();
+        const found = equips.find(e =>
+          (rId && String(e.id).trim().toLowerCase() === rId.toLowerCase()) ||
+          (rNome && String(e.id).trim().toLowerCase() === rNome.toLowerCase()) ||
+          (rNome && String(e.nome).trim().toLowerCase() === rNome.toLowerCase()) ||
+          (e.ref && rId && String(e.ref).trim().toLowerCase() === rId.toLowerCase())
+        );
+        if (found && found.nome) return found.nome;
+      } catch (e) {}
+
+      if (rNome && !isReferenceCode(rNome)) return rNome;
+      if (rId && !isReferenceCode(rId)) return rId;
+      return rNome || rId || 'Equipamento';
     }
 
     function declaredState(value) {
@@ -4487,15 +4555,15 @@
     // Refrigeração / Cadeia de Frio · Grelha Visual e Matriz por Localização
     // =========================================================================
     const DEFAULT_HOTEL_EQUIPAMENTOS = [
-      { id: 'REF09', nome: 'REF09', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
-      { id: 'REF10', nome: 'REF10', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
-      { id: 'REF06', nome: 'REF06', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1 },
-      { id: 'VIH03', nome: 'VIH03', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 1, isRange: true },
-      { id: 'REF07', nome: 'REF07', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 1 },
-      { id: 'VIH01', nome: 'VIH01', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 1, isRange: true },
-      { id: 'REF08', nome: 'REF08', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 1 },
-      { id: 'CON02', nome: 'CON02', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1 },
-      { id: 'CON03', nome: 'CON03', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1 }
+      { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
+      { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
+      { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1 },
+      { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 1, isRange: true },
+      { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 1 },
+      { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 1, isRange: true },
+      { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 1 },
+      { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1 },
+      { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1 }
     ];
 
     let equipViewMode = 'grid'; // 'grid' | 'list'
@@ -4517,27 +4585,112 @@
         list = DEFAULT_HOTEL_EQUIPAMENTOS.map(e => ({ ...e }));
       }
 
-      // Descobre novos equipamentos a partir de registos históricos
-      const knownIds = new Set(list.map(e => String(e.id || e.nome || '').trim().toUpperCase()));
+      // 1. Carrega apelidos/nomes personalizados configurados pelo utilizador
+      let aliases = {};
+      try {
+        const rawAliases = localStorage.getItem('bitacora_equip_aliases');
+        if (rawAliases) aliases = JSON.parse(rawAliases) || {};
+      } catch (e) {}
+
+      // 2. Mapa para indexação rápida por ID normalizado
+      const listById = new Map();
+      list.forEach(eq => {
+        const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
+        if (idKey) listById.set(idKey, eq);
+      });
+
+      // 3. Descobre novos equipamentos e resgata nomes descritivos a partir dos registos históricos
       const allTemp = (records && records.temperatura) ? records.temperatura : [];
       allTemp.forEach(r => {
         const d = r && r.data ? r.data : {};
         const rawId = String(d.equipamentoId || d.nome || d.equipo || d.equipamento || '').trim();
-        if (rawId && !knownIds.has(rawId.toUpperCase())) {
-          knownIds.add(rawId.toUpperCase());
-          const tipo = String(d.tipo || (rawId.toUpperCase().startsWith('CON') ? 'Congelador' : (rawId.toUpperCase().startsWith('VIH') ? 'Vinhera' : 'Frigorifico')));
+        if (!rawId) return;
+
+        const candidateName = String(d.nome || d.equipo || d.equipamento || '').trim();
+        const hasDescriptiveName = candidateName && !isReferenceCode(candidateName);
+        const loc = String(d.ubicacao || d.ubicacion || '').trim();
+        const tipo = String(d.tipo || (rawId.toUpperCase().startsWith('CON') ? 'Congelador' : (rawId.toUpperCase().startsWith('VIH') ? 'Vinhera' : 'Frigorifico')));
+
+        const existing = listById.get(rawId.toUpperCase());
+        if (existing) {
+          // Se o equipamento existente tem um nome que é apenas referência, e o registo traz um nome descritivo real:
+          if (hasDescriptiveName && isReferenceCode(existing.nome)) {
+            existing.nome = candidateName;
+          }
+          if (loc && (!existing.ubicacao || existing.ubicacao === 'Outras Localizações')) {
+            existing.ubicacao = loc;
+          }
+          if (!existing.tipo && tipo) existing.tipo = tipo;
+        } else {
+          // Novo equipamento descoberto a partir de registos históricos
           const isCong = tipo.toLowerCase().includes('congelador');
           const isVin = tipo.toLowerCase().includes('vin');
-          list.push({
+          const finalName = hasDescriptiveName ? candidateName : rawId;
+
+          const newEq = {
             id: rawId,
-            nome: rawId,
+            ref: rawId,
+            refShort: formatRefShort(rawId),
+            nome: finalName,
             tipo,
             min: isCong ? -18 : (isVin ? 5 : 0),
             max: isCong ? -1 : (isVin ? 16 : 8),
-            ubicacao: String(d.ubicacao || d.ubicacion || 'Outras Localizações').trim() || 'Outras Localizações',
+            ubicacao: loc || 'Outras Localizações',
             ativo: 1,
             isRange: isVin
-          });
+          };
+          list.push(newEq);
+          listById.set(rawId.toUpperCase(), newEq);
+        }
+      });
+
+      // 4. Normalização de Localizações (ex: Show Cocking -> Show Cooking)
+      list.forEach(eq => {
+        if (eq.ubicacao && eq.ubicacao.trim().toLowerCase() === 'show cocking') {
+          eq.ubicacao = 'Show Cooking';
+        }
+        if (!eq.ref) eq.ref = eq.id;
+        if (!eq.refShort) eq.refShort = formatRefShort(eq.id);
+      });
+
+      // 5. Resolução Inteligente para equipamentos que ainda tenham apenas Referência Técnica no nome
+      // Agrupa equipamentos com nome de referência por Localização + Tipo para atribuição de nomes limpos e consistentes
+      const refEquipsByGroup = new Map();
+      list.forEach(eq => {
+        if (isReferenceCode(eq.nome)) {
+          const locKey = String(eq.ubicacao || 'Geral').trim();
+          const tipoKey = String(eq.tipo || 'Frigorifico').trim();
+          const groupKey = `${locKey}:::${tipoKey}`;
+          if (!refEquipsByGroup.has(groupKey)) refEquipsByGroup.set(groupKey, []);
+          refEquipsByGroup.get(groupKey).push(eq);
+        }
+      });
+
+      refEquipsByGroup.forEach((groupEquips, groupKey) => {
+        const [loc, tipo] = groupKey.split(':::');
+        // Ordena de forma estável (por ID/timestamp)
+        groupEquips.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        const total = groupEquips.length;
+
+        groupEquips.forEach((eq, idx) => {
+          let prettyTipo = tipo;
+          if (tipo.toLowerCase().includes('congelador')) prettyTipo = 'Congelador';
+          else if (tipo.toLowerCase().includes('vin') || tipo.toLowerCase().includes('adega')) prettyTipo = 'Vinhera';
+          else prettyTipo = 'Frigorífico';
+
+          if (total === 1) {
+            eq.nome = `${prettyTipo} ${loc}`;
+          } else {
+            eq.nome = `${prettyTipo} ${idx + 1}`;
+          }
+        });
+      });
+
+      // 6. Aplica aliases/nomes personalizados configurados pelo utilizador (têm prioridade absoluta)
+      list.forEach(eq => {
+        if (aliases[eq.id] && aliases[eq.id].trim()) {
+          eq.nome = aliases[eq.id].trim();
+          eq.isCustom = true;
         }
       });
 
@@ -4599,14 +4752,15 @@
     function computeEquipStats(eq, tempRecords) {
       const eqIdStr = String(eq.id || '').trim().toLowerCase();
       const eqNomeStr = String(eq.nome || '').trim().toLowerCase();
+      const eqRefStr = String(eq.ref || eq.refShort || '').trim().toLowerCase();
 
       // Filtra registos pertencentes a este equipamento
       const matched = tempRecords.filter(r => {
         const d = r && r.data ? r.data : {};
         const rId = String(d.equipamentoId || d.equipoId || '').trim().toLowerCase();
         const rNome = String(d.nome || d.equipo || d.equipamento || '').trim().toLowerCase();
-        return (rId && (rId === eqIdStr || rId === eqNomeStr)) ||
-               (rNome && (rNome === eqIdStr || rNome === eqNomeStr));
+        return (rId && (rId === eqIdStr || rId === eqNomeStr || (eqRefStr && rId === eqRefStr))) ||
+               (rNome && (rNome === eqIdStr || rNome === eqNomeStr || (eqRefStr && rNome === eqRefStr)));
       });
 
       // Ordena cronologicamente ascendente
@@ -4840,11 +4994,14 @@
             chip.innerHTML = `
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:12.5px; color:var(--text);">${esc(eq.nome)}</span>
+                  <span style="font-weight:800; font-size:12px; color:var(--text); line-height:1.2;">${esc(eq.nome)}</span>
                   <span class="dot"></span>
                 </div>
-                <div style="font-size:10px; color:var(--muted); margin:2px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                  ${icon} ${esc(eq.tipo)}
+                <div style="display:flex; align-items:center; gap:4px; margin:2px 0 2px; flex-wrap:wrap;">
+                  <span style="font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${icon} ${esc(eq.tipo)}
+                  </span>
+                  ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">${esc(eq.refShort)}</span>` : ''}
                 </div>
                 <div style="font-size:9.5px; color:var(--muted); font-family:var(--mono, monospace);">
                   ${eq.min} a ${eq.max}ºC
@@ -4919,12 +5076,13 @@
           card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
               <div>
-                <div style="display:flex; align-items:center; gap:8px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                   <span style="font-size:1.15rem;">${icon}</span>
                   <span style="font-weight:800; font-size:1.05rem; color:var(--text);">${esc(eq.nome)}</span>
                   <span style="font-size:11px; color:var(--muted); background:var(--subtle); padding:2px 6px; border-radius:4px; font-weight:600;">
                     ${esc(eq.tipo)}
                   </span>
+                  ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">Ref: ${esc(eq.refShort)}</span>` : ''}
                   <span style="font-size:11px; color:var(--muted); font-family:var(--mono, monospace);">
                     📍 ${esc(eq.ubicacao || '—')}
                   </span>
@@ -5074,14 +5232,16 @@
       }
 
       box.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px; gap:10px;">
           <div>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-size:1.3rem;">${icon}</span>
-              <h2 style="margin:0; font-size:1.2rem;">${esc(eq.nome)} · ${esc(eq.tipo)}</h2>
+              <h2 style="margin:0; font-size:1.15rem; color:var(--text);">${esc(eq.nome)} · ${esc(eq.tipo)}</h2>
+              ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">Ref: ${esc(eq.refShort)}</span>` : ''}
+              <button type="button" class="cycle-btn" id="btnModalRenameEquip" style="font-size:11px; padding:3px 8px; font-weight:700;">✏️ Alterar Nome</button>
             </div>
             <p class="small muted" style="margin:4px 0 0 0;">
-              📍 Localização: <strong>${esc(eq.ubicacao || '—')}</strong> · Intervalo Estimado: <strong>${eq.min} a ${eq.max} ºC</strong>
+              📍 Localização: <strong>${esc(eq.ubicacao || '—')}</strong> · Intervalo Estimado: <strong>${eq.min} a ${eq.max} ºC</strong> · ID: <code style="font-size:10.5px; font-family:var(--mono, monospace);">${esc(eq.id)}</code>
             </p>
           </div>
           <button type="button" class="cycle-btn" id="btnCloseEquipModal" style="font-size:14px; padding:4px 10px; line-height:1;">✕</button>
@@ -5138,7 +5298,8 @@
       overlay.appendChild(box);
       document.body.appendChild(overlay);
 
-      // Eventos de fechar
+      // Eventos de fechar e renomear
+      $('btnModalRenameEquip')?.addEventListener('click', () => promptRenameEquipment(eq));
       $('btnCloseEquipModal')?.addEventListener('click', () => overlay.remove());
       $('btnCloseEquipModalBottom')?.addEventListener('click', () => overlay.remove());
       overlay.addEventListener('click', (e) => {
@@ -5149,6 +5310,252 @@
           overlay.remove();
           document.removeEventListener('keydown', escHandler);
         }
+      });
+    }
+
+    // Guarda ou atualiza o nome personalizado de um equipamento
+    function saveEquipmentAlias(eqId, newName, syncBackend = true) {
+      if (!eqId) return;
+      const cleanName = String(newName || '').trim();
+      let aliases = {};
+      try {
+        aliases = JSON.parse(localStorage.getItem('bitacora_equip_aliases') || '{}');
+      } catch (e) {}
+
+      if (cleanName) {
+        aliases[eqId] = cleanName;
+      } else {
+        delete aliases[eqId];
+      }
+      try {
+        localStorage.setItem('bitacora_equip_aliases', JSON.stringify(aliases));
+      } catch (e) {}
+
+      // Atualiza também na lista armazenada de equipamentos do utilizador se existir
+      try {
+        const rawEqs = localStorage.getItem('bitacora_equipamentos');
+        if (rawEqs) {
+          const parsedEqs = JSON.parse(rawEqs);
+          if (Array.isArray(parsedEqs)) {
+            const item = parsedEqs.find(e => String(e.id).trim().toLowerCase() === String(eqId).trim().toLowerCase());
+            if (item) {
+              item.nome = cleanName || item.id;
+              localStorage.setItem('bitacora_equipamentos', JSON.stringify(parsedEqs));
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Sincroniza com o backend se solicitado
+      if (syncBackend && cleanName) {
+        syncSingleEquipNameToBackend(eqId, cleanName);
+      }
+
+      // Atualiza os componentes da interface
+      renderEquipmentVisualContainer();
+      if (records && records.temperatura) {
+        renderEquipment(currentEquipFilteredList || records.temperatura);
+      }
+    }
+
+    // Sincroniza um nome de equipamento atualizado com a base de dados do servidor
+    async function syncSingleEquipNameToBackend(eqId, newName) {
+      const equips = getHotelEquipamentos();
+      const eq = equips.find(e => String(e.id).trim().toLowerCase() === String(eqId).trim().toLowerCase());
+      if (!eq) return;
+      try {
+        const token = localStorage.getItem('bitacora_session_token') || sessionStorage.getItem('bitacora_session_token');
+        const res = await fetch('/api/gas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'saveEquipamento',
+            token: token || undefined,
+            data: {
+              id: eq.id,
+              nome: newName,
+              tipo: eq.tipo,
+              ubicacao: eq.ubicacao,
+              min: eq.min,
+              max: eq.max,
+              ativo: eq.ativo
+            }
+          })
+        });
+        if (res.ok) {
+          console.log(`[Equipamentos] Nome atualizado no servidor: "${newName}" (${eqId})`);
+        }
+      } catch (err) {
+        // Modo offline / local
+        console.log(`[Equipamentos] Nome guardado localmente (${eqId}: ${newName})`);
+      }
+    }
+
+    // Prompt simples para renomear equipamento a partir de qualquer ecrã
+    function promptRenameEquipment(eq) {
+      if (!eq) return;
+      const current = eq.nome || eq.id;
+      const suggested = prompt(
+        `Introduza o nome descritivo para o equipamento:\n• Localização: ${eq.ubicacao || '—'}\n• Tipo: ${eq.tipo}\n• Ref. Técnica: ${eq.refShort || eq.id}`,
+        current
+      );
+      if (suggested !== null) {
+        const trimmed = suggested.trim();
+        if (trimmed && trimmed !== current) {
+          saveEquipmentAlias(eq.id, trimmed, true);
+          setStatus('Nome atualizado', `Equipamento atualizado para "${trimmed}".`, 'success');
+          // Reabre o modal com os novos dados
+          openEquipDetailModal(eq.id);
+        }
+      }
+    }
+
+    // Modal de Gestão Centralizada de Nomes de Equipamentos
+    function openManageEquipNamesModal() {
+      const existing = $('equipNamesManagerOverlay');
+      if (existing) existing.remove();
+
+      const equips = getHotelEquipamentos();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'equipNamesManagerOverlay';
+      overlay.className = 'equip-modal-overlay';
+
+      const box = document.createElement('div');
+      box.className = 'equip-modal-box';
+      box.style.maxWidth = '720px';
+
+      // Agrupa equipamentos por localização
+      const locMap = new Map();
+      equips.forEach(eq => {
+        const loc = String(eq.ubicacao || 'Outras Localizações').trim();
+        if (!locMap.has(loc)) locMap.set(loc, []);
+        locMap.get(loc).push(eq);
+      });
+
+      let itemsHtml = '';
+      locMap.forEach((eqList, loc) => {
+        itemsHtml += `
+          <div style="margin-bottom:14px;">
+            <div style="font-weight:800; font-size:12px; color:var(--text); margin-bottom:6px; padding-bottom:3px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:6px;">
+              <span>📍 ${esc(loc)}</span>
+              <span style="font-size:10.5px; color:var(--muted); font-weight:normal;">(${eqList.length} equipamento${eqList.length === 1 ? '' : 's'})</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+        `;
+
+        eqList.forEach(eq => {
+          const icon = getEquipIcon(eq);
+          itemsHtml += `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--subtle); padding:8px 10px; border-radius:8px; border:1px solid var(--border); flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:8px; min-width:180px; flex:1;">
+                <span style="font-size:1.2rem;">${icon}</span>
+                <div>
+                  <div style="font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;">
+                    <span>${esc(eq.tipo)}</span>
+                    ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">Ref: ${esc(eq.refShort)}</span>` : ''}
+                  </div>
+                  <div style="font-size:10px; color:var(--muted); font-family:var(--mono, monospace);">
+                    Tolerância: ${eq.min} a ${eq.max} ºC
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px; flex:2; min-width:240px;">
+                <input type="text"
+                  class="field-input equip-name-input"
+                  data-eqid="${esc(eq.id)}"
+                  value="${esc(eq.nome)}"
+                  placeholder="Nome descritivo do equipamento"
+                  style="width:100%; padding:6px 10px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text);"
+                />
+              </div>
+            </div>
+          `;
+        });
+
+        itemsHtml += `
+            </div>
+          </div>
+        `;
+      });
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+          <div>
+            <h2 style="margin:0; font-size:1.25rem;">❄️ Nomes dos Equipamentos de Frio (HACCP)</h2>
+            <p class="small muted" style="margin:4px 0 0 0;">
+              Configure nomes claros e descritivos em substituição de referências técnicas. Os nomes atualizados são sincronizados na matriz de indicadores e na aplicação principal.
+            </p>
+          </div>
+          <button type="button" class="cycle-btn" id="btnCloseEquipNamesModal" style="font-size:14px; padding:4px 10px; line-height:1;">✕</button>
+        </div>
+
+        <div style="max-height:55vh; overflow-y:auto; padding-right:4px; margin-bottom:16px;">
+          ${itemsHtml}
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid var(--border); padding-top:12px;">
+          <button type="button" class="cycle-btn" id="btnResetEquipNames" style="font-size:11.5px; color:var(--muted);">
+            🔄 Repor Nomes Sugeridos
+          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="cycle-btn" id="btnCancelEquipNames" style="font-size:12px;">
+              Cancelar
+            </button>
+            <button type="button" class="cycle-btn primary" id="btnSaveAllEquipNames" style="font-size:12px; font-weight:700;">
+              ✓ Guardar Alterações
+            </button>
+          </div>
+        </div>
+      `;
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      // Eventos
+      $('btnCloseEquipNamesModal')?.addEventListener('click', () => overlay.remove());
+      $('btnCancelEquipNames')?.addEventListener('click', () => overlay.remove());
+
+      $('btnResetEquipNames')?.addEventListener('click', () => {
+        if (confirm('Deseja repor todos os nomes sugeridos automáticos (limpar personalizações manuais)?')) {
+          localStorage.removeItem('bitacora_equip_aliases');
+          overlay.remove();
+          renderEquipmentVisualContainer();
+          if (records && records.temperatura) renderEquipment(records.temperatura);
+          setStatus('Nomes Repostos', 'Os nomes dos equipamentos foram repostos para as sugestões descritivas.', 'info');
+        }
+      });
+
+      $('btnSaveAllEquipNames')?.addEventListener('click', async () => {
+        const inputs = box.querySelectorAll('.equip-name-input');
+        let aliases = {};
+        try {
+          aliases = JSON.parse(localStorage.getItem('bitacora_equip_aliases') || '{}');
+        } catch (e) {}
+
+        let updatedCount = 0;
+        inputs.forEach(inp => {
+          const id = inp.getAttribute('data-eqid');
+          const val = inp.value.trim();
+          if (id && val) {
+            aliases[id] = val;
+            updatedCount++;
+            syncSingleEquipNameToBackend(id, val);
+          }
+        });
+
+        try {
+          localStorage.setItem('bitacora_equip_aliases', JSON.stringify(aliases));
+        } catch (e) {}
+
+        overlay.remove();
+        renderEquipmentVisualContainer();
+        if (records && records.temperatura) renderEquipment(records.temperatura);
+        setStatus('Nomes Guardados', `${updatedCount} equipamentos atualizados com sucesso.`, 'success');
+      });
+
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
       });
     }
 
@@ -7081,6 +7488,9 @@
               };
               localStorage.setItem('bitacora_baselines', JSON.stringify(bLines));
             }
+            if (data.equipamentos && Array.isArray(data.equipamentos) && data.equipamentos.length > 0) {
+              localStorage.setItem('bitacora_equipamentos', JSON.stringify(data.equipamentos));
+            }
           } catch(e) {}
 
           loadTariffsOnce();
@@ -7168,6 +7578,7 @@
     addClick('btnApplyCustom', safeRender);
 
     // Equipment Visual Grid View Mode Controls
+    addClick('btnManageEquipNames', openManageEquipNamesModal);
     addClick('btnEquipVisualGrid', () => {
       equipViewMode = 'grid';
       $('btnEquipVisualGrid')?.classList.add('active');
