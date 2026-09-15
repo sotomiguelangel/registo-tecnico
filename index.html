@@ -3149,12 +3149,12 @@
     throw lastErr;
   }
 
-  async function apiGet(params){
+  async function apiGet(params, timeoutMs = 12000){
     return withRetry(async ()=>{
       const url = new URL(API_URL);
       Object.keys(params).forEach(k=> url.searchParams.set(k, params[k]));
       const tk = getToken(); if(tk) url.searchParams.set('token', tk);
-      const res = await safeFetch(url.toString(), {}, 35000);
+      const res = await safeFetch(url.toString(), {}, timeoutMs || 12000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -3170,7 +3170,7 @@
     });
   }
 
-  async function apiPost(body){
+  async function apiPost(body, timeoutMs = 15000){
     return withRetry(async ()=>{
       const payload = Object.assign({}, body);
       const tk = getToken(); if(tk) payload.token = tk;
@@ -3178,7 +3178,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
-      }, 35000);
+      }, timeoutMs || 15000);
       const text = await res.text();
       let json;
       try{ json = JSON.parse(text); }
@@ -3863,36 +3863,22 @@
 
   let equipamentos = [];
   let equipamentosLoadedAt = 0;
+  let isFetchingEquipamentos = false;
   async function loadEquipamentos(force){
     if(!force && equipamentos.length && (Date.now() - equipamentosLoadedAt) < CONFIG_TTL_MS) return equipamentos;
-    try{
-      const r = await apiGet({ action:'listEquipamentos' });
-      if(r && Array.isArray(r.equipamentos) && r.equipamentos.length){
-        equipamentos = r.equipamentos;
-        equipamentosLoadedAt = Date.now();
-        try{
-          const rawAliases = localStorage.getItem('bitacora_equip_aliases');
-          if(rawAliases){
-            const aliases = JSON.parse(rawAliases) || {};
-            equipamentos.forEach(eq => {
-              if(aliases[eq.id]) eq.nome = aliases[eq.id];
-            });
-          }
-          localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
-        }catch(e){}
-      }
-    }catch(e){
-      console.warn('Leitura remota de equipamentos indisponível, a usar cópia local.');
-    }
 
+    // 1. Carregamento síncrono imediato de cache local se a lista em memória estiver vazia
     if(!equipamentos.length){
       try{
         const saved = localStorage.getItem('bitacora_equipamentos');
-        if(saved) equipamentos = JSON.parse(saved);
+        if(saved){
+          const parsed = JSON.parse(saved);
+          if(Array.isArray(parsed) && parsed.length) equipamentos = parsed;
+        }
       }catch(ex){}
     }
 
-    // Garantir que existe sempre pelo menos um Ar Condicionado (16°C a 28°C)
+    // 2. Garantir que tem pelo menos a lista base se ainda estiver vazio
     if(!equipamentos.length || !equipamentos.some(e => isAireAcondicionado(e))){
       const defaultAC = { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false };
       if(!equipamentos.length){
@@ -3913,9 +3899,44 @@
       }
       try{ localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); }catch(e){}
     }
+
+    // 3. Atualização assíncrona em background sem travar a interface
+    if(API_URL && API_URL.indexOf('http') === 0 && !isFetchingEquipamentos){
+      isFetchingEquipamentos = true;
+      apiGet({ action:'listEquipamentos' }, 6000).then(r => {
+        if(r && Array.isArray(r.equipamentos) && r.equipamentos.length){
+          const serverMap = new Map();
+          r.equipamentos.forEach(e => serverMap.set(String(e.id), e));
+          // Preservar equipamentos locais que ainda não estão no servidor
+          equipamentos.forEach(localEq => {
+            if(!serverMap.has(String(localEq.id))){
+              r.equipamentos.push(localEq);
+            }
+          });
+          equipamentos = r.equipamentos;
+          equipamentosLoadedAt = Date.now();
+          try{
+            const rawAliases = localStorage.getItem('bitacora_equip_aliases');
+            if(rawAliases){
+              const aliases = JSON.parse(rawAliases) || {};
+              equipamentos.forEach(eq => {
+                if(aliases[eq.id]) eq.nome = aliases[eq.id];
+              });
+            }
+            localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+          }catch(e){}
+          renderEquipSelect();
+        }
+      }).catch(e => {
+        console.warn('Atualização remota de equipamentos em segundo plano diferida:', e.message);
+      }).finally(() => {
+        isFetchingEquipamentos = false;
+      });
+    }
+
     return equipamentos;
   }
-  function invalidateEquipamentos(){ equipamentos = []; equipamentosLoadedAt = 0; }
+  function invalidateEquipamentos(){ equipamentosLoadedAt = 0; }
 
   async function checkApiHealth(){
     try{ await apiGet({ action:'health' }); $('apiWarning').classList.remove('show'); return true; }
@@ -6089,7 +6110,8 @@
     sel.innerHTML = '<option value="">Selecione o equipamento…</option>' +
       ativos.map(e=> {
         const vin = isVinera(e);
-        const icon = vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+        const isAc = isAireAcondicionado(e);
+        const icon = isAc ? '💨' : (vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
         return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)} — ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
       }).join('');
     if(current) sel.value = current;
@@ -6102,7 +6124,8 @@
     const d = rec.data;
     const canModify = !isViewer();
     const vin = isVinera(equip);
-    const icon = vin ? '🍷' : (String(equip.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+    const isAc = isAireAcondicionado(equip);
+    const icon = isAc ? '💨' : (vin ? '🍷' : (String(equip.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
     const parsed = parseTempReading(d.temperatura, equip);
     const isBad = parsed.isBad || String(d.dentroIntervalo) === 'Não';
 
@@ -6636,8 +6659,13 @@
           const eq = equipamentos.find(e => String(e.id) === String(b.dataset.toggleqid));
           if(!eq) return;
           const novoAtivo = isNoVal(eq.ativo) ? 'Sim' : 'Não';
-          await apiPost({ action:'saveEquipamento', data: Object.assign({}, eq, { ativo: novoAtivo }) });
-          invalidateEquipamentos();
+          eq.ativo = novoAtivo;
+          try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
+          enqueueSync({
+            action: 'saveEquipamento',
+            type: 'equipamento',
+            payload: { action: 'saveEquipamento', data: Object.assign({}, eq) }
+          });
           closeModal();
           showToast(`Equipamento "${eq.nome}" ${novoAtivo === 'Sim' ? 'ativado' : 'desativado'} ✓`);
           await renderTempView();
@@ -6704,9 +6732,9 @@
     const newEq = {
       id: 'eq_' + Date.now(),
       ref: 'EQ' + Math.floor(100 + Math.random()*899),
-      nome: vals.nome,
+      nome: vals.nome.trim(),
       tipo: vals.tipo,
-      ubicacao: vals.ubicacao || '',
+      ubicacao: (vals.ubicacao || '').trim(),
       min: parseFloat(vals.min) || 16,
       max: parseFloat(vals.max) || 28,
       ativo: 'Sim'
@@ -6715,13 +6743,15 @@
     equipamentos.push(newEq);
     try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
 
-    try{
-      await apiPost({ action:'saveEquipamento', data: newEq });
-    }catch(e){
-      console.warn('Envio do equipamento ao servidor pendente, salvo localmente com sucesso:', e);
-    }
+    // Enfileirar sincronização resiliente em background (não bloqueia UI)
+    enqueueSync({
+      action: 'saveEquipamento',
+      type: 'equipamento',
+      payload: { action: 'saveEquipamento', data: newEq }
+    });
 
-    showToast(`Equipamento "${vals.nome}" criado com sucesso ✓`);
+    selectedEquipId = newEq.id;
+    showToast(`Equipamento "${newEq.nome}" criado com sucesso ✓`);
     await renderTempView();
   }
 
@@ -6775,9 +6805,9 @@
       return;
     }
 
-    eq.nome = vals.nome;
+    eq.nome = vals.nome.trim();
     eq.tipo = vals.tipo;
-    eq.ubicacao = vals.ubicacao;
+    eq.ubicacao = (vals.ubicacao || '').trim();
     eq.min = parseFloat(vals.min);
     eq.max = parseFloat(vals.max);
 
@@ -6785,27 +6815,29 @@
     try {
       const rawAliases = localStorage.getItem('bitacora_equip_aliases');
       const aliases = rawAliases ? JSON.parse(rawAliases) : {};
-      aliases[eq.id] = vals.nome;
+      aliases[eq.id] = eq.nome;
       localStorage.setItem('bitacora_equip_aliases', JSON.stringify(aliases));
     } catch(e) {}
 
-    try{
-      await apiPost({
-        action:'saveEquipamento',
-        data:{
+    enqueueSync({
+      action: 'saveEquipamento',
+      type: 'equipamento',
+      payload: {
+        action: 'saveEquipamento',
+        data: {
           id: eq.id,
-          nome: vals.nome,
-          tipo: vals.tipo,
-          ubicacao: vals.ubicacao,
-          min: vals.min,
-          max: vals.max,
+          ref: eq.ref,
+          nome: eq.nome,
+          tipo: eq.tipo,
+          ubicacao: eq.ubicacao,
+          min: eq.min,
+          max: eq.max,
           ativo: eq.ativo
         }
-      });
-    }catch(e){
-      console.warn('Atualização no servidor pendente, alterado localmente:', e);
-    }
-    showToast(`Equipamento "${vals.nome}" atualizado ✓`);
+      }
+    });
+
+    showToast(`Equipamento "${eq.nome}" atualizado ✓`);
     await renderTempView();
   }
 
@@ -6817,11 +6849,13 @@
     equipamentos = equipamentos.filter(e => String(e.id) !== String(id));
     try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
 
-    try{
-      await apiPost({ action:'deleteEquipamento', id });
-    }catch(e){
-      console.warn('Remoção no servidor pendente, eliminado localmente:', e);
-    }
+    enqueueSync({
+      action: 'deleteEquipamento',
+      type: 'equipamento',
+      payload: { action: 'deleteEquipamento', id: id }
+    });
+
+    if(selectedEquipId === id) selectedEquipId = null;
     showToast('Equipamento eliminado ✓');
     await renderTempView();
   }
