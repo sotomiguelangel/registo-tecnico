@@ -6063,25 +6063,36 @@
         const chipsHtml = eqList.map(eq => {
           const st = equipStateMap.get(String(eq.id)) || {};
           const vin = isVinera(eq);
-          const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+          const isFreeze = String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca');
+          const isWine = vin || String(eq.tipo).toLowerCase().includes('vin') || String(eq.tipo).toLowerCase().includes('adega');
+          const icon = isWine ? '🍷' : (isFreeze ? '❄️' : '🧊');
+          const tagClass = isWine ? 'wine' : (isFreeze ? 'freeze' : 'fridge');
           const isDone = st.hasReading;
           const isBad = st.isBad;
           const formatted = st.readingFormatted;
 
           return `
-            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : ''}" data-equipchip="${esc(eq.id)}" title="${esc(eq.nome)}: ${esc(eq.tipo)} [${esc(String(eq.min))} a ${esc(String(eq.max))} °C]">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                <span style="font-weight:800; font-size:12px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.nome)}</span>
-                ${isDone ? '<span class="dot"></span>' : ''}
+            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : 'zero'}" data-equipchip="${esc(eq.id)}" title="${esc(eq.nome)}: ${esc(eq.tipo)} [${esc(String(eq.min))} a ${esc(String(eq.max))} °C]">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                  <span style="font-weight:800; font-size:12px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.nome)}</span>
+                  <span class="dot"></span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; margin:4px 0 2px; flex-wrap:wrap;">
+                  <span class="equip-type-tag ${tagClass}">
+                    ${icon} ${esc(eq.tipo)}
+                  </span>
+                </div>
+                <div style="margin-top:2px;">
+                  <span class="equip-range-pill" title="Intervalo regulamentar de temperatura">
+                    🎯 ${esc(String(eq.min))} a ${esc(String(eq.max))}°C
+                  </span>
+                </div>
               </div>
-              <div style="font-size:10px; color:var(--ink-600); margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                ${icon} ${esc(eq.tipo)}
-              </div>
-              <div style="display:flex; justify-content:space-between; align-items:flex-end; font-size:10px; font-family:var(--mono);">
-                <span style="color:var(--ink-400); font-size:9px;">${esc(String(eq.min))} a ${esc(String(eq.max))}°C</span>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; flex-wrap:wrap; gap:4px;">
                 ${isDone
-                  ? `<span style="font-weight:800; font-size:11px; color:${isBad ? 'var(--coral-500)' : '#16a34a'};">${isBad ? '⚠️' : '✓'} ${esc(formatted)}</span>`
-                  : `<span style="color:var(--ink-400); font-style:italic; font-size:9.5px;">Pendente</span>`
+                  ? `<span class="equip-val-pill ${isBad ? 'bad' : 'done'}">${isBad ? '⚠️' : '✓'} ${esc(formatted)}</span>`
+                  : `<span class="equip-val-pill zero">⏳ Pendente</span>`
                 }
               </div>
             </button>
