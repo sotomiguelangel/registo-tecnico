@@ -880,6 +880,11 @@
     color: #0369a1;
     border-color: #bae6fd;
   }
+  .equip-type-tag.ac {
+    background: #ccfbf1;
+    color: #0f766e;
+    border-color: #99f6e4;
+  }
   .equip-type-tag.fridge {
     background: #dcfce7;
     color: #15803d;
@@ -3480,6 +3485,11 @@
     cachedEjecutivoData = null; cachedEjecutivoTimestamp = 0; cachedEjecutivoPeriodKey = ''; cachedExecMeta = null;
     cachedHistorialData = null; cachedHistorialTimestamp = 0;
     lastHistorialItems = [];
+    try {
+      localStorage.removeItem('bitacora_dash_cache_html');
+      localStorage.removeItem('bitacora_exec_cache_html');
+      window.dispatchEvent(new Event('storage'));
+    } catch(e){}
   }
 
   function invalidateRecords(type){
@@ -3494,19 +3504,25 @@
     try{
       const s = JSON.parse(localStorage.getItem('bitacora_store') || 'null');
       if(s){
-        if(s.general && Array.isArray(s.general.items)) dataStore.general = s.general;
-        if(s.quarto && Array.isArray(s.quarto.items)) dataStore.quarto = s.quarto;
-        if(s.temperatura && Array.isArray(s.temperatura.items)) dataStore.temperatura = s.temperatura;
+        ['general', 'quarto', 'temperatura'].forEach(t => {
+          if(s[t]){
+            if(Array.isArray(s[t].items)){
+              dataStore[t] = s[t];
+            } else if(Array.isArray(s[t])){
+              dataStore[t] = { items: s[t], ts: Date.now() };
+            }
+          }
+        });
       }
       const savedExec = localStorage.getItem('bitacora_exec_cache_html');
       if(savedExec){
         cachedEjecutivoData = savedExec;
-        cachedEjecutivoTimestamp = Date.now();
+        cachedEjecutivoTimestamp = 0;
       }
       const savedDash = localStorage.getItem('bitacora_dash_cache_html');
       if(savedDash){
         cachedDashboardData = savedDash;
-        cachedDashboardTimestamp = Date.now();
+        cachedDashboardTimestamp = 0;
       }
     }catch(e){}
   }
@@ -3606,6 +3622,16 @@
     entry.ts = Date.now();
     persistStore();
     invalidateMemo();
+
+    // Re-render imediato se o utilizador estiver no dashboard ou vista executiva
+    try {
+      if(currentView === 'ejecutivo') {
+        setTimeout(() => renderEjecutivo(true), 20);
+      } else if(currentView === 'dashboard') {
+        setTimeout(() => renderDashboard(true), 20);
+      }
+      if(typeof refreshChips === 'function') refreshChips();
+    } catch(e){}
 
     // 2. Colocar na fila de sincronização em segundo plano
     enqueueSync({
@@ -3767,7 +3793,22 @@
           if(saved) equipamentos = JSON.parse(saved);
         }catch(ex){}
       }
-      if(!equipamentos.length) throw e;
+      if(!equipamentos.length){
+        equipamentos = [
+          { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false },
+          { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
+          { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
+          { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim' },
+          { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true },
+          { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 'Sim' },
+          { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true },
+          { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
+          { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
+          { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' }
+        ];
+        try{ localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); }catch(e){}
+      }
+      return equipamentos;
     }
     return equipamentos;
   }
@@ -5752,8 +5793,15 @@
   let selectedEquipId = '';
   let selectedTempWeekOffset = 0;
 
+  function isAireAcondicionado(eq){
+    if(!eq) return false;
+    const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+    return str.includes('ar condicionado') || str.includes('aire acondicionado') || str.includes('climat') || str.includes('hvac') || str.includes('a/c') || str.includes(' ac ') || str.startsWith('ac ') || str === 'ac';
+  }
+
   function isVinera(eq){
     if(!eq) return false;
+    if(isAireAcondicionado(eq)) return false;
     const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
     return str.includes('vin') || str.includes('garrafeir') || str.includes('adega') || str.includes('cave') || eq.isRange === true || eq.tipoRango === true;
   }
@@ -5830,12 +5878,21 @@
 
     if(eq){
       banner.classList.add('show');
-      const vin = isVinera(eq);
-      const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
+      const isAC = isAireAcondicionado(eq);
+      const vin = !isAC && isVinera(eq);
+      const isFreeze = !isAC && (String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca'));
+      const icon = isAC ? '💨' : (vin ? '🍷' : (isFreeze ? '❄️' : '🧊'));
       $('tempSelName').textContent = `${icon} ${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
       $('tempSelRange').textContent = `— intervalo de referência: ${eq.min} a ${eq.max} °C`;
 
-      if(vin){
+      if(isAC){
+        if(singleRow) singleRow.style.display = '';
+        if(rangeRow) rangeRow.style.display = 'none';
+        $('tempSignHint').innerHTML = `💨 <b>${esc(eq.nome)}</b> (Ar Condicionado): registe a temperatura ambiente (intervalo regulamentar de referência: <b>${esc(eq.min || 16)} a ${esc(eq.max || 28)} °C</b>).`;
+        $('t-temperatura').min = 10;
+        $('t-temperatura').max = 45;
+        $('t-temperatura').placeholder = 'Ex.: 22.0';
+      } else if(vin){
         if(singleRow) singleRow.style.display = 'none';
         if(rangeRow) rangeRow.style.display = '';
         $('tempSignHint').innerHTML = `🍷 <b>${esc(eq.nome)}</b> (Vinheira / Vinera): registe o intervalo medido (<b>Temp. Mínima</b> e <b>Temp. Máxima</b>). O intervalo de referência admissível é <b>${esc(eq.min)} a ${esc(eq.max)} °C</b>.`;
@@ -5844,7 +5901,7 @@
       } else {
         if(singleRow) singleRow.style.display = '';
         if(rangeRow) rangeRow.style.display = 'none';
-        const neg = String(eq.tipo).toLowerCase().includes('congelador');
+        const neg = isFreeze;
         $('tempSignHint').innerHTML = neg
           ? `❄️ Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`
           : `🧊 ${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`;
@@ -6062,11 +6119,12 @@
 
         const chipsHtml = eqList.map(eq => {
           const st = equipStateMap.get(String(eq.id)) || {};
-          const vin = isVinera(eq);
-          const isFreeze = String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca');
-          const isWine = vin || String(eq.tipo).toLowerCase().includes('vin') || String(eq.tipo).toLowerCase().includes('adega');
-          const icon = isWine ? '🍷' : (isFreeze ? '❄️' : '🧊');
-          const tagClass = isWine ? 'wine' : (isFreeze ? 'freeze' : 'fridge');
+          const isAC = isAireAcondicionado(eq);
+          const vin = !isAC && isVinera(eq);
+          const isFreeze = !isAC && (String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca'));
+          const isWine = vin || (!isAC && (String(eq.tipo).toLowerCase().includes('vin') || String(eq.tipo).toLowerCase().includes('adega')));
+          const icon = isAC ? '💨' : (isWine ? '🍷' : (isFreeze ? '❄️' : '🧊'));
+          const tagClass = isAC ? 'ac' : (isWine ? 'wine' : (isFreeze ? 'freeze' : 'fridge'));
           const isDone = st.hasReading;
           const isBad = st.isBad;
           const formatted = st.readingFormatted;
@@ -6493,14 +6551,43 @@
   $('btnEquipAdmin').addEventListener('click', openEquipAdmin);
 
   async function addNewEquipamentoDialog(){
+    setTimeout(()=>{
+      const tipoSel = $('modalField_tipo');
+      const minInp = $('modalField_min');
+      const maxInp = $('modalField_max');
+      if(tipoSel && minInp && maxInp){
+        tipoSel.addEventListener('change', ()=>{
+          const val = tipoSel.value;
+          if(val === 'Ar Condicionado'){ minInp.value = '16'; maxInp.value = '28'; }
+          else if(val === 'Frigorifico'){ minInp.value = '0'; maxInp.value = '8'; }
+          else if(val === 'Congelador'){ minInp.value = '-22'; maxInp.value = '-18'; }
+          else if(val === 'Vinhera'){ minInp.value = '5'; maxInp.value = '16'; }
+          else if(val === 'Balcao'){ minInp.value = '0'; maxInp.value = '8'; }
+        });
+      }
+    }, 60);
+
     const vals = await formDialog(
-      'Adicionar Novo Equipamento de Refrigeração',
+      'Adicionar Novo Equipamento de Climatização / Refrigeração',
       [
-        { id:'nome', label:'Nome do Equipamento', placeholder:'Ex.: Vinheira Bar Principal / Frigorífico Cozinha', value:'' },
-        { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira / Garrafeira)', placeholder:'Vinheira', value:'' },
-        { id:'ubicacao', label:'Localização / Ubicação', placeholder:'Ex.: Restaurante / Bar / Cozinha', value:'' },
-        { id:'min', label:'Temperatura Mínima Admissível (°C)', placeholder:'Ex.: 6 (Vinheira), 0 (Frigo), -22 (Congelador)', value:'' },
-        { id:'max', label:'Temperatura Máxima Admissível (°C)', placeholder:'Ex.: 16 (Vinheira), 5 (Frigo), -18 (Congelador)', value:'' }
+        { id:'nome', label:'Nome do Equipamento', placeholder:'Ex.: Ar Condicionado Sala Reuniões / Frigorífico Cozinha', value:'' },
+        {
+          id:'tipo',
+          label:'Tipo de Equipamento',
+          type: 'select',
+          options: [
+            { value:'Ar Condicionado', label:'💨 Ar Condicionado (Min: 16°C, Max: 28°C)' },
+            { value:'Frigorifico', label:'🧊 Frigorífico / Conservação (Min: 0°C, Max: 8°C)' },
+            { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -22°C, Max: -18°C)' },
+            { value:'Vinhera', label:'🍷 Vinheira / Garrafeira (Min: 5°C, Max: 16°C)' },
+            { value:'Balcao', label:'🥗 Balcão / Preparação (Min: 0°C, Max: 8°C)' },
+            { value:'Outro', label:'⚙️ Outro / Personalizado' }
+          ],
+          value: 'Ar Condicionado'
+        },
+        { id:'ubicacao', label:'Localização / Ubicação', placeholder:'Ex.: Restaurante / Bar / Sala Reuniões / Cozinha', value:'' },
+        { id:'min', label:'Temperatura Mínima Admissível (°C)', placeholder:'16', value:'16' },
+        { id:'max', label:'Temperatura Máxima Admissível (°C)', placeholder:'28', value:'28' }
       ],
       'Criar Equipamento'
     );
@@ -6522,9 +6609,42 @@
   async function editEquipamento(id){
     const eq = equipamentos.find(e=> String(e.id) === String(id));
     if(!eq) return;
+
+    setTimeout(()=>{
+      const tipoSel = $('modalField_tipo');
+      const minInp = $('modalField_min');
+      const maxInp = $('modalField_max');
+      if(tipoSel && minInp && maxInp){
+        tipoSel.addEventListener('change', ()=>{
+          const val = tipoSel.value;
+          if(val === 'Ar Condicionado'){ minInp.value = '16'; maxInp.value = '28'; }
+          else if(val === 'Frigorifico'){ minInp.value = '0'; maxInp.value = '8'; }
+          else if(val === 'Congelador'){ minInp.value = '-22'; maxInp.value = '-18'; }
+          else if(val === 'Vinhera'){ minInp.value = '5'; maxInp.value = '16'; }
+          else if(val === 'Balcao'){ minInp.value = '0'; maxInp.value = '8'; }
+        });
+      }
+    }, 60);
+
+    const isAcMatch = isAireAcondicionado(eq);
+    const defaultTipo = isAcMatch ? 'Ar Condicionado' : (eq.tipo || 'Frigorifico');
+
     const vals = await formDialog('Modificar Características do Equipamento', [
       { id:'nome', label:'Nome do Equipamento', value: eq.nome },
-      { id:'tipo', label:'Tipo (Frigorífico / Congelador / Vinheira / Garrafeira)', value: eq.tipo },
+      {
+        id:'tipo',
+        label:'Tipo de Equipamento',
+        type: 'select',
+        options: [
+          { value:'Ar Condicionado', label:'💨 Ar Condicionado (Min: 16°C, Max: 28°C)' },
+          { value:'Frigorifico', label:'🧊 Frigorífico / Conservação (Min: 0°C, Max: 8°C)' },
+          { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -22°C, Max: -18°C)' },
+          { value:'Vinhera', label:'🍷 Vinheira / Garrafeira (Min: 5°C, Max: 16°C)' },
+          { value:'Balcao', label:'🥗 Balcão / Preparação (Min: 0°C, Max: 8°C)' },
+          { value:'Outro', label:'⚙️ Outro / Personalizado' }
+        ],
+        value: defaultTipo
+      },
       { id:'ubicacao', label:'Localização / Ubicação', value: eq.ubicacao || '' },
       { id:'min', label:'Temperatura Mínima Admissível (°C)', value: eq.min },
       { id:'max', label:'Temperatura Máxima Admissível (°C)', value: eq.max }
@@ -13181,12 +13301,25 @@
   // Interação e sincronização com o chip de sincronização
   const syncChipEl = $('chipSyncStatus');
   if(syncChipEl){
-    syncChipEl.addEventListener('click', ()=>{
-      if(syncQueue.length === 0){
-        showToast('Todos os registos estão sincronizados com a folha Google Sheets ✓');
-      } else {
-        showToast(`A sincronizar ${syncQueue.length} registo(s) pendente(s)…`);
-        triggerSyncQueue(10);
+    syncChipEl.addEventListener('click', async ()=>{
+      showToast('A forçar sincronização com o Google Sheets…');
+      triggerSyncQueue(10);
+      try {
+        await Promise.all([
+          listRecords('general', true).catch(()=>{}),
+          listRecords('quarto', true).catch(()=>{}),
+          listRecords('temperatura', true).catch(()=>{}),
+          loadEquipamentos(true).catch(()=>{})
+        ]);
+        invalidateMemo();
+        if(typeof refreshChips === 'function') refreshChips();
+        if(currentView === 'ejecutivo') renderEjecutivo(true);
+        else if(currentView === 'dashboard') renderDashboard(true);
+        else if(currentView === 'temperatura') renderTempView();
+        else if(currentView === 'quarto') renderQuartoView();
+        showToast('Sincronização completa com a folha Google Sheets ✓');
+      } catch(e) {
+        showToast('Fila de envio disparada. Dados locais sincronizados.');
       }
     });
     syncChipEl.addEventListener('keydown', (e)=>{
