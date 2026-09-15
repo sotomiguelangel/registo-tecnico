@@ -3350,13 +3350,19 @@
           const sq = JSON.parse(sqRaw);
           if (Array.isArray(sq)) {
             sq.forEach(item => {
-              if (item && item.type === type && item.payload && item.payload.data) {
+              if (!item || item.type !== type) return;
+              if ((item.action === 'save' || item.action === 'update') && item.payload && item.payload.data) {
                 const recData = item.payload.data;
-                const recId = recData.id || item.recordId;
-                const exists = list.some(it => (it.key === recId || (it.data && it.data.id === recId) || it.id === recId));
-                if (!exists) {
+                const recId = String(recData.id || item.recordId);
+                const idx = list.findIndex(it => String(it.key || (it.data && it.data.id) || it.id) === recId);
+                if (idx >= 0) {
+                  list[idx] = { key: recId, data: Object.assign({}, list[idx].data || {}, recData) };
+                } else {
                   list.push({ key: recId, data: recData });
                 }
+              } else if (item.action === 'delete') {
+                const delId = String(item.recordId);
+                list = list.filter(it => String(it.key || (it.data && it.data.id) || it.id) !== delId);
               }
             });
           }
