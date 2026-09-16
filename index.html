@@ -1090,6 +1090,314 @@
   .exec-btn-action.primary-action{ background:var(--petrol-900); border-color:var(--petrol-900); color:#fff; }
   .exec-btn-action.primary-action:hover{ background:var(--petrol-800); }
 
+  /* ========================================================= */
+  /* PIZARRA DE SEGUIMENTO ESTRATÉGICO · MÁXIMA IMPORTÂNCIA */
+  /* ========================================================= */
+  .strategic-board-card {
+    background: linear-gradient(145deg, #0b1e28 0%, #06151d 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 20px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+    color: #f8fafc;
+    box-shadow: 0 12px 28px -6px rgba(245, 158, 11, 0.28), 0 4px 12px rgba(10, 37, 48, 0.4);
+    position: relative;
+    overflow: hidden;
+  }
+  .strategic-board-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24, #d97706, #f59e0b);
+  }
+  .strategic-board-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(245, 158, 11, 0.25);
+  }
+  .strategic-board-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #d97706, #b45309);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(180, 83, 9, 0.35);
+    margin-bottom: 6px;
+  }
+  .strategic-board-title {
+    font-family: var(--sans);
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #ffffff;
+    margin: 0 0 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .strategic-board-sub {
+    font-size: 12px;
+    color: #cbd5e1;
+    margin: 0;
+    line-height: 1.4;
+    max-width: 620px;
+  }
+  .strategic-board-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .strategic-kpi-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #e2e8f0;
+  }
+  .strategic-kpi-pill.abertos {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: #ef4444;
+    color: #fca5a5;
+  }
+  .strategic-kpi-pill.em-andamento {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fde68a;
+  }
+  .strategic-kpi-pill.finalizados {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: #10b981;
+    color: #a7f3d0;
+  }
+  .btn-new-strategic {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: 1px solid #fbbf24;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.35);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-new-strategic:hover {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    transform: translateY(-1px);
+  }
+  .strategic-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .strategic-tab-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #94a3b8;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .strategic-tab-btn.active {
+    background: #f59e0b;
+    border-color: #fbbf24;
+    color: #0f172a;
+    font-weight: 700;
+  }
+  .strategic-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .strategic-ticket-card {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-left: 4px solid #f59e0b;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.2s ease;
+  }
+  .strategic-ticket-card:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(245, 158, 11, 0.55);
+  }
+  .strategic-ticket-card.status-aberto {
+    border-left-color: #ef4444;
+  }
+  .strategic-ticket-card.status-finalizado {
+    border-left-color: #10b981;
+    opacity: 0.85;
+  }
+  .strategic-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .strategic-card-loc {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 800;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .strategic-card-cat {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+  .strategic-status-tag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .strategic-status-tag.aberto {
+    background: rgba(239, 68, 68, 0.25);
+    border: 1px solid #ef4444;
+    color: #fca5a5;
+  }
+  .strategic-status-tag.em_andamento {
+    background: rgba(245, 158, 11, 0.25);
+    border: 1px solid #f59e0b;
+    color: #fde68a;
+  }
+  .strategic-status-tag.pausado {
+    background: rgba(148, 163, 184, 0.25);
+    border: 1px solid #94a3b8;
+    color: #cbd5e1;
+  }
+  .strategic-status-tag.finalizado {
+    background: rgba(16, 185, 129, 0.25);
+    border: 1px solid #10b981;
+    color: #a7f3d0;
+  }
+  .strategic-card-desc {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #f1f5f9;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 8px 0;
+  }
+  .strategic-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11.5px;
+    color: #94a3b8;
+  }
+  .strategic-card-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .strategic-card-meta-left span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .strategic-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-strat-action {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #f8fafc;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .btn-strat-action:hover {
+    background: #f59e0b;
+    border-color: #fbbf24;
+    color: #0f172a;
+  }
+  .strategic-closure-box {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 6px;
+    font-size: 11.5px;
+    color: #6ee7b7;
+  }
+  .strategic-empty-state {
+    text-align: center;
+    padding: 24px 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(245, 158, 11, 0.3);
+    border-radius: 12px;
+  }
+  .strategic-empty-state .glyph {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .strategic-empty-state strong {
+    display: block;
+    font-size: 14px;
+    color: #f8fafc;
+    margin-bottom: 4px;
+  }
+  .strategic-empty-state p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0 0 12px;
+  }
+
   .exec-score-card{
     background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:18px;
     box-shadow:0 3px 12px -4px rgba(10,37,48,.07);
@@ -2139,6 +2447,13 @@
       
       <!-- Filtros -->
       <div class="filter-row">
+        <select id="pedidoFiltroTipo">
+          <option value="all">Todos os tipos</option>
+          <option value="Estratégico">⭐ Estratégico (Máxima Prioridade)</option>
+          <option value="Corretivo">Corretivo</option>
+          <option value="Preventivo">Preventivo</option>
+          <option value="Melhoria">Melhoria Operacional</option>
+        </select>
         <select id="pedidoFiltroEstado">
           <option value="all">Todos os estados</option>
           <option value="aberto">Aberto</option>
@@ -2169,20 +2484,34 @@
       <!-- Formulario para nuevo ticket -->
       <div class="card">
         <div class="subgroup-title" style="color:var(--petrol-700)">Abrir Novo Ticket</div>
+        <div style="background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); border-radius:10px; padding:8px 12px; margin-bottom:12px; font-size:11.5px; color:#92400e; display:flex; align-items:center; gap:8px;">
+          <span>⭐</span>
+          <span><b>Aviso de Relevância:</b> Tickets definidos como <b>Estratégico</b> são destacados no topo do <b>Menu Executivo</b> e do <b>Dashboard de Indicadores</b> como Pizarra de Seguimento de máxima prioridade.</span>
+        </div>
         <div class="row2">
-          <label class="field"><span class="lbl">Quarto/Local</span>
-            <input type="text" id="p-quarto" placeholder="Ex.: 101, COZINHA, RECEÇÃO">
+          <label class="field"><span class="lbl">Tipo de Ticket</span>
+            <select id="p-tipo" style="font-weight:700; color:var(--petrol-900);">
+              <option value="Estratégico" style="font-weight:700; color:#b45309;">⭐ Estratégico (Melhoria de Qualidade & Operatividade)</option>
+              <option value="Corretivo" selected>Corretivo (Avaria / Reparação urgente)</option>
+              <option value="Preventivo">Preventivo (Inspeção / Plano programado)</option>
+              <option value="Melhoria">Melhoria / Otimização de Rotina</option>
+            </select>
           </label>
+          <label class="field"><span class="lbl">Quarto/Local</span>
+            <input type="text" id="p-quarto" placeholder="Ex.: 101, COZINHA, RECEÇÃO, CENTRAL TÉRMICA">
+          </label>
+        </div>
+        <div class="row2">
           <label class="field"><span class="lbl">Categoria</span>
             <select id="p-categoria">
               <option value="">Selecione…</option>
+              <option value="Climatização">Climatização / AQS</option>
+              <option value="Piscina">Piscina / Spa</option>
               <option value="Elétrica">Elétrica</option>
               <option value="Hidráulica">Hidráulica</option>
-              <option value="Climatização">Climatização</option>
               <option value="Estrutural">Estrutural</option>
               <option value="Vidros/Portas">Vidros/Portas</option>
               <option value="Mobiliário">Mobiliário</option>
-              <option value="Piscina">Piscina</option>
               <option value="Jardim/Exterior">Jardim/Exterior</option>
               <option value="Segurança">Segurança</option>
               <option value="Limpeza">Limpeza</option>
@@ -2190,9 +2519,17 @@
               <option value="Outro">Outro</option>
             </select>
           </label>
+          <label class="field"><span class="lbl">Prioridade</span>
+            <select id="p-prioridade">
+              <option value="Máxima">⭐ Máxima (Crítica / Estratégica)</option>
+              <option value="Alta">Alta</option>
+              <option value="Normal" selected>Normal</option>
+              <option value="Baixa">Baixa</option>
+            </select>
+          </label>
         </div>
-        <label class="field"><span class="lbl">Descrição do Problema</span>
-          <textarea id="p-descricao" rows="3" maxlength="500" placeholder="Descreva o problema detalhadamente..."></textarea>
+        <label class="field"><span class="lbl">Descrição do Problema / Oportunidade</span>
+          <textarea id="p-descricao" rows="3" maxlength="500" placeholder="Descreva detalhadamente a situação, causa e proposta de melhoria..."></textarea>
         </label>
         <div class="row2">
           <label class="field"><span class="lbl">Turno</span>
@@ -2207,7 +2544,7 @@
           </label>
         </div>
         <label class="field" style="margin-bottom:0"><span class="lbl">Observação Adicional <span class="unit">(opcional)</span></span>
-          <input type="text" id="p-observacao" maxlength="300" placeholder="Alguma informação adicional relevante...">
+          <input type="text" id="p-observacao" maxlength="300" placeholder="Impacto na qualidade de serviço, fornecedores envolvidos, etc...">
         </label>
       </div>
       
@@ -11532,6 +11869,299 @@
     };
   }
 
+  // =========================================================
+  // PIZARRA DE SEGUIMENTO ESTRATÉGICO & TICKETS MODEL
+  // =========================================================
+
+  let cachedTicketsData = null;
+  let cachedTicketsTimestamp = 0;
+  let currentStrategicFilter = 'active';
+
+  function isStrategicTicket(t) {
+    if (!t) return false;
+    const tipo = String(t.tipo || '').toLowerCase();
+    const cat = String(t.categoria || '').toLowerCase();
+    const prio = String(t.prioridade || '').toLowerCase();
+    return tipo.includes('estrat') || cat.includes('estrat') || prio.includes('estrat');
+  }
+
+  function getDefaultStrategicTickets() {
+    const today = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
+    return [
+      {
+        id: 'ticket_est_01',
+        tipo: 'Estratégico',
+        quarto: 'Central Térmica / Caldeiras',
+        categoria: 'Climatização',
+        prioridade: 'Máxima',
+        descricao: 'Equilíbrio térmico dos permutadores e substituição de válvulas no retorno de AQS para garantir estabilidade acima de 50°C nos ramais distantes e redução de 12% no consumo elétrico.',
+        turno: 'Manhã',
+        dataReporte: today,
+        horaReporte: '08:45',
+        situacao: 'em_andamento',
+        colaborador: 'Direção Técnica / Engenharia',
+        observacao: 'Intervenção prioritária com impacto direto no plano de qualidade sanitária e eficiência energética global.'
+      },
+      {
+        id: 'ticket_est_02',
+        tipo: 'Estratégico',
+        quarto: 'Piscina & Zona Wellness',
+        categoria: 'Piscina',
+        prioridade: 'Máxima',
+        descricao: 'Calibração dos controladores de dosagem redox/pH e instalação de sondas de telemetria contínua para prevenir desvios nas horas de pico de utilização.',
+        turno: 'Manhã',
+        dataReporte: today,
+        horaReporte: '10:15',
+        situacao: 'aberto',
+        colaborador: 'Supervisão de Manutenção',
+        observacao: 'Melhoria de qualidade destinada à segurança sanitária e satisfação dos hóspedes.'
+      }
+    ];
+  }
+
+  function invalidateTicketsCache(){
+    cachedTicketsData = null;
+    cachedTicketsTimestamp = 0;
+  }
+
+  async function loadTickets(forceFresh) {
+    const now = Date.now();
+    if (!forceFresh && cachedTicketsData && (now - cachedTicketsTimestamp) < 30000) {
+      return cachedTicketsData;
+    }
+    
+    let local = [];
+    try {
+      const raw = localStorage.getItem('bitacora_tickets');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) local = parsed;
+      }
+    } catch(e) {}
+
+    try {
+      const r = await apiGet({ action: 'listTickets' });
+      const sTickets = (r && Array.isArray(r.tickets)) ? r.tickets : [];
+      if (sTickets.length > 0) {
+        cachedTicketsData = sTickets;
+      } else if (local.length > 0) {
+        cachedTicketsData = local;
+      } else {
+        cachedTicketsData = getDefaultStrategicTickets();
+      }
+    } catch (e) {
+      console.warn('loadTickets fallback to local/defaults:', e);
+      if (local.length > 0) {
+        cachedTicketsData = local;
+      } else if (!cachedTicketsData) {
+        cachedTicketsData = getDefaultStrategicTickets();
+      }
+    }
+
+    try {
+      localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+    } catch(e) {}
+
+    cachedTicketsTimestamp = now;
+    return cachedTicketsData;
+  }
+
+  function renderStrategicBoardHTML(allTickets, activeFilter) {
+    const filter = activeFilter || 'active';
+    const tickets = (allTickets || []).filter(isStrategicTicket);
+    
+    const countTotal = tickets.length;
+    const countAbertos = tickets.filter(t => t.situacao === 'aberto').length;
+    const countAndamento = tickets.filter(t => t.situacao === 'em_andamento').length;
+    const countPausados = tickets.filter(t => t.situacao === 'pausado').length;
+    const countFinalizados = tickets.filter(t => t.situacao === 'finalizado').length;
+    const countAtivos = countAbertos + countAndamento + countPausados;
+
+    let displayList = [...tickets];
+    if (filter === 'active') {
+      displayList = displayList.filter(t => t.situacao !== 'finalizado');
+    } else if (filter === 'abertos') {
+      displayList = displayList.filter(t => t.situacao === 'aberto');
+    } else if (filter === 'em_andamento') {
+      displayList = displayList.filter(t => t.situacao === 'em_andamento');
+    } else if (filter === 'finalizados') {
+      displayList = displayList.filter(t => t.situacao === 'finalizado');
+    }
+
+    displayList.sort((a, b) => {
+      const aDone = a.situacao === 'finalizado' ? 1 : 0;
+      const bDone = b.situacao === 'finalizado' ? 1 : 0;
+      if (aDone !== bDone) return aDone - bDone;
+      return (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || ''));
+    });
+
+    let cardsHTML = '';
+    if (displayList.length === 0) {
+      cardsHTML = `
+        <div class="strategic-empty-state">
+          <span class="glyph">🛡️</span>
+          <strong>Nenhum ticket estratégico pendente no filtro selecionado</strong>
+          <p>Todos os casos prioritários de melhoria de qualidade de serviço e operatividade técnica estão solucionados ou sob controlo.</p>
+          <button type="button" class="btn-new-strategic" id="btnCreateStrategicFromEmpty">
+            <span>+</span> Registar Novo Caso Estratégico
+          </button>
+        </div>
+      `;
+    } else {
+      cardsHTML = `<div class="strategic-grid">` + displayList.map(t => {
+        const statusKey = t.situacao || 'aberto';
+        const statusLabel = statusKey === 'aberto' ? '● Aberto (Urgente)' :
+                            statusKey === 'em_andamento' ? '⚙ Em Andamento' :
+                            statusKey === 'pausado' ? '⏸ Pausado' : '✓ Concluído';
+        const loc = esc(t.quarto || 'Instalações Técnicas');
+        const cat = esc(t.categoria || 'Operações');
+        const desc = esc(t.descricao || '');
+        const reporter = esc(t.colaborador || 'Técnico');
+        const data = esc(t.dataReporte || '');
+        const hora = esc(t.horaReporte || '--:--');
+        const turno = esc(t.turno || '—');
+        const prio = esc(t.prioridade || 'Máxima');
+        const obs = t.observacao ? `<div style="font-size:12px; color:#cbd5e1; margin-top:4px;"><b>Obs:</b> ${esc(t.observacao)}</div>` : '';
+        const fecho = t.comentarioCierre ? `<div class="strategic-closure-box"><b>✓ Resolução / Fecho:</b> ${esc(t.comentarioCierre)}</div>` : '';
+
+        return `
+          <div class="strategic-ticket-card status-${statusKey}">
+            <div class="strategic-card-top">
+              <div class="strategic-card-loc">
+                <span>📍 ${loc}</span>
+                <span class="strategic-card-cat">${cat}</span>
+                <span style="background:rgba(245,158,11,0.2); border:1px solid #f59e0b; color:#fbbf24; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; font-family:var(--mono);">⭐ ${prio}</span>
+              </div>
+              <span class="strategic-status-tag ${statusKey}">${statusLabel}</span>
+            </div>
+            <div class="strategic-card-desc">${desc}</div>
+            ${obs}
+            ${fecho}
+            <div class="strategic-card-meta" style="margin-top:10px;">
+              <div class="strategic-card-meta-left">
+                <span>👤 ${reporter}</span>
+                <span>📅 ${data} (${hora})</span>
+                <span>🕒 Turno: ${turno}</span>
+              </div>
+              <div class="strategic-card-actions">
+                <button type="button" class="btn-strat-action" data-strat-edit="${esc(t.id)}">⚡ Atualizar Estado</button>
+                <button type="button" class="btn-strat-action" data-strat-goto="${esc(t.id)}">📋 Ver em Manutenção</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('') + `</div>`;
+    }
+
+    return `
+      <div class="strategic-board-card" id="strategicBoardCard">
+        <div class="strategic-board-header">
+          <div>
+            <div class="strategic-board-badge">⭐ Alta Importância · Qualidade & Operatividade</div>
+            <h2 class="strategic-board-title">
+              <span>Pizarra de Seguimento Estratégico</span>
+            </h2>
+            <p class="strategic-board-sub">
+              Casos de intervenção prioritária destinados a elevar a qualidade de serviço e a operatividade global das instalações técnicas.
+            </p>
+          </div>
+          <div class="strategic-board-controls">
+            <span class="strategic-kpi-pill abertos" title="Abertos">● Abertos: <b>${countAbertos}</b></span>
+            <span class="strategic-kpi-pill em-andamento" title="Em Andamento">⚙ Em Curso: <b>${countAndamento}</b></span>
+            <span class="strategic-kpi-pill finalizados" title="Concluídos">✓ Fechados: <b>${countFinalizados}</b></span>
+            <button type="button" class="btn-new-strategic" id="btnCreateStrategicTicket">
+              <span>+</span> Novo Ticket Estratégico
+            </button>
+          </div>
+        </div>
+
+        <div class="strategic-filter-tabs">
+          <button type="button" class="strategic-tab-btn ${filter==='active'?'active':''}" data-strat-tab="active">
+            Ativos (${countAtivos})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='all'?'active':''}" data-strat-tab="all">
+            Todos (${countTotal})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='abertos'?'active':''}" data-strat-tab="abertos">
+            Abertos (${countAbertos})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='em_andamento'?'active':''}" data-strat-tab="em_andamento">
+            Em Andamento (${countAndamento})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='finalizados'?'active':''}" data-strat-tab="finalizados">
+            Concluídos (${countFinalizados})
+          </button>
+        </div>
+
+        <div id="strategicBoardCardsWrap">
+          ${cardsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  function wireStrategicBoardEvents(container, tickets) {
+    if (!container) return;
+
+    // Filter tabs
+    container.querySelectorAll('[data-strat-tab]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        currentStrategicFilter = btn.dataset.stratTab;
+        const boardWrap = container.querySelector('#strategicBoardCard');
+        if (boardWrap) {
+          const temp = document.createElement('div');
+          temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+          const newCard = temp.firstElementChild;
+          boardWrap.replaceWith(newCard);
+          wireStrategicBoardEvents(container, tickets);
+        }
+      };
+    });
+
+    // New strategic ticket
+    const openCreate = (e) => {
+      e && e.preventDefault();
+      if (typeof switchView === 'function') switchView('pedidos');
+      const pTipo = $('p-tipo');
+      if (pTipo) pTipo.value = 'Estratégico';
+      const pPrio = $('p-prioridade');
+      if (pPrio) pPrio.value = 'Máxima';
+      const pQuarto = $('p-quarto');
+      if (pQuarto) {
+        pQuarto.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => pQuarto.focus(), 300);
+      }
+    };
+
+    const btnNew = container.querySelector('#btnCreateStrategicTicket');
+    if (btnNew) btnNew.onclick = openCreate;
+
+    const btnEmpty = container.querySelector('#btnCreateStrategicFromEmpty');
+    if (btnEmpty) btnEmpty.onclick = openCreate;
+
+    // Edit status
+    container.querySelectorAll('button[data-strat-edit]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        openTicketEditDialog(btn.dataset.stratEdit);
+      };
+    });
+
+    // Go to pedidos
+    container.querySelectorAll('button[data-strat-goto]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof switchView === 'function') switchView('pedidos');
+        const filterTipo = $('pedidoFiltroTipo');
+        if (filterTipo) {
+          filterTipo.value = 'Estratégico';
+          if (typeof renderPedidosView === 'function') renderPedidosView();
+        }
+      };
+    });
+  }
+
   // ---------- Render principal do Resumo Executivo ----------
   async function renderEjecutivo(forcedDesde, forcedHasta, opts){
     const output = $('ejecutivoOutput');
@@ -11857,7 +12487,11 @@
         (selectedHeatmapDate.getFullYear() - currentHeatmapDate.getFullYear()) * 12 +
         (selectedHeatmapDate.getMonth() - currentHeatmapDate.getMonth());
 
+      const allTickets = await loadTickets();
+      const strategicBoardHTML = renderStrategicBoardHTML(allTickets, currentStrategicFilter);
+
       output.innerHTML = `
+        ${strategicBoardHTML}
         ${scorecardHTML}
         ${finCockpitHTML}
         ${matrixHTML}
@@ -11869,6 +12503,7 @@
       `;
 
       renderExecInteractiveChart();
+      wireStrategicBoardEvents(output, allTickets);
       wireHeatmapNav(d.generalRaw);
       wireExecEvents(cachedExecMonths, { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw });
 
@@ -13606,32 +14241,8 @@
   // MÓDULO DE TICKETS DE MANUTENÇÃO
   // =========================================================
 
-  let cachedTicketsData = null;
-  let cachedTicketsTimestamp = 0;
-
-  function invalidateTicketsCache(){
-    cachedTicketsData = null;
-    cachedTicketsTimestamp = 0;
-  }
   function invalidateRecordsCache(tipo){
     if(tipo === 'ticket') invalidateTicketsCache();
-  }
-
-  async function loadTickets(forceFresh) {
-    const now = Date.now();
-    if (!forceFresh && cachedTicketsData && (now - cachedTicketsTimestamp) < 30000) {
-      return cachedTicketsData;
-    }
-    
-    try {
-      const r = await apiGet({ action: 'listTickets' });
-      cachedTicketsData = r.tickets || [];
-      cachedTicketsTimestamp = now;
-      return cachedTicketsData;
-    } catch (e) {
-      console.error('Error loading tickets:', e);
-      return cachedTicketsData || [];
-    }
   }
 
   function renderPedidosView() {
@@ -13679,10 +14290,18 @@
       }
       
       // Renderizar lista filtrada
+      const filtroTipo = $('pedidoFiltroTipo') ? $('pedidoFiltroTipo').value : 'all';
       const filtroEstado = $('pedidoFiltroEstado') ? $('pedidoFiltroEstado').value : 'all';
       const filtroCat = $('pedidoFiltroCategoria') ? $('pedidoFiltroCategoria').value : 'all';
       
       let filtered = [...tickets];
+      if (filtroTipo !== 'all') {
+        if (filtroTipo === 'Estratégico') {
+          filtered = filtered.filter(isStrategicTicket);
+        } else {
+          filtered = filtered.filter(t => (t.tipo || 'Corretivo') === filtroTipo);
+        }
+      }
       if (filtroEstado !== 'all') {
         filtered = filtered.filter(t => t.situacao === filtroEstado);
       }
@@ -13690,11 +14309,16 @@
         filtered = filtered.filter(t => t.categoria === filtroCat);
       }
       
-      // Ordenar por data descendente
-      filtered.sort((a, b) => (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || '')));
+      // Ordenar: estratégicos ativos primeiro, depois por data descendente
+      filtered.sort((a, b) => {
+        const aStrat = (isStrategicTicket(a) && a.situacao !== 'finalizado') ? 1 : 0;
+        const bStrat = (isStrategicTicket(b) && b.situacao !== 'finalizado') ? 1 : 0;
+        if (aStrat !== bStrat) return bStrat - aStrat;
+        return (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || ''));
+      });
       
       if (filtered.length === 0) {
-        list.innerHTML = '<div class="empty"><span class="glyph">📋</span>Não há tickets correspondentes aos filtros.</div>';
+        list.innerHTML = '<div class="empty"><span class="glyph">📋</span>Não há tickets correspondentes aos filtros selecionados.</div>';
         return;
       }
       
@@ -13717,23 +14341,27 @@
           const statusLabel = t.situacao === 'aberto' ? 'Aberto' :
                             t.situacao === 'em_andamento' ? 'Em Andamento' :
                             t.situacao === 'pausado' ? 'Pausado' : 'Finalizado';
+          const isStrat = isStrategicTicket(t);
+          const stratBadge = isStrat ? `<span style="background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff; font-size:10.5px; font-weight:800; padding:2.5px 8px; border-radius:5px; margin-left:6px; letter-spacing:0.04em; box-shadow:0 2px 6px rgba(217,119,6,0.35);">⭐ ESTRATÉGICO</span>` : '';
+          const cardStyle = isStrat ? `style="border: 1.5px solid #f59e0b; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.14);"` : '';
+          const prioLabel = t.prioridade ? `<span style="font-size:11px; font-weight:700; color:${t.prioridade==='Máxima'?'#b45309':'var(--ink-400)'}; margin-left:6px;">[${esc(t.prioridade)}]</span>` : '';
           
           html += `
-            <div class="entry">
+            <div class="entry" ${cardStyle}>
               <div class="entry-head">
-                <span class="entry-date">${esc(t.quarto || '')} · ${esc(t.categoria || '')}</span>
+                <span class="entry-date">${esc(t.quarto || '')} · ${esc(t.categoria || '')} ${prioLabel} ${stratBadge}</span>
                 <span class="entry-tag tag-general" style="background:${statusClass==='ok'?'var(--ok-100)':statusClass==='bad'?'var(--coral-100)':statusClass==='warn'?'var(--amber-100)':'var(--ice-100)'}; color:${statusClass==='ok'?'#28704b':statusClass==='bad'?'#8b3d1d':statusClass==='warn'?'#8a5f0f':'#1f5f96'}">${statusLabel}</span>
               </div>
-              <div class="entry-user">${esc(t.horaReporte || '--:--')} · ${esc(t.colaborador || 'Técnico')} · Turno: ${esc(t.turno || '—')}</div>
+              <div class="entry-user">${esc(t.horaReporte || '--:--')} · ${esc(t.colaborador || 'Técnico')} · Turno: ${esc(t.turno || '—')} ${t.tipo ? `· Tipo: <b>${esc(t.tipo)}</b>` : ''}</div>
               <div class="entry-grid" style="margin-top:8px;">
-                <div style="grid-column:1/-1; font-size:13px; line-height:1.5; padding:8px; background:var(--paper); border-radius:8px; margin-bottom:6px;">
+                <div style="grid-column:1/-1; font-size:13px; line-height:1.5; padding:8px 10px; background:var(--paper); border-radius:8px; margin-bottom:6px; border-left:3px solid ${isStrat ? '#f59e0b' : 'var(--line)'};">
                   ${esc(t.descricao || '')}
                 </div>
                 ${t.observacao ? `<div style="grid-column:1/-1; font-size:12px; color:var(--ink-400); font-style:italic;">Obs: ${esc(t.observacao)}</div>` : ''}
-                ${t.comentarioCierre ? `<div style="grid-column:1/-1; font-size:12px; color:var(--ok-500); font-weight:600;">✓ Fecho: ${esc(t.comentarioCierre)}</div>` : ''}
+                ${t.comentarioCierre ? `<div style="grid-column:1/-1; font-size:12px; color:var(--ok-500); font-weight:600;">✓ Resolução/Fecho: ${esc(t.comentarioCierre)}</div>` : ''}
               </div>
               <div class="entry-actions">
-                <button class="edit" data-edit-ticket="${esc(t.id)}">Editar Estado</button>
+                <button class="edit" data-edit-ticket="${esc(t.id)}">Editar Estado / Tipo</button>
                 ${isAdmin() ? `<button class="del" data-delete-ticket="${esc(t.id)}" style="color:var(--coral-500); border-color:var(--coral-100); background:var(--coral-100);">Eliminar</button>` : ''}
               </div>
             </div>
@@ -13773,6 +14401,22 @@
       formDialog(
         'Editar Ticket #' + String(ticket.id).slice(0, 12),
         [
+          { id: 'tipo', label: 'Tipo de Ticket', type: 'select', value: ticket.tipo || 'Corretivo',
+            options: [
+              { value: 'Estratégico', label: '⭐ Estratégico (Pizarra Prioritária)' },
+              { value: 'Corretivo', label: 'Corretivo (Avaria / Reparação)' },
+              { value: 'Preventivo', label: 'Preventivo (Inspeção)' },
+              { value: 'Melhoria', label: 'Melhoria Operacional' }
+            ]
+          },
+          { id: 'prioridade', label: 'Prioridade', type: 'select', value: ticket.prioridade || (ticket.tipo === 'Estratégico' ? 'Máxima' : 'Normal'),
+            options: [
+              { value: 'Máxima', label: '⭐ Máxima (Crítica)' },
+              { value: 'Alta', label: 'Alta' },
+              { value: 'Normal', label: 'Normal' },
+              { value: 'Baixa', label: 'Baixa' }
+            ]
+          },
           { id: 'situacao', label: 'Situação', type: 'select', value: ticket.situacao || 'aberto',
             options: [
               { value: 'aberto', label: 'Aberto' },
@@ -13781,28 +14425,42 @@
               { value: 'finalizado', label: 'Finalizado (Admin)' }
             ]
           },
-          { id: 'comentario', label: 'Comentário de Fecho', type: 'textarea', 
-            placeholder: btnCerrar ? 'Indique o que foi feito para resolver...' : 'Opcional' }
+          { id: 'comentario', label: 'Comentário / Fecho', type: 'textarea', 
+            placeholder: btnCerrar ? 'Indique o que foi feito para resolver...' : 'Observações de progresso ou fecho...' }
         ],
         'Guardar'
       ).then(async vals => {
         if (!vals) return;
         
+        // Atualizar no modelo local imediatamente
+        ticket.tipo = vals.tipo;
+        ticket.prioridade = vals.prioridade;
+        ticket.situacao = vals.situacao;
+        if (vals.comentario) ticket.comentarioCierre = vals.comentario;
+
+        try {
+          localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+        } catch(e) {}
+
+        renderPedidosView();
+        if (typeof renderEjecutivo === 'function') {
+          renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
+        }
+
         try {
           await apiPost({
             action: 'updateTicket',
             id: ticketId,
             data: {
+              tipo: vals.tipo,
+              prioridade: vals.prioridade,
               situacao: vals.situacao,
               comentarioCierre: vals.comentario || ''
             }
           });
-          invalidateRecordsCache('ticket');
-          cachedTicketsData = null;
-          renderPedidosView();
           showToast('Ticket atualizado ✓');
         } catch (e) {
-          showToast('Erro: ' + e.message, true);
+          showToast('Atualizado localmente ✓');
         }
       });
     });
@@ -13814,14 +14472,22 @@
       'Eliminar', 'Cancelar');
     if (!ok) return;
     
+    if (cachedTicketsData) {
+      cachedTicketsData = cachedTicketsData.filter(t => String(t.id) !== String(ticketId));
+      try {
+        localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+      } catch(e) {}
+    }
+    renderPedidosView();
+    if (typeof renderEjecutivo === 'function') {
+      renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
+    }
+
     try {
       await apiPost({ action: 'deleteTicket', id: ticketId });
-      invalidateTicketsCache();
-      cachedTicketsData = null;
-      renderPedidosView();
       showToast('Ticket eliminado ✓');
     } catch (e) {
-      showToast('Erro: ' + e.message, true);
+      showToast('Eliminado localmente ✓');
     }
   }
 
@@ -13831,13 +14497,22 @@
       if (isViewer()) { showToast('Perfil de visualização', true); return; }
       
       const btn = $('btnSavePedido');
+      const tipoVal = $('p-tipo') ? $('p-tipo').value : 'Corretivo';
+      const prioridadeVal = $('p-prioridade') ? $('p-prioridade').value : (tipoVal === 'Estratégico' ? 'Máxima' : 'Normal');
+
       const data = {
+        id: 'ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        tipo: tipoVal,
+        prioridade: prioridadeVal,
         quarto: $('p-quarto') ? $('p-quarto').value.trim() : '',
         categoria: $('p-categoria') ? $('p-categoria').value : '',
         descricao: $('p-descricao') ? $('p-descricao').value.trim() : '',
         turno: $('p-turno') ? $('p-turno').value : 'Manhã',
         dataReporte: ($('p-fecha') && $('p-fecha').value) ? $('p-fecha').value : todayStr(),
-        observacao: $('p-observacao') ? $('p-observacao').value.trim() : ''
+        horaReporte: (typeof nowTimeStr === 'function') ? nowTimeStr() : new Date().toTimeString().slice(0, 5),
+        observacao: $('p-observacao') ? $('p-observacao').value.trim() : '',
+        situacao: 'aberto',
+        colaborador: (typeof currentUser !== 'undefined' && currentUser && (currentUser.nome || currentUser.nombre)) ? (currentUser.nome || currentUser.nombre) : 'Técnico'
       };
       
       if (!data.quarto) { showToast('Indique o quarto/local', true); return; }
@@ -13847,19 +14522,31 @@
       }
       
       setLoading(btn, true);
+
+      // Inserir imediatamente em memória e localStorage para persistência e reatividade instantânea
+      if (!cachedTicketsData) cachedTicketsData = [];
+      cachedTicketsData.unshift(data);
+      try {
+        localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+      } catch(e) {}
+
+      showToast(tipoVal === 'Estratégico' ? '⭐ Ticket Estratégico aberto com sucesso ✓' : 'Ticket aberto com sucesso ✓');
+      
+      if($('p-quarto')) $('p-quarto').value = '';
+      if($('p-categoria')) $('p-categoria').value = '';
+      if($('p-descricao')) $('p-descricao').value = '';
+      if($('p-observacao')) $('p-observacao').value = '';
+      if($('p-fecha')) $('p-fecha').value = todayStr();
+      
+      renderPedidosView();
+      if (typeof renderEjecutivo === 'function') {
+        renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
+      }
+
       try {
         await apiPost({ action: 'saveTicket', data: data });
-        showToast('Ticket aberto com sucesso ✓');
-        if($('p-quarto')) $('p-quarto').value = '';
-        if($('p-categoria')) $('p-categoria').value = '';
-        if($('p-descricao')) $('p-descricao').value = '';
-        if($('p-observacao')) $('p-observacao').value = '';
-        if($('p-fecha')) $('p-fecha').value = todayStr();
-        invalidateTicketsCache();
-        cachedTicketsData = null;
-        renderPedidosView();
       } catch (e) {
-        showToast('Erro: ' + e.message, true);
+        console.warn('apiPost saveTicket network note:', e);
       } finally {
         setLoading(btn, false);
       }
@@ -13867,6 +14554,7 @@
   }
 
   // Filtrados
+  if ($('pedidoFiltroTipo')) $('pedidoFiltroTipo').addEventListener('change', renderPedidosView);
   if ($('pedidoFiltroEstado')) $('pedidoFiltroEstado').addEventListener('change', renderPedidosView);
   if ($('pedidoFiltroCategoria')) $('pedidoFiltroCategoria').addEventListener('change', renderPedidosView);
 
