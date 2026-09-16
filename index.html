@@ -4562,7 +4562,7 @@
   });
 
   // ---------- Seletor de quartos e ciclo ----------
-  let roomsList = [];
+  let roomsList = (typeof defaultRooms === 'function') ? defaultRooms() : [];
   let selectedRoom = '';
   let cycleDone = [];
   let selectedCycleIndex = 'current'; // 'current' | number
@@ -4586,7 +4586,10 @@
   // Agrupa TODOS os registos de quartos num ciclo contínuo
   // O ciclo completa-se apenas quando se atingem os 'targetSize' quartos (40), NÃO por semana nem por mês
   function groupQuartoRecordsIntoCycles(rawRecords, rList) {
-    const roomList = (rList || roomsList)
+    const rCandidate = (rList && rList.length)
+      ? rList
+      : ((roomsList && roomsList.length) ? roomsList : (typeof defaultRooms === 'function' ? defaultRooms() : []));
+    const roomList = rCandidate
       .map(normRoom)
       .filter(Boolean);
 
@@ -4618,8 +4621,12 @@
     const sorted = rawRecords
       .slice()
       .sort((a, b) => {
-        const dateA = `${a.data?.fecha || ''} ${a.data?.hora || '00:00'} ${a.data?.id || a.key || ''}`;
-        const dateB = `${b.data?.fecha || ''} ${b.data?.hora || '00:00'} ${b.data?.id || b.key || ''}`;
+        const fa = a.data?.fecha || a.data?.date || a.fecha || a.date || '';
+        const ha = a.data?.hora || a.data?.time || a.hora || a.time || '00:00';
+        const fb = b.data?.fecha || b.data?.date || b.fecha || b.date || '';
+        const hb = b.data?.hora || b.data?.time || b.hora || b.time || '00:00';
+        const dateA = `${fa} ${ha} ${a.data?.id || a.key || ''}`;
+        const dateB = `${fb} ${hb} ${b.data?.id || b.key || ''}`;
         return dateA.localeCompare(dateB);
       });
 
@@ -4647,7 +4654,13 @@
     }
 
     sorted.forEach(record => {
-      const roomNumber = normRoom(record.data?.numero);
+      const roomNumber = normRoom(
+        record.data?.numero ||
+        record.data?.quarto ||
+        record.data?.quartoNumero ||
+        record.numero ||
+        record.quarto
+      );
 
       // El registro pertenece al ciclo actual, incluso si su habitación
       // no está en la lista oficial. Pero no contará para completar el ciclo.
@@ -4698,9 +4711,13 @@
     const uniqueRooms = Array.from(roomsMap.keys());
     let fechaInicio = '—', fechaFin = '—';
     if(records.length){
-      const sorted = records.slice().sort((a,b)=> (a.data.fecha+a.data.hora).localeCompare(b.data.fecha+b.data.hora));
-      fechaInicio = sorted[0].data.fecha;
-      fechaFin = sorted[sorted.length - 1].data.fecha;
+      const sorted = records.slice().sort((a,b)=> {
+        const da = (a.data?.fecha || a.data?.date || a.fecha || a.date || '') + (a.data?.hora || a.data?.time || a.hora || a.time || '');
+        const db = (b.data?.fecha || b.data?.date || b.fecha || b.date || '') + (b.data?.hora || b.data?.time || b.hora || b.time || '');
+        return da.localeCompare(db);
+      });
+      fechaInicio = sorted[0].data?.fecha || sorted[0].data?.date || sorted[0].fecha || sorted[0].date || '—';
+      fechaFin = sorted[sorted.length - 1].data?.fecha || sorted[sorted.length - 1].data?.date || sorted[sorted.length - 1].fecha || sorted[sorted.length - 1].date || '—';
     }
     const isCompleted = uniqueRooms.length >= targetSize;
     const currentMonthKey = monthKey || todayStr().slice(0, 7);
@@ -4839,10 +4856,21 @@
   }
   async function loadRooms(){
     try{
+      const local = localStorage.getItem('bitacora_rooms');
+      if(local){
+        const parsed = JSON.parse(local);
+        if(Array.isArray(parsed) && parsed.length){
+          roomsList = parsed.map(normRoom).filter(Boolean);
+        }
+      }
+    }catch(e){}
+    try{
       const v = await getConfigCached('rooms');
       if(v){ roomsList = JSON.parse(v).map(normRoom).filter(Boolean); return; }
     }catch(e){}
-    roomsList = defaultRooms();
+    if(!roomsList || !roomsList.length){
+      roomsList = defaultRooms();
+    }
     try{
       await apiPost({ action:'setConfig', key:'rooms', value: JSON.stringify(roomsList) });
       invalidateConfig('rooms');
@@ -9207,7 +9235,18 @@
     phMin: 7.0, phMax: 7.8,
     cloroMin: 0.5, cloroMax: 3.0,
     cloroTotalMax: 5.0,
-    aqsMin: 45
+    aqsMin: 45.0,
+    aqsQuartosMin: 45.0,
+    phCalMin: 6.5,
+    phCalMax: 8.8,
+    cloroCalMin: 0.08,
+    cloroCalMax: 0.60,
+    cloroTotalCalMax: 1.20,
+    phFriaMin: 6.5,
+    phFriaMax: 8.8,
+    cloroFriaMin: 0.08,
+    cloroFriaMax: 0.60,
+    cloroTotalFriaMax: 1.20
   };
 
   function niceTicks(min, max, count){
@@ -11067,7 +11106,10 @@
 
   // ---------- Histórico mensal (6-12 meses) ----------
   function complianceStatsRange(generalRaw, desde, hasta){
-    const set = new Set(generalRaw.filter(r=> r.data.fecha >= desde && r.data.fecha <= hasta).map(r=> r.data.fecha));
+    const set = new Set(generalRaw.filter(r=> {
+      const f = r.data?.fecha || r.date;
+      return f && f >= desde && f <= hasta;
+    }).map(r=> r.data?.fecha || r.date));
     const start = new Date(desde + 'T00:00:00');
     const endDate = new Date(hasta + 'T00:00:00');
     const today = new Date();
@@ -11182,6 +11224,16 @@
 
   // ---------- Cálculo de dados do Resumo Executivo ----------
   async function calculateExecutiveSummaryData(customDesde, customHasta){
+    if (!roomsList || !roomsList.length) {
+      try { await loadRooms(); } catch(e) {}
+      if (!roomsList || !roomsList.length) {
+        roomsList = typeof defaultRooms === 'function' ? defaultRooms() : [];
+      }
+    }
+    if (!DASH_THRESHOLDS.aqsQuartosMin) {
+      try { await syncThresholdsFromConfig(); } catch(e) {}
+    }
+
     const [generalRaw, tempRaw, quartosRaw, tarifasEjec] = await Promise.all([
       listRecords('general'),
       listRecords('temperatura'),
@@ -11196,7 +11248,10 @@
     }
     const isCurrentMonth = (desde <= todayStr() && hasta >= todayStr());
     const genWithDeltas = await buildGenWithDeltas(generalRaw);
-    const inMonth = r => r.data.fecha >= desde && r.data.fecha <= hasta;
+    const inMonth = r => {
+      const f = r.data?.fecha || r.date;
+      return f && f >= desde && f <= hasta;
+    };
     const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
     const monthStats = statsForRange(genWithDeltas, desde, hasta);
     const comp = complianceStatsRange(generalRaw, desde, hasta);
@@ -11209,13 +11264,19 @@
     const prevMonthStats = statsForRange(genWithDeltas, pDesde, pHasta);
 
     // Refrigeração
+    const isTempBad = r => {
+      const v = r.data?.dentroIntervalo;
+      if (v === false || v === 0) return true;
+      const s = String(v ?? '').trim().toLowerCase();
+      return s === 'não' || s === 'nao' || s === 'no' || s === '0' || s === 'false';
+    };
     const tempMonth = tempRaw.filter(inMonth);
-    const tempBadMonth = tempMonth.filter(r=> String(r.data.dentroIntervalo) === 'Não');
+    const tempBadMonth = tempMonth.filter(isTempBad);
     const temp7 = isCurrentMonth
-      ? tempRaw.filter(r=> r.data.fecha >= fmt(new Date(Date.now()-7*86400000)))
+      ? tempRaw.filter(r => (r.data?.fecha || r.date) >= fmt(new Date(Date.now() - 7 * 86400000)))
       : tempMonth;
     const tempBad7 = isCurrentMonth
-      ? temp7.filter(r=> String(r.data.dentroIntervalo) === 'Não')
+      ? temp7.filter(isTempBad)
       : tempBadMonth;
 
     const frioPeriodLabel = isCurrentMonth
@@ -11225,15 +11286,18 @@
     // Reconstruir los ciclos solamente con los registros existentes
     // hasta el final del período seleccionado. De esta forma, al consultar
     // el mes anterior se obtiene el ciclo que estaba activo en ese momento.
-    const quartosUntilPeriodEnd = quartosRaw.filter(r =>
-      r.data &&
-      r.data.fecha &&
-      r.data.fecha <= hasta
-    );
+    const quartosUntilPeriodEnd = quartosRaw.filter(r => {
+      const f = r.data?.fecha || r.data?.date || r.fecha || r.date;
+      return f && f <= hasta;
+    });
+
+    const rList = (Array.isArray(roomsList) && roomsList.length > 0)
+      ? roomsList
+      : (typeof defaultRooms === 'function' ? defaultRooms() : []);
 
     const groupedQuartos = groupQuartoRecordsIntoCycles(
       quartosUntilPeriodEnd,
-      roomsList
+      rList
     );
 
     let displayCycle = groupedQuartos.currentCycle;
@@ -11251,7 +11315,7 @@
         ];
     }
 
-    const totalRooms = roomsList.length || 40;
+    const totalRooms = rList.length || 40;
     const done = displayCycle ? displayCycle.doneCount : 0;
     const pending = Math.max(0, totalRooms - done);
     const roomsPct = totalRooms > 0
@@ -11262,23 +11326,33 @@
     // Pilar 1: Segurança AQS (Legionella & Temperaturas de Retorno/Quartos) - Peso 25%
     let aqsTotal = 0, aqsOk = 0;
     let minAqsRetorno = null, minAqsQuartos = null;
+    const aqsThreshold = DASH_THRESHOLDS.aqsMin || 45.0;
+    const aqsQuartosThreshold = DASH_THRESHOLDS.aqsQuartosMin || aqsThreshold || 45.0;
     genMonth.forEach(r => {
-      const ret = parseFloat(r.data.retornoAqs);
-      const aqsQ = parseFloat(r.data.aqsQuartos);
-      if(!isNaN(ret)){ aqsTotal++; if(ret >= DASH_THRESHOLDS.aqsMin) aqsOk++; if(minAqsRetorno===null || ret<minAqsRetorno) minAqsRetorno=ret; }
-      if(!isNaN(aqsQ)){ aqsTotal++; if(aqsQ >= DASH_THRESHOLDS.aqsQuartosMin) aqsOk++; if(minAqsQuartos===null || aqsQ<minAqsQuartos) minAqsQuartos=aqsQ; }
+      const ret = extractFieldNumeric(r.data, ['retornoAqs', 'aqsRetorno', 'retorno']);
+      const aqsQ = extractFieldNumeric(r.data, ['aqsQuartos', 'aqsTemp', 'tempAgua', 'aqs']);
+      if(ret !== null){
+        aqsTotal++;
+        if(ret >= aqsThreshold) aqsOk++;
+        if(minAqsRetorno === null || ret < minAqsRetorno) minAqsRetorno = ret;
+      }
+      if(aqsQ !== null){
+        aqsTotal++;
+        if(aqsQ >= aqsQuartosThreshold) aqsOk++;
+        if(minAqsQuartos === null || aqsQ < minAqsQuartos) minAqsQuartos = aqsQ;
+      }
     });
     const pilarAqs = aqsTotal > 0 ? Math.round((aqsOk / aqsTotal) * 100) : 0;
 
     // Pilar 2: Controlo e Segurança de Piscina (pH & Cloro Livre/Total) - Peso 20%
     let poolTotal = 0, poolOk = 0;
     genMonth.forEach(r => {
-      const ph = parseFloat(r.data.phPiscina);
-      const cl = parseFloat(r.data.cloroLibre);
-      const clTot = parseFloat(r.data.cloroTotal);
-      if(!isNaN(ph)){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
-      if(!isNaN(cl)){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
-      if(!isNaN(clTot)){ poolTotal++; if(clTot <= DASH_THRESHOLDS.cloroTotalMax) poolOk++; }
+      const ph = extractFieldNumeric(r.data, ['phPiscina', 'piscinaPh', 'ph']);
+      const cl = extractFieldNumeric(r.data, ['cloroLibre', 'piscinaCloro', 'cloro']);
+      const clTot = extractFieldNumeric(r.data, ['cloroTotal', 'piscinaCloroTotal']);
+      if(ph !== null){ poolTotal++; if(ph >= DASH_THRESHOLDS.phMin && ph <= DASH_THRESHOLDS.phMax) poolOk++; }
+      if(cl !== null){ poolTotal++; if(cl >= DASH_THRESHOLDS.cloroMin && cl <= DASH_THRESHOLDS.cloroMax) poolOk++; }
+      if(clTot !== null){ poolTotal++; if(clTot <= DASH_THRESHOLDS.cloroTotalMax) poolOk++; }
     });
     const pilarPiscina = poolTotal > 0 ? Math.round((poolOk / poolTotal) * 100) : 0;
 
@@ -13439,6 +13513,11 @@
       await syncThresholdsFromConfig();
       await Promise.all([ loadRooms().catch(()=>{}), loadCycleDone().catch(()=>{}), loadEquipamentos().catch(()=>{}) ]);
       await Promise.all([ renderRoomGrid().catch(()=>{}), refreshChips(), refreshConsumoResumen(), updateActivePeriodUI().catch(()=>{}) ]);
+      if(viewName === 'ejecutivo'){
+        renderEjecutivo(null, true);
+      } else if(viewName === 'dashboard'){
+        renderDashboard();
+      }
       updateSyncStatusUI();
       triggerSyncQueue(400);
     })().catch(()=>{});

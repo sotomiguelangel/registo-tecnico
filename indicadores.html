@@ -3251,8 +3251,8 @@
       ph: ['phPiscina', 'piscinaPh', 'ph'],
       chlorine: ['cloroLibre', 'piscinaCloro', 'cloro'],
       totalChlorine: ['cloroTotal', 'piscinaCloroTotal'],
-      aqs: ['aqsQuartos', 'aqsTemp'],
-      returnAqs: ['retornoAqs', 'aqsRetorno'],
+      aqs: ['aqsQuartos', 'aqsTemp', 'tempAgua', 'aqs'],
+      returnAqs: ['retornoAqs', 'aqsRetorno', 'retorno'],
       temperature: ['temperatura', 'temp']
     };
 
@@ -8014,6 +8014,13 @@
             const rawConfig = localStorage.getItem('bitacora_config');
             if (rawConfig) {
               const cfg = JSON.parse(rawConfig);
+              if (cfg.ref_phMin && !isNaN(parseFloat(cfg.ref_phMin))) DASH_THRESHOLDS.phMin = parseFloat(cfg.ref_phMin);
+              if (cfg.ref_phMax && !isNaN(parseFloat(cfg.ref_phMax))) DASH_THRESHOLDS.phMax = parseFloat(cfg.ref_phMax);
+              if (cfg.ref_cloroMin && !isNaN(parseFloat(cfg.ref_cloroMin))) DASH_THRESHOLDS.cloroMin = parseFloat(cfg.ref_cloroMin);
+              if (cfg.ref_cloroMax && !isNaN(parseFloat(cfg.ref_cloroMax))) DASH_THRESHOLDS.cloroMax = parseFloat(cfg.ref_cloroMax);
+              if (cfg.ref_cloroTotalMax && !isNaN(parseFloat(cfg.ref_cloroTotalMax))) DASH_THRESHOLDS.cloroTotalMax = parseFloat(cfg.ref_cloroTotalMax);
+              if (cfg.ref_aqsMin && !isNaN(parseFloat(cfg.ref_aqsMin))) DASH_THRESHOLDS.aqsMin = parseFloat(cfg.ref_aqsMin);
+              if (cfg.ref_aqsQuartosMin && !isNaN(parseFloat(cfg.ref_aqsQuartosMin))) DASH_THRESHOLDS.aqsQuartosMin = parseFloat(cfg.ref_aqsQuartosMin);
               if (cfg.ref_phCalMin && !isNaN(parseFloat(cfg.ref_phCalMin))) DASH_THRESHOLDS.roomPhMin = parseFloat(cfg.ref_phCalMin);
               if (cfg.ref_phCalMax && !isNaN(parseFloat(cfg.ref_phCalMax))) DASH_THRESHOLDS.roomPhMax = parseFloat(cfg.ref_phCalMax);
               if (cfg.ref_cloroCalMin && !isNaN(parseFloat(cfg.ref_cloroCalMin))) DASH_THRESHOLDS.roomCloroMin = parseFloat(cfg.ref_cloroCalMin);
