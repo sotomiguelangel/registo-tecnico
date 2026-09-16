@@ -1018,60 +1018,97 @@
   }
   .room-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin-bottom: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
   }
   @media (max-width: 480px) {
     .room-grid {
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 8px;
     }
   }
   .room-chip {
-    aspect-ratio: 1;
+    min-height: 94px;
     border-radius: 10px;
     border: 1.5px solid var(--border);
     background: var(--surface);
-    font-family: var(--mono, monospace);
-    font-weight: 700;
-    font-size: 13.5px;
-    color: var(--muted);
+    padding: 9px 10px;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: space-between;
     cursor: pointer;
     position: relative;
-    user-select: none;
-    transition: all 0.15s ease;
+    text-align: left;
+    transition: all 0.18s ease;
+    text-decoration: none;
+    color: inherit;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: normal;
+    width: 100%;
+    margin: 0;
+    outline: none;
   }
   .room-chip:hover {
-    border-color: var(--water, #0284c7);
-    color: var(--text);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    border-color: #0284c7;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 14px rgba(2, 132, 199, 0.15);
   }
   .room-chip.done {
-    background: #e8f7ee;
-    border-color: #3ea472;
-    color: #28704b;
+    background: linear-gradient(145deg, #f0fdf4 0%, #ecfdf5 100%);
+    border-color: #86efac;
+    box-shadow: 0 2px 6px rgba(22, 163, 74, 0.08);
+    color: inherit;
   }
   :root[data-theme="dark"] .room-chip.done {
-    background: rgba(62, 164, 114, 0.2);
-    border-color: #4ade80;
-    color: #86efac;
+    background: linear-gradient(145deg, rgba(22, 163, 74, 0.18) 0%, rgba(22, 163, 74, 0.08) 100%);
+    border-color: #16a34a;
+    color: inherit;
+  }
+  .room-chip.bad {
+    background: linear-gradient(145deg, #fff1f2 0%, #fee2e2 100%);
+    border-color: #f87171;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+    color: inherit;
+  }
+  :root[data-theme="dark"] .room-chip.bad {
+    background: linear-gradient(145deg, rgba(239, 68, 68, 0.22) 0%, rgba(239, 68, 68, 0.1) 100%);
+    border-color: #ef4444;
+    color: inherit;
+  }
+  .room-chip.zero,
+  .room-chip.pending {
+    background: linear-gradient(145deg, #f8fafc 0%, #f0f9ff 100%);
+    border: 1.5px dashed #93c5fd;
+    box-shadow: 0 1px 4px rgba(2, 132, 199, 0.06);
+    color: inherit;
+  }
+  :root[data-theme="dark"] .room-chip.zero,
+  :root[data-theme="dark"] .room-chip.pending {
+    background: linear-gradient(145deg, rgba(2, 132, 199, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-color: #0284c7;
+    color: inherit;
   }
   .room-chip .dot {
     position: absolute;
-    top: 4px;
-    right: 4px;
-    width: 6px;
-    height: 6px;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: #3ea472;
+    background: #16a34a;
+    box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
   }
-  :root[data-theme="dark"] .room-chip .dot {
-    background: #4ade80;
+  .room-chip.bad .dot {
+    background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3);
+  }
+  .room-chip.zero .dot,
+  .room-chip.pending .dot {
+    background: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
   }
 
   /* Refrigeração / Cadeia de Frio · Grelha Visual e Chips (HACCP Color Scheme) */
@@ -4527,12 +4564,75 @@
         ? `${cycle.fechaInicio} a ${cycle.fechaFin || 'atual'}`
         : 'Período atual';
 
-      // Grelha de Quartos (Piso 0 ao Piso 4) — Paridade visual com a grelha operacional
+      // Grelha de Quartos (Piso 0 ao Piso 4) — Dimensão e estilo idêntico aos equipamentos de refrigeração
       const uniqueRoomsSet = new Set(uniqueRooms);
       const chipHtml = num => {
         const normN = normRoom(num);
         const isDone = uniqueRoomsSet.has(normN);
-        return `<button type="button" class="room-chip${isDone ? ' done' : ''}" data-room="${esc(normN)}" title="Quarto ${esc(normN)}${isDone ? ' · Medição efetuada (clique para consultar)' : ' · Pendente de medição'}">${esc(normN)}${isDone ? '<span class="dot"></span>' : ''}</button>`;
+        const rec = isDone ? roomsMap.get(normN) : null;
+        const d = (rec && rec.data) ? rec.data : {};
+        const floor = normN.length === 3 ? normN.charAt(0) : '—';
+        const tCal = isDone ? numeric(d.tempCaliente ?? d.temperaturaCaliente ?? d.tempAgua ?? d.temp) : null;
+        const clCal = isDone ? numeric(d.cloroCaliente ?? d.cloroQuente ?? d.cloroLibreCaliente ?? d.cloroLibre ?? d.cloro) : null;
+        const fecha = isDone ? (d.fecha || rec.date || '') : '';
+
+        let toneCls = 'zero';
+        let valPillHtml = '';
+
+        if (isDone) {
+          if (tCal !== null) {
+            if (tCal >= 50.0) {
+              toneCls = 'done';
+              valPillHtml = `<span class="equip-val-pill done">🔥 ${tCal.toFixed(1)} °C</span>`;
+            } else {
+              toneCls = 'bad';
+              valPillHtml = `<span class="equip-val-pill bad">⚠️ ${tCal.toFixed(1)} °C</span>`;
+            }
+          } else {
+            toneCls = 'done';
+            valPillHtml = `<span class="equip-val-pill done">✓ Medido</span>`;
+          }
+        } else {
+          toneCls = 'zero';
+          valPillHtml = `<span class="equip-val-pill zero">⏳ Pendente</span>`;
+        }
+
+        const clPill = (clCal !== null)
+          ? `<span style="font-size:9.5px; font-family:var(--mono, monospace); font-weight:700; color:${clCal >= 0.08 && clCal <= 0.60 ? '#15803d' : '#ea580c'};" title="Cloro livre: ${clCal.toFixed(2)} ppm">💧 ${clCal.toFixed(2)}</span>`
+          : '';
+
+        const titleText = isDone
+          ? `Quarto ${esc(normN)} · Piso ${esc(floor)} · ${tCal !== null ? (tCal >= 50.0 ? 'Conforme (≥50°C)' : 'Desvio temp. (<50°C)') : 'Medido'} · Clique para consultar`
+          : `Quarto ${esc(normN)} · Piso ${esc(floor)} · Pendente de medição no ciclo · Clique para ver detalhes`;
+
+        return `
+          <button type="button" class="room-chip ${toneCls}" data-room="${esc(normN)}" title="${titleText}">
+            <div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                <span style="font-weight:800; font-size:13px; color:var(--text); line-height:1.2; font-family:var(--mono, monospace);">Quarto ${esc(normN)}</span>
+                <span class="dot"></span>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; margin:4px 0 3px; flex-wrap:wrap;">
+                <span class="equip-type-tag ac" style="font-size:9.5px; padding:1px 5px;">Piso ${esc(floor)}</span>
+                <span class="equip-range-pill" title="Intervalo regulamentar AQS Legionela">🎯 ≥ 50 °C</span>
+              </div>
+            </div>
+
+            <div style="margin-top:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
+                ${valPillHtml}
+                ${clPill}
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px dashed var(--border); padding-top:4px; font-size:9.5px;">
+                <span class="chip-count-pill" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px;">
+                  ${isDone ? (fecha ? `📅 ${esc(fecha)}` : '✓ Registado') : '⏳ Por medir'}
+                </span>
+                <span style="font-size:9.5px; color:#0284c7; font-weight:700; white-space:nowrap;">Detalhes →</span>
+              </div>
+            </div>
+          </button>
+        `;
       };
 
       const allThreeDigits = roomList.every(n => /^\d{3}$/.test(n));
