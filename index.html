@@ -6729,14 +6729,17 @@
       return;
     }
 
+    const minParsed = parseFloat(String(vals.min).replace(',', '.'));
+    const maxParsed = parseFloat(String(vals.max).replace(',', '.'));
+
     const newEq = {
       id: 'eq_' + Date.now(),
       ref: 'EQ' + Math.floor(100 + Math.random()*899),
       nome: vals.nome.trim(),
       tipo: vals.tipo,
       ubicacao: (vals.ubicacao || '').trim(),
-      min: parseFloat(vals.min) || 16,
-      max: parseFloat(vals.max) || 28,
+      min: !isNaN(minParsed) ? minParsed : 16,
+      max: !isNaN(maxParsed) ? maxParsed : 28,
       ativo: 'Sim'
     };
 
@@ -6808,8 +6811,10 @@
     eq.nome = vals.nome.trim();
     eq.tipo = vals.tipo;
     eq.ubicacao = (vals.ubicacao || '').trim();
-    eq.min = parseFloat(vals.min);
-    eq.max = parseFloat(vals.max);
+    const minParsed = parseFloat(String(vals.min).replace(',', '.'));
+    const maxParsed = parseFloat(String(vals.max).replace(',', '.'));
+    eq.min = !isNaN(minParsed) ? minParsed : eq.min;
+    eq.max = !isNaN(maxParsed) ? maxParsed : eq.max;
 
     try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
     try {
