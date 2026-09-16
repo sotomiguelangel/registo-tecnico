@@ -957,6 +957,123 @@
     transition: width 0.3s ease;
   }
 
+  /* Grelha de Quartos (Amostragem do Ciclo de Quartos · AQS / Legionela) */
+  .quarto-grid-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-top: -6px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 10px -2px rgba(10, 37, 48, 0.05);
+  }
+  .quarto-progress {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .quarto-progress .txt {
+    font-family: var(--mono, monospace);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .quarto-progress .txt b {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .link-edit {
+    background: none;
+    border: none;
+    color: var(--water, #0284c7);
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 0;
+    text-decoration: underline;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .link-edit:hover {
+    color: var(--accent);
+  }
+  .room-groups {
+    margin-bottom: 6px;
+  }
+  .floor-label {
+    font-family: var(--mono, monospace);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin: 14px 0 6px;
+  }
+  .floor-label:first-child {
+    margin-top: 4px;
+  }
+  .room-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  @media (max-width: 480px) {
+    .room-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+  }
+  .room-chip {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    font-family: var(--mono, monospace);
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+    transition: all 0.15s ease;
+  }
+  .room-chip:hover {
+    border-color: var(--water, #0284c7);
+    color: var(--text);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+  .room-chip.done {
+    background: #e8f7ee;
+    border-color: #3ea472;
+    color: #28704b;
+  }
+  :root[data-theme="dark"] .room-chip.done {
+    background: rgba(62, 164, 114, 0.2);
+    border-color: #4ade80;
+    color: #86efac;
+  }
+  .room-chip .dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #3ea472;
+  }
+  :root[data-theme="dark"] .room-chip .dot {
+    background: #4ade80;
+  }
+
   /* Refrigeração / Cadeia de Frio · Grelha Visual e Chips (HACCP Color Scheme) */
   #equipmentVisualSection {
     border-top: 4px solid #0284c7;
@@ -4410,16 +4527,50 @@
         ? `${cycle.fechaInicio} a ${cycle.fechaFin || 'atual'}`
         : 'Período atual';
 
+      // Grelha de Quartos (Piso 0 ao Piso 4) — Paridade visual com a grelha operacional
+      const uniqueRoomsSet = new Set(uniqueRooms);
+      const chipHtml = num => {
+        const normN = normRoom(num);
+        const isDone = uniqueRoomsSet.has(normN);
+        return `<button type="button" class="room-chip${isDone ? ' done' : ''}" data-room="${esc(normN)}" title="Quarto ${esc(normN)}${isDone ? ' · Medição efetuada (clique para consultar)' : ' · Pendente de medição'}">${esc(normN)}${isDone ? '<span class="dot"></span>' : ''}</button>`;
+      };
+
+      const allThreeDigits = roomList.every(n => /^\d{3}$/.test(n));
+      let floorsGridHtml = '';
+      if (allThreeDigits) {
+        const floorsObj = {};
+        roomList.forEach(num => {
+          const f = normRoom(num).charAt(0);
+          (floorsObj[f] = floorsObj[f] || []).push(num);
+        });
+        floorsGridHtml = Object.keys(floorsObj).sort().map(f => `
+          <div class="floor-label">Piso ${f}</div>
+          <div class="room-grid">
+            ${floorsObj[f].map(chipHtml).join('')}
+          </div>
+        `).join('');
+      } else {
+        floorsGridHtml = `<div class="room-grid">${roomList.map(chipHtml).join('')}</div>`;
+      }
+
+      const cycleLabelStatus = (cycle && cycle.isActive)
+        ? 'no ciclo atual'
+        : (cycle ? `no Ciclo #${cycle.index || 1}` : 'no ciclo atual');
+
+      const cycleExplanation = (cycle && !cycle.isActive && cycle.fechaInicio && cycle.fechaInicio !== '—')
+        ? `A visualizar o <b>Ciclo #${cycle.index || 1}</b> (${cycle.fechaInicio} a ${cycle.fechaFin || '—'} · ${done}/${total} quartos medidos). Pode tocar num quarto já medido para consultar os dados da leitura.`
+        : `O ciclo reinicia apenas ao completar os ${total} quartos — não por data, pode demorar mais de um mês. Pode tocar num quarto já medido para consultar ou modificar o seu valor caso necessário.`;
+
       return `
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
           <h2 style="margin:0; font-size:1.15rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
             <span>🛏️ Cumprimento do Ciclo de Quartos (AQS / Legionela)</span>
           </h2>
           <a href="index.html#quarto" class="cycle-btn primary" id="btnDashGoQuartos">
-            Ver grelha de quartos →
+            Registar medições na App →
           </a>
         </div>
-        <div class="dashboard-card ${tone}">
+        <div class="dashboard-card ${tone}" style="margin-bottom:14px;">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
             <div>
               <div class="lab" style="margin-bottom:2px; font-size:11px; font-weight:700; font-family:monospace;">
@@ -4485,7 +4636,252 @@
             }
           </div>
         </div>
+
+        <!-- Grelha de Quartos (Amostragem Operacional do Ciclo) -->
+        <div class="card quarto-grid-card" id="quartoGridCard">
+          <div class="quarto-progress">
+            <span class="txt"><b id="roomsDoneCount">${done}</b> / <span id="roomsTotalCount">${total}</span> quartos medidos <span id="cycleLabelStatus">${cycleLabelStatus}</span></span>
+            <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+              <button class="link-edit" id="btnIndRecomputeCycle" type="button">Recalcular ciclo</button>
+              <button class="link-edit" id="btnIndEditRooms" type="button">Editar lista</button>
+              <a href="index.html#quarto" class="link-edit" style="color:var(--water); font-weight:700;">Registar medição na App →</a>
+            </div>
+          </div>
+          <p style="font-size:11px; color:var(--muted); margin:0 0 12px; line-height:1.4;" id="cycleExplanationText">
+            ${cycleExplanation}
+          </p>
+          <div class="room-groups" id="roomGrid">
+            ${floorsGridHtml}
+          </div>
+        </div>
       `;
+    }
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function openQuartoDetailModalInIndicadores(rec, cycle, roomNum) {
+      const d = (rec && rec.data) ? rec.data : {};
+      const num = normRoom(d.numero || roomNum);
+      const floor = num.length === 3 ? num.charAt(0) : '—';
+      const fecha = d.fecha || rec.date || '—';
+      const hora = d.hora || rec.time || '—';
+      const usuario = d.usuario || d.tecnico || 'Técnico';
+
+      const tCal = numeric(d.tempCaliente ?? d.temperaturaCaliente ?? d.tempAgua ?? d.temp);
+      const phCal = numeric(d.phCaliente ?? d.phQuente ?? d.phAqs ?? d.ph);
+      const clCal = numeric(d.cloroCaliente ?? d.cloroQuente ?? d.cloroLibreCaliente ?? d.cloroLibre ?? d.cloro);
+      const clTotCal = numeric(d.cloroTotalCaliente ?? d.cloroTotalQuente ?? d.cloroTotal);
+
+      const phCold = numeric(d.phFria ?? d.phFrio);
+      const clCold = numeric(d.cloroFria ?? d.cloroFrio ?? d.cloroLibreFria);
+      const clTotCold = numeric(d.cloroTotalFria ?? d.cloroTotalFrio);
+
+      const obs = d.observaciones || d.obs || '';
+
+      const existing = $('quartoDetailModalOverlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'quartoDetailModalOverlay';
+      overlay.className = 'equip-modal-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+      const box = document.createElement('div');
+      box.className = 'equip-modal-box';
+      box.style.maxWidth = '560px';
+
+      let tempBadge = '';
+      if (tCal !== null) {
+        if (tCal >= 50.0) {
+          tempBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac;">✓ Conforme (≥50°C)</span>`;
+        } else {
+          tempBadge = `<span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">⚠️ Abaixo de 50°C</span>`;
+        }
+      }
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+          <div>
+            <h3 style="margin:0 0 4px; font-size:1.15rem; font-weight:800; color:var(--text); display:flex; align-items:center; gap:8px;">
+              <span>🛏️ Quarto ${esc(num)} · Piso ${esc(floor)}</span>
+            </h3>
+            <div style="font-family:var(--mono, monospace); font-size:12px; color:var(--muted);">
+              ${cycle && cycle.isActive ? 'Ciclo Atual (em curso)' : `Ciclo #${cycle ? (cycle.index || 1) : 1}`} · 📅 ${esc(fecha)} às ${esc(hora)} · 👤 <b>${esc(usuario)}</b>
+            </div>
+          </div>
+          <button type="button" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted); line-height:1;" onclick="this.closest('#quartoDetailModalOverlay').remove();">✕</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+          <div style="background:var(--subtle); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-weight:800; font-size:12.5px; color:#c2410c;">🔥 Água Quente (AQS)</span>
+              ${tempBadge}
+            </div>
+            <div style="font-size:12.5px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">Temperatura:</span>
+              <strong style="font-family:var(--mono); font-size:13px; color:${tCal !== null && tCal >= 50 ? '#15803d' : (tCal !== null ? '#dc2626' : 'var(--text)')};">${tCal !== null ? tCal.toFixed(1) + ' °C' : '—'}</strong>
+            </div>
+            <div style="font-size:12.5px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">pH (6.5–8.8):</span>
+              <strong style="font-family:var(--mono); font-size:13px;">${phCal !== null ? phCal.toFixed(2) : '—'}</strong>
+            </div>
+            <div style="font-size:12.5px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">Cloro livre (0.08–0.60):</span>
+              <strong style="font-family:var(--mono); font-size:13px; color:${clCal !== null && clCal >= 0.08 && clCal <= 0.60 ? '#15803d' : (clCal !== null ? '#ea580c' : 'var(--text)')};">${clCal !== null ? clCal.toFixed(2) + ' ppm' : '—'}</strong>
+            </div>
+            <div style="font-size:12.5px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">Cloro total:</span>
+              <strong style="font-family:var(--mono); font-size:13px;">${clTotCal !== null ? clTotCal.toFixed(2) + ' ppm' : '—'}</strong>
+            </div>
+          </div>
+
+          <div style="background:var(--subtle); border:1px solid var(--border); border-radius:10px; padding:12px;">
+            <div style="font-weight:800; font-size:12.5px; color:#0284c7; margin-bottom:8px;">💧 Água Fria (Consumo)</div>
+            <div style="font-size:12.5px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">pH (6.5–8.8):</span>
+              <strong style="font-family:var(--mono); font-size:13px;">${phCold !== null ? phCold.toFixed(2) : '—'}</strong>
+            </div>
+            <div style="font-size:12.5px; margin-bottom:4px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">Cloro livre (0.08–0.60):</span>
+              <strong style="font-family:var(--mono); font-size:13px; color:${clCold !== null && clCold >= 0.08 && clCold <= 0.60 ? '#15803d' : (clCold !== null ? '#ea580c' : 'var(--text)')};">${clCold !== null ? clCold.toFixed(2) + ' ppm' : '—'}</strong>
+            </div>
+            <div style="font-size:12.5px; display:flex; justify-content:space-between;">
+              <span style="color:var(--muted);">Cloro total:</span>
+              <strong style="font-family:var(--mono); font-size:13px;">${clTotCold !== null ? clTotCold.toFixed(2) + ' ppm' : '—'}</strong>
+            </div>
+          </div>
+        </div>
+
+        ${obs ? `
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:14px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:4px;">Observações</div>
+            <div style="font-size:12.5px; color:var(--text); line-height:1.4;">${esc(obs)}</div>
+          </div>
+        ` : ''}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:16px;">
+          <button type="button" style="padding:8px 16px; border:1px solid var(--border); background:var(--surface); border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; color:var(--text);" onclick="this.closest('#quartoDetailModalOverlay').remove();">Fechar</button>
+          <a href="index.html#quarto" style="padding:8px 16px; background:#0e3341; color:#ffffff; border-radius:6px; text-decoration:none; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">✏️ Abrir formulário na App →</a>
+        </div>
+      `;
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      document.addEventListener('keydown', function escQuartoHandler(e) {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          document.removeEventListener('keydown', escQuartoHandler);
+        }
+      });
+    }
+
+    function openQuartoPendingModalInIndicadores(roomNum, cycle) {
+      const num = normRoom(roomNum);
+      const floor = num.length === 3 ? num.charAt(0) : '—';
+      const existing = $('quartoDetailModalOverlay');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'quartoDetailModalOverlay';
+      overlay.className = 'equip-modal-overlay';
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+      const box = document.createElement('div');
+      box.className = 'equip-modal-box';
+      box.style.maxWidth = '460px';
+
+      box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+          <h3 style="margin:0; font-size:1.15rem; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <span>🛏️ Quarto ${esc(num)} · Piso ${esc(floor)}</span>
+          </h3>
+          <button type="button" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--muted); line-height:1;" onclick="this.closest('#quartoDetailModalOverlay').remove();">✕</button>
+        </div>
+        <div style="background:var(--subtle); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; font-size:13px; color:var(--text);">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; font-weight:700; color:#b45309;">
+            <span>⏳ Quarto pendente de medição</span>
+          </div>
+          <p style="margin:0 0 6px; line-height:1.45;">Este quarto ainda não tem medições de pH, Cloro ou Temperatura registadas no ${cycle && cycle.isActive ? 'ciclo atual' : `Ciclo #${cycle ? (cycle.index || 1) : 1}`}.</p>
+          <p style="margin:0; font-size:12px; color:var(--muted);">Para efetuar a amostragem deste quarto, aceda à aplicação principal de registo técnico.</p>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" style="padding:8px 16px; border:1px solid var(--border); background:var(--surface); border-radius:6px; cursor:pointer; font-weight:600; font-size:13px; color:var(--text);" onclick="this.closest('#quartoDetailModalOverlay').remove();">Fechar</button>
+          <a href="index.html#quarto" style="padding:8px 16px; background:#0e3341; color:#ffffff; border-radius:6px; text-decoration:none; font-weight:700; font-size:13px; display:inline-flex; align-items:center; gap:6px;">Registar na App →</a>
+        </div>
+      `;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      document.addEventListener('keydown', function escPendingHandler(e) {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          document.removeEventListener('keydown', escPendingHandler);
+        }
+      });
+    }
+
+    function wireQuartoGridEvents(cycle, roomList) {
+      const card = $('quartoGridCard');
+      if (!card) return;
+
+      const roomsMap = cycle ? (cycle.roomsMap || new Map()) : new Map();
+      const uniqueRoomsSet = new Set(cycle ? (cycle.uniqueRooms || []) : []);
+
+      card.querySelectorAll('.room-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const roomNum = normRoom(chip.dataset.room);
+          const isDone = uniqueRoomsSet.has(roomNum);
+          if (isDone && roomsMap.has(roomNum)) {
+            const rec = roomsMap.get(roomNum);
+            openQuartoDetailModalInIndicadores(rec, cycle, roomNum);
+          } else {
+            openQuartoPendingModalInIndicadores(roomNum, cycle);
+          }
+        });
+      });
+
+      const btnRecompute = $('btnIndRecomputeCycle');
+      if (btnRecompute) {
+        btnRecompute.addEventListener('click', () => {
+          const rList = (roomList && roomList.length) ? roomList : getRoomsList();
+          const grouped = groupQuartoRecordsIntoCycles(records.quarto, rList);
+          setStatus('Ciclo Atualizado', `Histórico de ciclos recalculado a partir de ${records.quarto.length} registos. Ciclo atual: ${grouped.currentCycle.doneCount}/${rList.length} quartos medidos.`, 'success');
+          render();
+        });
+      }
+
+      const btnEditRooms = $('btnIndEditRooms');
+      if (btnEditRooms) {
+        btnEditRooms.addEventListener('click', () => {
+          const currentList = getRoomsList().join(', ');
+          const ans = prompt('Lista de quartos oficiais (separados por vírgula):', currentList);
+          if (ans === null) return;
+          const parsed = ans.split(',').map(s => s.trim()).filter(Boolean).map(normRoom).filter(Boolean);
+          if (!parsed.length) {
+            alert('A lista de quartos não pode ficar vazia.');
+            return;
+          }
+          try {
+            localStorage.setItem('bitacora_rooms', JSON.stringify(parsed));
+            const token = localStorage.getItem('bitacora_token') || localStorage.getItem('sessionToken');
+            if (token && typeof API_URL !== 'undefined') {
+              fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'setConfig', key: 'rooms', value: JSON.stringify(parsed), token })
+              }).catch(() => {});
+            }
+            setStatus('Lista Atualizada', `Lista de quartos atualizada com sucesso (${parsed.length} quartos configurados).`, 'success');
+            render();
+          } catch (e) {
+            alert('Erro ao guardar lista: ' + e.message);
+          }
+        });
+      }
     }
 
     // ---------- Amostragem Operacional da Rede Predial · Quartos (pH e Cloro) ----------
@@ -7364,6 +7760,7 @@
           execData.roomsList || getRoomsList(),
           execData.displayCycle
         );
+        wireQuartoGridEvents(execData.displayCycle, execData.roomsList || getRoomsList());
       }
 
       // Room Sanitary Quality Table (pH e Cloro nos Quartos)
