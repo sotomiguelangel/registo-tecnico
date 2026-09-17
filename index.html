@@ -11875,28 +11875,86 @@
 
   const STRATEGIC_TICKETS_KEY = 'bitacora_strategic_tickets';
   const ALL_TICKETS_KEY = 'bitacora_tickets';
+  const DELETED_TICKETS_KEY = 'bitacora_deleted_tickets';
+  const UPDATED_TICKETS_KEY = 'bitacora_updated_tickets';
 
   let cachedTicketsData = null;
   let cachedTicketsTimestamp = 0;
   let currentStrategicFilter = 'active';
 
+  function getDeletedTicketIds() {
+    try {
+      const raw = localStorage.getItem(DELETED_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return new Set(parsed.map(String));
+      }
+    } catch(e) {}
+    return new Set();
+  }
+
+  function markTicketAsDeleted(id) {
+    if (!id) return;
+    const strId = String(id);
+    const set = getDeletedTicketIds();
+    set.add(strId);
+    try {
+      localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(Array.from(set)));
+    } catch(e) {}
+    try {
+      const map = getUpdatedTicketsMap();
+      if (map[strId]) {
+        delete map[strId];
+        localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
+      }
+    } catch(e) {}
+  }
+
+  function isTicketDeleted(id) {
+    if (!id) return false;
+    return getDeletedTicketIds().has(String(id));
+  }
+
+  function getUpdatedTicketsMap() {
+    try {
+      const raw = localStorage.getItem(UPDATED_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch(e) {}
+    return {};
+  }
+
+  function recordTicketUpdate(ticket) {
+    if (!ticket || !ticket.id) return;
+    const map = getUpdatedTicketsMap();
+    map[String(ticket.id)] = { ...ticket, _updatedAt: Date.now() };
+    try {
+      localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
+    } catch(e) {}
+  }
+
   function isStrategicTicket(t) {
-    if (!t) return false;
-    const tipo = String(t.tipo || '').toLowerCase();
+    if (!t || !t.id) return false;
+    if (isTicketDeleted(t.id)) return false;
+    const tipo = String(t.tipo || '').trim().toLowerCase();
+    if (tipo === 'estratégico' || tipo === 'estrategico') return true;
+    if (tipo === 'corretivo' || tipo === 'preventivo' || tipo === 'melhoria') return false;
     const cat = String(t.categoria || '').toLowerCase();
     const prio = String(t.prioridade || '').toLowerCase();
     const desc = String(t.descricao || '').toLowerCase();
     const obs = String(t.observacao || '').toLowerCase();
-    return tipo.includes('estrat') ||
+    return prio.includes('estrat') ||
            cat.includes('estrat') ||
-           prio.includes('estrat') || prio.includes('máx') || prio.includes('max') ||
            desc.includes('[estrat') || desc.includes('⭐') ||
            obs.includes('[estrat');
   }
 
   function getDefaultStrategicTickets() {
     const today = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
-    return [
+    const deleted = getDeletedTicketIds();
+    const all = [
       {
         id: 'ticket_est_01',
         tipo: 'Estratégico',
@@ -11943,15 +12001,17 @@
         comentarioCierre: 'Variadores instalados e parametrizados. Economia de 18.2% validada em carga operacional.'
       }
     ];
+    return all.filter(t => !deleted.has(String(t.id)));
   }
 
   function getSavedStrategicTickets() {
+    const deleted = getDeletedTicketIds();
     try {
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
-      if (raw) {
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
         }
       }
     } catch(e) {}
@@ -11963,11 +12023,13 @@
   }
 
   function saveStrategicTickets(strats) {
+    const deleted = getDeletedTicketIds();
+    const cleanStrats = (strats || []).filter(t => t && t.id && !deleted.has(String(t.id)));
     try {
-      localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(strats));
+      localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(cleanStrats));
     } catch(e) {}
     try {
-      window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
+      window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: cleanStrats } }));
     } catch(e) {}
   }
 
@@ -11982,8 +12044,11 @@
       return cachedTicketsData;
     }
     
+    const deleted = getDeletedTicketIds();
+    const updatedMap = getUpdatedTicketsMap();
+
     // 1. Obter tickets estratégicos persistidos e garantidos
-    const savedStrat = getSavedStrategicTickets();
+    const savedStrat = getSavedStrategicTickets().filter(t => !deleted.has(String(t.id)));
 
     // 2. Tentar ler repositório local
     let local = [];
@@ -11991,7 +12056,9 @@
       const raw = localStorage.getItem(ALL_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) local = parsed;
+        if (Array.isArray(parsed)) {
+          local = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
+        }
       }
     } catch(e) {}
 
@@ -12000,54 +12067,71 @@
     try {
       const r = await apiGet({ action: 'listTickets' });
       if (r && Array.isArray(r.tickets)) {
-        remoteTickets = r.tickets;
+        remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
       }
     } catch (e) {
       console.warn('loadTickets remote fetch note:', e);
     }
 
-    const baseList = (remoteTickets && remoteTickets.length > 0) ? remoteTickets : (local.length > 0 ? local : []);
+    // 4. Mesclagem resiliente: dados locais/atualizados sobrepõem o servidor
+    const ticketMap = new Map();
 
-    // 4. Mesclar com salvaguarda absoluta dos tickets estratégicos
-    const mergedMap = new Map();
+    // Base remota
+    if (remoteTickets && remoteTickets.length > 0) {
+      remoteTickets.forEach(t => {
+        if (t && t.id && !deleted.has(String(t.id))) {
+          ticketMap.set(String(t.id), t);
+        }
+      });
+    }
 
-    // Primeiro os tickets estratégicos conhecidos
-    savedStrat.forEach(st => {
-      mergedMap.set(String(st.id), { ...st, tipo: 'Estratégico' });
-    });
-
-    // Depois a lista geral remota/local (atualizando status se existir no servidor)
-    baseList.forEach(t => {
-      const id = String(t.id);
-      if (mergedMap.has(id)) {
-        const strat = mergedMap.get(id);
-        mergedMap.set(id, {
-          ...strat,
-          situacao: t.situacao || strat.situacao,
-          comentarioCierre: t.comentarioCierre || strat.comentarioCierre,
-          observacao: t.observacao || strat.observacao,
-          quarto: t.quarto || strat.quarto,
-          descricao: strat.descricao || t.descricao
-        });
+    // Preservar itens locais (se foram criados ou editados no dispositivo)
+    local.forEach(lt => {
+      if (!lt || !lt.id) return;
+      const id = String(lt.id);
+      if (deleted.has(id)) return;
+      if (!ticketMap.has(id)) {
+        ticketMap.set(id, lt);
       } else {
-        if (isStrategicTicket(t)) {
-          const strat = { ...t, tipo: 'Estratégico', prioridade: t.prioridade || 'Máxima' };
-          mergedMap.set(id, strat);
-          const exists = savedStrat.some(s => String(s.id) === id);
-          if (!exists) savedStrat.push(strat);
-        } else {
-          mergedMap.set(id, t);
+        const remoteItem = ticketMap.get(id);
+        if (updatedMap[id] || lt.modificadoEm) {
+          ticketMap.set(id, { ...remoteItem, ...lt });
         }
       }
     });
 
-    cachedTicketsData = Array.from(mergedMap.values());
+    // Inserir os estratégicos salvos
+    savedStrat.forEach(st => {
+      if (!st || !st.id) return;
+      const id = String(st.id);
+      if (deleted.has(id)) return;
+      if (ticketMap.has(id)) {
+        ticketMap.set(id, { ...ticketMap.get(id), ...st, tipo: 'Estratégico' });
+      } else {
+        ticketMap.set(id, { ...st, tipo: 'Estratégico' });
+      }
+    });
 
-    // Atualizar persistência nos dois níveis
+    // Aplicar sobreposições explícitas de atualizações locais
+    Object.keys(updatedMap).forEach(uid => {
+      if (deleted.has(uid)) return;
+      const upd = updatedMap[uid];
+      if (ticketMap.has(uid)) {
+        ticketMap.set(uid, { ...ticketMap.get(uid), ...upd });
+      } else {
+        ticketMap.set(uid, upd);
+      }
+    });
+
+    cachedTicketsData = Array.from(ticketMap.values()).filter(t => !deleted.has(String(t.id)));
+
+    // Re-sincronizar lista estratégica atualizada
+    const currentStrats = cachedTicketsData.filter(isStrategicTicket);
+    saveStrategicTickets(currentStrats);
+
     try {
       localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
     } catch(e) {}
-    saveStrategicTickets(savedStrat);
 
     cachedTicketsTimestamp = now;
     return cachedTicketsData;
@@ -12309,12 +12393,19 @@
 
       if (!cachedTicketsData) cachedTicketsData = [];
       cachedTicketsData.unshift(newTicket);
+      cachedTicketsTimestamp = Date.now();
       try { localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData)); } catch(e){}
+
+      recordTicketUpdate(newTicket);
 
       // 2. Atualizar UI imediatamente (0 ms)
       refreshStrategicBoardInDOM();
       if (typeof renderPedidosView === 'function') renderPedidosView();
       showToast('⭐ Ticket Estratégico registado com sucesso ✓');
+
+      try {
+        window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+      } catch(e) {}
 
       // 3. Sincronizar com o backend
       try {
@@ -14599,11 +14690,14 @@
       const ticket = (tickets || []).find(t => String(t.id) === String(ticketId));
       if (!ticket) return;
       
+      const isCurrentlyStrat = isStrategicTicket(ticket);
+      const currentTipo = ticket.tipo || (isCurrentlyStrat ? 'Estratégico' : 'Corretivo');
       const btnCerrar = ticket.situacao === 'finalizado';
+
       formDialog(
         'Editar Ticket #' + String(ticket.id).slice(0, 12),
         [
-          { id: 'tipo', label: 'Tipo de Ticket', type: 'select', value: ticket.tipo || 'Corretivo',
+          { id: 'tipo', label: 'Tipo de Ticket', type: 'select', value: currentTipo,
             options: [
               { value: 'Estratégico', label: '⭐ Estratégico (Pizarra Prioritária)' },
               { value: 'Corretivo', label: 'Corretivo (Avaria / Reparação)' },
@@ -14611,7 +14705,7 @@
               { value: 'Melhoria', label: 'Melhoria Operacional' }
             ]
           },
-          { id: 'prioridade', label: 'Prioridade', type: 'select', value: ticket.prioridade || (ticket.tipo === 'Estratégico' ? 'Máxima' : 'Normal'),
+          { id: 'prioridade', label: 'Prioridade', type: 'select', value: ticket.prioridade || (currentTipo === 'Estratégico' ? 'Máxima' : 'Normal'),
             options: [
               { value: 'Máxima', label: '⭐ Máxima (Crítica)' },
               { value: 'Alta', label: 'Alta' },
@@ -14634,47 +14728,92 @@
       ).then(async vals => {
         if (!vals) return;
         
-        // Atualizar no modelo local imediatamente
-        ticket.tipo = vals.tipo;
-        ticket.prioridade = vals.prioridade;
-        ticket.situacao = vals.situacao;
-        if (vals.comentario) ticket.comentarioCierre = vals.comentario;
+        const novoTipo = vals.tipo;
+        const novaPrio = vals.prioridade;
+        const novaSit = vals.situacao;
+        const novoComentario = vals.comentario;
 
-        // Atualizar lista de tickets estratégicos persistidos
+        // Atualizar campos no objeto
+        ticket.tipo = novoTipo;
+        ticket.prioridade = novaPrio;
+        ticket.situacao = novaSit;
+        if (novoComentario) ticket.comentarioCierre = novoComentario;
+        ticket.modificadoEm = new Date().toISOString();
+
+        // Se mudou para Estratégico:
+        if (novoTipo === 'Estratégico') {
+          if (!ticket.descricao.includes('[ESTRATÉGICO]')) {
+            ticket.descricao = `[ESTRATÉGICO] ${ticket.descricao.trim()}`;
+          }
+          if (!ticket.prioridade || ticket.prioridade === 'Normal') {
+            ticket.prioridade = 'Máxima';
+          }
+        } else {
+          // Se mudou para NÃO Estratégico (Corretivo, Preventivo, Melhoria):
+          ticket.descricao = ticket.descricao.replace(/^\[ESTRATÉGICO\]\s*/gi, '').replace(/⭐\s*/g, '').trim();
+          if (ticket.prioridade === 'Máxima' && novaPrio === 'Máxima') {
+            ticket.prioridade = 'Alta';
+          }
+        }
+
+        // 1. Atualizar em memória cachedTicketsData
+        if (!cachedTicketsData) cachedTicketsData = [];
+        const cIdx = cachedTicketsData.findIndex(t => String(t.id) === String(ticket.id));
+        if (cIdx >= 0) {
+          cachedTicketsData[cIdx] = { ...ticket };
+        } else {
+          cachedTicketsData.unshift({ ...ticket });
+        }
+        cachedTicketsTimestamp = Date.now();
+
+        // 2. Gravar no ALL_TICKETS_KEY
+        try {
+          localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
+        } catch(e) {}
+
+        // 3. Atualizar mapa de tickets atualizados localmente
+        recordTicketUpdate(ticket);
+
+        // 4. Atualizar lista de tickets estratégicos persistidos
         const strats = getSavedStrategicTickets();
         const sIdx = strats.findIndex(s => String(s.id) === String(ticket.id));
         if (isStrategicTicket(ticket)) {
           if (sIdx >= 0) {
-            strats[sIdx] = { ...strats[sIdx], ...ticket };
+            strats[sIdx] = { ...ticket };
           } else {
-            strats.unshift(ticket);
+            strats.unshift({ ...ticket });
           }
         } else if (sIdx >= 0) {
           strats.splice(sIdx, 1);
         }
         saveStrategicTickets(strats);
 
-        try {
-          localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
-        } catch(e) {}
-
+        // 5. Renderizar imediatamente sem aguardar chamada de rede
         renderPedidosView();
         refreshStrategicBoardInDOM().catch(()=>{});
 
+        // 6. Notificar em tempo real
+        try {
+          window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
+        } catch(e) {}
+
+        showToast('Ticket atualizado com sucesso ✓');
+
+        // 7. Enviar atualização em segundo plano ao Google Apps Script
         try {
           await apiPost({
             action: 'updateTicket',
             id: ticketId,
             data: {
-              tipo: vals.tipo,
-              prioridade: vals.prioridade,
-              situacao: vals.situacao,
-              comentarioCierre: vals.comentario || ''
+              tipo: ticket.tipo,
+              prioridade: ticket.prioridade,
+              situacao: ticket.situacao,
+              descricao: ticket.descricao,
+              comentarioCierre: ticket.comentarioCierre || ''
             }
           });
-          showToast('Ticket atualizado ✓');
         } catch (e) {
-          showToast('Atualizado localmente ✓');
+          console.warn('apiPost updateTicket note:', e);
         }
       });
     });
@@ -14686,24 +14825,43 @@
       'Eliminar', 'Cancelar');
     if (!ok) return;
     
+    const strId = String(ticketId);
+    markTicketAsDeleted(strId);
+
     if (cachedTicketsData) {
-      cachedTicketsData = cachedTicketsData.filter(t => String(t.id) !== String(ticketId));
+      cachedTicketsData = cachedTicketsData.filter(t => String(t.id) !== strId);
       try {
         localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
       } catch(e) {}
+    } else {
+      try {
+        const raw = localStorage.getItem(ALL_TICKETS_KEY);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            const filtered = arr.filter(t => String(t.id) !== strId);
+            localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
+          }
+        }
+      } catch(e) {}
     }
 
-    const strats = getSavedStrategicTickets().filter(t => String(t.id) !== String(ticketId));
+    const strats = getSavedStrategicTickets().filter(t => String(t.id) !== strId);
     saveStrategicTickets(strats);
+    cachedTicketsTimestamp = Date.now();
 
     renderPedidosView();
     refreshStrategicBoardInDOM().catch(()=>{});
 
     try {
-      await apiPost({ action: 'deleteTicket', id: ticketId });
-      showToast('Ticket eliminado ✓');
+      window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
+    } catch(e) {}
+
+    try {
+      await apiPost({ action: 'deleteTicket', id: ticketId, ticketId: ticketId, data: { id: ticketId } });
+      showToast('Ticket eliminado com sucesso ✓');
     } catch (e) {
-      showToast('Eliminado localmente ✓');
+      showToast('Ticket eliminado localmente ✓');
     }
   }
 
@@ -14748,9 +14906,12 @@
       // Inserir imediatamente em memória e localStorage para persistência e reatividade instantânea
       if (!cachedTicketsData) cachedTicketsData = [];
       cachedTicketsData.unshift(data);
+      cachedTicketsTimestamp = Date.now();
       try {
         localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
       } catch(e) {}
+
+      recordTicketUpdate(data);
 
       if (isStrategicTicket(data)) {
         const strats = getSavedStrategicTickets();
@@ -14768,6 +14929,10 @@
       
       renderPedidosView();
       refreshStrategicBoardInDOM().catch(()=>{});
+
+      try {
+        window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+      } catch(e) {}
 
       try {
         await apiPost({ action: 'saveTicket', data: data });
