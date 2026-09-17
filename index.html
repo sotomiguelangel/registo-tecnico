@@ -12050,7 +12050,7 @@
 
   async function _execLoadTickets(forceFresh) {
     const now = Date.now();
-    if (!forceFresh && cachedTicketsData && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0 && (now - cachedTicketsTimestamp) < 45000) {
+    if (!forceFresh && cachedTicketsData && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0 && (now - cachedTicketsTimestamp) < 30000) {
       return cachedTicketsData;
     }
     
@@ -12060,7 +12060,7 @@
     // 1. Obter tickets estratégicos persistidos e garantidos
     const savedStrat = getSavedStrategicTickets().filter(t => !deleted.has(String(t.id)));
 
-    // 2. Tentar ler repositório local
+    // 2. Tentar ler repositório local existente
     let local = [];
     try {
       const raw = localStorage.getItem(ALL_TICKETS_KEY);
@@ -12072,57 +12072,61 @@
       }
     } catch(e) {}
 
-    // Semente imediata em memória se cachedTicketsData estiver vazio para estabilidade absoluta
+    // Semente imediata em memória se cachedTicketsData estiver vazio para estabilidade visual
     if (!cachedTicketsData || cachedTicketsData.length === 0) {
       const tempMap = new Map();
-      local.forEach(t => tempMap.set(String(t.id), t));
+      local.forEach(t => tempMap.set(String(t.id), { ...t }));
       savedStrat.forEach(t => tempMap.set(String(t.id), { ...t, tipo: 'Estratégico' }));
       Object.keys(updatedMap).forEach(uid => {
-        if (!deleted.has(uid) && tempMap.has(uid)) tempMap.set(uid, { ...tempMap.get(uid), ...updatedMap[uid] });
+        if (!deleted.has(uid)) {
+          const prev = tempMap.get(uid) || {};
+          tempMap.set(uid, { ...prev, ...updatedMap[uid] });
+        }
       });
       cachedTicketsData = Array.from(tempMap.values()).filter(t => !deleted.has(String(t.id)));
       cachedTicketsTimestamp = now;
     }
 
-    // 3. Tentar obter da API remota se houver
+    // 3. Tentar obter da API remota se solicitado ou necessário
     let remoteTickets = null;
-    try {
-      const r = await apiGet({ action: 'listTickets' });
-      if (r && Array.isArray(r.tickets)) {
-        remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
+    if (forceFresh || (now - cachedTicketsTimestamp >= 30000)) {
+      try {
+        const r = await apiGet({ action: 'listTickets' });
+        if (r && Array.isArray(r.tickets)) {
+          remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
+        }
+      } catch (e) {
+        // Falha silenciosa de rede não quebra a visualização local
       }
-    } catch (e) {
-      // Falha silenciosa de rede não quebra a visualização local
     }
 
-    // 4. Mesclagem resiliente: dados locais/atualizados sobrepõem o servidor
+    // 4. Mesclagem resiliente com estrita hierarquia:
+    // Remoto -> Local -> Estratégicos -> Atualizações explícitas do utilizador
     const ticketMap = new Map();
 
-    // Base remota
+    // A. Base remota
     if (remoteTickets && remoteTickets.length > 0) {
       remoteTickets.forEach(t => {
         if (t && t.id && !deleted.has(String(t.id))) {
-          ticketMap.set(String(t.id), t);
+          ticketMap.set(String(t.id), { ...t });
         }
       });
     }
 
-    // Preservar itens locais (se foram criados ou editados no dispositivo)
+    // B. Preservar itens locais (criados ou editados no dispositivo)
     local.forEach(lt => {
       if (!lt || !lt.id) return;
       const id = String(lt.id);
       if (deleted.has(id)) return;
       if (!ticketMap.has(id)) {
-        ticketMap.set(id, lt);
+        ticketMap.set(id, { ...lt });
       } else {
         const remoteItem = ticketMap.get(id);
-        if (updatedMap[id] || lt.modificadoEm) {
-          ticketMap.set(id, { ...remoteItem, ...lt });
-        }
+        ticketMap.set(id, { ...remoteItem, ...lt });
       }
     });
 
-    // Inserir os estratégicos salvos
+    // C. Inserir os estratégicos salvos (garantindo tipo Estratégico)
     savedStrat.forEach(st => {
       if (!st || !st.id) return;
       const id = String(st.id);
@@ -12134,23 +12138,27 @@
       }
     });
 
-    // Aplicar sobreposições explícitas de atualizações locais
+    // D. Aplicar sobreposições explícitas de atualizações locais (máxima autoridade)
     Object.keys(updatedMap).forEach(uid => {
       if (deleted.has(uid)) return;
       const upd = updatedMap[uid];
       if (ticketMap.has(uid)) {
         ticketMap.set(uid, { ...ticketMap.get(uid), ...upd });
       } else {
-        ticketMap.set(uid, upd);
+        ticketMap.set(uid, { ...upd });
       }
     });
 
-    const merged = Array.from(ticketMap.values()).filter(t => !deleted.has(String(t.id)));
+    const merged = Array.from(ticketMap.values()).filter(t => t && t.id && !deleted.has(String(t.id)));
     if (merged.length > 0) {
       cachedTicketsData = merged;
       cachedTicketsTimestamp = Date.now();
       try {
-        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
+        const currentRaw = localStorage.getItem(ALL_TICKETS_KEY);
+        const newRaw = JSON.stringify(cachedTicketsData);
+        if (currentRaw !== newRaw) {
+          localStorage.setItem(ALL_TICKETS_KEY, newRaw);
+        }
       } catch(e) {}
     }
 
@@ -12452,7 +12460,7 @@
       const parent = container || $('ejecutivoOutput') || document;
       const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
       if (!boardContainer) return;
-      const tickets = await loadTickets();
+      const tickets = (cachedTicketsData && cachedTicketsData.length > 0) ? cachedTicketsData : await loadTickets();
       
       if (boardContainer.id === 'strategicBoardContainer') {
         boardContainer.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
@@ -12461,8 +12469,10 @@
         const temp = document.createElement('div');
         temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
         const newCard = temp.firstElementChild;
-        boardContainer.replaceWith(newCard);
-        wireStrategicBoardEvents(parent, tickets);
+        if (newCard) {
+          boardContainer.replaceWith(newCard);
+          wireStrategicBoardEvents(parent, tickets);
+        }
       }
     } finally {
       isRefreshingBoard = false;
@@ -12497,12 +12507,19 @@
             }
           }
         } catch(err) {}
-        refreshStrategicBoardInDOM().catch(()=>{});
+
+        // Atualizar o DOM silenciosamente sem re-gravar no localStorage
+        const parent = $('ejecutivoOutput') || document;
+        const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
+        if (boardContainer && cachedTicketsData) {
+          boardContainer.innerHTML = renderStrategicBoardHTML(cachedTicketsData, currentStrategicFilter);
+          wireStrategicBoardEvents(boardContainer, cachedTicketsData);
+        }
         if (typeof renderPedidosView === 'function') {
           const pView = $('view-pedidos');
           if (pView && pView.classList.contains('active')) renderPedidosView();
         }
-      }, 200);
+      }, 300);
     }
   });
 
@@ -14740,7 +14757,14 @@
 
   function openTicketEditDialog(ticketId) {
     loadTickets().then(tickets => {
-      const ticket = (tickets || []).find(t => String(t.id) === String(ticketId));
+      let ticket = (tickets || []).find(t => String(t.id) === String(ticketId));
+      if (!ticket && cachedTicketsData) {
+        ticket = cachedTicketsData.find(t => String(t.id) === String(ticketId));
+      }
+      if (!ticket) {
+        const strats = getSavedStrategicTickets();
+        ticket = strats.find(t => String(t.id) === String(ticketId));
+      }
       if (!ticket) return;
       
       const isCurrentlyStrat = isStrategicTicket(ticket);
@@ -14813,7 +14837,7 @@
         if (!cachedTicketsData) cachedTicketsData = [];
         const cIdx = cachedTicketsData.findIndex(t => String(t.id) === String(ticket.id));
         if (cIdx >= 0) {
-          cachedTicketsData[cIdx] = { ...ticket };
+          cachedTicketsData[cIdx] = { ...cachedTicketsData[cIdx], ...ticket };
         } else {
           cachedTicketsData.unshift({ ...ticket });
         }
@@ -14832,7 +14856,7 @@
         const sIdx = strats.findIndex(s => String(s.id) === String(ticket.id));
         if (isStrategicTicket(ticket)) {
           if (sIdx >= 0) {
-            strats[sIdx] = { ...ticket };
+            strats[sIdx] = { ...strats[sIdx], ...ticket };
           } else {
             strats.unshift({ ...ticket });
           }
@@ -14845,7 +14869,7 @@
         renderPedidosView();
         refreshStrategicBoardInDOM().catch(()=>{});
 
-        showToast('Ticket atualizado com sucesso ✓');
+        showToast(novoTipo === 'Estratégico' ? '⭐ Ticket atualizado como Estratégico ✓' : 'Ticket atualizado com sucesso ✓');
 
         // 6. Enviar atualização em segundo plano ao Google Apps Script
         try {
@@ -14916,12 +14940,14 @@
       
       const btn = $('btnSavePedido');
       const tipoVal = $('p-tipo') ? $('p-tipo').value : 'Corretivo';
-      const prioridadeVal = $('p-prioridade') ? $('p-prioridade').value : (tipoVal === 'Estratégico' ? 'Máxima' : 'Normal');
+      const isStrat = tipoVal === 'Estratégico';
+      const prioridadeVal = $('p-prioridade') ? $('p-prioridade').value : (isStrat ? 'Máxima' : 'Normal');
 
       let rawDesc = $('p-descricao') ? $('p-descricao').value.trim() : '';
-      const isStrat = tipoVal === 'Estratégico' || prioridadeVal === 'Máxima';
       if (isStrat && !rawDesc.startsWith('[ESTRATÉGICO]')) {
         rawDesc = `[ESTRATÉGICO] ${rawDesc}`;
+      } else if (!isStrat) {
+        rawDesc = rawDesc.replace(/^\[ESTRATÉGICO\]\s*/gi, '').replace(/⭐\s*/g, '').trim();
       }
 
       const data = {
