@@ -11881,6 +11881,8 @@
   let cachedTicketsData = null;
   let cachedTicketsTimestamp = 0;
   let currentStrategicFilter = 'active';
+  let loadTicketsInFlight = null;
+  let isRefreshingBoard = false;
 
   function getDeletedTicketIds() {
     try {
@@ -12034,13 +12036,21 @@
   }
 
   function invalidateTicketsCache(){
-    cachedTicketsData = null;
+    // Apenas marca o timestamp como expirado sem anular a memória, evitando flicker
     cachedTicketsTimestamp = 0;
   }
 
   async function loadTickets(forceFresh) {
+    if (loadTicketsInFlight) return loadTicketsInFlight;
+    loadTicketsInFlight = _execLoadTickets(forceFresh).finally(() => {
+      loadTicketsInFlight = null;
+    });
+    return loadTicketsInFlight;
+  }
+
+  async function _execLoadTickets(forceFresh) {
     const now = Date.now();
-    if (!forceFresh && cachedTicketsData && (now - cachedTicketsTimestamp) < 30000) {
+    if (!forceFresh && cachedTicketsData && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0 && (now - cachedTicketsTimestamp) < 45000) {
       return cachedTicketsData;
     }
     
@@ -12062,7 +12072,19 @@
       }
     } catch(e) {}
 
-    // 3. Tentar obter da API remota
+    // Semente imediata em memória se cachedTicketsData estiver vazio para estabilidade absoluta
+    if (!cachedTicketsData || cachedTicketsData.length === 0) {
+      const tempMap = new Map();
+      local.forEach(t => tempMap.set(String(t.id), t));
+      savedStrat.forEach(t => tempMap.set(String(t.id), { ...t, tipo: 'Estratégico' }));
+      Object.keys(updatedMap).forEach(uid => {
+        if (!deleted.has(uid) && tempMap.has(uid)) tempMap.set(uid, { ...tempMap.get(uid), ...updatedMap[uid] });
+      });
+      cachedTicketsData = Array.from(tempMap.values()).filter(t => !deleted.has(String(t.id)));
+      cachedTicketsTimestamp = now;
+    }
+
+    // 3. Tentar obter da API remota se houver
     let remoteTickets = null;
     try {
       const r = await apiGet({ action: 'listTickets' });
@@ -12070,7 +12092,7 @@
         remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
       }
     } catch (e) {
-      console.warn('loadTickets remote fetch note:', e);
+      // Falha silenciosa de rede não quebra a visualização local
     }
 
     // 4. Mesclagem resiliente: dados locais/atualizados sobrepõem o servidor
@@ -12123,17 +12145,15 @@
       }
     });
 
-    cachedTicketsData = Array.from(ticketMap.values()).filter(t => !deleted.has(String(t.id)));
+    const merged = Array.from(ticketMap.values()).filter(t => !deleted.has(String(t.id)));
+    if (merged.length > 0) {
+      cachedTicketsData = merged;
+      cachedTicketsTimestamp = Date.now();
+      try {
+        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
+      } catch(e) {}
+    }
 
-    // Re-sincronizar lista estratégica atualizada
-    const currentStrats = cachedTicketsData.filter(isStrategicTicket);
-    saveStrategicTickets(currentStrats);
-
-    try {
-      localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
-    } catch(e) {}
-
-    cachedTicketsTimestamp = now;
     return cachedTicketsData;
   }
 
@@ -12171,7 +12191,7 @@
       cardsHTML = `
         <div class="strategic-empty-state">
           <span class="glyph">🛡️</span>
-          <strong>Nenhum ticket estratégico pendente no filtro selecionado</strong>
+          <strong>Nenhum ticket estratégico no filtro selecionado</strong>
           <p>Todos os casos prioritários de melhoria de qualidade de serviço e operatividade técnica estão solucionados ou sob controlo.</p>
           <button type="button" class="btn-new-strategic" id="btnCreateStrategicFromEmpty">
             <span>+</span> Registar Novo Caso Estratégico
@@ -12218,6 +12238,7 @@
               </div>
               <div class="strategic-card-actions">
                 <button type="button" class="btn-strat-action" data-strat-edit="${esc(t.id)}">⚡ Atualizar Estado</button>
+                <button type="button" class="btn-strat-action" data-strat-delete="${esc(t.id)}" style="color:#fca5a5; border-color:rgba(239,68,68,0.4);" title="Eliminar este ticket">🗑️</button>
                 <button type="button" class="btn-strat-action" data-strat-goto="${esc(t.id)}">📋 Ver em Manutenção</button>
               </div>
             </div>
@@ -12276,18 +12297,20 @@
   function wireStrategicBoardEvents(container, tickets) {
     if (!container) return;
 
-    // Filter tabs
+    // Abas de filtro - troca instantânea (0ms, sem chamadas de rede nem re-fetch)
     container.querySelectorAll('[data-strat-tab]').forEach(btn => {
       btn.onclick = (e) => {
         e.preventDefault();
         currentStrategicFilter = btn.dataset.stratTab;
-        const boardWrap = container.querySelector('#strategicBoardCard');
-        if (boardWrap) {
+        const currentTickets = (cachedTicketsData && cachedTicketsData.length > 0) ? cachedTicketsData : (tickets || getSavedStrategicTickets());
+        const boardCard = container.querySelector('#strategicBoardCard') || (container.id === 'strategicBoardCard' ? container : null);
+        if (boardCard) {
           const temp = document.createElement('div');
-          temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+          temp.innerHTML = renderStrategicBoardHTML(currentTickets, currentStrategicFilter);
           const newCard = temp.firstElementChild;
-          boardWrap.replaceWith(newCard);
-          wireStrategicBoardEvents(container, tickets);
+          boardCard.replaceWith(newCard);
+          const newContainer = container.querySelector('#strategicBoardCard') ? container : newCard;
+          wireStrategicBoardEvents(newContainer, currentTickets);
         }
       };
     });
@@ -12312,11 +12335,21 @@
       };
     });
 
+    // Direct delete button
+    container.querySelectorAll('button[data-strat-delete]').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const tId = btn.dataset.stratDelete;
+        if (tId) deleteTicket(tId);
+      };
+    });
+
     // Go to pedidos
     container.querySelectorAll('button[data-strat-goto]').forEach(btn => {
       btn.onclick = (e) => {
         e.preventDefault();
-        if (typeof switchView === 'function') switchView('pedidos');
+        if (typeof switchToTab === 'function') switchToTab('pedidos');
+        else if (typeof switchView === 'function') switchView('pedidos');
         const filterTipo = $('pedidoFiltroTipo');
         if (filterTipo) {
           filterTipo.value = 'Estratégico';
@@ -12403,10 +12436,6 @@
       if (typeof renderPedidosView === 'function') renderPedidosView();
       showToast('⭐ Ticket Estratégico registado com sucesso ✓');
 
-      try {
-        window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
-      } catch(e) {}
-
       // 3. Sincronizar com o backend
       try {
         await apiPost({ action: 'saveTicket', data: newTicket });
@@ -12417,39 +12446,63 @@
   }
 
   async function refreshStrategicBoardInDOM(container) {
-    const parent = container || $('ejecutivoOutput') || document;
-    const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
-    if (!boardContainer) return;
-    const tickets = await loadTickets();
-    
-    if (boardContainer.id === 'strategicBoardContainer') {
-      boardContainer.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
-      wireStrategicBoardEvents(boardContainer, tickets);
-    } else {
-      const temp = document.createElement('div');
-      temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
-      const newCard = temp.firstElementChild;
-      boardContainer.replaceWith(newCard);
-      wireStrategicBoardEvents(parent, tickets);
+    if (isRefreshingBoard) return;
+    isRefreshingBoard = true;
+    try {
+      const parent = container || $('ejecutivoOutput') || document;
+      const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
+      if (!boardContainer) return;
+      const tickets = await loadTickets();
+      
+      if (boardContainer.id === 'strategicBoardContainer') {
+        boardContainer.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+        wireStrategicBoardEvents(boardContainer, tickets);
+      } else {
+        const temp = document.createElement('div');
+        temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+        const newCard = temp.firstElementChild;
+        boardContainer.replaceWith(newCard);
+        wireStrategicBoardEvents(parent, tickets);
+      }
+    } finally {
+      isRefreshingBoard = false;
     }
   }
 
+  let strategicUpdateTimer = null;
   window.addEventListener('strategic-tickets-updated', () => {
-    refreshStrategicBoardInDOM().catch(()=>{});
-    if (typeof renderPedidosView === 'function') {
-      const pView = $('view-pedidos');
-      if (pView && pView.classList.contains('active')) renderPedidosView();
-    }
-  });
-
-  window.addEventListener('storage', (e) => {
-    if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY) {
-      invalidateTicketsCache();
+    clearTimeout(strategicUpdateTimer);
+    strategicUpdateTimer = setTimeout(() => {
       refreshStrategicBoardInDOM().catch(()=>{});
       if (typeof renderPedidosView === 'function') {
         const pView = $('view-pedidos');
         if (pView && pView.classList.contains('active')) renderPedidosView();
       }
+    }, 50);
+  });
+
+  let storageDebounceTimer = null;
+  window.addEventListener('storage', (e) => {
+    if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY) {
+      clearTimeout(storageDebounceTimer);
+      storageDebounceTimer = setTimeout(() => {
+        try {
+          const raw = localStorage.getItem(ALL_TICKETS_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const deleted = getDeletedTicketIds();
+              cachedTicketsData = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
+              cachedTicketsTimestamp = Date.now();
+            }
+          }
+        } catch(err) {}
+        refreshStrategicBoardInDOM().catch(()=>{});
+        if (typeof renderPedidosView === 'function') {
+          const pView = $('view-pedidos');
+          if (pView && pView.classList.contains('active')) renderPedidosView();
+        }
+      }, 200);
     }
   });
 
@@ -14792,14 +14845,9 @@
         renderPedidosView();
         refreshStrategicBoardInDOM().catch(()=>{});
 
-        // 6. Notificar em tempo real
-        try {
-          window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
-        } catch(e) {}
-
         showToast('Ticket atualizado com sucesso ✓');
 
-        // 7. Enviar atualização em segundo plano ao Google Apps Script
+        // 6. Enviar atualização em segundo plano ao Google Apps Script
         try {
           await apiPost({
             action: 'updateTicket',
@@ -14852,10 +14900,6 @@
 
     renderPedidosView();
     refreshStrategicBoardInDOM().catch(()=>{});
-
-    try {
-      window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
-    } catch(e) {}
 
     try {
       await apiPost({ action: 'deleteTicket', id: ticketId, ticketId: ticketId, data: { id: ticketId } });

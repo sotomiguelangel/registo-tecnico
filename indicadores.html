@@ -4609,6 +4609,9 @@
 
   let currentStratFilterIndicadores = 'active';
   let cachedTicketsIndicadores = null;
+  let cachedTicketsIndicadoresTimestamp = 0;
+  let loadTicketsIndicadoresInFlight = null;
+  let isUpdatingStrategicBoardIndicadores = false;
 
   function getDeletedTicketIdsIndicadores() {
     try {
@@ -4759,7 +4762,20 @@
     } catch(e) {}
   }
 
-  async function loadTicketsIndicadores() {
+  async function loadTicketsIndicadores(forceFresh) {
+    if (loadTicketsIndicadoresInFlight) return loadTicketsIndicadoresInFlight;
+    loadTicketsIndicadoresInFlight = _execLoadTicketsIndicadores(forceFresh).finally(() => {
+      loadTicketsIndicadoresInFlight = null;
+    });
+    return loadTicketsIndicadoresInFlight;
+  }
+
+  async function _execLoadTicketsIndicadores(forceFresh) {
+    const now = Date.now();
+    if (!forceFresh && cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores) && cachedTicketsIndicadores.length > 0 && (now - cachedTicketsIndicadoresTimestamp) < 45000) {
+      return cachedTicketsIndicadores;
+    }
+
     const deleted = getDeletedTicketIdsIndicadores();
     const updatedMap = getUpdatedTicketsMapIndicadores();
     let savedStrat = getSavedStrategicTicketsIndicadores().filter(t => !deleted.has(String(t.id)));
@@ -4776,6 +4792,18 @@
         }
       }
     } catch(e) {}
+
+    // Semente imediata em memória se cachedTicketsIndicadores estiver vazio (evita piscar)
+    if (!cachedTicketsIndicadores || cachedTicketsIndicadores.length === 0) {
+      const tempMap = new Map();
+      allTickets.forEach(t => tempMap.set(String(t.id), t));
+      savedStrat.forEach(t => tempMap.set(String(t.id), { ...t, tipo: 'Estratégico' }));
+      Object.keys(updatedMap).forEach(uid => {
+        if (!deleted.has(uid) && tempMap.has(uid)) tempMap.set(uid, { ...tempMap.get(uid), ...updatedMap[uid] });
+      });
+      cachedTicketsIndicadores = Array.from(tempMap.values()).filter(t => !deleted.has(String(t.id)));
+      cachedTicketsIndicadoresTimestamp = now;
+    }
 
     // 2. Tentar API remota se houver
     if (typeof API_URL !== 'undefined' && API_URL) {
@@ -4825,6 +4853,7 @@
     }
 
     cachedTicketsIndicadores = merged;
+    cachedTicketsIndicadoresTimestamp = Date.now();
     try { localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(merged)); } catch(e){}
     return cachedTicketsIndicadores;
   }
@@ -4991,13 +5020,15 @@
   function wireStrategicBoardIndicadoresEvents(wrap, allTickets) {
     if (!wrap) return;
 
-    // Abas de filtro
+    // Abas de filtro - troca instantânea (0ms sem chamadas de rede nem re-fetch)
     wrap.querySelectorAll('.strategic-tab-btn').forEach(btn => {
       btn.onclick = (e) => {
         e.preventDefault();
         const f = btn.dataset.stratFilter;
         currentStratFilterIndicadores = f;
-        updateStrategicBoardIndicadores();
+        const currentTickets = (cachedTicketsIndicadores && cachedTicketsIndicadores.length > 0) ? cachedTicketsIndicadores : allTickets;
+        wrap.innerHTML = renderStrategicBoardIndicadoresHTML(currentTickets, currentStratFilterIndicadores);
+        wireStrategicBoardIndicadoresEvents(wrap, currentTickets);
       };
     });
 
@@ -5383,26 +5414,49 @@
   }
 
   async function updateStrategicBoardIndicadores() {
-    const wrap = $('execStrategicBoardWrap');
-    if (!wrap) return;
+    if (isUpdatingStrategicBoardIndicadores) return;
+    isUpdatingStrategicBoardIndicadores = true;
+    try {
+      const wrap = $('execStrategicBoardWrap');
+      if (!wrap) return;
 
-    const tickets = await loadTicketsIndicadores();
-    wrap.innerHTML = renderStrategicBoardIndicadoresHTML(tickets, currentStratFilterIndicadores);
-    wireStrategicBoardIndicadoresEvents(wrap, tickets);
+      const tickets = await loadTicketsIndicadores();
+      wrap.innerHTML = renderStrategicBoardIndicadoresHTML(tickets, currentStratFilterIndicadores);
+      wireStrategicBoardIndicadoresEvents(wrap, tickets);
+    } finally {
+      isUpdatingStrategicBoardIndicadores = false;
+    }
   }
 
-  // Ouvintes de sincronização reativa entre páginas e instâncias
+  // Ouvintes de sincronização reativa com debounce
+  let stratDebounceTimerIndicadores = null;
   window.addEventListener('strategic-tickets-updated', () => {
-    updateStrategicBoardIndicadores().catch(()=>{});
+    clearTimeout(stratDebounceTimerIndicadores);
+    stratDebounceTimerIndicadores = setTimeout(() => {
+      updateStrategicBoardIndicadores().catch(()=>{});
+    }, 50);
   });
   window.addEventListener('storage', (e) => {
     if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY) {
-      updateStrategicBoardIndicadores().catch(()=>{});
+      clearTimeout(stratDebounceTimerIndicadores);
+      stratDebounceTimerIndicadores = setTimeout(() => {
+        try {
+          const raw = localStorage.getItem(ALL_TICKETS_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const deleted = getDeletedTicketIdsIndicadores();
+              cachedTicketsIndicadores = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
+              cachedTicketsIndicadoresTimestamp = Date.now();
+            }
+          }
+        } catch(err){}
+        updateStrategicBoardIndicadores().catch(()=>{});
+      }, 200);
     }
   });
 
   function renderExecutiveDashboard(execData) {
-    updateStrategicBoardIndicadores().catch(()=>{});
       const d = execData;
       const scoreWrap = $('execScoreWrap');
       const finWrap = $('execFinWrap');
@@ -9834,15 +9888,6 @@
         loadTariffsOnce();
         load();
       }
-      if (event.key === STRATEGIC_TICKETS_KEY || event.key === ALL_TICKETS_KEY || event.key === null) {
-        cachedTicketsIndicadores = null;
-        updateStrategicBoardIndicadores().catch(()=>{});
-      }
-    });
-
-    window.addEventListener('strategic-tickets-updated', () => {
-      cachedTicketsIndicadores = null;
-      updateStrategicBoardIndicadores().catch(()=>{});
     });
 
     window.addEventListener('focus', () => {
