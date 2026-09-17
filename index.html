@@ -11873,6 +11873,9 @@
   // PIZARRA DE SEGUIMENTO ESTRATÉGICO & TICKETS MODEL
   // =========================================================
 
+  const STRATEGIC_TICKETS_KEY = 'bitacora_strategic_tickets';
+  const ALL_TICKETS_KEY = 'bitacora_tickets';
+
   let cachedTicketsData = null;
   let cachedTicketsTimestamp = 0;
   let currentStrategicFilter = 'active';
@@ -11882,7 +11885,13 @@
     const tipo = String(t.tipo || '').toLowerCase();
     const cat = String(t.categoria || '').toLowerCase();
     const prio = String(t.prioridade || '').toLowerCase();
-    return tipo.includes('estrat') || cat.includes('estrat') || prio.includes('estrat');
+    const desc = String(t.descricao || '').toLowerCase();
+    const obs = String(t.observacao || '').toLowerCase();
+    return tipo.includes('estrat') ||
+           cat.includes('estrat') ||
+           prio.includes('estrat') || prio.includes('máx') || prio.includes('max') ||
+           desc.includes('[estrat') || desc.includes('⭐') ||
+           obs.includes('[estrat');
   }
 
   function getDefaultStrategicTickets() {
@@ -11891,16 +11900,17 @@
       {
         id: 'ticket_est_01',
         tipo: 'Estratégico',
-        quarto: 'Central Térmica / Caldeiras',
+        quarto: 'Central Térmica & Rede Primária',
         categoria: 'Climatização',
         prioridade: 'Máxima',
-        descricao: 'Equilíbrio térmico dos permutadores e substituição de válvulas no retorno de AQS para garantir estabilidade acima de 50°C nos ramais distantes e redução de 12% no consumo elétrico.',
+        descricao: '[ESTRATÉGICO] Equilíbrio térmico dos permutadores e substituição de válvulas no retorno de AQS para garantir estabilidade acima de 50°C nos ramais distantes e redução de 12% no consumo elétrico.',
         turno: 'Manhã',
         dataReporte: today,
         horaReporte: '08:45',
         situacao: 'em_andamento',
         colaborador: 'Direção Técnica / Engenharia',
-        observacao: 'Intervenção prioritária com impacto direto no plano de qualidade sanitária e eficiência energética global.'
+        observacao: 'Intervenção prioritária com impacto direto no plano de qualidade sanitária e eficiência energética global.',
+        comentarioCierre: ''
       },
       {
         id: 'ticket_est_02',
@@ -11908,15 +11918,57 @@
         quarto: 'Piscina & Zona Wellness',
         categoria: 'Piscina',
         prioridade: 'Máxima',
-        descricao: 'Calibração dos controladores de dosagem redox/pH e instalação de sondas de telemetria contínua para prevenir desvios nas horas de pico de utilização.',
+        descricao: '[ESTRATÉGICO] Calibração dos controladores de dosagem redox/pH e instalação de sondas de telemetria contínua para prevenir desvios nas horas de pico de utilização.',
         turno: 'Manhã',
         dataReporte: today,
         horaReporte: '10:15',
         situacao: 'aberto',
         colaborador: 'Supervisão de Manutenção',
-        observacao: 'Melhoria de qualidade destinada à segurança sanitária e satisfação dos hóspedes.'
+        observacao: 'Melhoria de qualidade destinada à segurança sanitária e satisfação dos hóspedes.',
+        comentarioCierre: ''
+      },
+      {
+        id: 'ticket_est_03',
+        tipo: 'Estratégico',
+        quarto: 'Quadro Geral & Bombagem',
+        categoria: 'Elétrica',
+        prioridade: 'Alta',
+        descricao: '[ESTRATÉGICO] Instalação de variadores de frequência nos grupos de circulação para otimização do perfil de consumo elétrico (-18% kWh previsto).',
+        turno: 'Manhã',
+        dataReporte: today,
+        horaReporte: '09:30',
+        situacao: 'finalizado',
+        colaborador: 'Coordenação de Eletricidade',
+        observacao: 'Concluído com ensaios de harmónicos em conformidade.',
+        comentarioCierre: 'Variadores instalados e parametrizados. Economia de 18.2% validada em carga operacional.'
       }
     ];
+  }
+
+  function getSavedStrategicTickets() {
+    try {
+      const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch(e) {}
+    const defaults = getDefaultStrategicTickets();
+    try {
+      localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(defaults));
+    } catch(e) {}
+    return defaults;
+  }
+
+  function saveStrategicTickets(strats) {
+    try {
+      localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(strats));
+    } catch(e) {}
+    try {
+      window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
+    } catch(e) {}
   }
 
   function invalidateTicketsCache(){
@@ -11930,44 +11982,79 @@
       return cachedTicketsData;
     }
     
+    // 1. Obter tickets estratégicos persistidos e garantidos
+    const savedStrat = getSavedStrategicTickets();
+
+    // 2. Tentar ler repositório local
     let local = [];
     try {
-      const raw = localStorage.getItem('bitacora_tickets');
+      const raw = localStorage.getItem(ALL_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) local = parsed;
       }
     } catch(e) {}
 
+    // 3. Tentar obter da API remota
+    let remoteTickets = null;
     try {
       const r = await apiGet({ action: 'listTickets' });
-      const sTickets = (r && Array.isArray(r.tickets)) ? r.tickets : [];
-      if (sTickets.length > 0) {
-        cachedTicketsData = sTickets;
-      } else if (local.length > 0) {
-        cachedTicketsData = local;
-      } else {
-        cachedTicketsData = getDefaultStrategicTickets();
+      if (r && Array.isArray(r.tickets)) {
+        remoteTickets = r.tickets;
       }
     } catch (e) {
-      console.warn('loadTickets fallback to local/defaults:', e);
-      if (local.length > 0) {
-        cachedTicketsData = local;
-      } else if (!cachedTicketsData) {
-        cachedTicketsData = getDefaultStrategicTickets();
-      }
+      console.warn('loadTickets remote fetch note:', e);
     }
 
+    const baseList = (remoteTickets && remoteTickets.length > 0) ? remoteTickets : (local.length > 0 ? local : []);
+
+    // 4. Mesclar com salvaguarda absoluta dos tickets estratégicos
+    const mergedMap = new Map();
+
+    // Primeiro os tickets estratégicos conhecidos
+    savedStrat.forEach(st => {
+      mergedMap.set(String(st.id), { ...st, tipo: 'Estratégico' });
+    });
+
+    // Depois a lista geral remota/local (atualizando status se existir no servidor)
+    baseList.forEach(t => {
+      const id = String(t.id);
+      if (mergedMap.has(id)) {
+        const strat = mergedMap.get(id);
+        mergedMap.set(id, {
+          ...strat,
+          situacao: t.situacao || strat.situacao,
+          comentarioCierre: t.comentarioCierre || strat.comentarioCierre,
+          observacao: t.observacao || strat.observacao,
+          quarto: t.quarto || strat.quarto,
+          descricao: strat.descricao || t.descricao
+        });
+      } else {
+        if (isStrategicTicket(t)) {
+          const strat = { ...t, tipo: 'Estratégico', prioridade: t.prioridade || 'Máxima' };
+          mergedMap.set(id, strat);
+          const exists = savedStrat.some(s => String(s.id) === id);
+          if (!exists) savedStrat.push(strat);
+        } else {
+          mergedMap.set(id, t);
+        }
+      }
+    });
+
+    cachedTicketsData = Array.from(mergedMap.values());
+
+    // Atualizar persistência nos dois níveis
     try {
-      localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+      localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
     } catch(e) {}
+    saveStrategicTickets(savedStrat);
 
     cachedTicketsTimestamp = now;
     return cachedTicketsData;
   }
 
   function renderStrategicBoardHTML(allTickets, activeFilter) {
-    const filter = activeFilter || 'active';
+    const filter = activeFilter || currentStrategicFilter || 'active';
     const tickets = (allTickets || []).filter(isStrategicTicket);
     
     const countTotal = tickets.length;
@@ -12015,7 +12102,9 @@
                             statusKey === 'pausado' ? '⏸ Pausado' : '✓ Concluído';
         const loc = esc(t.quarto || 'Instalações Técnicas');
         const cat = esc(t.categoria || 'Operações');
-        const desc = esc(t.descricao || '');
+        let descClean = String(t.descricao || '');
+        if (descClean.startsWith('[ESTRATÉGICO] ')) descClean = descClean.replace('[ESTRATÉGICO] ', '');
+        const desc = esc(descClean);
         const reporter = esc(t.colaborador || 'Técnico');
         const data = esc(t.dataReporte || '');
         const hora = esc(t.horaReporte || '--:--');
@@ -12119,19 +12208,10 @@
       };
     });
 
-    // New strategic ticket
+    // New strategic ticket modal direto na Pizarra
     const openCreate = (e) => {
       e && e.preventDefault();
-      if (typeof switchView === 'function') switchView('pedidos');
-      const pTipo = $('p-tipo');
-      if (pTipo) pTipo.value = 'Estratégico';
-      const pPrio = $('p-prioridade');
-      if (pPrio) pPrio.value = 'Máxima';
-      const pQuarto = $('p-quarto');
-      if (pQuarto) {
-        pQuarto.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => pQuarto.focus(), 300);
-      }
+      openNewStrategicModal();
     };
 
     const btnNew = container.querySelector('#btnCreateStrategicTicket');
@@ -12161,6 +12241,126 @@
       };
     });
   }
+
+  function openNewStrategicModal() {
+    formDialog(
+      '⭐ Novo Ticket Estratégico (Alta Prioridade)',
+      [
+        { id: 'quarto', label: 'Local / Equipamento / Quarto', type: 'text', placeholder: 'Ex.: Central Térmica, Piscina, Quadro Geral, 101...' },
+        { id: 'categoria', label: 'Categoria Técnica', type: 'select', value: 'Climatização',
+          options: [
+            { value: 'Climatização', label: 'Climatização & AVAC / AQS' },
+            { value: 'Piscina', label: 'Piscina & Spa' },
+            { value: 'Elétrica', label: 'Elétrica & Automação' },
+            { value: 'Hidráulica', label: 'Hidráulica & Redes de Água' },
+            { value: 'Frio Comercial', label: 'Refrigeração & Câmaras' },
+            { value: 'Estrutural', label: 'Estrutural & Edifício' },
+            { value: 'Segurança', label: 'Segurança & Incêndio' },
+            { value: 'Outro', label: 'Outro' }
+          ]
+        },
+        { id: 'prioridade', label: 'Prioridade Operacional', type: 'select', value: 'Máxima',
+          options: [
+            { value: 'Máxima', label: '⭐ Máxima (Crítica / Qualidade & Operatividade)' },
+            { value: 'Alta', label: 'Alta' }
+          ]
+        },
+        { id: 'situacao', label: 'Situação Inicial', type: 'select', value: 'aberto',
+          options: [
+            { value: 'aberto', label: '⚠️ Aberto (Pendente de Intervenção)' },
+            { value: 'em_andamento', label: '⚡ Em Andamento (Em Curso)' }
+          ]
+        },
+        { id: 'descricao', label: 'Descrição da Intervenção Estratégica', type: 'textarea', rows: 3, placeholder: 'Descreva a ação técnica prioritária, objetivo de qualidade e impacto esperado...' },
+        { id: 'observacao', label: 'Diretriz / Observações Técnicas', type: 'textarea', rows: 2, placeholder: 'Observações de coordenação ou metas de eficiência...' }
+      ],
+      '⭐ Registar Intervenção'
+    ).then(async vals => {
+      if (!vals) return;
+      if (!vals.quarto) { showToast('Indique o local ou quarto', true); return; }
+      if (!vals.descricao || vals.descricao.length < 5) { showToast('Descrição com pelo menos 5 caracteres', true); return; }
+
+      const newId = 'ticket_strat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      const today = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
+      const hora = (typeof nowTimeStr === 'function') ? nowTimeStr() : new Date().toTimeString().slice(0, 5);
+      const user = (typeof currentUser !== 'undefined' && currentUser && (currentUser.nome || currentUser.nombre)) ? (currentUser.nome || currentUser.nombre) : 'Direção Técnica';
+
+      const descFormatted = vals.descricao.trim();
+      const newTicket = {
+        id: newId,
+        tipo: 'Estratégico',
+        prioridade: vals.prioridade || 'Máxima',
+        quarto: vals.quarto.trim(),
+        categoria: vals.categoria,
+        descricao: descFormatted.startsWith('[ESTRATÉGICO]') ? descFormatted : `[ESTRATÉGICO] ${descFormatted}`,
+        observacao: vals.observacao ? vals.observacao.trim() : '',
+        situacao: vals.situacao || 'aberto',
+        dataReporte: today,
+        horaReporte: hora,
+        turno: 'Manhã',
+        colaborador: user,
+        comentarioCierre: ''
+      };
+
+      // 1. Persistir nos repositórios locais
+      const strats = getSavedStrategicTickets();
+      strats.unshift(newTicket);
+      saveStrategicTickets(strats);
+
+      if (!cachedTicketsData) cachedTicketsData = [];
+      cachedTicketsData.unshift(newTicket);
+      try { localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData)); } catch(e){}
+
+      // 2. Atualizar UI imediatamente (0 ms)
+      refreshStrategicBoardInDOM();
+      if (typeof renderPedidosView === 'function') renderPedidosView();
+      showToast('⭐ Ticket Estratégico registado com sucesso ✓');
+
+      // 3. Sincronizar com o backend
+      try {
+        await apiPost({ action: 'saveTicket', data: newTicket });
+      } catch(e) {
+        console.warn('saveTicket remote sync note:', e);
+      }
+    });
+  }
+
+  async function refreshStrategicBoardInDOM(container) {
+    const parent = container || $('ejecutivoOutput') || document;
+    const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
+    if (!boardContainer) return;
+    const tickets = await loadTickets();
+    
+    if (boardContainer.id === 'strategicBoardContainer') {
+      boardContainer.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+      wireStrategicBoardEvents(boardContainer, tickets);
+    } else {
+      const temp = document.createElement('div');
+      temp.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
+      const newCard = temp.firstElementChild;
+      boardContainer.replaceWith(newCard);
+      wireStrategicBoardEvents(parent, tickets);
+    }
+  }
+
+  window.addEventListener('strategic-tickets-updated', () => {
+    refreshStrategicBoardInDOM().catch(()=>{});
+    if (typeof renderPedidosView === 'function') {
+      const pView = $('view-pedidos');
+      if (pView && pView.classList.contains('active')) renderPedidosView();
+    }
+  });
+
+  window.addEventListener('storage', (e) => {
+    if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY) {
+      invalidateTicketsCache();
+      refreshStrategicBoardInDOM().catch(()=>{});
+      if (typeof renderPedidosView === 'function') {
+        const pView = $('view-pedidos');
+        if (pView && pView.classList.contains('active')) renderPedidosView();
+      }
+    }
+  });
 
   // ---------- Render principal do Resumo Executivo ----------
   async function renderEjecutivo(forcedDesde, forcedHasta, opts){
@@ -12220,6 +12420,7 @@
           wireExecEvents(cachedExecMonths, cachedExecMeta);
         }
       }
+      refreshStrategicBoardInDOM(output).catch(()=>{});
       return;
     }
 
@@ -12228,6 +12429,7 @@
       output.innerHTML = cachedEjecutivoData;
       mountCharts(output);
       renderExecInteractiveChart();
+      refreshStrategicBoardInDOM(output).catch(()=>{});
     } else if(output && (!output.innerHTML || output.innerHTML.trim() === '')){
       output.innerHTML = `<div class="skel-grid"><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div><div class="skel skel-card"></div></div>
       <div class="skel" style="height:180px; margin-bottom:16px"></div>`;
@@ -12491,7 +12693,7 @@
       const strategicBoardHTML = renderStrategicBoardHTML(allTickets, currentStrategicFilter);
 
       output.innerHTML = `
-        ${strategicBoardHTML}
+        <div id="strategicBoardContainer">${strategicBoardHTML}</div>
         ${scorecardHTML}
         ${finCockpitHTML}
         ${matrixHTML}
@@ -12503,7 +12705,7 @@
       `;
 
       renderExecInteractiveChart();
-      wireStrategicBoardEvents(output, allTickets);
+      wireStrategicBoardEvents(output.querySelector('#strategicBoardContainer') || output, allTickets);
       wireHeatmapNav(d.generalRaw);
       wireExecEvents(cachedExecMonths, { desde: d.desde, hasta: d.hasta, healthScore: d.healthScore, costTotal: d.costTotal, projectedCost: d.projectedCost, comp: d.comp, done: d.done, totalRooms: d.totalRooms, tarifasEjec: d.tarifasEjec, generalRaw: d.generalRaw });
 
@@ -14438,14 +14640,26 @@
         ticket.situacao = vals.situacao;
         if (vals.comentario) ticket.comentarioCierre = vals.comentario;
 
+        // Atualizar lista de tickets estratégicos persistidos
+        const strats = getSavedStrategicTickets();
+        const sIdx = strats.findIndex(s => String(s.id) === String(ticket.id));
+        if (isStrategicTicket(ticket)) {
+          if (sIdx >= 0) {
+            strats[sIdx] = { ...strats[sIdx], ...ticket };
+          } else {
+            strats.unshift(ticket);
+          }
+        } else if (sIdx >= 0) {
+          strats.splice(sIdx, 1);
+        }
+        saveStrategicTickets(strats);
+
         try {
-          localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+          localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
         } catch(e) {}
 
         renderPedidosView();
-        if (typeof renderEjecutivo === 'function') {
-          renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
-        }
+        refreshStrategicBoardInDOM().catch(()=>{});
 
         try {
           await apiPost({
@@ -14475,13 +14689,15 @@
     if (cachedTicketsData) {
       cachedTicketsData = cachedTicketsData.filter(t => String(t.id) !== String(ticketId));
       try {
-        localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
       } catch(e) {}
     }
+
+    const strats = getSavedStrategicTickets().filter(t => String(t.id) !== String(ticketId));
+    saveStrategicTickets(strats);
+
     renderPedidosView();
-    if (typeof renderEjecutivo === 'function') {
-      renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
-    }
+    refreshStrategicBoardInDOM().catch(()=>{});
 
     try {
       await apiPost({ action: 'deleteTicket', id: ticketId });
@@ -14500,13 +14716,19 @@
       const tipoVal = $('p-tipo') ? $('p-tipo').value : 'Corretivo';
       const prioridadeVal = $('p-prioridade') ? $('p-prioridade').value : (tipoVal === 'Estratégico' ? 'Máxima' : 'Normal');
 
+      let rawDesc = $('p-descricao') ? $('p-descricao').value.trim() : '';
+      const isStrat = tipoVal === 'Estratégico' || prioridadeVal === 'Máxima';
+      if (isStrat && !rawDesc.startsWith('[ESTRATÉGICO]')) {
+        rawDesc = `[ESTRATÉGICO] ${rawDesc}`;
+      }
+
       const data = {
         id: 'ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         tipo: tipoVal,
         prioridade: prioridadeVal,
         quarto: $('p-quarto') ? $('p-quarto').value.trim() : '',
         categoria: $('p-categoria') ? $('p-categoria').value : '',
-        descricao: $('p-descricao') ? $('p-descricao').value.trim() : '',
+        descricao: rawDesc,
         turno: $('p-turno') ? $('p-turno').value : 'Manhã',
         dataReporte: ($('p-fecha') && $('p-fecha').value) ? $('p-fecha').value : todayStr(),
         horaReporte: (typeof nowTimeStr === 'function') ? nowTimeStr() : new Date().toTimeString().slice(0, 5),
@@ -14517,7 +14739,7 @@
       
       if (!data.quarto) { showToast('Indique o quarto/local', true); return; }
       if (!data.categoria) { showToast('Selecione a categoria', true); return; }
-      if (!data.descricao || data.descricao.length < 5) { 
+      if (!rawDesc || rawDesc.length < 5) { 
         showToast('Descrição com pelo menos 5 caracteres', true); return; 
       }
       
@@ -14527,10 +14749,16 @@
       if (!cachedTicketsData) cachedTicketsData = [];
       cachedTicketsData.unshift(data);
       try {
-        localStorage.setItem('bitacora_tickets', JSON.stringify(cachedTicketsData));
+        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
       } catch(e) {}
 
-      showToast(tipoVal === 'Estratégico' ? '⭐ Ticket Estratégico aberto com sucesso ✓' : 'Ticket aberto com sucesso ✓');
+      if (isStrategicTicket(data)) {
+        const strats = getSavedStrategicTickets();
+        strats.unshift(data);
+        saveStrategicTickets(strats);
+      }
+
+      showToast(isStrat ? '⭐ Ticket Estratégico aberto com sucesso ✓' : 'Ticket aberto com sucesso ✓');
       
       if($('p-quarto')) $('p-quarto').value = '';
       if($('p-categoria')) $('p-categoria').value = '';
@@ -14539,9 +14767,7 @@
       if($('p-fecha')) $('p-fecha').value = todayStr();
       
       renderPedidosView();
-      if (typeof renderEjecutivo === 'function') {
-        renderEjecutivo(null, null, { silent: true, force: true }).catch(()=>{});
-      }
+      refreshStrategicBoardInDOM().catch(()=>{});
 
       try {
         await apiPost({ action: 'saveTicket', data: data });
