@@ -3636,12 +3636,50 @@
     function fmt(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
     function todayStr() { return fmt(new Date()); }
 
-    function diffDays(fechaA, fechaB) {
+    function diffDays(fechaA, fechaB, horaA, horaB) {
       if (!fechaA || !fechaB) return 1;
-      const a = new Date(fechaA + 'T00:00:00');
-      const b = new Date(fechaB + 'T00:00:00');
-      const diff = Math.round((b - a) / 86400000);
-      return Math.max(1, isNaN(diff) ? 1 : diff);
+      const hA = (horaA && String(horaA).trim()) ? String(horaA).trim() : '08:30';
+      const hB = (horaB && String(horaB).trim()) ? String(horaB).trim() : '08:30';
+      const normA = hA.length === 5 ? hA : hA.padStart(5, '0');
+      const normB = hB.length === 5 ? hB : hB.padStart(5, '0');
+      const dtA = new Date(`${fechaA}T${normA}:00`);
+      const dtB = new Date(`${fechaB}T${normB}:00`);
+
+      if (isNaN(dtA.getTime()) || isNaN(dtB.getTime())) {
+        const a = new Date(fechaA + 'T00:00:00');
+        const b = new Date(fechaB + 'T00:00:00');
+        const diff = (b - a) / 86400000;
+        return Math.max(0.1, isNaN(diff) ? 1 : Math.round(diff * 1000) / 1000);
+      }
+
+      const ms = dtB.getTime() - dtA.getTime();
+      if (ms <= 0) return 0;
+      const days = ms / 86400000;
+      return Math.round(days * 1000) / 1000;
+    }
+
+    function formatDays(days) {
+      if (days === null || days === undefined || isNaN(days) || days <= 0) return '0 dias';
+      const num = Number(days);
+      if (Math.abs(num - Math.round(num)) < 0.01) {
+        const r = Math.round(num);
+        return `${r} dia${r === 1 ? '' : 's'}`;
+      }
+      return `${num.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} dias (prorr.)`;
+    }
+
+    function getProratedPointsDays(points) {
+      if (!points || !points.length) return 0;
+      const lastPt = points[points.length - 1];
+      const today = todayStr();
+      if (lastPt && (lastPt.date === today || lastPt.dateStr === today)) {
+        const now = new Date();
+        const currentHour = now.getHours() + now.getMinutes() / 60;
+        const dayFraction = Math.max(0.2, Math.min(1.0, currentHour / 24));
+        const fullDays = Math.max(0, points.length - 1);
+        return Math.round((fullDays + dayFraction) * 1000) / 1000;
+      }
+      return points.length;
     }
 
     function monthRangeOffset(offsetMonths) {
@@ -3885,32 +3923,36 @@
       text('statusText', message);
     }
 
-    // Parity with index.html: Deltas and Range Statistics
+    // Parity with index.html: Deltas and Range Statistics with Prorated Days
     function computeDeltas(genRecordsAsc) {
-      let prevAgua = null, prevAguaFecha = null;
-      let prevElec = null, prevElecFecha = null;
+      let prevAgua = null, prevAguaFecha = null, prevAguaHora = null;
+      let prevElec = null, prevElecFecha = null, prevElecHora = null;
 
       return genRecordsAsc.map(r => {
         const agua = field(r.data, FIELDS.water);
         const elec = field(r.data, FIELDS.energy);
+        const rFecha = r.date || r.data?.fecha || '';
+        const rHora = r.time || r.data?.hora || (r.isBaseline ? '00:00' : '08:30');
         let deltaAgua = null, deltaElec = null, diasAgua = null, diasElec = null;
 
         if (prevAgua !== null && agua !== null && !isNaN(agua)) {
           deltaAgua = agua - prevAgua;
-          diasAgua = diffDays(prevAguaFecha, r.date || r.data.fecha);
+          diasAgua = diffDays(prevAguaFecha, rFecha, prevAguaHora, rHora);
         }
         if (prevElec !== null && elec !== null && !isNaN(elec)) {
           deltaElec = elec - prevElec;
-          diasElec = diffDays(prevElecFecha, r.date || r.data.fecha);
+          diasElec = diffDays(prevElecFecha, rFecha, prevElecHora, rHora);
         }
 
         if (agua !== null && !isNaN(agua)) {
           prevAgua = agua;
-          prevAguaFecha = r.date || r.data.fecha;
+          prevAguaFecha = rFecha;
+          prevAguaHora = rHora;
         }
         if (elec !== null && !isNaN(elec)) {
           prevElec = elec;
-          prevElecFecha = r.date || r.data.fecha;
+          prevElecFecha = rFecha;
+          prevElecHora = rHora;
         }
 
         return Object.assign({}, r, { deltaAgua, deltaElec, diasAgua, diasElec });
@@ -3955,8 +3997,10 @@
 
       const aguaTotal = aguaEntries.reduce((a, r) => a + r.deltaAgua, 0);
       const elecTotal = elecEntries.reduce((a, r) => a + r.deltaElec, 0);
-      const aguaDiasTotal = aguaEntries.reduce((a, r) => a + (r.diasAgua || 1), 0);
-      const elecDiasTotal = elecEntries.reduce((a, r) => a + (r.diasElec || 1), 0);
+      const rawAguaDias = aguaEntries.reduce((a, r) => a + ((typeof r.diasAgua === 'number' && r.diasAgua > 0) ? r.diasAgua : 1), 0);
+      const rawElecDias = elecEntries.reduce((a, r) => a + ((typeof r.diasElec === 'number' && r.diasElec > 0) ? r.diasElec : 1), 0);
+      const aguaDiasTotal = Math.round(rawAguaDias * 1000) / 1000;
+      const elecDiasTotal = Math.round(rawElecDias * 1000) / 1000;
 
       return {
         aguaTotal,
@@ -8105,13 +8149,16 @@
       const wRate = (tarifas && tarifas.agua !== null && !isNaN(tarifas.agua)) ? Number(tarifas.agua) : (numeric($('waterRate') ? $('waterRate').value : 0) || 2.15);
       const eRate = (tarifas && tarifas.elec !== null && !isNaN(tarifas.elec)) ? Number(tarifas.elec) : (numeric($('energyRate') ? $('energyRate').value : 0) || 0.185);
 
+      const proratedPoints = getProratedPointsDays(points);
       const totalWater = secStats.aguaDeltaCount ? secStats.aguaTotal : points.reduce((s, p) => s + (p.water || 0), 0);
       const totalEnergy = secStats.elecDeltaCount ? secStats.elecTotal : points.reduce((s, p) => s + (p.energy || 0), 0);
-      const avgWater = secStats.aguaProm !== null ? secStats.aguaProm : (secStats.aguaDiasTotal > 0 ? totalWater / secStats.aguaDiasTotal : (points.length ? totalWater / points.length : 0));
-      const avgEnergy = secStats.elecProm !== null ? secStats.elecProm : (secStats.elecDiasTotal > 0 ? totalEnergy / secStats.elecDiasTotal : (points.length ? totalEnergy / points.length : 0));
+      const avgWater = secStats.aguaProm !== null ? secStats.aguaProm : (secStats.aguaDiasTotal > 0 ? totalWater / secStats.aguaDiasTotal : (proratedPoints > 0 ? totalWater / proratedPoints : 0));
+      const avgEnergy = secStats.elecProm !== null ? secStats.elecProm : (secStats.elecDiasTotal > 0 ? totalEnergy / secStats.elecDiasTotal : (proratedPoints > 0 ? totalEnergy / proratedPoints : 0));
       const totalCost = (totalWater * wRate) + (totalEnergy * eRate);
 
       if (statStrip) {
+        const waterDaysDisp = formatDays(secStats.aguaDiasTotal || proratedPoints);
+        const elecDaysDisp = formatDays(secStats.elecDiasTotal || proratedPoints);
         statStrip.innerHTML = `
           <div class="d3-stat-pill info">
             <span class="p-lbl">💧 Total Água</span>
@@ -8126,12 +8173,12 @@
           <div class="d3-stat-pill water-avg">
             <span class="p-lbl">💧 Média Diária Água</span>
             <span class="p-val">${format(avgWater, 2)} m³/d</span>
-            <span class="p-meta">${secStats.aguaDiasTotal || points.length} dias cobertos</span>
+            <span class="p-meta" title="Prorrateio por hora de recolha">${waterDaysDisp} cobertos</span>
           </div>
           <div class="d3-stat-pill energy-avg">
             <span class="p-lbl">⚡ Média Diária Elec</span>
             <span class="p-val">${format(avgEnergy, 1)} kWh/d</span>
-            <span class="p-meta">${secStats.elecDiasTotal || points.length} dias cobertos</span>
+            <span class="p-meta" title="Prorrateio por hora de recolha">${elecDaysDisp} cobertos</span>
           </div>
           <div class="d3-stat-pill ok">
             <span class="p-lbl">💶 Custo Total Est.</span>
@@ -8148,7 +8195,7 @@
       text('chartNote',
         `Período desta secção: ${periodLabel} (${secDesde} a ${secHasta}). ` +
         (all.length > 60 ? 'Mostradas as últimas 60 datas calculáveis. ' : '') +
-        'Os totais e estimativas monetárias baseiam-se no período visível (' +
+        'Os totais, médias diárias (com prorrateio das horas de recolha matinal) e estimativas baseiam-se no período visível (' +
         (wRate ? 'Tarifa Água: ' + format(wRate, 2) + '€/m³; ' : '') +
         (eRate ? 'Tarifa Elec: ' + format(eRate, 2) + '€/kWh' : '') + '). ' +
         'Passe com o cursor ou toque no gráfico para inspecionar cada dia detalhadamente.'

@@ -4840,12 +4840,12 @@
       const elecV = nz(d.electricidad);
       const dA = (r.deltaAgua!==null && !isNaN(r.deltaAgua)) ? r.deltaAgua.toFixed(2) : '—';
       const dE = (r.deltaElec!==null && !isNaN(r.deltaElec)) ? r.deltaElec.toFixed(2) : '—';
-      const diasA = r.diasAgua || '—';
-      const diasE = r.diasElec || '—';
+      const diasA = (r.diasAgua !== null && !isNaN(r.diasAgua)) ? (Math.abs(r.diasAgua - Math.round(r.diasAgua)) < 0.01 ? Math.round(r.diasAgua) : r.diasAgua.toFixed(2)) : '—';
+      const diasE = (r.diasElec !== null && !isNaN(r.diasElec)) ? (Math.abs(r.diasElec - Math.round(r.diasElec)) < 0.01 ? Math.round(r.diasElec) : r.diasElec.toFixed(2)) : '—';
       html += `<tr${r.isBaseline?' style="color:var(--aqua-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${origen}</td><td>${aguaV}</td><td class="calc">${dA}</td><td>${diasA}</td><td>${elecV}</td><td class="calc">${dE}</td><td>${diasE}</td></tr>`;
     });
     html += `</tbody></table></div>
-    <p style="font-size:11px; color:var(--ink-400); margin-top:8px; font-family:var(--mono)">"Dias" = dias reais entre esta leitura e a anterior — a média distribui o consumo por esses dias.</p>`;
+    <p style="font-size:11px; color:var(--ink-400); margin-top:8px; font-family:var(--mono)">"Dias" = dias reais prorrateados entre esta leitura e a anterior (considerando data e hora exata da recolha) — a média diária distribui o consumo proporcionalmente.</p>`;
     return html;
   }
 
@@ -9178,34 +9178,73 @@
     return result;
   }
 
-  function diffDays(fechaA, fechaB){
+  function diffDays(fechaA, fechaB, horaA, horaB){
     if (!fechaA || !fechaB) return 1;
-    const a = new Date(fechaA+'T00:00:00');
-    const b = new Date(fechaB+'T00:00:00');
-    const ms = b - a;
-    return Math.max(1, Math.round(ms / 86400000));
+    const hA = (horaA && String(horaA).trim()) ? String(horaA).trim() : '08:30';
+    const hB = (horaB && String(horaB).trim()) ? String(horaB).trim() : '08:30';
+    const normA = hA.length === 5 ? hA : hA.padStart(5, '0');
+    const normB = hB.length === 5 ? hB : hB.padStart(5, '0');
+    const dtA = new Date(`${fechaA}T${normA}:00`);
+    const dtB = new Date(`${fechaB}T${normB}:00`);
+
+    if (isNaN(dtA.getTime()) || isNaN(dtB.getTime())) {
+      const a = new Date(fechaA + 'T00:00:00');
+      const b = new Date(fechaB + 'T00:00:00');
+      const diff = (b - a) / 86400000;
+      return Math.max(0.1, isNaN(diff) ? 1 : Math.round(diff * 1000) / 1000);
+    }
+
+    const ms = dtB.getTime() - dtA.getTime();
+    if (ms <= 0) return 0;
+    const days = ms / 86400000;
+    return Math.round(days * 1000) / 1000;
+  }
+
+  function formatDays(days) {
+    if (days === null || days === undefined || isNaN(days) || days <= 0) return '0 dias';
+    const num = Number(days);
+    if (Math.abs(num - Math.round(num)) < 0.01) {
+      const r = Math.round(num);
+      return `${r} dia${r === 1 ? '' : 's'}`;
+    }
+    return `${num.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} dias (prorr.)`;
+  }
+
+  function getProratedDataDays(dataList) {
+    if (!dataList || !dataList.length) return 0;
+    const lastItem = dataList[dataList.length - 1];
+    const today = todayStr();
+    if (lastItem && (lastItem.dateStr === today || (lastItem.date && fmt(lastItem.date) === today))) {
+      const now = new Date();
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+      const dayFraction = Math.max(0.2, Math.min(1.0, currentHour / 24));
+      const fullDays = Math.max(0, dataList.length - 1);
+      return Math.round((fullDays + dayFraction) * 1000) / 1000;
+    }
+    return dataList.length;
   }
 
   function computeDeltas(genRecordsAsc){
-    let prevAgua = null, prevAguaFecha = null;
-    let prevElec = null, prevElecFecha = null;
+    let prevAgua = null, prevAguaFecha = null, prevAguaHora = null;
+    let prevElec = null, prevElecFecha = null, prevElecHora = null;
     return genRecordsAsc.map(r=>{
       const d = r.data || {};
       const agua = extractFieldNumeric(d, WATER_FIELDS);
       const elec = extractFieldNumeric(d, ENERGY_FIELDS);
       const rFecha = r.date || d.fecha || '';
+      const rHora = r.time || d.hora || (r.isBaseline ? '00:00' : '08:30');
 
       let deltaAgua = null, deltaElec = null, diasAgua = null, diasElec = null;
       if(prevAgua !== null && agua !== null && !isNaN(agua)){
         deltaAgua = agua - prevAgua;
-        diasAgua = diffDays(prevAguaFecha, rFecha);
+        diasAgua = diffDays(prevAguaFecha, rFecha, prevAguaHora, rHora);
       }
       if(prevElec !== null && elec !== null && !isNaN(elec)){
         deltaElec = elec - prevElec;
-        diasElec = diffDays(prevElecFecha, rFecha);
+        diasElec = diffDays(prevElecFecha, rFecha, prevElecHora, rHora);
       }
-      if(agua !== null && !isNaN(agua)){ prevAgua = agua; prevAguaFecha = rFecha; }
-      if(elec !== null && !isNaN(elec)){ prevElec = elec; prevElecFecha = rFecha; }
+      if(agua !== null && !isNaN(agua)){ prevAgua = agua; prevAguaFecha = rFecha; prevAguaHora = rHora; }
+      if(elec !== null && !isNaN(elec)){ prevElec = elec; prevElecFecha = rFecha; prevElecHora = rHora; }
       return Object.assign({}, r, { deltaAgua, deltaElec, diasAgua, diasElec });
     });
   }
@@ -9222,8 +9261,10 @@
 
     const aguaTotal = aguaEntries.reduce((a,r)=>a+r.deltaAgua,0);
     const elecTotal = elecEntries.reduce((a,r)=>a+r.deltaElec,0);
-    const aguaDiasTotal = aguaEntries.reduce((a,r)=>a+(r.diasAgua||1),0);
-    const elecDiasTotal = elecEntries.reduce((a,r)=>a+(r.diasElec||1),0);
+    const rawAguaDias = aguaEntries.reduce((a,r)=>a+((typeof r.diasAgua === 'number' && r.diasAgua > 0) ? r.diasAgua : 1),0);
+    const rawElecDias = elecEntries.reduce((a,r)=>a+((typeof r.diasElec === 'number' && r.diasElec > 0) ? r.diasElec : 1),0);
+    const aguaDiasTotal = Math.round(rawAguaDias * 1000) / 1000;
+    const elecDiasTotal = Math.round(rawElecDias * 1000) / 1000;
 
     return {
       aguaTotal,
@@ -9610,8 +9651,8 @@
 
     let html = `<h2 class="report-heading">${periodHeading}</h2>
     <div class="stat-grid">
-      ${statBox('Consumo de água (período)', (aguaPerDiag ? '—' : fmtNum(periodStats.aguaTotal)+' m³') + (aguaPerDiag?'':costTag(periodStats.aguaTotal, tarifasRep.agua)), aguaPerDiag || `média diária: ${fmtNum(periodStats.aguaProm)} m³ · ${periodStats.aguaDiasTotal} dia${periodStats.aguaDiasTotal===1?'':'s'} coberto${periodStats.aguaDiasTotal===1?'':'s'}`)}
-      ${statBox('Consumo de eletricidade (período)', (elecPerDiag ? '—' : fmtNum(periodStats.elecTotal)+' kWh') + (elecPerDiag?'':costTag(periodStats.elecTotal, tarifasRep.elec)), elecPerDiag || `média diária: ${fmtNum(periodStats.elecProm)} kWh · ${periodStats.elecDiasTotal} dia${periodStats.elecDiasTotal===1?'':'s'} coberto${periodStats.elecDiasTotal===1?'':'s'}`, true)}
+      ${statBox('Consumo de água (período)', (aguaPerDiag ? '—' : fmtNum(periodStats.aguaTotal)+' m³') + (aguaPerDiag?'':costTag(periodStats.aguaTotal, tarifasRep.agua)), aguaPerDiag || `média diária: ${fmtNum(periodStats.aguaProm)} m³ · ${formatDays(periodStats.aguaDiasTotal)} coberto${periodStats.aguaDiasTotal===1?'':'s'}`)}
+      ${statBox('Consumo de eletricidade (período)', (elecPerDiag ? '—' : fmtNum(periodStats.elecTotal)+' kWh') + (elecPerDiag?'':costTag(periodStats.elecTotal, tarifasRep.elec)), elecPerDiag || `média diária: ${fmtNum(periodStats.elecProm)} kWh · ${formatDays(periodStats.elecDiasTotal)} coberto${periodStats.elecDiasTotal===1?'':'s'}`, true)}
     </div>`;
 
     if(monthStats && periodoKey === 'semana'){
@@ -9619,8 +9660,8 @@
       const elecMesDiag2 = consumoDiag(monthStats, 'elec');
       html += `<h2 class="report-heading">Consumo — mês em curso (acumulado de referência)</h2>
       <div class="stat-grid">
-        ${statBox('Acumulado de água do mês', (aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag2?'':costTag(monthStats.aguaTotal, tarifasRep.agua)), aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${monthStats.aguaDiasTotal} dia${monthStats.aguaDiasTotal===1?'':'s'} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
-        ${statBox('Acumulado de eletricidade do mês', (elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag2?'':costTag(monthStats.elecTotal, tarifasRep.elec)), elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${monthStats.elecDiasTotal} dia${monthStats.elecDiasTotal===1?'':'s'} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
+        ${statBox('Acumulado de água do mês', (aguaMesDiag2 ? '—' : fmtNum(monthStats.aguaTotal)+' m³') + (aguaMesDiag2?'':costTag(monthStats.aguaTotal, tarifasRep.agua)), aguaMesDiag2 || `média diária: ${fmtNum(monthStats.aguaProm)} m³ · ${formatDays(monthStats.aguaDiasTotal)} coberto${monthStats.aguaDiasTotal===1?'':'s'}`)}
+        ${statBox('Acumulado de eletricidade do mês', (elecMesDiag2 ? '—' : fmtNum(monthStats.elecTotal)+' kWh') + (elecMesDiag2?'':costTag(monthStats.elecTotal, tarifasRep.elec)), elecMesDiag2 || `média diária: ${fmtNum(monthStats.elecProm)} kWh · ${formatDays(monthStats.elecDiasTotal)} coberto${monthStats.elecDiasTotal===1?'':'s'}`, true)}
       </div>`;
     }
 
@@ -10341,13 +10382,14 @@
       data[i].elecMA7 = past7.reduce((sum, item) => sum + item.elec, 0) / past7.length;
     }
 
-    // Totais e Médias
+    // Totais e Médias com Prorrateio para períodos em curso
     const totalAgua = data.reduce((s, d) => s + d.agua, 0);
-    const avgAgua = data.length ? totalAgua / data.length : 0;
+    const totalElec = data.reduce((s, d) => s + d.elec, 0);
+    const proratedDataDays = getProratedDataDays(data);
+    const avgAgua = proratedDataDays > 0 ? totalAgua / proratedDataDays : 0;
     const maxAguaObj = data.reduce((m, d) => d.agua > m.agua ? d : m, { agua: 0, dateStr: '—' });
 
-    const totalElec = data.reduce((s, d) => s + d.elec, 0);
-    const avgElec = data.length ? totalElec / data.length : 0;
+    const avgElec = proratedDataDays > 0 ? totalElec / proratedDataDays : 0;
     const maxElecObj = data.reduce((m, d) => d.elec > m.elec ? d : m, { elec: 0, dateStr: '—' });
 
     const tarifaAgua = (d3CachedTarifas && d3CachedTarifas.agua) || 0;
@@ -10359,7 +10401,7 @@
     // Atualizar texto do subtítulo da secção
     const subTitle = $('d3ConsumoLineSub');
     if(subTitle) {
-      subTitle.textContent = `Variação diária e média móvel (${periodBadge} · ${data.length} dias) calculada por leitura de contadores.`;
+      subTitle.textContent = `Variação diária e média móvel (${periodBadge} · ${formatDays(proratedDataDays)}) calculada por leitura de contadores.`;
     }
 
     // Atualizar pills de resumo
@@ -10375,7 +10417,7 @@
           <div class="d3-summary-pill water">
             <div class="s-lbl">📊 Média Diária</div>
             <div class="s-val">${fmtNum(avgAgua)} m³/dia</div>
-            <div class="s-sub">${periodBadge} · ${data.length}d</div>
+            <div class="s-sub" title="Dias calculados com prorrateio da recolha matinal">${periodBadge} · ${formatDays(proratedDataDays)}</div>
           </div>
           <div class="d3-summary-pill">
             <div class="s-lbl">⛰ Pico Máximo</div>
@@ -10393,7 +10435,7 @@
           <div class="d3-summary-pill elec">
             <div class="s-lbl">📊 Média Diária</div>
             <div class="s-val">${fmtNum(avgElec)} kWh/dia</div>
-            <div class="s-sub">${periodBadge} · ${data.length}d</div>
+            <div class="s-sub" title="Dias calculados com prorrateio da recolha matinal">${periodBadge} · ${formatDays(proratedDataDays)}</div>
           </div>
           <div class="d3-summary-pill">
             <div class="s-lbl">⛰ Pico Máximo</div>
@@ -11900,9 +11942,15 @@
     if(isCurrentMonth){
       const now = new Date();
       const currentDaysElapsed = Math.min(now.getDate(), daysInMonth);
-      daysElapsed = currentDaysElapsed;
-      projectedCost = currentDaysElapsed > 0 ? (costTotal / currentDaysElapsed) * daysInMonth : costTotal;
-      dailyCost = currentDaysElapsed > 0 ? costTotal / currentDaysElapsed : 0;
+      // Prorrateio com base nas horas reais das recolhas ou hora atual
+      const proratedDays = (monthStats.aguaDiasTotal > 0 && monthStats.aguaDiasTotal <= currentDaysElapsed)
+        ? monthStats.aguaDiasTotal
+        : ((monthStats.elecDiasTotal > 0 && monthStats.elecDiasTotal <= currentDaysElapsed)
+          ? monthStats.elecDiasTotal
+          : (currentDaysElapsed - 1 + Math.max(0.2, (now.getHours() + now.getMinutes() / 60) / 24)));
+      daysElapsed = proratedDays;
+      projectedCost = proratedDays > 0 ? (costTotal / proratedDays) * daysInMonth : costTotal;
+      dailyCost = proratedDays > 0 ? costTotal / proratedDays : 0;
     }
 
     const prevAgua = prevMonthStats.aguaDeltaCount ? prevMonthStats.aguaTotal : 0;
@@ -12967,7 +13015,7 @@
         <div class="exec-fin-card">
           <div class="exec-score-header">
             <h3 class="exec-score-title">${d.isCurrentMonth ? 'Cockpit de Custos Energéticos & Projeção Mensal' : 'Custos Energéticos & Consolidado Mensal'}</h3>
-            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${d.isCurrentMonth ? `${d.daysElapsed} de ${d.daysInMonth} dias decorridos` : `${d.daysInMonth} dias (${d.desde} a ${d.hasta})`}</span>
+            <span style="font-family:var(--mono); font-size:11px; color:var(--ink-600);">${d.isCurrentMonth ? `${formatDays(d.daysElapsed)} de ${d.daysInMonth} dias decorridos` : `${d.daysInMonth} dias (${d.desde} a ${d.hasta})`}</span>
           </div>
           <div class="exec-fin-grid">
             <div class="exec-fin-box">
@@ -13674,8 +13722,8 @@
           <div class="stat-grid" style="margin-bottom:10px;">
             ${statBox('Água — hoje', (aguaHoyDiag ? '—' : fmtNum(hoyStats.aguaTotal)+' m³') + (aguaHoyDiag?'':costTag(hoyStats.aguaTotal, tarifasDash.agua)), aguaHoyDiag || `consumo do dia`)}
             ${statBox('Eletricidade — hoje', (elecHoyDiag ? '—' : fmtNum(hoyStats.elecTotal)+' kWh') + (elecHoyDiag?'':costTag(hoyStats.elecTotal, tarifasDash.elec)), elecHoyDiag || `consumo do dia`, true)}
-            ${statBox('Água — acumulado do mês', (aguaMesDiag ? '—' : fmtNum(consumption.aguaTotal)+' m³') + (aguaMesDiag?'':costTag(consumption.aguaTotal, tarifasDash.agua)), (consumption.aguaDeltaCount ? trendBadge(consumption.aguaTotal, prevAgua) : '') + (aguaMesDiag || `média diária: ${fmtNum(consumption.aguaProm)} m³ · ${consumption.aguaDiasTotal} dia${consumption.aguaDiasTotal===1?'':'s'} coberto${consumption.aguaDiasTotal===1?'':'s'}`))}
-            ${statBox('Eletricidade — acumulado do mês', (elecMesDiag ? '—' : fmtNum(consumption.elecTotal)+' kWh') + (elecMesDiag?'':costTag(consumption.elecTotal, tarifasDash.elec)), (consumption.elecDeltaCount ? trendBadge(consumption.elecTotal, prevElec) : '') + (elecMesDiag || `média diária: ${fmtNum(consumption.elecProm)} kWh · ${consumption.elecDiasTotal} dia${consumption.elecDiasTotal===1?'':'s'} coberto${consumption.elecDiasTotal===1?'':'s'}`), true)}
+            ${statBox('Água — acumulado do mês', (aguaMesDiag ? '—' : fmtNum(consumption.aguaTotal)+' m³') + (aguaMesDiag?'':costTag(consumption.aguaTotal, tarifasDash.agua)), (consumption.aguaDeltaCount ? trendBadge(consumption.aguaTotal, prevAgua) : '') + (aguaMesDiag || `média diária: ${fmtNum(consumption.aguaProm)} m³ · ${formatDays(consumption.aguaDiasTotal)} coberto${consumption.aguaDiasTotal===1?'':'s'}`))}
+            ${statBox('Eletricidade — acumulado do mês', (elecMesDiag ? '—' : fmtNum(consumption.elecTotal)+' kWh') + (elecMesDiag?'':costTag(consumption.elecTotal, tarifasDash.elec)), (consumption.elecDeltaCount ? trendBadge(consumption.elecTotal, prevElec) : '') + (elecMesDiag || `média diária: ${fmtNum(consumption.elecProm)} kWh · ${formatDays(consumption.elecDiasTotal)} coberto${consumption.elecDiasTotal===1?'':'s'}`), true)}
           </div>
           <button class="link-edit" id="btnToggleConsumoDetail" type="button" style="margin-top:4px;">Ver detalhe do cálculo</button>
           <div id="consumoDetailTable" style="display:none; margin-top:10px;">${renderConsumoDetailTableHtml(generalDeltas)}</div>
