@@ -3122,9 +3122,9 @@
       <div class="inline">
         <label for="refreshInterval"><strong>Atualização local</strong></label>
         <select id="refreshInterval">
-          <option value="0">Manual</option>
+          <option value="0" selected>Manual</option>
           <option value="15">15 segundos</option>
-          <option value="30" selected>30 segundos</option>
+          <option value="30">30 segundos</option>
           <option value="60">1 minuto</option>
         </select>
       </div>
@@ -4618,7 +4618,19 @@
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return new Set(parsed.map(String));
+        if (Array.isArray(parsed)) {
+          const set = new Set();
+          parsed.forEach(id => {
+            if (id !== undefined && id !== null) {
+              const s = String(id).trim();
+              if (s) {
+                set.add(s);
+                set.add(s.toLowerCase());
+              }
+            }
+          });
+          return set;
+        }
       }
     } catch(e) {}
     return new Set();
@@ -4626,16 +4638,19 @@
 
   function markTicketAsDeletedIndicadores(id) {
     if (!id) return;
-    const strId = String(id);
+    const strId = String(id).trim();
+    if (!strId) return;
     const set = getDeletedTicketIdsIndicadores();
     set.add(strId);
+    set.add(strId.toLowerCase());
     try {
       localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(Array.from(set)));
     } catch(e) {}
     try {
       const map = getUpdatedTicketsMapIndicadores();
-      if (map[strId]) {
+      if (map[strId] || map[strId.toLowerCase()]) {
         delete map[strId];
+        delete map[strId.toLowerCase()];
         localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
       }
     } catch(e) {}
@@ -4643,7 +4658,9 @@
 
   function isTicketDeletedIndicadores(id) {
     if (!id) return false;
-    return getDeletedTicketIdsIndicadores().has(String(id));
+    const strId = String(id).trim();
+    const deleted = getDeletedTicketIdsIndicadores();
+    return deleted.has(strId) || deleted.has(strId.toLowerCase());
   }
 
   function getUpdatedTicketsMapIndicadores() {
@@ -4659,8 +4676,9 @@
 
   function recordTicketUpdateIndicadores(ticket) {
     if (!ticket || !ticket.id) return;
+    const strId = String(ticket.id).trim();
     const map = getUpdatedTicketsMapIndicadores();
-    map[String(ticket.id)] = { ...ticket, _updatedAt: Date.now() };
+    map[strId] = { ...ticket, _updatedAt: Date.now() };
     try {
       localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
     } catch(e) {}
@@ -4669,17 +4687,35 @@
   function isStrategicTicket(t) {
     if (!t || !t.id) return false;
     if (isTicketDeletedIndicadores(t.id)) return false;
+
+    // 1. Tipo explícito Estratégico
     const tipo = String(t.tipo || '').trim().toLowerCase();
     if (tipo === 'estratégico' || tipo === 'estrategico') return true;
-    if (tipo === 'corretivo' || tipo === 'preventivo' || tipo === 'melhoria') return false;
-    const cat = String(t.categoria || '').toLowerCase();
-    const prio = String(t.prioridade || '').toLowerCase();
+
+    // 2. Presente no repositório de tickets estratégicos salvos
+    const strId = String(t.id).trim();
+    try {
+      const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim() === strId)) {
+          return true;
+        }
+      }
+    } catch(e) {}
+
+    // 3. Marcadores no texto, prioridade ou categoria
     const desc = String(t.descricao || '').toLowerCase();
     const obs = String(t.observacao || '').toLowerCase();
-    return prio.includes('estrat') ||
-           cat.includes('estrat') ||
-           desc.includes('[estrat') || desc.includes('⭐') ||
-           obs.includes('[estrat');
+    const prio = String(t.prioridade || '').toLowerCase();
+    const cat = String(t.categoria || '').toLowerCase();
+
+    if (desc.includes('[estrat') || desc.includes('⭐') || desc.includes('[estrategico]')) return true;
+    if (obs.includes('[estrat') || obs.includes('[estrategico]')) return true;
+    if (prio.includes('estrat')) return true;
+    if (cat.includes('estrat')) return true;
+
+    return false;
   }
 
   function getDefaultStrategicTickets() {
@@ -4732,7 +4768,7 @@
         comentarioCierre: 'Variadores instalados e parametrizados. Economia de 18.2% validada em carga operacional.'
       }
     ];
-    return all.filter(t => !deleted.has(String(t.id)));
+    return all.filter(t => !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
   }
 
   function getSavedStrategicTicketsIndicadores() {
@@ -4742,10 +4778,12 @@
       if (raw !== null) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
+          return parsed.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
         }
       }
     } catch(e) {}
+    // Se o utilizador já realizou exclusões, NUNCA ressuscitar tickets padrão
+    if (deleted.size > 0) return [];
     const defaults = getDefaultStrategicTickets();
     try {
       localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(defaults));
@@ -4755,11 +4793,106 @@
 
   function saveStrategicTicketsIndicadores(strats) {
     const deleted = getDeletedTicketIdsIndicadores();
-    const cleanStrats = (strats || []).filter(t => t && t.id && !deleted.has(String(t.id)));
+    const cleanStrats = (strats || []).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
     try {
       localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(cleanStrats));
       window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: cleanStrats } }));
     } catch(e) {}
+  }
+
+  function persistTicketInAllTicketsKeyIndicadores(ticket) {
+    if (!ticket || !ticket.id) return;
+    const strId = String(ticket.id).trim();
+    if (isTicketDeletedIndicadores(strId)) return;
+    try {
+      let list = [];
+      const raw = localStorage.getItem(ALL_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          list = parsed.filter(t => t && t.id && !isTicketDeletedIndicadores(t.id));
+        }
+      }
+      const idx = list.findIndex(t => String(t.id).trim() === strId);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...ticket };
+      } else {
+        list.unshift({ ...ticket });
+      }
+      localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(list));
+    } catch(e) {}
+  }
+
+  function getConsolidatedTicketsIndicadores() {
+    const deleted = getDeletedTicketIdsIndicadores();
+    const updatedMap = getUpdatedTicketsMapIndicadores();
+    const map = new Map();
+
+    // 1. Tickets estratégicos persistidos
+    try {
+      const savedStrats = getSavedStrategicTicketsIndicadores();
+      (savedStrats || []).forEach(st => {
+        if (st && st.id) {
+          const id = String(st.id).trim();
+          if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+            map.set(id, { ...st, tipo: 'Estratégico' });
+          }
+        }
+      });
+    } catch(e) {}
+
+    // 2. Todos os tickets do repositório local
+    try {
+      const raw = localStorage.getItem(ALL_TICKETS_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          arr.forEach(t => {
+            if (t && t.id) {
+              const id = String(t.id).trim();
+              if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+                if (map.has(id)) {
+                  map.set(id, { ...map.get(id), ...t });
+                } else {
+                  map.set(id, { ...t });
+                }
+              }
+            }
+          });
+        }
+      }
+    } catch(e) {}
+
+    // 3. Cache em memória se disponível
+    if (cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores)) {
+      cachedTicketsIndicadores.forEach(t => {
+        if (t && t.id) {
+          const id = String(t.id).trim();
+          if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+            if (map.has(id)) {
+              map.set(id, { ...map.get(id), ...t });
+            } else {
+              map.set(id, { ...t });
+            }
+          }
+        }
+      });
+    }
+
+    // 4. Sobreposição de atualizações locais com máxima prioridade
+    Object.keys(updatedMap).forEach(uid => {
+      const cleanUid = String(uid).trim();
+      if (!deleted.has(cleanUid) && !deleted.has(cleanUid.toLowerCase())) {
+        const upd = updatedMap[uid];
+        if (map.has(cleanUid)) {
+          map.set(cleanUid, { ...map.get(cleanUid), ...upd });
+        } else if (upd && isStrategicTicket(upd)) {
+          map.set(cleanUid, { ...upd });
+        }
+      }
+    });
+
+    return Array.from(map.values()).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
   }
 
   async function loadTicketsIndicadores(forceFresh) {
@@ -4772,43 +4905,13 @@
 
   async function _execLoadTicketsIndicadores(forceFresh) {
     const now = Date.now();
-    if (!forceFresh && cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores) && cachedTicketsIndicadores.length > 0 && (now - cachedTicketsIndicadoresTimestamp) < 30000) {
-      return cachedTicketsIndicadores;
-    }
-
     const deleted = getDeletedTicketIdsIndicadores();
-    const updatedMap = getUpdatedTicketsMapIndicadores();
-    let savedStrat = getSavedStrategicTicketsIndicadores().filter(t => !deleted.has(String(t.id)));
 
-    let localTickets = [];
-
-    // 1. Tentar ler do localStorage compartilhado com index.html
-    try {
-      const localStr = localStorage.getItem(ALL_TICKETS_KEY);
-      if (localStr) {
-        const parsed = JSON.parse(localStr);
-        if (Array.isArray(parsed)) {
-          localTickets = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
-        }
-      }
-    } catch(e) {}
-
-    // Semente imediata em memória se cachedTicketsIndicadores estiver vazio (evita piscar)
-    if (!cachedTicketsIndicadores || cachedTicketsIndicadores.length === 0) {
-      const tempMap = new Map();
-      localTickets.forEach(t => tempMap.set(String(t.id), { ...t }));
-      savedStrat.forEach(t => tempMap.set(String(t.id), { ...t, tipo: 'Estratégico' }));
-      Object.keys(updatedMap).forEach(uid => {
-        if (!deleted.has(uid)) {
-          const prev = tempMap.get(uid) || {};
-          tempMap.set(uid, { ...prev, ...updatedMap[uid] });
-        }
-      });
-      cachedTicketsIndicadores = Array.from(tempMap.values()).filter(t => !deleted.has(String(t.id)));
-      cachedTicketsIndicadoresTimestamp = now;
+    if (!forceFresh && cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores) && cachedTicketsIndicadores.length > 0 && (now - cachedTicketsIndicadoresTimestamp) < 30000) {
+      return cachedTicketsIndicadores.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
     }
 
-    // 2. Tentar API remota se solicitado ou se a cache expirou
+    // 1. Tentar API remota se solicitado ou se a cache expirou
     let remoteTickets = null;
     if ((forceFresh || (now - cachedTicketsIndicadoresTimestamp >= 30000)) && typeof API_URL !== 'undefined' && API_URL) {
       try {
@@ -4817,67 +4920,37 @@
         const res = await safeFetch(url.toString());
         const data = await safeParseJsonResponse(res);
         if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-          remoteTickets = data.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
+          remoteTickets = data.tickets.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
         }
       } catch(e) {}
     }
 
-    // 3. Mesclagem resiliente: Remoto -> Local -> Estratégicos -> Atualizações explícitas
+    // 2. Consolidar tickets locais
+    const consolidated = getConsolidatedTicketsIndicadores();
     const ticketMap = new Map();
 
-    // A. Remoto
     if (remoteTickets && remoteTickets.length > 0) {
       remoteTickets.forEach(t => {
-        if (t && t.id && !deleted.has(String(t.id))) {
-          ticketMap.set(String(t.id), { ...t });
+        if (t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase())) {
+          ticketMap.set(String(t.id).trim(), { ...t });
         }
       });
     }
 
-    // B. Preservar itens locais (criados ou editados no dispositivo)
-    localTickets.forEach(lt => {
-      if (!lt || !lt.id) return;
-      const id = String(lt.id);
-      if (deleted.has(id)) return;
-      if (!ticketMap.has(id)) {
-        ticketMap.set(id, { ...lt });
-      } else {
-        const remoteItem = ticketMap.get(id);
-        ticketMap.set(id, { ...remoteItem, ...lt });
-      }
-    });
-
-    // C. Inserir/atualizar com tickets estratégicos (garantindo tipo Estratégico)
-    (savedStrat || []).forEach(st => {
-      if (st && st.id && !deleted.has(String(st.id))) {
-        const prev = ticketMap.get(String(st.id)) || {};
-        ticketMap.set(String(st.id), { ...prev, ...st, tipo: 'Estratégico' });
-      }
-    });
-
-    // D. Aplicar sobreposições de atualizações locais (máxima prioridade)
-    Object.keys(updatedMap).forEach(uid => {
-      if (deleted.has(uid)) return;
-      const upd = updatedMap[uid];
-      if (ticketMap.has(uid)) {
-        ticketMap.set(uid, { ...ticketMap.get(uid), ...upd });
-      } else {
-        ticketMap.set(uid, { ...upd });
-      }
-    });
-
-    const merged = Array.from(ticketMap.values()).filter(t => !deleted.has(String(t.id)));
-    if (merged.length > 0) {
-      cachedTicketsIndicadores = merged;
-      cachedTicketsIndicadoresTimestamp = Date.now();
-      try {
-        const currentRaw = localStorage.getItem(ALL_TICKETS_KEY);
-        const newRaw = JSON.stringify(merged);
-        if (currentRaw !== newRaw) {
-          localStorage.setItem(ALL_TICKETS_KEY, newRaw);
+    consolidated.forEach(t => {
+      if (t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase())) {
+        const id = String(t.id).trim();
+        if (ticketMap.has(id)) {
+          ticketMap.set(id, { ...ticketMap.get(id), ...t });
+        } else {
+          ticketMap.set(id, { ...t });
         }
-      } catch(e){}
-    }
+      }
+    });
+
+    const merged = Array.from(ticketMap.values()).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+    cachedTicketsIndicadores = merged;
+    cachedTicketsIndicadoresTimestamp = Date.now();
 
     return cachedTicketsIndicadores;
   }
@@ -5095,23 +5168,26 @@
   }
 
   async function deleteTicketFromIndicadores(ticketId) {
-    const strId = String(ticketId);
+    if (!ticketId) return;
+    const strId = String(ticketId).trim();
     markTicketAsDeletedIndicadores(strId);
 
     // 1. Remover de STRATEGIC_TICKETS_KEY
-    const strats = getSavedStrategicTicketsIndicadores().filter(s => String(s.id) !== strId);
+    const strats = getSavedStrategicTicketsIndicadores().filter(s => s && String(s.id).trim() !== strId && String(s.id).trim().toLowerCase() !== strId.toLowerCase());
     saveStrategicTicketsIndicadores(strats);
 
-    // 2. Remover de cachedTicketsIndicadores e ALL_TICKETS_KEY
+    // 2. Remover de cachedTicketsIndicadores
     if (cachedTicketsIndicadores) {
-      cachedTicketsIndicadores = cachedTicketsIndicadores.filter(t => String(t.id) !== strId);
+      cachedTicketsIndicadores = cachedTicketsIndicadores.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
     }
+
+    // 3. Remover de ALL_TICKETS_KEY
     try {
       const raw = localStorage.getItem(ALL_TICKETS_KEY);
       if (raw) {
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
-          const filtered = arr.filter(t => String(t.id) !== strId);
+          const filtered = arr.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
           localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
         }
       }
@@ -5247,7 +5323,7 @@
 
       // 1. Atualizar tickets estratégicos em STRATEGIC_TICKETS_KEY
       const strats = getSavedStrategicTicketsIndicadores() || [];
-      const sIdx = strats.findIndex(s => String(s.id) === String(ticket.id));
+      const sIdx = strats.findIndex(s => s && String(s.id).trim() === String(ticket.id).trim());
       if (isStrategicTicket(ticket)) {
         if (sIdx >= 0) {
           strats[sIdx] = { ...strats[sIdx], ...ticket };
@@ -5262,17 +5338,18 @@
       // 2. Atualizar mapa de atualizações locais
       recordTicketUpdateIndicadores(ticket);
 
-      // 3. Atualizar modelo de todos os tickets em ALL_TICKETS_KEY
-      if (!cachedTicketsIndicadores) cachedTicketsIndicadores = [];
-      const cIdx = cachedTicketsIndicadores.findIndex(t => String(t.id) === String(ticket.id));
-      if (cIdx >= 0) {
-        cachedTicketsIndicadores[cIdx] = { ...cachedTicketsIndicadores[cIdx], ...ticket };
-      } else {
-        cachedTicketsIndicadores.unshift({ ...ticket });
+      // 3. Atualizar em ALL_TICKETS_KEY de forma segura (sem apagar outros tickets)
+      persistTicketInAllTicketsKeyIndicadores(ticket);
+
+      // 4. Atualizar cache em memória
+      if (cachedTicketsIndicadores) {
+        const cIdx = cachedTicketsIndicadores.findIndex(t => t && String(t.id).trim() === String(ticket.id).trim());
+        if (cIdx >= 0) {
+          cachedTicketsIndicadores[cIdx] = { ...cachedTicketsIndicadores[cIdx], ...ticket };
+        } else {
+          cachedTicketsIndicadores.unshift({ ...ticket });
+        }
       }
-      try {
-        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsIndicadores));
-      } catch(e) {}
 
       closeModal();
       updateStrategicBoardIndicadores();
@@ -5415,13 +5492,13 @@
       strats.unshift(newTicket);
       saveStrategicTicketsIndicadores(strats);
 
-      // 2. Persistir em ALL_TICKETS_KEY e registrar atualização
-      if (!cachedTicketsIndicadores) cachedTicketsIndicadores = [];
-      cachedTicketsIndicadores.unshift(newTicket);
-      try {
-        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsIndicadores));
-      } catch(e) {}
+      // 2. Persistir em ALL_TICKETS_KEY de forma segura e registrar atualização
+      persistTicketInAllTicketsKeyIndicadores(newTicket);
       recordTicketUpdateIndicadores(newTicket);
+
+      if (cachedTicketsIndicadores) {
+        cachedTicketsIndicadores.unshift(newTicket);
+      }
 
       closeModal();
       updateStrategicBoardIndicadores();
@@ -5450,7 +5527,7 @@
       const wrap = $('execStrategicBoardWrap');
       if (!wrap) return;
 
-      const tickets = (cachedTicketsIndicadores && cachedTicketsIndicadores.length > 0) ? cachedTicketsIndicadores : await loadTicketsIndicadores();
+      const tickets = getConsolidatedTicketsIndicadores();
       wrap.innerHTML = renderStrategicBoardIndicadoresHTML(tickets, currentStratFilterIndicadores);
       wireStrategicBoardIndicadoresEvents(wrap, tickets);
     } finally {
@@ -5467,26 +5544,11 @@
     }, 50);
   });
   window.addEventListener('storage', (e) => {
-    if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY) {
+    if (e && (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY)) {
       clearTimeout(stratDebounceTimerIndicadores);
       stratDebounceTimerIndicadores = setTimeout(() => {
-        try {
-          const raw = localStorage.getItem(ALL_TICKETS_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const deleted = getDeletedTicketIdsIndicadores();
-              cachedTicketsIndicadores = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
-              cachedTicketsIndicadoresTimestamp = Date.now();
-            }
-          }
-        } catch(err){}
-        const wrap = $('execStrategicBoardWrap');
-        if (wrap && cachedTicketsIndicadores) {
-          wrap.innerHTML = renderStrategicBoardIndicadoresHTML(cachedTicketsIndicadores, currentStratFilterIndicadores);
-          wireStrategicBoardIndicadoresEvents(wrap, cachedTicketsIndicadores);
-        }
-      }, 300);
+        updateStrategicBoardIndicadores().catch(()=>{});
+      }, 150);
     }
   });
 
@@ -6469,7 +6531,18 @@
     // Refrigeração / Cadeia de Frio · Grelha Visual e Matriz por Localização
     // =========================================================================
     const DEFAULT_HOTEL_EQUIPAMENTOS = [
+      // --- Aires Acondicionados (Climatização / Todas as Áreas) ---
       { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 1, isRange: false },
+      { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 1, isRange: false },
+      { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1, isRange: false },
+      { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 1, isRange: false },
+      { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 1, isRange: false },
+      { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 1, isRange: false },
+      { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 1, isRange: false },
+      { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 1, isRange: false },
+      { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 1, isRange: false },
+
+      // --- Refrigeração / Congelação HACCP ---
       { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
       { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1 },
       { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1 },
@@ -6484,51 +6557,166 @@
     let equipViewMode = 'grid'; // 'grid' | 'list'
     let currentEquipFilteredList = [];
 
+    function mergeAndPersistEquipamentosInIndicadores(serverEquips) {
+      if (!Array.isArray(serverEquips) || !serverEquips.length) return;
+      let deletedIds = new Set();
+      try {
+        const rawDel = localStorage.getItem('bitacora_deleted_equipamentos');
+        if (rawDel) {
+          const parsed = JSON.parse(rawDel);
+          if (Array.isArray(parsed)) deletedIds = new Set(parsed.map(x => String(x).toLowerCase().trim()));
+        }
+      } catch (e) {}
+
+      const equipMap = new Map();
+      const addOrUpdate = (eq, isHighPriority = false) => {
+        if (!eq || typeof eq !== 'object') return;
+        const rawId = String(eq.id || eq.ref || eq.nome || '').trim();
+        if (!rawId) return;
+        const normId = rawId.toLowerCase();
+        if (deletedIds.has(normId)) return;
+
+        const existing = equipMap.get(normId);
+        if (!existing) {
+          equipMap.set(normId, Object.assign({}, eq));
+        } else if (isHighPriority) {
+          if (eq.nome) existing.nome = eq.nome;
+          if (eq.tipo) existing.tipo = eq.tipo;
+          if (eq.ubicacao) existing.ubicacao = eq.ubicacao;
+          if (eq.min !== undefined) existing.min = eq.min;
+          if (eq.max !== undefined) existing.max = eq.max;
+          if (eq.ativo !== undefined) existing.ativo = eq.ativo;
+        }
+      };
+
+      DEFAULT_HOTEL_EQUIPAMENTOS.forEach(eq => addOrUpdate(eq, false));
+      serverEquips.forEach(eq => addOrUpdate(eq, false));
+      try {
+        const rawSaved = localStorage.getItem('bitacora_equipamentos');
+        if (rawSaved) {
+          const parsed = JSON.parse(rawSaved);
+          if (Array.isArray(parsed)) parsed.forEach(eq => addOrUpdate(eq, true));
+        }
+      } catch (e) {}
+      try {
+        const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+        if (rawCustom) {
+          const parsed = JSON.parse(rawCustom);
+          if (Array.isArray(parsed)) parsed.forEach(eq => addOrUpdate(eq, true));
+        }
+      } catch (e) {}
+
+      const merged = Array.from(equipMap.values());
+      try {
+        localStorage.setItem('bitacora_equipamentos', JSON.stringify(merged));
+      } catch (e) {}
+      return merged;
+    }
+
     function getHotelEquipamentos() {
-      let list = [];
+      let deletedIds = new Set();
+      try {
+        const rawDel = localStorage.getItem('bitacora_deleted_equipamentos');
+        if (rawDel) {
+          const parsed = JSON.parse(rawDel);
+          if (Array.isArray(parsed)) deletedIds = new Set(parsed.map(x => String(x).toLowerCase().trim()));
+        }
+      } catch (e) {}
+
+      const listById = new Map();
+
+      // 1. Injeta padrões do hotel (todos os 9 ACs e 9 frigoríficos/congeladores/vinheiras)
+      DEFAULT_HOTEL_EQUIPAMENTOS.forEach(eq => {
+        const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
+        if (idKey && !deletedIds.has(idKey.toLowerCase())) {
+          listById.set(idKey, { ...eq });
+        }
+      });
+
+      // 2. Carrega lista de bitacora_equipamentos em localStorage
       try {
         const raw = localStorage.getItem('bitacora_equipamentos');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            list = parsed.map(e => ({ ...e }));
+          if (Array.isArray(parsed)) {
+            parsed.forEach(eq => {
+              const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
+              if (idKey && !deletedIds.has(idKey.toLowerCase())) {
+                const existing = listById.get(idKey);
+                if (existing) {
+                  listById.set(idKey, { ...existing, ...eq });
+                } else {
+                  listById.set(idKey, { ...eq });
+                }
+              }
+            });
           }
         }
       } catch (e) {}
 
-      if (!list.length) {
-        list = DEFAULT_HOTEL_EQUIPAMENTOS.map(e => ({ ...e }));
-      }
+      // 3. Carrega equipamentos customizados em bitacora_custom_equipamentos (prioridade)
+      try {
+        const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+        if (rawCustom) {
+          const parsed = JSON.parse(rawCustom);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(eq => {
+              const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
+              if (idKey && !deletedIds.has(idKey.toLowerCase())) {
+                const existing = listById.get(idKey);
+                if (existing) {
+                  listById.set(idKey, { ...existing, ...eq });
+                } else {
+                  listById.set(idKey, { ...eq });
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {}
 
-      // 1. Carrega apelidos/nomes personalizados configurados pelo utilizador
+      // 4. Resgata equipamentos pendentes na fila de sincronização
+      try {
+        const rawQueue = localStorage.getItem('bitacora_sync_queue');
+        if (rawQueue) {
+          const parsedQueue = JSON.parse(rawQueue);
+          if (Array.isArray(parsedQueue)) {
+            parsedQueue.forEach(item => {
+              if (item && (item.type === 'equipamento' || item.action === 'saveEquipamento') && item.payload && item.payload.data) {
+                const eq = item.payload.data;
+                const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
+                if (idKey && !deletedIds.has(idKey.toLowerCase())) {
+                  const existing = listById.get(idKey);
+                  if (existing) listById.set(idKey, { ...existing, ...eq });
+                  else listById.set(idKey, { ...eq });
+                }
+              }
+            });
+          }
+        }
+      } catch (e) {}
+
+      // 5. Apelidos/nomes personalizados configurados pelo utilizador
       let aliases = {};
       try {
         const rawAliases = localStorage.getItem('bitacora_equip_aliases');
         if (rawAliases) aliases = JSON.parse(rawAliases) || {};
       } catch (e) {}
 
-      // 2. Mapa para indexação rápida por ID normalizado
-      const listById = new Map();
-      list.forEach(eq => {
-        const idKey = String(eq.id || eq.nome || '').trim().toUpperCase();
-        if (idKey) listById.set(idKey, eq);
-      });
-
-      // 3. Descobre novos equipamentos e resgata nomes descritivos a partir dos registos históricos
+      // 6. Descobre novos equipamentos e resgata nomes descritivos a partir dos registos históricos
       const allTemp = (records && records.temperatura) ? records.temperatura : [];
       allTemp.forEach(r => {
         const d = r && r.data ? r.data : {};
         const rawId = String(d.equipamentoId || d.nome || d.equipo || d.equipamento || '').trim();
-        if (!rawId) return;
+        if (!rawId || deletedIds.has(rawId.toLowerCase())) return;
 
         const candidateName = String(d.nome || d.equipo || d.equipamento || '').trim();
         const hasDescriptiveName = candidateName && !isReferenceCode(candidateName);
         const loc = String(d.ubicacao || d.ubicacion || '').trim();
-        const tipo = String(d.tipo || (rawId.toUpperCase().startsWith('CON') ? 'Congelador' : (rawId.toUpperCase().startsWith('VIH') ? 'Vinhera' : 'Frigorifico')));
+        const tipo = String(d.tipo || (rawId.toUpperCase().startsWith('CON') ? 'Congelador' : (rawId.toUpperCase().startsWith('VIH') ? 'Vinhera' : (rawId.toUpperCase().startsWith('AC') ? 'Ar Condicionado' : 'Frigorifico'))));
 
         const existing = listById.get(rawId.toUpperCase());
         if (existing) {
-          // Se o equipamento existente tem um nome que é apenas referência, e o registo traz um nome descritivo real:
           if (hasDescriptiveName && isReferenceCode(existing.nome)) {
             existing.nome = candidateName;
           }
@@ -6537,7 +6725,6 @@
           }
           if (!existing.tipo && tipo) existing.tipo = tipo;
         } else {
-          // Novo equipamento descoberto a partir de registos históricos
           const isCong = tipo.toLowerCase().includes('congelador');
           const isVin = tipo.toLowerCase().includes('vin');
           const isAC = tipo.toLowerCase().includes('ar condicionado') || tipo.toLowerCase().includes('aire acondicionado') || tipo.toLowerCase().includes('climat') || tipo.toLowerCase().includes('hvac') || tipo.toLowerCase().includes('ac');
@@ -6555,12 +6742,13 @@
             ativo: 1,
             isRange: isVin
           };
-          list.push(newEq);
           listById.set(rawId.toUpperCase(), newEq);
         }
       });
 
-      // 4. Normalização de Localizações (ex: Show Cocking -> Show Cooking)
+      let list = Array.from(listById.values());
+
+      // 7. Normalização de Localizações (ex: Show Cocking -> Show Cooking)
       list.forEach(eq => {
         if (eq.ubicacao && eq.ubicacao.trim().toLowerCase() === 'show cocking') {
           eq.ubicacao = 'Show Cooking';
@@ -6569,8 +6757,7 @@
         if (!eq.refShort) eq.refShort = formatRefShort(eq.id);
       });
 
-      // 5. Resolução Inteligente para equipamentos que ainda tenham apenas Referência Técnica no nome
-      // Agrupa equipamentos com nome de referência por Localização + Tipo para atribuição de nomes limpos e consistentes
+      // 8. Resolução para equipamentos que ainda tenham apenas Referência Técnica no nome
       const refEquipsByGroup = new Map();
       list.forEach(eq => {
         if (isReferenceCode(eq.nome)) {
@@ -6584,7 +6771,6 @@
 
       refEquipsByGroup.forEach((groupEquips, groupKey) => {
         const [loc, tipo] = groupKey.split(':::');
-        // Ordena de forma estável (por ID/timestamp)
         groupEquips.sort((a, b) => String(a.id).localeCompare(String(b.id)));
         const total = groupEquips.length;
 
@@ -6603,7 +6789,7 @@
         });
       });
 
-      // 6. Aplica aliases/nomes personalizados configurados pelo utilizador (têm prioridade absoluta)
+      // 9. Aplica aliases/nomes personalizados configurados pelo utilizador (têm prioridade absoluta)
       list.forEach(eq => {
         if (aliases[eq.id] && aliases[eq.id].trim()) {
           eq.nome = aliases[eq.id].trim();
@@ -6611,7 +6797,7 @@
         }
       });
 
-      return list.filter(e => String(e.ativo) !== '0' && String(e.ativo).toLowerCase() !== 'false');
+      return list.filter(e => String(e.ativo) !== '0' && String(e.ativo).toLowerCase() !== 'false' && String(e.ativo).toLowerCase() !== 'não' && String(e.ativo).toLowerCase() !== 'no');
     }
 
     function parseTempReadingVal(tempStr, eq) {
@@ -9708,7 +9894,7 @@
               localStorage.setItem('bitacora_baselines', JSON.stringify(bLines));
             }
             if (data.equipamentos && Array.isArray(data.equipamentos) && data.equipamentos.length > 0) {
-              localStorage.setItem('bitacora_equipamentos', JSON.stringify(data.equipamentos));
+              mergeAndPersistEquipamentosInIndicadores(data.equipamentos);
             }
           } catch(e) {}
 
@@ -9746,16 +9932,6 @@
         }
       }
     }
-
-    // Escuta ativa de alterações em tempo real no localStorage e ao voltar ao separador
-    window.addEventListener('storage', (e) => {
-      if (!e || !e.key || e.key === 'bitacora_store' || e.key === 'bitacora_sync_queue' || e.key === 'bitacora_equipamentos') {
-        load();
-      }
-    });
-    window.addEventListener('focus', () => {
-      load();
-    });
 
     const addClick = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
     const addChange = (id, fn) => { const el = $(id); if (el) el.addEventListener('change', fn); };
@@ -9917,16 +10093,25 @@
       text('themeButton', dark ? 'Modo claro' : 'Modo noturno');
     });
 
+    let kpiStorageTimer = null;
     window.addEventListener('storage', event => {
-      if (event && (event.key === 'bitacora_store' || event.key === 'bitacora_tarifas' || event.key === 'bitacora_baselines')) {
-        loadTariffsOnce();
-        load();
+      if (event && (event.key === 'bitacora_store' || event.key === 'bitacora_tarifas' || event.key === 'bitacora_baselines' || event.key === 'bitacora_equipamentos')) {
+        clearTimeout(kpiStorageTimer);
+        kpiStorageTimer = setTimeout(() => {
+          loadTariffsOnce();
+          load();
+        }, 400);
       }
     });
 
+    let lastFocusTime = 0;
     window.addEventListener('focus', () => {
-      load();
-      updateStrategicBoardIndicadores().catch(()=>{});
+      const now = Date.now();
+      if (now - lastFocusTime > 30000) {
+        lastFocusTime = now;
+        load();
+        updateStrategicBoardIndicadores().catch(()=>{});
+      }
     });
 
     // Initial theme restoration

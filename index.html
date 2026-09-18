@@ -3601,9 +3601,8 @@
             persistStore();
           }
           if (Array.isArray(r.equipamentos) && r.equipamentos.length > 0) {
-            equipamentos = r.equipamentos;
+            equipamentos = mergeAndPersistEquipamentos(r.equipamentos);
             equipamentosLoadedAt = Date.now();
-            try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(r.equipamentos)); } catch(e) {}
           }
           refreshChips();
           refreshConsumoResumen();
@@ -4198,70 +4197,184 @@
     configSnapshotLoadedAt = 0;
   }
 
+  // =========================================================================
+  // Equipamentos de Climatização e Refrigeração (Base Hotel MS Funchal)
+  // =========================================================================
+  const DEFAULT_HOTEL_EQUIPAMENTOS = [
+    // --- Aires Acondicionados (Climatização / Todas as Áreas) ---
+    { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false },
+    { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 'Sim', isRange: false },
+    { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', isRange: false },
+    { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: false },
+    { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: false },
+    { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false },
+    { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', isRange: false },
+    { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 'Sim', isRange: false },
+    { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 'Sim', isRange: false },
+
+    // --- Refrigeração / Congelação HACCP ---
+    { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
+    { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
+    { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim' },
+    { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true },
+    { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 'Sim' },
+    { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true },
+    { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
+    { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
+    { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' }
+  ];
+
+  function mergeAndPersistEquipamentos(incomingServerList){
+    let deletedIds = new Set();
+    try {
+      const rawDel = localStorage.getItem('bitacora_deleted_equipamentos');
+      if(rawDel){
+        const parsed = JSON.parse(rawDel);
+        if(Array.isArray(parsed)) deletedIds = new Set(parsed.map(x => String(x).toLowerCase().trim()));
+      }
+    } catch(e){}
+
+    const equipMap = new Map();
+
+    const addOrUpdate = (eq, isHighPriority = false) => {
+      if(!eq || typeof eq !== 'object') return;
+      const rawId = String(eq.id || eq.ref || eq.nome || '').trim();
+      if(!rawId) return;
+      const normId = rawId.toLowerCase();
+      if(deletedIds.has(normId)) return;
+
+      const existing = equipMap.get(normId);
+      if(!existing){
+        equipMap.set(normId, Object.assign({}, eq, {
+          id: eq.id || rawId,
+          ref: eq.ref || eq.id || rawId,
+          nome: eq.nome || rawId,
+          tipo: eq.tipo || 'Frigorifico',
+          ubicacao: eq.ubicacao || 'Outras Localizações',
+          min: eq.min !== undefined ? eq.min : (isAireAcondicionado(eq) ? 16 : 0),
+          max: eq.max !== undefined ? eq.max : (isAireAcondicionado(eq) ? 28 : 8),
+          ativo: eq.ativo !== undefined ? eq.ativo : 'Sim'
+        }));
+      } else if(isHighPriority){
+        if(eq.nome) existing.nome = eq.nome;
+        if(eq.tipo) existing.tipo = eq.tipo;
+        if(eq.ubicacao) existing.ubicacao = eq.ubicacao;
+        if(eq.min !== undefined) existing.min = eq.min;
+        if(eq.max !== undefined) existing.max = eq.max;
+        if(eq.ativo !== undefined) existing.ativo = eq.ativo;
+      }
+    };
+
+    // 1. Padrões do hotel (garante que AC01 a AC09 e todos os frigoríficos existam)
+    DEFAULT_HOTEL_EQUIPAMENTOS.forEach(eq => addOrUpdate(eq, false));
+
+    // 2. Equipamentos recebidos do servidor
+    if(Array.isArray(incomingServerList) && incomingServerList.length){
+      incomingServerList.forEach(eq => addOrUpdate(eq, false));
+    }
+
+    // 3. Equipamentos guardados localmente em bitacora_equipamentos
+    try {
+      const rawSaved = localStorage.getItem('bitacora_equipamentos');
+      if(rawSaved){
+        const parsed = JSON.parse(rawSaved);
+        if(Array.isArray(parsed)){
+          parsed.forEach(eq => addOrUpdate(eq, true));
+        }
+      }
+    } catch(e){}
+
+    // 4. Equipamentos customizados criados pelo utilizador (prioridade máxima de preservação)
+    try {
+      const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+      if(rawCustom){
+        const parsed = JSON.parse(rawCustom);
+        if(Array.isArray(parsed)){
+          parsed.forEach(eq => addOrUpdate(eq, true));
+        }
+      }
+    } catch(e){}
+
+    // 5. Resgata equipamentos pendentes na fila de sincronização (offline/transição)
+    try {
+      const rawQueue = localStorage.getItem(SYNC_QUEUE_KEY);
+      if(rawQueue){
+        const qItems = JSON.parse(rawQueue);
+        if(Array.isArray(qItems)){
+          qItems.forEach(item => {
+            if(item && (item.type === 'equipamento' || item.action === 'saveEquipamento') && item.payload && item.payload.data){
+              addOrUpdate(item.payload.data, true);
+            }
+          });
+        }
+      }
+    } catch(e){}
+
+    // 6. Resgata equipamentos descobertos nos registos históricos se ainda não existirem
+    try {
+      const tempRecords = (dataStore && dataStore.temperatura && Array.isArray(dataStore.temperatura.items)) ? dataStore.temperatura.items : [];
+      tempRecords.forEach(r => {
+        const d = r && r.data ? r.data : {};
+        const rId = String(d.equipamentoId || '').trim();
+        if(rId && !equipMap.has(rId.toLowerCase()) && !deletedIds.has(rId.toLowerCase())){
+          const rTipo = String(d.tipo || '').trim() || (rId.toUpperCase().startsWith('AC') ? 'Aire Acondicionado' : 'Frigorifico');
+          const isAC = isAireAcondicionado({ tipo: rTipo, nome: d.nome || rId });
+          addOrUpdate({
+            id: rId,
+            ref: rId,
+            nome: d.nome || rId,
+            tipo: isAC ? 'Aire Acondicionado' : rTipo,
+            ubicacao: d.ubicacao || 'Outras Localizações',
+            min: isAC ? 16 : 0,
+            max: isAC ? 28 : 8,
+            ativo: 'Sim'
+          }, false);
+        }
+      });
+    } catch(e){}
+
+    // 7. Aplica aliases configurados pelo utilizador
+    try {
+      const rawAliases = localStorage.getItem('bitacora_equip_aliases');
+      if(rawAliases){
+        const aliases = JSON.parse(rawAliases) || {};
+        equipMap.forEach(eq => {
+          if(aliases[eq.id] && aliases[eq.id].trim()) eq.nome = aliases[eq.id].trim();
+        });
+      }
+    } catch(e){}
+
+    const merged = Array.from(equipMap.values());
+
+    // Preserva bitacora_custom_equipamentos apenas com os que não são nativos ou foram customizados
+    const defaultIds = new Set(DEFAULT_HOTEL_EQUIPAMENTOS.map(e => e.id.toLowerCase()));
+    const customList = merged.filter(e => !defaultIds.has(String(e.id).toLowerCase()));
+    try {
+      localStorage.setItem('bitacora_custom_equipamentos', JSON.stringify(customList));
+      localStorage.setItem('bitacora_equipamentos', JSON.stringify(merged));
+      window.dispatchEvent(new Event('storage'));
+    } catch(e){}
+
+    return merged;
+  }
+
   let equipamentos = [];
   let equipamentosLoadedAt = 0;
   let isFetchingEquipamentos = false;
   async function loadEquipamentos(force){
     if(!force && equipamentos.length && (Date.now() - equipamentosLoadedAt) < CONFIG_TTL_MS) return equipamentos;
 
-    // 1. Carregamento síncrono imediato de cache local se a lista em memória estiver vazia
-    if(!equipamentos.length){
-      try{
-        const saved = localStorage.getItem('bitacora_equipamentos');
-        if(saved){
-          const parsed = JSON.parse(saved);
-          if(Array.isArray(parsed) && parsed.length) equipamentos = parsed;
-        }
-      }catch(ex){}
-    }
+    // 1. Carregamento e consolidação síncrona imediata com recuperação local robusta
+    equipamentos = mergeAndPersistEquipamentos();
+    equipamentosLoadedAt = Date.now();
 
-    // 2. Garantir que tem pelo menos a lista base se ainda estiver vazio
-    if(!equipamentos.length || !equipamentos.some(e => isAireAcondicionado(e))){
-      const defaultAC = { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false };
-      if(!equipamentos.length){
-        equipamentos = [
-          defaultAC,
-          { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
-          { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
-          { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim' },
-          { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true },
-          { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 'Sim' },
-          { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true },
-          { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
-          { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
-          { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' }
-        ];
-      } else {
-        equipamentos.unshift(defaultAC);
-      }
-      try{ localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); }catch(e){}
-    }
-
-    // 3. Atualização assíncrona em background sem travar a interface
+    // 2. Atualização assíncrona em background sem travar a interface
     if(API_URL && API_URL.indexOf('http') === 0 && !isFetchingEquipamentos){
       isFetchingEquipamentos = true;
       apiGet({ action:'listEquipamentos' }, 6000).then(r => {
         if(r && Array.isArray(r.equipamentos) && r.equipamentos.length){
-          const serverMap = new Map();
-          r.equipamentos.forEach(e => serverMap.set(String(e.id), e));
-          // Preservar equipamentos locais que ainda não estão no servidor
-          equipamentos.forEach(localEq => {
-            if(!serverMap.has(String(localEq.id))){
-              r.equipamentos.push(localEq);
-            }
-          });
-          equipamentos = r.equipamentos;
+          equipamentos = mergeAndPersistEquipamentos(r.equipamentos);
           equipamentosLoadedAt = Date.now();
-          try{
-            const rawAliases = localStorage.getItem('bitacora_equip_aliases');
-            if(rawAliases){
-              const aliases = JSON.parse(rawAliases) || {};
-              equipamentos.forEach(eq => {
-                if(aliases[eq.id]) eq.nome = aliases[eq.id];
-              });
-            }
-            localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
-          }catch(e){}
           renderEquipSelect();
         }
       }).catch(e => {
@@ -7025,7 +7138,10 @@
           if(!eq) return;
           const novoAtivo = isNoVal(eq.ativo) ? 'Sim' : 'Não';
           eq.ativo = novoAtivo;
-          try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
+          try {
+            localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+            window.dispatchEvent(new Event('storage'));
+          } catch(e){}
           enqueueSync({
             action: 'saveEquipamento',
             type: 'equipamento',
@@ -7109,7 +7225,14 @@
     };
 
     equipamentos.push(newEq);
-    try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
+    try {
+      const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+      const customList = rawCustom ? JSON.parse(rawCustom) : [];
+      customList.push(newEq);
+      localStorage.setItem('bitacora_custom_equipamentos', JSON.stringify(customList));
+      localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+      window.dispatchEvent(new Event('storage'));
+    } catch(e){}
 
     // Enfileirar sincronização resiliente em background (não bloqueia UI)
     enqueueSync({
@@ -7181,7 +7304,18 @@
     eq.min = !isNaN(minParsed) ? minParsed : eq.min;
     eq.max = !isNaN(maxParsed) ? maxParsed : eq.max;
 
-    try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
+    try {
+      localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+      const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+      if(rawCustom){
+        let customList = JSON.parse(rawCustom) || [];
+        const idx = customList.findIndex(c => String(c.id) === String(eq.id));
+        if(idx >= 0) customList[idx] = Object.assign({}, eq);
+        else customList.push(Object.assign({}, eq));
+        localStorage.setItem('bitacora_custom_equipamentos', JSON.stringify(customList));
+      }
+      window.dispatchEvent(new Event('storage'));
+    } catch(e){}
     try {
       const rawAliases = localStorage.getItem('bitacora_equip_aliases');
       const aliases = rawAliases ? JSON.parse(rawAliases) : {};
@@ -7217,7 +7351,22 @@
     if(!ok) return;
 
     equipamentos = equipamentos.filter(e => String(e.id) !== String(id));
-    try { localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos)); } catch(e){}
+    try {
+      const rawDel = localStorage.getItem('bitacora_deleted_equipamentos');
+      const delList = rawDel ? JSON.parse(rawDel) : [];
+      if(!delList.includes(String(id))) delList.push(String(id));
+      localStorage.setItem('bitacora_deleted_equipamentos', JSON.stringify(delList));
+
+      const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
+      if(rawCustom){
+        let customList = JSON.parse(rawCustom) || [];
+        customList = customList.filter(c => String(c.id) !== String(id));
+        localStorage.setItem('bitacora_custom_equipamentos', JSON.stringify(customList));
+      }
+
+      localStorage.setItem('bitacora_equipamentos', JSON.stringify(equipamentos));
+      window.dispatchEvent(new Event('storage'));
+    } catch(e){}
 
     enqueueSync({
       action: 'deleteEquipamento',
@@ -11889,7 +12038,19 @@
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return new Set(parsed.map(String));
+        if (Array.isArray(parsed)) {
+          const set = new Set();
+          parsed.forEach(item => {
+            if (item !== null && item !== undefined) {
+              const s = String(item).trim();
+              if (s) {
+                set.add(s);
+                set.add(s.toLowerCase());
+              }
+            }
+          });
+          return set;
+        }
       }
     } catch(e) {}
     return new Set();
@@ -11897,24 +12058,72 @@
 
   function markTicketAsDeleted(id) {
     if (!id) return;
-    const strId = String(id);
-    const set = getDeletedTicketIds();
-    set.add(strId);
+    const strId = String(id).trim();
+    if (!strId) return;
+
     try {
-      localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(Array.from(set)));
+      const raw = localStorage.getItem(DELETED_TICKETS_KEY);
+      let list = [];
+      if (raw) {
+        try {
+          const p = JSON.parse(raw);
+          if (Array.isArray(p)) list = p.map(x => String(x).trim()).filter(Boolean);
+        } catch(e){}
+      }
+      if (!list.includes(strId)) list.push(strId);
+      localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(list));
     } catch(e) {}
+
     try {
       const map = getUpdatedTicketsMap();
-      if (map[strId]) {
-        delete map[strId];
+      let changed = false;
+      Object.keys(map).forEach(k => {
+        if (k.trim() === strId || k.trim().toLowerCase() === strId.toLowerCase()) {
+          delete map[k];
+          changed = true;
+        }
+      });
+      if (changed) {
         localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
       }
     } catch(e) {}
+
+    // Limpar de STRATEGIC_TICKETS_KEY
+    try {
+      const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
+      if (rawStrats) {
+        const arr = JSON.parse(rawStrats);
+        if (Array.isArray(arr)) {
+          const filtered = arr.filter(s => s && String(s.id).trim() !== strId && String(s.id).trim().toLowerCase() !== strId.toLowerCase());
+          localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(filtered));
+        }
+      }
+    } catch(e) {}
+
+    // Limpar de ALL_TICKETS_KEY
+    try {
+      const rawAll = localStorage.getItem(ALL_TICKETS_KEY);
+      if (rawAll) {
+        const arr = JSON.parse(rawAll);
+        if (Array.isArray(arr)) {
+          const filtered = arr.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
+          localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
+        }
+      }
+    } catch(e) {}
+
+    // Limpar cache em memória
+    if (cachedTicketsData) {
+      cachedTicketsData = cachedTicketsData.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
+    }
   }
 
   function isTicketDeleted(id) {
     if (!id) return false;
-    return getDeletedTicketIds().has(String(id));
+    const s = String(id).trim();
+    if (!s) return false;
+    const deletedSet = getDeletedTicketIds();
+    return deletedSet.has(s) || deletedSet.has(s.toLowerCase());
   }
 
   function getUpdatedTicketsMap() {
@@ -11930,19 +12139,61 @@
 
   function recordTicketUpdate(ticket) {
     if (!ticket || !ticket.id) return;
+    const id = String(ticket.id).trim();
+    if (isTicketDeleted(id)) return;
     const map = getUpdatedTicketsMap();
-    map[String(ticket.id)] = { ...ticket, _updatedAt: Date.now() };
+    map[id] = { ...ticket, id, _updatedAt: Date.now() };
     try {
       localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
     } catch(e) {}
   }
 
+  function persistTicketInAllTicketsKey(ticket) {
+    if (!ticket || !ticket.id) return;
+    const id = String(ticket.id).trim();
+    if (isTicketDeleted(id)) return;
+    try {
+      let list = [];
+      const raw = localStorage.getItem(ALL_TICKETS_KEY);
+      if (raw) {
+        try {
+          const p = JSON.parse(raw);
+          if (Array.isArray(p)) list = p;
+        } catch(e){}
+      }
+      const idx = list.findIndex(t => t && String(t.id).trim() === id);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...ticket, id };
+      } else {
+        list.unshift({ ...ticket, id });
+      }
+      const deleted = getDeletedTicketIds();
+      const filtered = list.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).trim().toLowerCase()));
+      localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
+    } catch(e) {}
+  }
+
   function isStrategicTicket(t) {
     if (!t || !t.id) return false;
-    if (isTicketDeleted(t.id)) return false;
+    const strId = String(t.id).trim();
+    if (isTicketDeleted(strId)) return false;
+
+    // Verificar tipo explícito
     const tipo = String(t.tipo || '').trim().toLowerCase();
     if (tipo === 'estratégico' || tipo === 'estrategico') return true;
     if (tipo === 'corretivo' || tipo === 'preventivo' || tipo === 'melhoria') return false;
+
+    // Verificar se existe em STRATEGIC_TICKETS_KEY
+    try {
+      const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
+      if (rawStrats) {
+        const arr = JSON.parse(rawStrats);
+        if (Array.isArray(arr) && arr.some(s => s && String(s.id).trim() === strId)) {
+          return true;
+        }
+      }
+    } catch(e) {}
+
     const cat = String(t.categoria || '').toLowerCase();
     const prio = String(t.prioridade || '').toLowerCase();
     const desc = String(t.descricao || '').toLowerCase();
@@ -11955,7 +12206,6 @@
 
   function getDefaultStrategicTickets() {
     const today = (typeof todayStr === 'function') ? todayStr() : new Date().toISOString().slice(0, 10);
-    const deleted = getDeletedTicketIds();
     const all = [
       {
         id: 'ticket_est_01',
@@ -12003,17 +12253,16 @@
         comentarioCierre: 'Variadores instalados e parametrizados. Economia de 18.2% validada em carga operacional.'
       }
     ];
-    return all.filter(t => !deleted.has(String(t.id)));
+    return all.filter(t => !isTicketDeleted(t.id));
   }
 
   function getSavedStrategicTickets() {
-    const deleted = getDeletedTicketIds();
     try {
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (raw !== null) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
+          return parsed.filter(t => t && t.id && !isTicketDeleted(t.id));
         }
       }
     } catch(e) {}
@@ -12025,8 +12274,7 @@
   }
 
   function saveStrategicTickets(strats) {
-    const deleted = getDeletedTicketIds();
-    const cleanStrats = (strats || []).filter(t => t && t.id && !deleted.has(String(t.id)));
+    const cleanStrats = (strats || []).filter(t => t && t.id && !isTicketDeleted(t.id));
     try {
       localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(cleanStrats));
     } catch(e) {}
@@ -12040,6 +12288,63 @@
     cachedTicketsTimestamp = 0;
   }
 
+  function getConsolidatedTickets() {
+    const deleted = getDeletedTicketIds();
+    const updatedMap = getUpdatedTicketsMap();
+    const ticketMap = new Map();
+
+    // 1. Carregar ALL_TICKETS_KEY
+    try {
+      const raw = localStorage.getItem(ALL_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(t => {
+            if (t && t.id) {
+              const id = String(t.id).trim();
+              if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+                ticketMap.set(id, { ...t, id });
+              }
+            }
+          });
+        }
+      }
+    } catch(e) {}
+
+    // 2. Carregar STRATEGIC_TICKETS_KEY
+    const strats = getSavedStrategicTickets();
+    strats.forEach(s => {
+      if (s && s.id) {
+        const id = String(s.id).trim();
+        if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+          if (ticketMap.has(id)) {
+            ticketMap.set(id, { ...ticketMap.get(id), ...s, id, tipo: 'Estratégico' });
+          } else {
+            ticketMap.set(id, { ...s, id, tipo: 'Estratégico' });
+          }
+        }
+      }
+    });
+
+    // 3. Sobrepor UPDATED_TICKETS_KEY
+    Object.keys(updatedMap).forEach(uid => {
+      const strUid = String(uid).trim();
+      if (!deleted.has(strUid) && !deleted.has(strUid.toLowerCase())) {
+        const upd = updatedMap[uid];
+        if (ticketMap.has(strUid)) {
+          ticketMap.set(strUid, { ...ticketMap.get(strUid), ...upd, id: strUid });
+        } else {
+          ticketMap.set(strUid, { ...upd, id: strUid });
+        }
+      }
+    });
+
+    const consolidated = Array.from(ticketMap.values()).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).trim().toLowerCase()));
+    cachedTicketsData = consolidated;
+    cachedTicketsTimestamp = Date.now();
+    return consolidated;
+  }
+
   async function loadTickets(forceFresh) {
     if (loadTicketsInFlight) return loadTicketsInFlight;
     loadTicketsInFlight = _execLoadTickets(forceFresh).finally(() => {
@@ -12050,119 +12355,46 @@
 
   async function _execLoadTickets(forceFresh) {
     const now = Date.now();
-    if (!forceFresh && cachedTicketsData && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0 && (now - cachedTicketsTimestamp) < 30000) {
-      return cachedTicketsData;
-    }
-    
-    const deleted = getDeletedTicketIds();
-    const updatedMap = getUpdatedTicketsMap();
+    // Sempre devolver consolidado sem bloquear a interface
+    const consolidated = getConsolidatedTickets();
 
-    // 1. Obter tickets estratégicos persistidos e garantidos
-    const savedStrat = getSavedStrategicTickets().filter(t => !deleted.has(String(t.id)));
-
-    // 2. Tentar ler repositório local existente
-    let local = [];
-    try {
-      const raw = localStorage.getItem(ALL_TICKETS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          local = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
-        }
-      }
-    } catch(e) {}
-
-    // Semente imediata em memória se cachedTicketsData estiver vazio para estabilidade visual
-    if (!cachedTicketsData || cachedTicketsData.length === 0) {
-      const tempMap = new Map();
-      local.forEach(t => tempMap.set(String(t.id), { ...t }));
-      savedStrat.forEach(t => tempMap.set(String(t.id), { ...t, tipo: 'Estratégico' }));
-      Object.keys(updatedMap).forEach(uid => {
-        if (!deleted.has(uid)) {
-          const prev = tempMap.get(uid) || {};
-          tempMap.set(uid, { ...prev, ...updatedMap[uid] });
-        }
-      });
-      cachedTicketsData = Array.from(tempMap.values()).filter(t => !deleted.has(String(t.id)));
-      cachedTicketsTimestamp = now;
+    // Se não for solicitado refresh forçado e o cache for recente, retornar direto
+    if (!forceFresh && consolidated.length > 0 && (now - cachedTicketsTimestamp) < 30000) {
+      return consolidated;
     }
 
-    // 3. Tentar obter da API remota se solicitado ou necessário
-    let remoteTickets = null;
+    // Tentar ler da API remota em segundo plano
     if (forceFresh || (now - cachedTicketsTimestamp >= 30000)) {
       try {
         const r = await apiGet({ action: 'listTickets' });
         if (r && Array.isArray(r.tickets)) {
-          remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id)));
+          const deleted = getDeletedTicketIds();
+          const remoteTickets = r.tickets.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).trim().toLowerCase()));
+          
+          if (remoteTickets.length > 0) {
+            // Mesclar respeitando estritamente o que foi deletado e atualizado localmente
+            const updatedMap = getUpdatedTicketsMap();
+            const currentStrats = getSavedStrategicTickets();
+            const stratIds = new Set(currentStrats.map(s => String(s.id).trim()));
+
+            remoteTickets.forEach(rt => {
+              const id = String(rt.id).trim();
+              if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
+                if (stratIds.has(id)) {
+                  rt.tipo = 'Estratégico';
+                }
+                persistTicketInAllTicketsKey(rt);
+              }
+            });
+            return getConsolidatedTickets();
+          }
         }
       } catch (e) {
-        // Falha silenciosa de rede não quebra a visualização local
+        // Falha de rede ou sessão: mantém os dados locais perfeitamente íntegros
       }
     }
 
-    // 4. Mesclagem resiliente com estrita hierarquia:
-    // Remoto -> Local -> Estratégicos -> Atualizações explícitas do utilizador
-    const ticketMap = new Map();
-
-    // A. Base remota
-    if (remoteTickets && remoteTickets.length > 0) {
-      remoteTickets.forEach(t => {
-        if (t && t.id && !deleted.has(String(t.id))) {
-          ticketMap.set(String(t.id), { ...t });
-        }
-      });
-    }
-
-    // B. Preservar itens locais (criados ou editados no dispositivo)
-    local.forEach(lt => {
-      if (!lt || !lt.id) return;
-      const id = String(lt.id);
-      if (deleted.has(id)) return;
-      if (!ticketMap.has(id)) {
-        ticketMap.set(id, { ...lt });
-      } else {
-        const remoteItem = ticketMap.get(id);
-        ticketMap.set(id, { ...remoteItem, ...lt });
-      }
-    });
-
-    // C. Inserir os estratégicos salvos (garantindo tipo Estratégico)
-    savedStrat.forEach(st => {
-      if (!st || !st.id) return;
-      const id = String(st.id);
-      if (deleted.has(id)) return;
-      if (ticketMap.has(id)) {
-        ticketMap.set(id, { ...ticketMap.get(id), ...st, tipo: 'Estratégico' });
-      } else {
-        ticketMap.set(id, { ...st, tipo: 'Estratégico' });
-      }
-    });
-
-    // D. Aplicar sobreposições explícitas de atualizações locais (máxima autoridade)
-    Object.keys(updatedMap).forEach(uid => {
-      if (deleted.has(uid)) return;
-      const upd = updatedMap[uid];
-      if (ticketMap.has(uid)) {
-        ticketMap.set(uid, { ...ticketMap.get(uid), ...upd });
-      } else {
-        ticketMap.set(uid, { ...upd });
-      }
-    });
-
-    const merged = Array.from(ticketMap.values()).filter(t => t && t.id && !deleted.has(String(t.id)));
-    if (merged.length > 0) {
-      cachedTicketsData = merged;
-      cachedTicketsTimestamp = Date.now();
-      try {
-        const currentRaw = localStorage.getItem(ALL_TICKETS_KEY);
-        const newRaw = JSON.stringify(cachedTicketsData);
-        if (currentRaw !== newRaw) {
-          localStorage.setItem(ALL_TICKETS_KEY, newRaw);
-        }
-      } catch(e) {}
-    }
-
-    return cachedTicketsData;
+    return consolidated;
   }
 
   function renderStrategicBoardHTML(allTickets, activeFilter) {
@@ -12432,12 +12664,13 @@
       strats.unshift(newTicket);
       saveStrategicTickets(strats);
 
-      if (!cachedTicketsData) cachedTicketsData = [];
-      cachedTicketsData.unshift(newTicket);
-      cachedTicketsTimestamp = Date.now();
-      try { localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData)); } catch(e){}
-
+      persistTicketInAllTicketsKey(newTicket);
       recordTicketUpdate(newTicket);
+
+      if (cachedTicketsData) {
+        cachedTicketsData.unshift(newTicket);
+      }
+      cachedTicketsTimestamp = Date.now();
 
       // 2. Atualizar UI imediatamente (0 ms)
       refreshStrategicBoardInDOM();
@@ -12460,7 +12693,7 @@
       const parent = container || $('ejecutivoOutput') || document;
       const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
       if (!boardContainer) return;
-      const tickets = (cachedTicketsData && cachedTicketsData.length > 0) ? cachedTicketsData : await loadTickets();
+      const tickets = getConsolidatedTickets();
       
       if (boardContainer.id === 'strategicBoardContainer') {
         boardContainer.innerHTML = renderStrategicBoardHTML(tickets, currentStrategicFilter);
@@ -12493,33 +12726,15 @@
 
   let storageDebounceTimer = null;
   window.addEventListener('storage', (e) => {
-    if (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY) {
+    if (e && (e.key === STRATEGIC_TICKETS_KEY || e.key === ALL_TICKETS_KEY || e.key === DELETED_TICKETS_KEY || e.key === UPDATED_TICKETS_KEY)) {
       clearTimeout(storageDebounceTimer);
       storageDebounceTimer = setTimeout(() => {
-        try {
-          const raw = localStorage.getItem(ALL_TICKETS_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              const deleted = getDeletedTicketIds();
-              cachedTicketsData = parsed.filter(t => t && t.id && !deleted.has(String(t.id)));
-              cachedTicketsTimestamp = Date.now();
-            }
-          }
-        } catch(err) {}
-
-        // Atualizar o DOM silenciosamente sem re-gravar no localStorage
-        const parent = $('ejecutivoOutput') || document;
-        const boardContainer = parent.querySelector('#strategicBoardContainer') || $('strategicBoardContainer') || parent.querySelector('#strategicBoardCard');
-        if (boardContainer && cachedTicketsData) {
-          boardContainer.innerHTML = renderStrategicBoardHTML(cachedTicketsData, currentStrategicFilter);
-          wireStrategicBoardEvents(boardContainer, cachedTicketsData);
-        }
+        refreshStrategicBoardInDOM().catch(()=>{});
         if (typeof renderPedidosView === 'function') {
           const pView = $('view-pedidos');
           if (pView && pView.classList.contains('active')) renderPedidosView();
         }
-      }, 300);
+      }, 150);
     }
   });
 
@@ -14835,7 +15050,7 @@
 
         // 1. Atualizar em memória cachedTicketsData
         if (!cachedTicketsData) cachedTicketsData = [];
-        const cIdx = cachedTicketsData.findIndex(t => String(t.id) === String(ticket.id));
+        const cIdx = cachedTicketsData.findIndex(t => t && String(t.id).trim() === String(ticket.id).trim());
         if (cIdx >= 0) {
           cachedTicketsData[cIdx] = { ...cachedTicketsData[cIdx], ...ticket };
         } else {
@@ -14843,17 +15058,15 @@
         }
         cachedTicketsTimestamp = Date.now();
 
-        // 2. Gravar no ALL_TICKETS_KEY
-        try {
-          localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
-        } catch(e) {}
+        // 2. Gravar no ALL_TICKETS_KEY de forma segura
+        persistTicketInAllTicketsKey(ticket);
 
         // 3. Atualizar mapa de tickets atualizados localmente
         recordTicketUpdate(ticket);
 
         // 4. Atualizar lista de tickets estratégicos persistidos
         const strats = getSavedStrategicTickets();
-        const sIdx = strats.findIndex(s => String(s.id) === String(ticket.id));
+        const sIdx = strats.findIndex(s => s && String(s.id).trim() === String(ticket.id).trim());
         if (isStrategicTicket(ticket)) {
           if (sIdx >= 0) {
             strats[sIdx] = { ...strats[sIdx], ...ticket };
@@ -14876,6 +15089,7 @@
           await apiPost({
             action: 'updateTicket',
             id: ticketId,
+            ticketId: ticketId,
             data: {
               tipo: ticket.tipo,
               prioridade: ticket.prioridade,
@@ -14892,34 +15106,21 @@
   }
 
   async function deleteTicket(ticketId) {
+    if (!ticketId) return;
     const ok = await confirmDialog('Eliminar Ticket', 
       'Tem certeza que deseja eliminar este ticket? Esta ação não pode ser desfeita.', 
       'Eliminar', 'Cancelar');
     if (!ok) return;
     
-    const strId = String(ticketId);
+    const strId = String(ticketId).trim();
     markTicketAsDeleted(strId);
 
-    if (cachedTicketsData) {
-      cachedTicketsData = cachedTicketsData.filter(t => String(t.id) !== strId);
-      try {
-        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
-      } catch(e) {}
-    } else {
-      try {
-        const raw = localStorage.getItem(ALL_TICKETS_KEY);
-        if (raw) {
-          const arr = JSON.parse(raw);
-          if (Array.isArray(arr)) {
-            const filtered = arr.filter(t => String(t.id) !== strId);
-            localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
-          }
-        }
-      } catch(e) {}
-    }
-
-    const strats = getSavedStrategicTickets().filter(t => String(t.id) !== strId);
+    const strats = getSavedStrategicTickets().filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
     saveStrategicTickets(strats);
+
+    if (cachedTicketsData) {
+      cachedTicketsData = cachedTicketsData.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
+    }
     cachedTicketsTimestamp = Date.now();
 
     renderPedidosView();
@@ -14974,14 +15175,12 @@
       setLoading(btn, true);
 
       // Inserir imediatamente em memória e localStorage para persistência e reatividade instantânea
+      persistTicketInAllTicketsKey(data);
+      recordTicketUpdate(data);
+
       if (!cachedTicketsData) cachedTicketsData = [];
       cachedTicketsData.unshift(data);
       cachedTicketsTimestamp = Date.now();
-      try {
-        localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(cachedTicketsData));
-      } catch(e) {}
-
-      recordTicketUpdate(data);
 
       if (isStrategicTicket(data)) {
         const strats = getSavedStrategicTickets();
