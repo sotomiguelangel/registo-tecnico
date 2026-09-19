@@ -4201,28 +4201,156 @@
   // Equipamentos de Climatização e Refrigeração (Base Hotel MS Funchal)
   // =========================================================================
   const DEFAULT_HOTEL_EQUIPAMENTOS = [
-    // --- Aires Acondicionados (Climatização / Todas as Áreas) ---
-    { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false },
-    { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 'Sim', isRange: false },
-    { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', isRange: false },
-    { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: false },
-    { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: false },
-    { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false },
-    { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', isRange: false },
-    { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 'Sim', isRange: false },
-    { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 'Sim', isRange: false },
+    // --- Cozinha Piso 0 ---
+    { id: 'REF01', ref: 'REF01', nome: 'Frigorífico 1 Cozinha Piso 0', descricao: 'Frigorífico 1 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 1', 'frigorifico 1 cozinha piso 0', 'frigorifico cozinha piso 0', 'ref 01', 'ref01'] },
+    { id: 'REF02', ref: 'REF02', nome: 'Frigorífico 2 Cozinha Piso 0', descricao: 'Frigorífico 2 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 2', 'frigorifico 2 cozinha piso 0', 'ref 02', 'ref02'] },
+    { id: 'REF03', ref: 'REF03', nome: 'Frigorífico 3 Cozinha Piso 0', descricao: 'Frigorífico 3 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 3', 'frigorifico 3 cozinha piso 0', 'ref 03', 'ref03'] },
+    { id: 'REF04', ref: 'REF04', nome: 'Frigorífico 4 Cozinha Piso 0', descricao: 'Frigorífico 4 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 4', 'frigorifico 4 cozinha piso 0', 'ref 04', 'ref04'] },
+    { id: 'REF05', ref: 'REF05', nome: 'Frigorífico 5 Cozinha Piso 0', descricao: 'Frigorífico 5 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 5', 'frigorifico 5 cozinha piso 0', 'ref 05', 'ref05'] },
+    { id: 'CON01', ref: 'CON01', nome: 'Congelador Cozinha Piso 0', descricao: 'Congelador de alimentos na Cozinha Piso 0', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['congelador cozinha piso 0', 'con 01', 'con01'] },
 
-    // --- Refrigeração / Congelação HACCP ---
-    { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
-    { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim' },
-    { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pq. Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim' },
-    { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true },
-    { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCIÓN', ativo: 'Sim' },
-    { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true },
-    { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
-    { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' },
-    { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim' }
+    // --- Cozinha Piso -1 ---
+    { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', descricao: 'Frigorífico principal de produção na Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['frigorifico cozinha piso -1', 'frigorifico cozinha piso - 1', 'frigorifico cozinha -1', 'frigorifico cozinha', 'ref 08', 'ref08'] },
+    { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cozinha', 'con 02', 'con02'] },
+    { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cozinha', 'con 03', 'con03'] },
+    { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', descricao: 'Climatização da Cozinha de Produção Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado cozinha piso -1', 'ar condicionado cozinha -1', 'ac 06', 'ac06', 'arc06', 'arc 06'] },
+
+    // --- Armazém Piso -1 ---
+    { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', descricao: 'Frigorífico principal de armazenagem no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', aliases: ['frigorifico armazem 1', 'frigorifico armazem piso -1', 'ref 09', 'ref09'] },
+    { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', descricao: 'Frigorífico secundário/reserva no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', aliases: ['frigorifico armazem 2', 'frigorifico armazem piso -1 2', 'ref 10', 'ref10'] },
+    { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', descricao: 'Climatização do Economato / Armazém Piso -1', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado armazem piso -1', 'ar condicionado armazem -1', 'ac 07', 'ac07', 'arc07', 'arc 07'] },
+
+    // --- Bar Pequeno Almoço ---
+    { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pequeno Almoço', descricao: 'Frigorífico de apoio ao Bar do Pequeno Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', aliases: ['frigorifico bar pq. almoco', 'frigorifico bar pequeno almoco', 'ref 06', 'ref06'] },
+    { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', descricao: 'Climatização do Bar do Pequeno Almoço', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar pequeno almoco', 'ac 03', 'ac03', 'arc03', 'arc 03'] },
+
+    // --- Bar Receção / Copa ---
+    { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', descricao: 'Frigorífico de bebidas e apoio ao Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', aliases: ['frigorifico bar rececao', 'frigorifico bar recepcion', 'ref 07', 'ref07'] },
+    { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', descricao: 'Vinhera / Garrafeira climatizada do Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true, aliases: ['vinhera bar rececao', 'vinhera bar recepcion', 'vih 03', 'vih03'] },
+    { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', descricao: 'Climatização do Bar Receção e Copa', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar rececao', 'ar condicionado copa', 'ac 04', 'ac04', 'arc04', 'arc 04', 'copa - rececao / zona'] },
+
+    // --- Bar Rooftop ---
+    { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', descricao: 'Vinhera / Garrafeira climatizada do Bar Rooftop', tipo: 'Frigorifico', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true, aliases: ['vinhera bar rooftop', 'vih 01', 'vih01'] },
+    { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', descricao: 'Climatização do Bar Rooftop Piso Superior', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar rooftop', 'ac 05', 'ac05', 'arc05', 'arc 05'] },
+
+    // --- Áreas Públicas & Climatização ---
+    { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', descricao: 'Climatização da Sala e Receção / Zona Pública', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false, aliases: ['ar condicionado sala/rececao', 'ar condicionado sala rececao', 'ac 01', 'ac01', 'arc01'] },
+    { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', descricao: 'Climatização da área de Show Cooking', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 'Sim', isRange: false, aliases: ['ar condicionado show cooking', 'show cooking', 'ac 02', 'ac02', 'arc02'] },
+    { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', descricao: 'Climatização da Sala de Restaurante', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 'Sim', isRange: false, aliases: ['ar condicionado restaurante', 'ac 08', 'ac08', 'arc08'] },
+    { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', descricao: 'Climatização da Sala de Reuniões e Gabinete Admin', tipo: 'Aire Acondicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 'Sim', isRange: false, aliases: ['ar condicionado sala reunioes', 'ac 09', 'ac09', 'arc09'] }
   ];
+
+  function normalizeLocation(loc) {
+    if (!loc) return 'Outras Localizações';
+    let s = String(loc).trim().toUpperCase();
+    s = s.replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ').trim();
+    if (s.includes('COZINHA') && (s.includes('-1') || s.includes('- 1'))) return 'COZINHA PISO -1';
+    if (s.includes('COZINHA') && (s.includes('0') || s.includes('PISO 0'))) return 'COZINHA PISO 0';
+    if (s.includes('ALMACEN') || s.includes('ARMAZEM') || s.includes('ARMAZÉM')) return 'ALMACEN PISO -1';
+    if (s.includes('PEQUENO ALMOCO') || s.includes('PEQUENO ALMOÇO')) return 'BAR PEQUENO ALMOCO';
+    if (s.includes('RECECAO') || s.includes('RECEÇÃO') || s.includes('RECEPCION') || s.includes('RECEPCIÓN') || s.includes('COPA')) {
+      if (s.includes('BAR')) return 'BAR RECEPCAO';
+      return 'RECEÇÃO / ZONA PÚBLICA';
+    }
+    if (s.includes('ROOFTOP')) return 'BAR ROOFTOP';
+    if (s.includes('SHOW COOKING')) return 'SHOW COOKING';
+    if (s.includes('RESTAURANTE')) return 'RESTAURANTE';
+    if (s.includes('REUNIOES') || s.includes('REUNIÕES') || s.includes('ADMIN')) return 'ZONA PÚBLICA / ADMIN';
+    return s;
+  }
+
+  function cleanStrForMatch(str) {
+    if (!str) return '';
+    return String(str)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function findCanonicalEquip(rawStr) {
+    if (!rawStr) return null;
+    const clean = cleanStrForMatch(rawStr);
+    if (!clean) return null;
+
+    for (const def of DEFAULT_HOTEL_EQUIPAMENTOS) {
+      if (cleanStrForMatch(def.id) === clean) return def;
+      if (cleanStrForMatch(def.ref) === clean) return def;
+      if (cleanStrForMatch(def.nome) === clean) return def;
+      if (cleanStrForMatch(def.descricao) === clean) return def;
+      if (Array.isArray(def.aliases)) {
+        for (const al of def.aliases) {
+          if (cleanStrForMatch(al) === clean) return def;
+        }
+      }
+    }
+    return null;
+  }
+
+  function isRecordMatchingEquip(record, eq) {
+    if (!record || !eq) return false;
+    const d = record.data ? record.data : record;
+    const candidates = [
+      d.equipamentoId,
+      d.equipoId,
+      d.equipamento,
+      d.equipo,
+      d.nome,
+      d.ref,
+      d.id
+    ].filter(Boolean).map(s => String(s).trim());
+
+    if (!candidates.length) return false;
+
+    const eqIdClean = cleanStrForMatch(eq.id);
+    const eqRefClean = cleanStrForMatch(eq.ref);
+    const eqNomeClean = cleanStrForMatch(eq.nome);
+    const eqDescClean = cleanStrForMatch(eq.descricao);
+    const eqAliasesClean = Array.isArray(eq.aliases) ? eq.aliases.map(cleanStrForMatch) : [];
+
+    for (const cand of candidates) {
+      const candClean = cleanStrForMatch(cand);
+      if (!candClean) continue;
+      if (candClean === eqIdClean || candClean === eqRefClean || candClean === eqNomeClean) return true;
+      if (eqDescClean && candClean === eqDescClean) return true;
+      if (eqAliasesClean.includes(candClean)) return true;
+
+      const canon = findCanonicalEquip(cand);
+      if (canon && String(canon.id).toUpperCase() === String(eq.id).toUpperCase()) return true;
+    }
+    return false;
+  }
+
+  function normalizeDate(value) {
+    if (!value) return '';
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    }
+    const s = String(value).trim();
+    if (!s) return '';
+
+    // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD
+    let match = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:$|T|\s)/);
+    if (match) {
+      return `${match[1]}-${pad(Number(match[2]))}-${pad(Number(match[3]))}`;
+    }
+
+    // 2. European / Portuguese format: DD/MM/YYYY or DD-MM-YYYY
+    match = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})(?:$|T|\s)/);
+    if (match) {
+      return `${match[3]}-${pad(Number(match[2]))}-${pad(Number(match[1]))}`;
+    }
+
+    // 3. Fallback: native Date parser
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() >= 2000 && parsed.getFullYear() <= 2100) {
+      return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+    }
+
+    return '';
+  }
 
   function mergeAndPersistEquipamentos(incomingServerList){
     let deletedIds = new Set();
@@ -4240,32 +4368,48 @@
       if(!eq || typeof eq !== 'object') return;
       const rawId = String(eq.id || eq.ref || eq.nome || '').trim();
       if(!rawId) return;
-      const normId = rawId.toLowerCase();
-      if(deletedIds.has(normId)) return;
 
-      const existing = equipMap.get(normId);
+      // Resolução canónica unificada para evitar duplicações de raiz
+      const canonical = findCanonicalEquip(rawId) || findCanonicalEquip(eq.nome) || findCanonicalEquip(eq.ref);
+      const targetId = canonical ? canonical.id : rawId;
+      const targetKey = targetId.toUpperCase();
+
+      if(deletedIds.has(targetKey.toLowerCase())) return;
+
+      const normLoc = normalizeLocation(eq.ubicacao || (canonical ? canonical.ubicacao : 'Outras Localizações'));
+      const existing = equipMap.get(targetKey);
+
       if(!existing){
-        equipMap.set(normId, Object.assign({}, eq, {
-          id: eq.id || rawId,
-          ref: eq.ref || eq.id || rawId,
-          nome: eq.nome || rawId,
-          tipo: eq.tipo || 'Frigorifico',
-          ubicacao: eq.ubicacao || 'Outras Localizações',
-          min: eq.min !== undefined ? eq.min : (isAireAcondicionado(eq) ? 16 : 0),
-          max: eq.max !== undefined ? eq.max : (isAireAcondicionado(eq) ? 28 : 8),
-          ativo: eq.ativo !== undefined ? eq.ativo : 'Sim'
+        const baseDef = canonical || {};
+        equipMap.set(targetKey, Object.assign({}, baseDef, eq, {
+          id: targetId,
+          ref: eq.ref || (baseDef.ref || targetId),
+          nome: canonical ? canonical.nome : (eq.nome || targetId),
+          descricao: eq.descricao || baseDef.descricao || (canonical ? canonical.descricao : (eq.nome || targetId)),
+          tipo: eq.tipo || baseDef.tipo || 'Frigorifico',
+          ubicacao: normLoc,
+          min: eq.min !== undefined ? eq.min : (baseDef.min !== undefined ? baseDef.min : (isAireAcondicionado(eq) ? 16 : 0)),
+          max: eq.max !== undefined ? eq.max : (baseDef.max !== undefined ? baseDef.max : (isAireAcondicionado(eq) ? 28 : 8)),
+          ativo: eq.ativo !== undefined ? eq.ativo : 'Sim',
+          aliases: canonical && Array.isArray(canonical.aliases) ? canonical.aliases : (eq.aliases || [])
         }));
-      } else if(isHighPriority){
-        if(eq.nome) existing.nome = eq.nome;
-        if(eq.tipo) existing.tipo = eq.tipo;
-        if(eq.ubicacao) existing.ubicacao = eq.ubicacao;
-        if(eq.min !== undefined) existing.min = eq.min;
-        if(eq.max !== undefined) existing.max = eq.max;
-        if(eq.ativo !== undefined) existing.ativo = eq.ativo;
+      } else {
+        // Já existe: atualiza atributos preservando integridade
+        if(isHighPriority){
+          if(eq.tipo) existing.tipo = eq.tipo;
+          if(eq.ubicacao) existing.ubicacao = normLoc;
+          if(eq.min !== undefined) existing.min = eq.min;
+          if(eq.max !== undefined) existing.max = eq.max;
+          if(eq.ativo !== undefined) existing.ativo = eq.ativo;
+          if(eq.descricao) existing.descricao = eq.descricao;
+        } else {
+          if(!existing.descricao && eq.descricao) existing.descricao = eq.descricao;
+          if(canonical && !existing.descricao) existing.descricao = canonical.descricao;
+        }
       }
     };
 
-    // 1. Padrões do hotel (garante que AC01 a AC09 e todos os frigoríficos existam)
+    // 1. Padrões do hotel (carrega todos os canónicos de Cozinha 0, -1, Armazém, Bares e Áreas Públicas)
     DEFAULT_HOTEL_EQUIPAMENTOS.forEach(eq => addOrUpdate(eq, false));
 
     // 2. Equipamentos recebidos do servidor
@@ -4284,7 +4428,7 @@
       }
     } catch(e){}
 
-    // 4. Equipamentos customizados criados pelo utilizador (prioridade máxima de preservação)
+    // 4. Equipamentos customizados criados pelo utilizador
     try {
       const rawCustom = localStorage.getItem('bitacora_custom_equipamentos');
       if(rawCustom){
@@ -4295,7 +4439,7 @@
       }
     } catch(e){}
 
-    // 5. Resgata equipamentos pendentes na fila de sincronização (offline/transição)
+    // 5. Resgata equipamentos pendentes na fila de sincronização
     try {
       const rawQueue = localStorage.getItem(SYNC_QUEUE_KEY);
       if(rawQueue){
@@ -4315,16 +4459,20 @@
       const tempRecords = (dataStore && dataStore.temperatura && Array.isArray(dataStore.temperatura.items)) ? dataStore.temperatura.items : [];
       tempRecords.forEach(r => {
         const d = r && r.data ? r.data : {};
-        const rId = String(d.equipamentoId || '').trim();
-        if(rId && !equipMap.has(rId.toLowerCase()) && !deletedIds.has(rId.toLowerCase())){
-          const rTipo = String(d.tipo || '').trim() || (rId.toUpperCase().startsWith('AC') ? 'Aire Acondicionado' : 'Frigorifico');
-          const isAC = isAireAcondicionado({ tipo: rTipo, nome: d.nome || rId });
+        const rId = String(d.equipamentoId || d.equipoId || d.equipamento || d.equipo || d.nome || '').trim();
+        if(!rId) return;
+        const canon = findCanonicalEquip(rId) || findCanonicalEquip(d.nome);
+        const resolvedId = canon ? canon.id : rId;
+        if(!equipMap.has(resolvedId.toUpperCase()) && !deletedIds.has(resolvedId.toLowerCase())){
+          const rTipo = String(d.tipo || '').trim() || (resolvedId.toUpperCase().startsWith('AC') ? 'Aire Acondicionado' : 'Frigorifico');
+          const isAC = isAireAcondicionado({ tipo: rTipo, nome: d.nome || resolvedId });
           addOrUpdate({
-            id: rId,
-            ref: rId,
-            nome: d.nome || rId,
+            id: resolvedId,
+            ref: resolvedId,
+            nome: canon ? canon.nome : (d.nome || resolvedId),
+            descricao: canon ? canon.descricao : (d.nome || resolvedId),
             tipo: isAC ? 'Aire Acondicionado' : rTipo,
-            ubicacao: d.ubicacao || 'Outras Localizações',
+            ubicacao: d.ubicacao || (canon ? canon.ubicacao : 'Outras Localizações'),
             min: isAC ? 16 : 0,
             max: isAC ? 28 : 8,
             ativo: 'Sim'
@@ -4333,7 +4481,7 @@
       });
     } catch(e){}
 
-    // 7. Aplica aliases configurados pelo utilizador
+    // 7. Aplica aliases configurados pelo utilizador se existirem
     try {
       const rawAliases = localStorage.getItem('bitacora_equip_aliases');
       if(rawAliases){
@@ -4346,9 +4494,9 @@
 
     const merged = Array.from(equipMap.values());
 
-    // Preserva bitacora_custom_equipamentos apenas com os que não são nativos ou foram customizados
-    const defaultIds = new Set(DEFAULT_HOTEL_EQUIPAMENTOS.map(e => e.id.toLowerCase()));
-    const customList = merged.filter(e => !defaultIds.has(String(e.id).toLowerCase()));
+    // Sanitiza e persiste bitacora_equipamentos e bitacora_custom_equipamentos sem duplicados
+    const defaultIds = new Set(DEFAULT_HOTEL_EQUIPAMENTOS.map(e => e.id.toUpperCase()));
+    const customList = merged.filter(e => !defaultIds.has(String(e.id).toUpperCase()));
     try {
       localStorage.setItem('bitacora_custom_equipamentos', JSON.stringify(customList));
       localStorage.setItem('bitacora_equipamentos', JSON.stringify(merged));
@@ -6590,13 +6738,122 @@
         const vin = isVinera(e);
         const isAc = isAireAcondicionado(e);
         const icon = isAc ? '💨' : (vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
-        return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)} — ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
+        const descTxt = (e.descricao && e.descricao !== e.nome) ? ` — ${e.descricao}` : '';
+        return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
       }).join('');
     if(current) sel.value = current;
     selectEquip(sel.value);
   }
 
   let tempViewMode = 'grid'; // 'grid' | 'list'
+
+  async function openEquipInfoAndDetailDialog(eq, st, wr){
+    const isAC = isAireAcondicionado(eq);
+    const vin = !isAC && isVinera(eq);
+    const isFreeze = !isAC && (String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca'));
+    const isWine = vin || (!isAC && (String(eq.tipo).toLowerCase().includes('vin') || String(eq.tipo).toLowerCase().includes('adega')));
+    const icon = isAC ? '💨' : (isWine ? '🍷' : (isFreeze ? '❄️' : '🧊'));
+    const isDone = st && st.hasReading;
+    const isBad = st && st.isBad;
+    const readingFormatted = st ? st.readingFormatted : '';
+    const lastReading = st ? st.lastReading : null;
+
+    const title = `${icon} ${eq.nome} · Informação do Equipamento`;
+    let bodyHtml = `
+      <div style="font-family:var(--sans); font-size:13px; line-height:1.5; color:var(--ink-700);">
+        <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px;">
+          <div style="display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px;">
+            <div style="color:var(--ink-400); font-weight:600;">Nome / Código:</div>
+            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(eq.nome)} ${eq.ref && eq.ref !== eq.nome ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
+
+            <div style="color:var(--ink-400); font-weight:600;">Descrição:</div>
+            <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || eq.nome)}</div>
+
+            <div style="color:var(--ink-400); font-weight:600;">Tipo de Equipamento:</div>
+            <div>${icon} ${esc(eq.tipo)} ${vin ? '<span style="font-size:11px; color:#8a5f0f; background:var(--amber-100); padding:1px 5px; border-radius:4px; margin-left:4px;">Rango Mín-Máx</span>' : ''}</div>
+
+            <div style="color:var(--ink-400); font-weight:600;">Localização:</div>
+            <div style="font-weight:600; color:var(--petrol-800);">📍 ${esc(eq.ubicacao || 'Não especificada')}</div>
+
+            <div style="color:var(--ink-400); font-weight:600;">Faixa Regulamentar:</div>
+            <div style="font-family:var(--mono); font-weight:700; color:var(--ink-800);">🎯 ${esc(String(eq.min))} a ${esc(String(eq.max))} °C</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px;">
+          <div style="font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-400); margin-bottom:6px;">
+            Estado no Período Semanal (${wr ? esc(wr.desde + ' a ' + wr.hasta) : 'Atual'})
+          </div>
+    `;
+
+    if(isDone && lastReading){
+      const d = lastReading.data;
+      bodyHtml += `
+          <div style="background:${isBad ? 'rgba(239, 68, 68, 0.08)' : 'rgba(34, 197, 94, 0.08)'}; border:1.5px solid ${isBad ? '#ea580c' : '#16a34a'}; border-radius:8px; padding:10px 12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <span style="font-weight:800; font-size:13.5px; color:${isBad ? '#ea580c' : '#16a34a'};">
+                ${isBad ? '⚠️ Fora de intervalo regulamentar' : '✓ Leitura Conforme'}
+              </span>
+              <span style="font-family:var(--mono); font-weight:800; font-size:15px; color:${isBad ? '#ea580c' : '#16a34a'};">
+                ${esc(readingFormatted)}
+              </span>
+            </div>
+            <div style="font-size:11.5px; color:var(--ink-600); font-family:var(--mono); margin-top:4px;">
+              📅 Registado em <b>${esc(d.fecha)}</b> às <b>${esc(d.hora || '—')}</b> · 👤 Técnico: <b>${esc(d.usuario || '—')}</b>
+            </div>
+            ${d.observacoes ? `
+              <div style="margin-top:6px; font-size:11.5px; color:#8a5f0f; font-style:italic; background:rgba(255,255,255,0.7); padding:4px 8px; border-radius:4px;">
+                💬 Observações: "${esc(d.observacoes)}"
+              </div>
+            ` : ''}
+            ${(d.modificadoPor || d.editado === 'Sim') ? `
+              <div style="font-size:10px; color:var(--ink-400); margin-top:4px;">
+                ✏️ Editado por ${esc(d.modificadoPor || '—')}
+              </div>
+            ` : ''}
+          </div>
+      `;
+    } else {
+      bodyHtml += `
+          <div style="background:var(--paper); border:1px dashed var(--line); border-radius:8px; padding:12px; text-align:center;">
+            <div style="font-size:13px; font-weight:700; color:var(--ink-500); margin-bottom:2px;">⏳ Nenhuma leitura registada nesta semana</div>
+            <div style="font-size:11.5px; color:var(--ink-400);">Este equipamento aguarda a medição de temperatura do ciclo semanal.</div>
+          </div>
+      `;
+    }
+
+    bodyHtml += `</div></div>`;
+
+    const canModify = isDone && lastReading && !isViewer();
+    const primaryBtnText = isDone
+      ? (canModify ? '✏️ Modificar Leitura Registada' : 'Fechar')
+      : (!isViewer() ? '➕ Registar Leitura Agora' : 'Fechar');
+
+    const ok = await confirmDialog(
+      title,
+      bodyHtml,
+      primaryBtnText,
+      isDone && canModify ? '✕ Fechar' : (!isViewer() && !isDone ? '✕ Cancelar' : '')
+    );
+
+    if(ok){
+      if(isDone && lastReading && canModify){
+        startEditTempRecord(lastReading.data);
+      } else if(!isViewer() && !isDone){
+        $('t-equipamento').value = eq.id;
+        selectEquip(eq.id);
+        if(wr && wr.desde) $('t-fecha').value = wr.desde;
+        if(isVinera(eq) && $('t-temp-min')){
+          $('t-temp-min').focus();
+          $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          $('t-temperatura').focus();
+          $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        showToast(`Equipamento ${eq.nome} selecionado para medição`);
+      }
+    }
+  }
 
   async function openTempDetailAndEditDialog(rec, equip, wr){
     const d = rec.data;
@@ -6616,7 +6873,8 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <div>
             <div style="font-weight:700; font-size:13px; color:var(--petrol-900);">${esc(equip.nome)} · ${esc(equip.tipo)}</div>
-            <div style="font-size:11px; color:var(--ink-400); font-family:var(--mono);">📍 ${esc(equip.ubicacao || 'Sem localização')}</div>
+            ${equip.descricao && equip.descricao !== equip.nome ? `<div style="font-size:12px; color:var(--ink-700);">${esc(equip.descricao)}</div>` : ''}
+            <div style="font-size:11px; color:var(--ink-400); font-family:var(--mono); margin-top:2px;">📍 ${esc(equip.ubicacao || 'Sem localização')}</div>
           </div>
           <span class="week-pill ${isBad ? 'bad' : 'ok'}" style="font-size:11px;">
             ${isBad ? '⚠️ Fora do Intervalo' : '✓ Conforme'}
@@ -6669,7 +6927,12 @@
       $('tempWeekRange').textContent = `(${wr.desde} a ${wr.hasta})`;
 
       const allTempRecords = await listRecords('temperatura');
-      const weekRecords = allTempRecords.filter(r=> r.data.fecha >= wr.desde && r.data.fecha <= wr.hasta);
+      const weekRecords = allTempRecords.filter(r => {
+        const d = r && r.data ? r.data : (r || {});
+        const rawDate = d.fecha || d.date || r.date || r.fecha;
+        const normDate = normalizeDate(rawDate);
+        return normDate && normDate >= wr.desde && normDate <= wr.hasta;
+      });
 
       const ativos = equipamentos.filter(e=> !isNoVal(e.ativo));
       if(!ativos.length){
@@ -6682,7 +6945,7 @@
       const equipStateMap = new Map();
 
       ativos.forEach(eq => {
-        const eqReadings = weekRecords.filter(r => String(r.data.equipamentoId) === String(eq.id) || String(r.data.nome).trim().toLowerCase() === String(eq.nome).trim().toLowerCase());
+        const eqReadings = weekRecords.filter(r => isRecordMatchingEquip(r, eq));
         const hasReading = eqReadings.length > 0;
         let lastReading = null;
         let isBad = false;
@@ -6690,7 +6953,11 @@
 
         if(hasReading){
           medidosCount++;
-          lastReading = eqReadings.sort((a,b)=> (b.data.fecha+b.data.hora).localeCompare(a.data.fecha+a.data.hora))[0];
+          lastReading = eqReadings.sort((a,b)=> {
+            const da = (a.data.fecha || '') + (a.data.hora || '');
+            const db = (b.data.fecha || '') + (b.data.hora || '');
+            return db.localeCompare(da);
+          })[0];
           const parsed = parseTempReading(lastReading.data.temperatura, eq);
           readingFormatted = parsed.formatted;
           if(parsed.isBad || String(lastReading.data.dentroIntervalo) === 'Não'){
@@ -6704,7 +6971,7 @@
       // 1. Visão de Grelha por Localização (paridade com Quartos)
       const locGroups = {};
       ativos.forEach(eq => {
-        const loc = String(eq.ubicacao || 'Outras Localizações').trim() || 'Outras Localizações';
+        const loc = normalizeLocation(eq.ubicacao);
         (locGroups[loc] = locGroups[loc] || []).push(eq);
       });
 
@@ -6734,11 +7001,14 @@
           const formatted = st.readingFormatted;
 
           return `
-            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : 'zero'}" data-equipchip="${esc(eq.id)}" title="${esc(eq.nome)}: ${esc(eq.tipo)} [${esc(String(eq.min))} a ${esc(String(eq.max))} °C]">
+            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : 'zero'}" data-equipchip="${esc(eq.id)}" title="Clique para ver descrição completa e detalhes de ${esc(eq.nome)}">
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:12px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.nome)}</span>
+                  <span style="font-weight:800; font-size:13px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(eq.nome)}</span>
                   <span class="dot"></span>
+                </div>
+                <div style="font-size:11px; color:var(--ink-500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;" title="${esc(eq.descricao || eq.nome)}">
+                  ${esc(eq.descricao || eq.nome)}
                 </div>
                 <div style="display:flex; align-items:center; gap:4px; margin:4px 0 2px; flex-wrap:wrap;">
                   <span class="equip-type-tag ${tagClass}">
@@ -6756,6 +7026,7 @@
                   ? `<span class="equip-val-pill ${isBad ? 'bad' : 'done'}">${isBad ? '⚠️' : '✓'} ${esc(formatted)}</span>`
                   : `<span class="equip-val-pill zero">⏳ Pendente</span>`
                 }
+                <span style="font-size:10px; color:var(--petrol-700); font-weight:600;">ℹ️ Detalhes</span>
               </div>
             </button>
           `;
@@ -6790,6 +7061,7 @@
               <div style="min-width:0; flex:1;">
                 <div class="wn" style="font-weight:700; font-size:13.5px; color:var(--petrol-900); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                   <span>${icon} ${esc(eq.nome)}</span>
+                  ${eq.descricao && eq.descricao !== eq.nome ? `<span style="font-weight:500; font-size:12px; color:var(--ink-600);">(${esc(eq.descricao)})</span>` : ''}
                   <span style="font-weight:600; color:var(--ice-500); font-size:11px; background:var(--ice-100); padding:1px 6px; border-radius:4px;">${esc(eq.tipo)}</span>
                   ${vin ? '<span style="font-weight:600; color:#8a5f0f; font-size:10.5px; background:var(--amber-100); padding:1px 6px; border-radius:4px;">Rango Mín-Máx</span>' : ''}
                 </div>
@@ -6851,7 +7123,7 @@
             <button type="button" class="equip-view-btn ${tempViewMode === 'list' ? 'active' : ''}" id="btnTempListMode">☰ Lista Detalhada</button>
           </div>
           <div style="font-family:var(--mono); font-size:11px; color:var(--ink-400);">
-            Toque num equipamento para registar ou consultar
+            Toque num equipamento para ver descrição ou registar medição
           </div>
         </div>
 
@@ -6881,27 +7153,8 @@
         chip.addEventListener('click', async () => {
           const eqId = chip.dataset.equipchip;
           const st = equipStateMap.get(String(eqId));
-          if(!st) return;
-
-          if(st.hasReading && st.lastReading){
-            await openTempDetailAndEditDialog(st.lastReading, st.eq, wr);
-            return;
-          }
-
-          if(isViewer()){ showToast('O seu perfil é apenas de visualização', true); return; }
-
-          $('t-equipamento').value = eqId;
-          selectEquip(eqId);
-          $('t-fecha').value = wr.desde;
-          const eq = selectedEquip();
-          if(isVinera(eq) && $('t-temp-min')){
-            $('t-temp-min').focus();
-            $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
-          } else {
-            $('t-temperatura').focus();
-            $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-          showToast(`Equipamento ${eq.nome} selecionado para medição`);
+          if(!st || !st.eq) return;
+          await openEquipInfoAndDetailDialog(st.eq, st, wr);
         });
       });
 
@@ -6996,15 +7249,27 @@
       let rowsHtml = '';
       for(let w = 0; w < 16; w++){
         const wr = getWeekRangeOffset(w);
-        const inWeek = allTemp.filter(r => r.data.fecha >= wr.desde && r.data.fecha <= wr.hasta);
+        const inWeek = allTemp.filter(r => {
+          const d = r && r.data ? r.data : (r || {});
+          const rawDate = d.fecha || d.date || r.date || r.fecha;
+          const normDate = normalizeDate(rawDate);
+          return normDate && normDate >= wr.desde && normDate <= wr.hasta;
+        });
         const equipIdsMedidos = new Set();
         let desvios = 0;
 
-        inWeek.forEach(r => {
-          if(r.data.equipamentoId) equipIdsMedidos.add(String(r.data.equipamentoId));
-          const eq = equipamentos.find(e => String(e.id) === String(r.data.equipamentoId));
-          const parsed = parseTempReading(r.data.temperatura, eq);
-          if(parsed.isBad || String(r.data.dentroIntervalo) === 'Não') desvios++;
+        ativos.forEach(eq => {
+          const matching = inWeek.filter(r => isRecordMatchingEquip(r, eq));
+          if(matching.length > 0){
+            equipIdsMedidos.add(String(eq.id));
+            const last = matching.sort((a,b)=> {
+              const da = ((a.data && a.data.fecha) || '') + ((a.data && a.data.hora) || '');
+              const db = ((b.data && b.data.fecha) || '') + ((b.data && b.data.hora) || '');
+              return db.localeCompare(da);
+            })[0];
+            const parsed = parseTempReading(last.data.temperatura, eq);
+            if(parsed.isBad || String(last.data.dentroIntervalo) === 'Não') desvios++;
+          }
         });
 
         const medidos = equipIdsMedidos.size;
@@ -9215,9 +9480,17 @@
     const lastItem = dataList[dataList.length - 1];
     const today = todayStr();
     if (lastItem && (lastItem.dateStr === today || (lastItem.date && fmt(lastItem.date) === today))) {
-      const now = new Date();
-      const currentHour = now.getHours() + now.getMinutes() / 60;
-      const dayFraction = Math.max(0.2, Math.min(1.0, currentHour / 24));
+      let readingHour = 8.5; // Padrão de recolha matinal habitual (08:30)
+      const itemTime = lastItem.hora || lastItem.time || (lastItem.data && (lastItem.data.hora || lastItem.data.time));
+      if (itemTime && String(itemTime).includes(':')) {
+        const parts = String(itemTime).split(':').map(Number);
+        if (!isNaN(parts[0])) readingHour = parts[0] + (isNaN(parts[1]) ? 0 : parts[1] / 60);
+      } else {
+        const now = new Date();
+        const currH = now.getHours() + now.getMinutes() / 60;
+        readingHour = Math.min(currH, 9.0); // Limite matinal para não inflacionar horas do dia em curso
+      }
+      const dayFraction = Math.max(0.15, Math.min(1.0, readingHour / 24));
       const fullDays = Math.max(0, dataList.length - 1);
       return Math.round((fullDays + dayFraction) * 1000) / 1000;
     }
