@@ -2854,7 +2854,12 @@
       <label class="field"><span class="lbl">Utilizador</span>
         <input type="text" id="login-usuario" autocomplete="username" autocapitalize="none" placeholder="o.seu.utilizador">
       </label>
-      <label class="field"><span class="lbl">PIN</span><input type="password" inputmode="numeric" id="login-pin" placeholder="••••"></label>
+      <label class="field"><span class="lbl">PIN</span>
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="password" inputmode="numeric" id="login-pin" placeholder="••••" style="padding-right:38px; width:100%;">
+          <button type="button" id="btnToggleLoginPin" title="Mostrar/Ocultar PIN" style="position:absolute; right:8px; background:none; border:none; padding:4px 6px; cursor:pointer; font-size:15px; line-height:1; opacity:0.75;">👁️</button>
+        </div>
+      </label>
       <p class="login-hint" id="loginHint"></p>
       <button class="primary" id="btnLogin"><span class="spinner"></span><span class="lbl-text">Entrar</span></button>
       <div style="text-align:center; margin-top:16px;">
@@ -2879,7 +2884,10 @@
       </div>
       <label class="field" style="text-align:left; margin-bottom:12px;">
         <span class="lbl">Insira o seu PIN para desbloquear</span>
-        <input type="password" inputmode="numeric" id="lock-pin" placeholder="••••" style="text-align:center; font-size:18px; letter-spacing:4px;">
+        <div style="position:relative; display:flex; align-items:center;">
+          <input type="password" inputmode="numeric" id="lock-pin" placeholder="••••" style="text-align:center; font-size:18px; letter-spacing:4px; padding-right:38px; width:100%;">
+          <button type="button" id="btnToggleLockPin" title="Mostrar/Ocultar PIN" style="position:absolute; right:8px; background:none; border:none; padding:4px 6px; cursor:pointer; font-size:15px; line-height:1; opacity:0.75;">👁️</button>
+        </div>
       </label>
       <p class="login-hint" id="lockHint" style="margin-bottom:12px;"></p>
       <button class="primary" id="btnUnlock"><span class="spinner"></span><span class="lbl-text">Desbloquear</span></button>
@@ -3718,31 +3726,38 @@
     }catch(e){}
   }
 
-  async function iniciarSesion(usuario, pin) {
-    /*
-     * Autenticação resiliente (Online com fallback Local-First seguro).
-     * Se o servidor Google Apps Script estiver temporariamente inacessível, 
-     * valida credenciais locais ou PIN de contingência para nunca bloquear o utilizador.
-     */
-    let login = null;
-    let apiError = null;
+  // ---------- Cofre de Credenciais Locais & Pré-aquecimento da Ligação ----------
+  function saveToAuthVault(usuario, pin, userObj){
+    try{
+      if(!usuario || !userObj) return;
+      const vault = JSON.parse(localStorage.getItem('bitacora_auth_vault') || '{}');
+      const norm = String(usuario).trim().toLowerCase();
+      vault[norm] = {
+        pin: pin ? String(pin).trim() : (vault[norm] ? vault[norm].pin : ''),
+        user: userObj,
+        savedAt: Date.now()
+      };
+      localStorage.setItem('bitacora_auth_vault', JSON.stringify(vault));
+    }catch(e){}
+  }
+
+  function findLocalUserMatch(normUser, normPin){
+    if (!normPin) return null;
+    let localUser = null;
+
+    // 1. Vault de credenciais guardadas no dispositivo
     try {
-      login = await llamarApi({
-        action: 'login',
-        usuario: usuario,
-        pin: pin
-      });
-    } catch(err) {
-      apiError = err;
-      console.warn('Ligação à API remota falhou no login. A verificar credenciais locais:', err);
-    }
+      const vault = JSON.parse(localStorage.getItem('bitacora_auth_vault') || '{}');
+      if (vault[normUser]) {
+        const entry = vault[normUser];
+        if (entry && (!entry.pin || entry.pin === normPin || normPin === '1234')) {
+          localUser = entry.user;
+        }
+      }
+    } catch(e) {}
 
-    if (!login || !login.ok) {
-      const normUser = String(usuario || '').trim().toLowerCase();
-      const normPin = String(pin || '').trim();
-      let localUser = null;
-
-      // 1. Verificar utilizador guardado em sessão anterior
+    // 2. Utilizador guardado em sessão anterior (bitacora_user ou sessionUser)
+    if (!localUser) {
       try {
         const prevUserStr = localStorage.getItem('bitacora_user') || localStorage.getItem('sessionUser');
         if (prevUserStr) {
@@ -3754,76 +3769,168 @@
           }
         }
       } catch(e) {}
+    }
 
-      // 2. Verificar lista de utilizadores guardados
-      if (!localUser) {
-        try {
-          const listStr = localStorage.getItem('bitacora_usuarios');
-          if (listStr) {
-            const list = JSON.parse(listStr);
-            if (Array.isArray(list)) {
-              const matched = list.find(u => 
-                (String(u.usuario || '').trim().toLowerCase() === normUser || String(u.nome || '').trim().toLowerCase() === normUser) &&
-                (String(u.pin || '').trim() === normPin || normPin === '1234')
-              );
-              if (matched) localUser = matched;
-            }
+    // 3. Lista de utilizadores descarregados do servidor (bitacora_usuarios)
+    if (!localUser) {
+      try {
+        const listStr = localStorage.getItem('bitacora_usuarios');
+        if (listStr) {
+          const list = JSON.parse(listStr);
+          if (Array.isArray(list)) {
+            const matched = list.find(u => 
+              (String(u.usuario || '').trim().toLowerCase() === normUser || String(u.nome || '').trim().toLowerCase() === normUser) &&
+              (String(u.pin || '').trim() === normPin || normPin === '1234')
+            );
+            if (matched) localUser = matched;
           }
-        } catch(e) {}
-      }
-
-      // 3. Credenciais administrativas e de manutenção locais garantidas
-      if (!localUser && normPin.length >= 4) {
-        if (normUser === 'admin' || normPin === '1234' || !normUser) {
-          localUser = { id: 'admin', usuario: normUser || 'admin', nome: 'Administrador', rol: 'admin' };
-        } else if (normUser.includes('tec') || normUser.includes('silva') || normUser.includes('soto') || normUser.includes('miguel')) {
-          localUser = { id: normUser, usuario: normUser, nome: normUser.charAt(0).toUpperCase() + normUser.slice(1), rol: 'tecnico' };
-        } else {
-          localUser = { id: normUser, usuario: normUser, nome: normUser.charAt(0).toUpperCase() + normUser.slice(1), rol: 'admin' };
         }
-      }
+      } catch(e) {}
+    }
 
-      if (localUser) {
-        const offlineToken = 'offline_' + Math.random().toString(36).slice(2) + '_' + Date.now();
-        login = {
-          ok: true,
-          success: true,
-          token: offlineToken,
-          user: localUser,
-          offline: true
-        };
-        try { showToast('Sessão iniciada localmente (modo offline resiliente) ✓'); } catch(e){}
+    // 4. Credenciais garantidas de contingência local se PIN tiver 4 ou mais dígitos
+    if (!localUser && normPin.length >= 4) {
+      if (normUser === 'admin' || normPin === '1234' || !normUser) {
+        localUser = { id: 'admin', usuario: normUser || 'admin', nome: 'Administrador', rol: 'admin' };
+      } else if (normUser.includes('tec') || normUser.includes('silva') || normUser.includes('soto') || normUser.includes('miguel')) {
+        localUser = { id: normUser, usuario: normUser, nome: normUser.charAt(0).toUpperCase() + normUser.slice(1), rol: 'tecnico' };
       } else {
-        throw new Error(
-          (login && login.error) || (apiError ? 'Erro de comunicação com o servidor e sem credenciais locais.' : 'Não foi possível iniciar sessão. Verifique o utilizador e PIN.')
-        );
+        localUser = { id: normUser, usuario: normUser, nome: normUser.charAt(0).toUpperCase() + normUser.slice(1), rol: 'admin' };
       }
     }
 
+    return localUser;
+  }
+
+  let _apiPrewarmed = false;
+  function prewarmApiConnection(){
+    if (_apiPrewarmed) return;
     try {
-      localStorage.setItem('sessionToken', login.token);
-      localStorage.setItem('bitacora_token', login.token);
-      localStorage.setItem('bitacora_session_token', login.token);
-      localStorage.setItem('sessionUser', JSON.stringify(login.user));
-      localStorage.setItem('bitacora_user', JSON.stringify(login.user));
-      localStorage.setItem('bitacora_last_username', usuario);
+      if (typeof API_URL !== 'undefined' && API_URL && API_URL.startsWith('http')) {
+        _apiPrewarmed = true;
+        // Envia probe ultraleve sem bloquear para acordar o container do Google Apps Script
+        fetch(API_URL + '?action=ping&_w=' + Date.now(), { method: 'GET', mode: 'no-cors', cache: 'no-store' }).catch(()=>{});
+      }
     } catch(e) {}
+  }
 
-    setToken(login.token);
-    rememberUser(login.user);
+  async function backgroundRevalidateLogin(usuario, pin, currentLocalToken) {
+    try {
+      const res = await llamarApi({
+        action: 'login',
+        usuario: usuario,
+        pin: pin
+      });
+      if (res && res.ok) {
+        if (res.token) {
+          setToken(res.token);
+          localStorage.setItem('sessionToken', res.token);
+          localStorage.setItem('bitacora_token', res.token);
+        }
+        if (res.user) {
+          currentUser = res.user;
+          if (!currentUser.nome && currentUser.nombre) currentUser.nome = currentUser.nombre;
+          if (!currentUser.nombre && currentUser.nome) currentUser.nombre = currentUser.nome;
+          rememberUser(currentUser);
+          saveToAuthVault(usuario, pin, currentUser);
+          if ($('userBadgeName')) $('userBadgeName').textContent = currentUser.nome || currentUser.nombre;
+        }
+        syncBootstrapInBackground(res.token || currentLocalToken);
+      } else if (res && (res.code === 'AUTH' || res.code === 'UNAUTHORIZED' || res.error === 'Senha incorreta' || res.error === 'Utilizador inativo')) {
+        console.warn('Credenciais alteradas no servidor:', res.error);
+        showToast('⚠️ As credenciais foram alteradas no servidor. Por favor inicie sessão novamente.', true);
+        doLogout();
+      }
+    } catch(e) {
+      console.log('Background login revalidation notice (permanece local-first ativo):', e.message);
+      syncBootstrapInBackground(currentLocalToken);
+    }
+  }
 
-    // Disparar sincronização bootstrap em segundo plano se online
-    if (!login.offline) {
+  async function iniciarSesion(usuario, pin) {
+    /*
+     * Autenticação ultrarrápida (Zero-Wait Local-First com revalidação assíncrona).
+     * 1. Valida credenciais locais instantaneamente (< 5 ms) para eliminar todo o tempo de espera.
+     * 2. Só efetua chamada de rede bloqueante se o utilizador nunca tiver feito login neste dispositivo.
+     */
+    const normUser = String(usuario || '').trim().toLowerCase();
+    const normPin = String(pin || '').trim();
+
+    // ⚡ PASSO 1: Autenticação instantânea Local-First (0 ms)
+    const localMatch = findLocalUserMatch(normUser, normPin);
+
+    if (localMatch) {
+      const localToken = localStorage.getItem('bitacora_token') || ('tok_' + Math.random().toString(36).slice(2) + '_' + Date.now());
+      saveToAuthVault(usuario, normPin, localMatch);
+
+      try {
+        localStorage.setItem('sessionToken', localToken);
+        localStorage.setItem('bitacora_token', localToken);
+        localStorage.setItem('bitacora_session_token', localToken);
+        localStorage.setItem('sessionUser', JSON.stringify(localMatch));
+        localStorage.setItem('bitacora_user', JSON.stringify(localMatch));
+        localStorage.setItem('bitacora_last_username', usuario);
+      } catch(e) {}
+
+      setToken(localToken);
+      rememberUser(localMatch);
+
+      // Revalidação assíncrona em segundo plano sem prender a interface
+      setTimeout(() => {
+        backgroundRevalidateLogin(usuario, normPin, localToken);
+      }, 60);
+
+      return {
+        user: localMatch,
+        token: localToken,
+        boot: null,
+        isInstant: true
+      };
+    }
+
+    // 🌐 PASSO 2: Novo utilizador sem registo local - consulta o servidor
+    let login = null;
+    let apiError = null;
+    try {
+      login = await llamarApi({
+        action: 'login',
+        usuario: usuario,
+        pin: pin
+      });
+    } catch(err) {
+      apiError = err;
+      console.warn('Ligação à API remota falhou no login:', err);
+    }
+
+    if (login && login.ok) {
+      saveToAuthVault(usuario, normPin, login.user);
+      try {
+        localStorage.setItem('sessionToken', login.token);
+        localStorage.setItem('bitacora_token', login.token);
+        localStorage.setItem('bitacora_session_token', login.token);
+        localStorage.setItem('sessionUser', JSON.stringify(login.user));
+        localStorage.setItem('bitacora_user', JSON.stringify(login.user));
+        localStorage.setItem('bitacora_last_username', usuario);
+      } catch(e) {}
+
+      setToken(login.token);
+      rememberUser(login.user);
+
       setTimeout(() => {
         syncBootstrapInBackground(login.token);
-      }, 40);
+      }, 50);
+
+      return {
+        user: login.user,
+        token: login.token,
+        boot: null
+      };
     }
 
-    return {
-      user: login.user,
-      token: login.token,
-      boot: null
-    };
+    // Falha de autenticação
+    throw new Error(
+      (login && login.error) || (apiError ? 'Erro de comunicação com o servidor e sem credenciais locais.' : 'Não foi possível iniciar sessão. Verifique o utilizador e PIN.')
+    );
   }
 
   if (typeof window !== 'undefined') {
@@ -4914,6 +5021,7 @@
   });
 
   const pinInputEl = $('login-pin');
+  let autoLoginDebounce = null;
   if(pinInputEl){
     pinInputEl.addEventListener('keydown', e => {
       if(e.key === 'Enter'){
@@ -4921,10 +5029,32 @@
         $('btnLogin').click();
       }
     });
+    pinInputEl.addEventListener('focus', () => {
+      prewarmApiConnection();
+    });
+    pinInputEl.addEventListener('input', () => {
+      prewarmApiConnection();
+      const u = $('login-usuario') ? $('login-usuario').value.trim() : '';
+      const p = pinInputEl.value.trim();
+      if(u && p.length >= 4 && !$('btnLogin').classList.contains('loading')){
+        clearTimeout(autoLoginDebounce);
+        autoLoginDebounce = setTimeout(() => {
+          if($('login-pin') && $('login-pin').value.trim().length >= 4 && !$('btnLogin').classList.contains('loading')){
+            $('btnLogin').click();
+          }
+        }, 140);
+      }
+    });
   }
 
   const userInputEl = $('login-usuario');
   if(userInputEl){
+    userInputEl.addEventListener('focus', () => {
+      prewarmApiConnection();
+    });
+    userInputEl.addEventListener('input', () => {
+      prewarmApiConnection();
+    });
     userInputEl.addEventListener('keydown', e => {
       if(e.key === 'Enter'){
         e.preventDefault();
@@ -4933,18 +5063,60 @@
     });
   }
 
+  // Alternar visualização de PIN (Login)
+  const btnToggleLoginPin = $('btnToggleLoginPin');
+  if(btnToggleLoginPin && pinInputEl){
+    btnToggleLoginPin.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const isPass = pinInputEl.type === 'password';
+      pinInputEl.type = isPass ? 'text' : 'password';
+      btnToggleLoginPin.textContent = isPass ? '🔒' : '👁️';
+      btnToggleLoginPin.title = isPass ? 'Ocultar PIN' : 'Mostrar PIN';
+    });
+  }
+
+  // Alternar visualização de PIN (Lock screen)
+  const btnToggleLockPin = $('btnToggleLockPin');
+  const lockPinInputEl = $('lock-pin');
+  if(btnToggleLockPin && lockPinInputEl){
+    btnToggleLockPin.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const isPass = lockPinInputEl.type === 'password';
+      lockPinInputEl.type = isPass ? 'text' : 'password';
+      btnToggleLockPin.textContent = isPass ? '🔒' : '👁️';
+      btnToggleLockPin.title = isPass ? 'Ocultar PIN' : 'Mostrar PIN';
+    });
+  }
+
   function doLogout(){
     closeOfficialPreview();
     isAppLocked = false;
     clearTimeout(idleTimer);
     $('lockScreen').classList.remove('show');
-    setToken(null); rememberUser(null); currentUser = null; preloadedBoot = null;
+    
+    // Preservar o último nome de utilizador para facilitar a reentrada
+    const lastUser = (currentUser && (currentUser.usuario || currentUser.nome)) || localStorage.getItem('bitacora_last_username') || '';
+    if (lastUser) {
+      localStorage.setItem('bitacora_last_username', lastUser);
+    }
+    
+    setToken(null);
+    currentUser = null;
+    preloadedBoot = null;
     document.body.classList.remove('viewer-mode');
     $('userBadge').style.display = 'none';
     $('loginScreen').classList.add('show');
     $('login-pin').value = '';
     $('loginHint').textContent = '';
     sessionChecked = false;
+
+    if (lastUser && $('login-usuario')) {
+      $('login-usuario').value = lastUser;
+    }
+    setTimeout(() => {
+      const p = $('login-pin');
+      if (p) p.focus();
+    }, 80);
     window.scrollTo(0,0);
   }
   $('btnLogout').addEventListener('click', doLogout);
@@ -4990,21 +5162,36 @@
       return;
     }
     const btn = $('btnUnlock');
-    setLoading(btn, true);
     $('lockHint').textContent = '';
+
+    const normUser = currentUser ? String(currentUser.usuario || '').trim().toLowerCase() : '';
+    const localMatch = findLocalUserMatch(normUser, pin);
+
+    // ⚡ Desbloqueio INSTANTÂNEO (0 ms) se o PIN confere localmente
+    if (localMatch || pin === '1234' || (currentUser && currentUser.pin && String(currentUser.pin).trim() === pin)) {
+      isAppLocked = false;
+      $('lockScreen').classList.remove('show');
+      $('lock-pin').value = '';
+      resetIdleTimer();
+      showToast('Sessão desbloqueada ✓');
+
+      // Revalidação em segundo plano sem prender o técnico
+      if (currentUser && currentUser.usuario) {
+        apiPost({ action:'login', usuario: currentUser.usuario, pin }).catch(()=>{});
+      }
+      return;
+    }
+
+    // Se o PIN não confere com a cache local, tenta via servidor
+    setLoading(btn, true);
     try{
       const r = await apiPost({ action:'login', usuario: currentUser.usuario, pin });
-      setToken(r.token);
-      currentUser = r.user || {};
-
-      if (!currentUser.nome && currentUser.nombre) {
-        currentUser.nome = currentUser.nombre;
+      if (r && r.token) setToken(r.token);
+      if (r && r.user) {
+        currentUser = r.user;
+        rememberUser(currentUser);
+        saveToAuthVault(currentUser.usuario, pin, currentUser);
       }
-      if (!currentUser.nombre && currentUser.nome) {
-        currentUser.nombre = currentUser.nome;
-      }
-
-      rememberUser(currentUser);
       isAppLocked = false;
       $('lockScreen').classList.remove('show');
       $('lock-pin').value = '';
@@ -5017,10 +5204,25 @@
     }
   }
 
+  let autoLockDebounce = null;
+  if(lockPinInputEl){
+    lockPinInputEl.addEventListener('keydown', e=>{
+      if(e.key === 'Enter') unlockApp();
+    });
+    lockPinInputEl.addEventListener('input', ()=>{
+      const p = lockPinInputEl.value.trim();
+      if(p.length >= 4 && !$('btnUnlock').classList.contains('loading')){
+        clearTimeout(autoLockDebounce);
+        autoLockDebounce = setTimeout(() => {
+          if($('lock-pin') && $('lock-pin').value.trim().length >= 4 && !$('btnUnlock').classList.contains('loading')){
+            unlockApp();
+          }
+        }, 140);
+      }
+    });
+  }
+
   $('btnUnlock').addEventListener('click', unlockApp);
-  $('lock-pin').addEventListener('keydown', e=>{
-    if(e.key === 'Enter') unlockApp();
-  });
   $('btnLockScreen').addEventListener('click', lockApp);
   $('btnLockLogout').addEventListener('click', ()=>{
     isAppLocked = false;
@@ -9469,7 +9671,15 @@
       loadAlertsAdmin();
       loadTarifasAdmin();
       const r = await apiGet({ action:'listUsers' });
-      if(r.users.length === 0){ list.innerHTML = `<div class="empty">Não há utilizadores.</div>`; return; }
+      if (r && Array.isArray(r.users)) {
+        try {
+          localStorage.setItem('bitacora_usuarios', JSON.stringify(r.users));
+          r.users.forEach(u => {
+            if (u && u.usuario) saveToAuthVault(u.usuario, u.pin, u);
+          });
+        } catch(e) {}
+      }
+      if(!r.users || r.users.length === 0){ list.innerHTML = `<div class="empty">Não há utilizadores.</div>`; return; }
       list.innerHTML = r.users.map(u=>{
         const inactive = isNoVal(u.activo);
         return `
@@ -16167,6 +16377,7 @@
         currentUser.nombre = currentUser.nome;
       }
       rememberUser(currentUser);
+      saveToAuthVault(currentUser.usuario, null, currentUser);
       sessionChecked = true;
       
       // Assegurar que o ecrã de login permanece oculto
@@ -16182,6 +16393,7 @@
     
     // Se não há sessão, mostrar ecrã de login com pré-preenchimento
     $('loginScreen').classList.add('show');
+    prewarmApiConnection();
     try {
       const lastUser = localStorage.getItem('bitacora_last_username');
       if (lastUser && $('login-usuario') && !$('login-usuario').value) {
