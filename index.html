@@ -1776,9 +1776,45 @@
   }
   .btn-update-dismiss:hover{ color:#fff; background:rgba(255,255,255,.1); }
 
+  .app-footer-credit{
+    margin:22px 0 10px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    padding:14px 12px 6px; border-top:1px dashed var(--line);
+  }
+  .author-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background:#ffffff; border:1.5px solid var(--line);
+    border-radius:20px; padding:6px 16px;
+    box-shadow:0 1px 4px rgba(10,37,48,0.04);
+    font-family:var(--sans); font-size:12px; color:var(--petrol-900);
+    letter-spacing:0.01em; user-select:none;
+    transition:transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+  .author-badge:hover{
+    border-color:var(--aqua-500);
+    box-shadow:0 3px 10px rgba(14,51,65,0.08);
+    transform:translateY(-1px);
+  }
+  .author-badge .author-shield{
+    font-size:13.5px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .author-badge .author-label{
+    font-size:12px; color:var(--ink-600);
+  }
+  .author-badge .author-name{
+    font-weight:700; color:var(--petrol-950); letter-spacing:0.02em;
+  }
+  .author-badge .author-tag{
+    font-family:var(--mono); font-size:9.5px; font-weight:700; text-transform:uppercase;
+    background:rgba(14,165,233,0.12); color:#0369a1; padding:2px 8px; border-radius:10px;
+    letter-spacing:0.04em; margin-left:2px; border:1px solid rgba(14,165,233,0.25);
+  }
+  .author-badge-compact{
+    padding:4px 12px; font-size:11px;
+  }
+
   .app-footer-version{
     text-align:center; font-family:var(--mono); font-size:11px;
-    color:var(--ink-600); margin:18px 0 0; display:flex; align-items:center; justify-content:center; gap:8px;
+    color:var(--ink-600); margin:0; display:flex; align-items:center; justify-content:center; gap:8px;
   }
   .app-version-badge{
     display:inline-flex; align-items:center; gap:6px;
@@ -2748,12 +2784,19 @@
 
     <!-- Sessão e versão — sempre visíveis no final do conteúdo -->
     <button class="logout-main" id="btnLogoutMain">🚪 Terminar sessão</button>
-    <div class="app-footer-version">
-      <button class="app-version-badge" id="btnOpenVersionModal" type="button" title="Clique para ver o estado da versão e procurar atualizações">
-        <span class="v-dot" id="vDotStatus"></span>
-        <span>Registo Técnico · <b class="appVersionInline">—</b></span>
-        <span class="v-status-tag" id="vStatusTag">✓ Atualizada</span>
-      </button>
+    <div class="app-footer-credit">
+      <div class="author-badge" id="authorBadgeMain" title="Aplicação desenvolvida e criada por Miguel Angel Soto">
+        <span class="author-shield">🛡️</span>
+        <span class="author-label">by <strong class="author-name">Miguel Angel Soto</strong></span>
+        <span class="author-tag">Criador</span>
+      </div>
+      <div class="app-footer-version">
+        <button class="app-version-badge" id="btnOpenVersionModal" type="button" title="Clique para ver o estado da versão e procurar atualizações">
+          <span class="v-dot" id="vDotStatus"></span>
+          <span>Registo Técnico · <b class="appVersionInline">—</b></span>
+          <span class="v-status-tag" id="vStatusTag">✓ Atualizada</span>
+        </button>
+      </div>
     </div>
 
   </main>
@@ -2786,6 +2829,13 @@
         <li>Copie o URL e cole-o na constante <code>API_URL</code> no início deste ficheiro HTML.</li>
       </ol>
       <p>Depois de editar o ficheiro, volte a abri-lo.</p>
+      <div style="text-align:center; margin-top:16px;">
+        <div class="author-badge author-badge-compact" title="Aplicação desenvolvida por Miguel Angel Soto">
+          <span class="author-shield">🛡️</span>
+          <span class="author-label">by <strong class="author-name">Miguel Angel Soto</strong></span>
+          <span class="author-tag">Criador</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2807,6 +2857,13 @@
       <label class="field"><span class="lbl">PIN</span><input type="password" inputmode="numeric" id="login-pin" placeholder="••••"></label>
       <p class="login-hint" id="loginHint"></p>
       <button class="primary" id="btnLogin"><span class="spinner"></span><span class="lbl-text">Entrar</span></button>
+      <div style="text-align:center; margin-top:16px;">
+        <div class="author-badge author-badge-compact" title="Aplicação desenvolvida por Miguel Angel Soto">
+          <span class="author-shield">🛡️</span>
+          <span class="author-label">by <strong class="author-name">Miguel Angel Soto</strong></span>
+          <span class="author-tag">Criador</span>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -2827,6 +2884,13 @@
       <p class="login-hint" id="lockHint" style="margin-bottom:12px;"></p>
       <button class="primary" id="btnUnlock"><span class="spinner"></span><span class="lbl-text">Desbloquear</span></button>
       <button type="button" class="link-edit" id="btnLockLogout" style="margin-top:14px; display:inline-block;">Sair e mudar de utilizador</button>
+      <div style="text-align:center; margin-top:16px;">
+        <div class="author-badge author-badge-compact" title="Aplicação desenvolvida por Miguel Angel Soto">
+          <span class="author-shield">🛡️</span>
+          <span class="author-label">by <strong class="author-name">Miguel Angel Soto</strong></span>
+          <span class="author-tag">Criador</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -3379,6 +3443,17 @@
           <div class="v-modal-val" id="modalServerVerVal">${esc(serverVerLabel)}</div>
           <div class="v-modal-sub" id="modalServerVerSub">${latestServerVersion ? `${esc(latestServerVersion.buildDate || '')} · ${esc(latestServerVersion.channel || '')}` : (isOffline?'Cache PWA':'Servidor em nuvem')}</div>
         </div>
+      </div>
+
+      <div class="v-modal-box" style="margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:10px 14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-size:22px; line-height:1;">🛡️</span>
+          <div>
+            <div style="font-family:var(--mono); font-size:10px; font-weight:700; text-transform:uppercase; color:var(--ink-400); letter-spacing:0.04em;">Criador & Autor do Sistema</div>
+            <div style="font-size:13px; font-weight:700; color:var(--petrol-900);">Miguel Angel Soto</div>
+          </div>
+        </div>
+        <span style="font-family:var(--mono); font-size:10px; font-weight:700; text-transform:uppercase; background:rgba(14,165,233,0.12); color:#0369a1; padding:3px 9px; border-radius:12px; border:1px solid rgba(14,165,233,0.25);">Criador</span>
       </div>
 
       <div style="font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase; color:var(--petrol-700); margin:12px 0 6px;">
@@ -15361,6 +15436,9 @@
       <div class="off-sign">
         <div>O Técnico Responsável</div>
         <div>Direção / Gerência</div>
+      </div>
+      <div style="margin-top:16px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:center; font-size:10px; color:#64748b; font-family:system-ui, sans-serif;">
+        MS Funchal · Sistema de Registo Técnico e Manutenção · by <strong>Miguel Angel Soto</strong> como Criador
       </div>
     </div>`;
   }
