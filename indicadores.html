@@ -6578,8 +6578,8 @@
 
       // --- Cozinha Piso -1 ---
       { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', descricao: 'Frigorífico principal de produção na Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['frigorifico cozinha piso -1', 'frigorifico cozinha piso - 1', 'frigorifico cozinha -1', 'frigorifico cocina piso -1', 'frigorifico cocina -1', 'nevera cocina -1', 'ref 08', 'ref08', 'ref-08', 'ref_08', 'ref 8'] },
-      { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cocina -1', 'congelador 1 cocina piso -1', 'con 02', 'con02', 'con-02', 'con_02', 'con 2'] },
-      { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cocina -1', 'congelador 2 cocina piso -1', 'con 03', 'con03', 'con-03', 'con_03', 'con 3'] },
+      { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cocina -1', 'congelador 1 cocina piso -1', 'con 02', 'con02', 'con-02', 'con_02', 'con 2', 'eq_1787855429206_3949', '3949', '#3949'] },
+      { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cocina -1', 'congelador 2 cocina piso -1', 'con 03', 'con03', 'con-03', 'con_03', 'con 3', 'eq_1787855463201_3130', '3130', '#3130'] },
       { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', descricao: 'Climatização da Cozinha de Produção Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado cozinha piso -1', 'ar condicionado cozinha -1', 'aire acondicionado cocina -1', 'aire cocina -1', 'ac 06', 'ac06', 'ac-06', 'arc06', 'arc 06', 'ac 6'] },
 
       // --- Armazém Piso -1 ---
@@ -6642,11 +6642,40 @@
       if (!str) return true;
       const s = String(str).trim();
       if (!s) return true;
+      // 1. Identificadores gerados por sistema (ex: eq_1787855429206_3949, id_..., sq_...)
       if (/^(eq|id|sq)_[0-9]+(_[a-z0-9]+)?$/i.test(s)) return true;
+      // 2. Códigos de referência de equipamento (ex: #3949, #3130, #EQ01)
+      if (/^#[a-z0-9_-]+$/i.test(s)) return true;
+      // 3. Códigos técnicos com prefixo HACCP curto (ex: REF09, REF-10, CON02, VIH03, AC06, ARC07, FRIG01)
       if (/^(REF|CON|VIH|GAR|FRIG|AC|ARC)[\s._\-\d]+$/i.test(s)) return true;
+      // 4. Códigos compactos sem espaços com 1-4 letras e 1-4 dígitos (ex: REF1, C02, F01, AC06)
       if (/^[a-zA-Z]{1,4}[0-9]{1,4}$/.test(s)) return true;
+      // 5. Hashes hexadecimais longos ou UUIDs
       if (/^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s)) return true;
       return false;
+    }
+
+    // Devolve uma abreviatura curta para a referência técnica
+    function formatRefShort(refId) {
+      if (!refId) return '';
+      const s = String(refId).trim();
+      if (/^#[a-z0-9_-]+$/i.test(s)) return s;
+      if (/^eq_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+        const m = s.match(/^eq_[0-9]+_([a-z0-9]+)$/i);
+        return '#' + m[1];
+      }
+      if (/^eq_([0-9]+)$/i.test(s)) {
+        const m = s.match(/^eq_([0-9]+)$/i);
+        return '#' + m[1].slice(-4);
+      }
+      if (/^id_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+        const m = s.match(/^id_[0-9]+_([a-z0-9]+)$/i);
+        return '#' + m[1];
+      }
+      if (/^\d{3,5}$/.test(s)) {
+        return '#' + s;
+      }
+      return s;
     }
 
     // Extrai o código técnico unificado de uma string (ex: "REF09", "AC06", "CON02", "VIH01")
@@ -6664,6 +6693,64 @@
       return null;
     }
 
+    // Formata SEMPRE um nome humano legível e profissional para o equipamento, nunca expondo IDs técnicos
+    function formatHumanEquipName(rawName, eqTipo, eqLoc, rawId, refCode) {
+      const sName = String(rawName || '').trim();
+      const sId = String(rawId || '').trim();
+
+      // 1. Se tem um nome personalizado já humano (não nulo, não código de referência nem ID gerado)
+      if (sName && !isReferenceCode(sName) && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length > 2 && sName !== sId) {
+        return sName;
+      }
+
+      // 2. Tenta encontrar a definição canónica correspondente do hotel
+      const canon = findCanonicalEquip(rawId, sName, eqLoc, eqTipo);
+      if (canon && canon.nome) return canon.nome;
+
+      // 3. Obtém código de referência curto amigável (ex: #3949, #3130, REF01)
+      const refShort = formatRefShort(refCode || rawId || sName);
+
+      // 4. Determina o tipo descritivo
+      let tipoLabel = 'Equipamento';
+      const tipoStr = (String(eqTipo || '') + ' ' + sName).toLowerCase();
+      if (tipoStr.includes('ar condicionado') || tipoStr.includes('aire') || tipoStr.includes('climat') || tipoStr.includes('ac ') || tipoStr.startsWith('ac')) {
+        tipoLabel = 'Ar Condicionado';
+      } else if (tipoStr.includes('congelador') || tipoStr.includes('arca') || tipoStr.includes('con')) {
+        tipoLabel = 'Congelador';
+      } else if (tipoStr.includes('vin') || tipoStr.includes('adega') || tipoStr.includes('garrafeir')) {
+        tipoLabel = 'Vinhera';
+      } else if (tipoStr.includes('balc') || tipoStr.includes('vitrine') || tipoStr.includes('bancada')) {
+        tipoLabel = 'Balcão';
+      } else if (tipoStr.includes('frigorifico') || tipoStr.includes('frigo') || tipoStr.includes('nevera') || tipoStr.includes('ref')) {
+        tipoLabel = 'Frigorífico';
+      }
+
+      // 5. Determina localização formatada
+      let locLabel = '';
+      if (eqLoc) {
+        const norm = normalizeLocation(eqLoc);
+        if (norm && norm !== 'OUTRAS LOCALIZAÇÕES') {
+          locLabel = norm
+            .toLowerCase()
+            .split(' ')
+            .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ')
+            .replace(/\b-1\b/g, '-1')
+            .replace(/\b0\b/g, '0');
+        }
+      }
+
+      // 6. Constrói designação elegante e sem códigos crus
+      if (refShort && refShort.startsWith('#')) {
+        return locLabel ? `${tipoLabel} ${locLabel} (${refShort})` : `${tipoLabel} ${refShort}`;
+      } else if (refShort && /^[A-Z]{2,4}\d+/i.test(refShort)) {
+        return locLabel ? `${tipoLabel} ${refShort} (${locLabel})` : `${tipoLabel} ${refShort}`;
+      } else if (locLabel) {
+        return `${tipoLabel} ${locLabel}`;
+      }
+      return refShort ? `${tipoLabel} (${refShort})` : tipoLabel;
+    }
+
     function findCanonicalEquip(rawId, rawName, rawLoc, rawTipo) {
       const candidates = [rawId, rawName].filter(Boolean);
 
@@ -6671,12 +6758,12 @@
       for (const cand of candidates) {
         const code = extractCanonicalCode(cand);
         if (code) {
-          const match = DEFAULT_HOTEL_EQUIPAMENTOS.find(d => d.id === code);
+          const match = DEFAULT_HOTEL_EQUIPAMENTOS.find(d => d.id === code || d.ref === code);
           if (match) return match;
         }
       }
 
-      // 2. Correspondência exata limpa
+      // 2. Correspondência exata limpa (id, ref, nome, descricao, aliases)
       for (const cand of candidates) {
         const clean = cleanStrForMatch(cand);
         if (!clean) continue;
@@ -6696,14 +6783,14 @@
       // 3. Correspondência por substrings em aliases e nomes
       for (const cand of candidates) {
         const clean = cleanStrForMatch(cand);
-        if (!clean || clean.length < 5) continue;
+        if (!clean || clean.length < 3) continue;
         for (const def of DEFAULT_HOTEL_EQUIPAMENTOS) {
           const defCleanName = cleanStrForMatch(def.nome);
-          if (defCleanName.includes(clean) || clean.includes(defCleanName)) return def;
+          if (clean.length >= 6 && (defCleanName.includes(clean) || clean.includes(defCleanName))) return def;
           if (Array.isArray(def.aliases)) {
             for (const al of def.aliases) {
               const alClean = cleanStrForMatch(al);
-              if (alClean.length >= 6 && (clean.includes(alClean) || alClean.includes(clean))) {
+              if (alClean && (clean === alClean || (alClean.length >= 4 && (clean.includes(alClean) || alClean.includes(clean))))) {
                 return def;
               }
             }
@@ -6723,6 +6810,17 @@
           const matchingTipo = sameLocDefs.filter(d => cleanStrForMatch(d.tipo).includes(cleanTipo) || cleanTipo.includes(cleanStrForMatch(d.tipo)));
           if (matchingTipo.length === 1) {
             return matchingTipo[0];
+          } else if (matchingTipo.length > 1) {
+            // Tenta desambiguação por índice nos candidatos
+            for (const cand of candidates) {
+              const sCand = String(cand).toLowerCase();
+              for (let i = 0; i < matchingTipo.length; i++) {
+                const num = i + 1;
+                if (new RegExp(`(\\b|_)0?${num}(\\b|_|$)`).test(sCand) || sCand.includes(matchingTipo[i].id.toLowerCase())) {
+                  return matchingTipo[i];
+                }
+              }
+            }
           }
         }
       }
@@ -6775,54 +6873,13 @@
       return rawId || rawName || '';
     }
 
-    // Deteta se uma string é apenas um código de referência interna ou ID técnico
-    function isReferenceCode(str) {
-      if (!str) return true;
-      const s = String(str).trim();
-      if (!s) return true;
-      // 1. Identificadores gerados por sistema (ex: eq_1787746301541_6584, id_..., sq_...)
-      if (/^(eq|id|sq)_[0-9]+(_[a-z0-9]+)?$/i.test(s)) return true;
-      // 2. Códigos técnicos com prefixo HACCP curto (ex: REF09, REF-10, CON02, VIH03, VIH_01, FRIG01)
-      if (/^(REF|CON|VIH|GAR|FRIG)[\d_-]+$/i.test(s)) return true;
-      // 3. Códigos compactos sem espaços com 1-4 letras e 1-4 dígitos (ex: REF1, C02, F01)
-      if (/^[a-zA-Z]{1,4}[0-9]{1,4}$/.test(s)) return true;
-      // 4. Hashes hexadecimais longos ou UUIDs
-      if (/^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s)) return true;
-      return false;
-    }
-
-    // Devolve uma abreviatura curta para a referência técnica
-    function formatRefShort(refId) {
-      if (!refId) return '';
-      const s = String(refId).trim();
-      if (/^eq_[0-9]+_([a-z0-9]+)$/i.test(s)) {
-        const m = s.match(/^eq_[0-9]+_([a-z0-9]+)$/i);
-        return '#' + m[1];
-      }
-      if (/^eq_([0-9]+)$/i.test(s)) {
-        const m = s.match(/^eq_([0-9]+)$/i);
-        return '#' + m[1].slice(-4);
-      }
-      if (/^id_[0-9]+_([a-z0-9]+)$/i.test(s)) {
-        const m = s.match(/^id_[0-9]+_([a-z0-9]+)$/i);
-        return '#' + m[1];
-      }
-      return s;
-    }
-
     function equipmentName(record) {
       const d = record && record.data ? record.data : (record || {});
       const rawId = String(d.equipamentoId || d.equipoId || d.id || '').trim();
       const rawName = String(d.nome || d.equipo || d.equipamento || '').trim();
       const rawLoc = String(d.ubicacao || d.ubicacion || '').trim();
       const rawTipo = String(d.tipo || '').trim();
-
-      const canon = findCanonicalEquip(rawId, rawName, rawLoc, rawTipo);
-      if (canon && canon.nome) return canon.nome;
-
-      if (rawName && !isReferenceCode(rawName)) return rawName;
-      if (rawId && !isReferenceCode(rawId)) return rawId;
-      return rawName || rawId || 'Equipamento';
+      return formatHumanEquipName(rawName, rawTipo, rawLoc, rawId, d.ref);
     }
 
     function declaredState(value) {
@@ -6882,8 +6939,8 @@
         const normId = canon ? String(canon.id).toLowerCase() : (rawId ? rawId.toLowerCase() : cleanStrForMatch(rawName));
         if (!normId || deletedIds.has(normId)) return;
 
-        const safeName = canon ? canon.nome : ((rawName && !isReferenceCode(rawName)) ? rawName : rawId);
-        const safeDesc = canon ? canon.descricao : (eq.descricao || safeName);
+        const safeName = canon ? canon.nome : formatHumanEquipName(rawName, eq.tipo, rawLoc, rawId, eq.ref);
+        const safeDesc = canon ? canon.descricao : ((eq.descricao && !isReferenceCode(eq.descricao)) ? eq.descricao : safeName);
 
         const existing = equipMap.get(normId);
         if (!existing) {
@@ -6974,8 +7031,8 @@
         if (!targetKey) return;
         if (deletedIds.has(targetKey.toLowerCase())) return;
 
-        const safeName = canon ? canon.nome : ((rawName && !isReferenceCode(rawName)) ? rawName : (rawId || 'Equipamento'));
-        const safeDesc = canon ? canon.descricao : (rawItem.descricao || safeName);
+        const safeName = canon ? canon.nome : formatHumanEquipName(rawName, rawTipo, rawLoc, rawId, rawItem.ref);
+        const safeDesc = canon ? canon.descricao : ((rawItem.descricao && !isReferenceCode(rawItem.descricao)) ? rawItem.descricao : safeName);
 
         const existing = listById.get(targetKey);
         if (existing) {
@@ -7094,6 +7151,14 @@
           }
           if (!eq.descricao || isReferenceCode(eq.descricao)) {
             eq.descricao = canon.descricao;
+          }
+          eq.ubicacao = normalizeLocation(canon.ubicacao);
+        } else {
+          if (!eq.nome || isReferenceCode(eq.nome) || eq.nome === eq.id || eq.nome === eq.ref || /^(eq|id|sq)_[0-9]+/i.test(eq.nome)) {
+            eq.nome = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+          }
+          if (!eq.descricao || isReferenceCode(eq.descricao) || eq.descricao === eq.id) {
+            eq.descricao = eq.nome;
           }
         }
         eq.ubicacao = normalizeLocation(eq.ubicacao);
@@ -7415,7 +7480,8 @@
             chip.setAttribute('data-eqid', eq.id);
             chip.setAttribute('role', 'button');
             chip.setAttribute('tabindex', '0');
-            chip.title = `${eq.nome}: ${eq.tipo} [${eq.min} a ${eq.max} ºC] — Clique para histórico detalhado`;
+            const displayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+            chip.title = `${displayName}: ${eq.tipo} [${eq.min} a ${eq.max} ºC] — Clique para histórico detalhado`;
 
             let valPillHtml = '';
             if (s.hasReading) {
@@ -7431,10 +7497,10 @@
             chip.innerHTML = `
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:12.5px; color:var(--text); line-height:1.2;">${esc(eq.nome)}</span>
+                  <span style="font-weight:800; font-size:12.5px; color:var(--text); line-height:1.2;">${esc(displayName)}</span>
                   <span class="dot"></span>
                 </div>
-                ${eq.descricao && eq.descricao !== eq.nome ? `
+                ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== displayName ? `
                   <div style="font-size:10px; color:var(--muted); margin:2px 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(eq.descricao)}">
                     ${esc(eq.descricao)}
                   </div>
@@ -7513,12 +7579,13 @@
           const techStr = s.lastRec ? String(s.lastRec.data?.tecnico || s.lastRec.data?.usuario || '—') : '—';
           const notesStr = s.lastRec && s.lastRec.data?.observaciones ? String(s.lastRec.data.observaciones) : '';
 
+          const cardDisplayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
           card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
               <div>
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                   <span style="font-size:1.15rem;">${icon}</span>
-                  <span style="font-weight:800; font-size:1.05rem; color:var(--text);">${esc(eq.nome)}</span>
+                  <span style="font-weight:800; font-size:1.05rem; color:var(--text);">${esc(cardDisplayName)}</span>
                   <span style="font-size:11px; color:var(--muted); background:var(--subtle); padding:2px 6px; border-radius:4px; font-weight:600;">
                     ${esc(eq.tipo)}
                   </span>
@@ -7676,7 +7743,7 @@
           <div>
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-size:1.3rem;">${icon}</span>
-              <h2 style="margin:0; font-size:1.15rem; color:var(--text);">${esc(eq.nome)} · ${esc(eq.tipo)}</h2>
+              <h2 style="margin:0; font-size:1.15rem; color:var(--text);">${esc(formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref))} · ${esc(eq.tipo)}</h2>
               ${eq.refShort || eq.ref ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.ref || eq.id)}">Ref: ${esc(eq.refShort || eq.ref)}</span>` : ''}
               <button type="button" class="cycle-btn" id="btnModalRenameEquip" style="font-size:11px; padding:3px 8px; font-weight:700;">✏️ Alterar Nome</button>
             </div>
