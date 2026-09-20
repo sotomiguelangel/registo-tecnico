@@ -4056,13 +4056,18 @@
       const DEFAULT_CONFIG = {
         mode: 'weekly',
         weeklyDays: [0, 1], // 0 = Domingo, 1 = Segunda-feira (escala legal de descanso do pessoal de manutenção)
-        customDays: []
+        customRestDays: [],
+        customMissingDays: []
       };
       try {
         const raw = localStorage.getItem('bitacora_folgas_config');
         if (raw) {
           const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.weeklyDays)) return parsed;
+          if (parsed && Array.isArray(parsed.weeklyDays)) {
+            parsed.customRestDays = parsed.customRestDays || parsed.customDays || [];
+            parsed.customMissingDays = parsed.customMissingDays || [];
+            return parsed;
+          }
         }
       } catch(e) {}
       return DEFAULT_CONFIG;
@@ -4076,10 +4081,11 @@
 
     function isLegalRestDay(dateObj, folgasCfg) {
       const cfg = folgasCfg || getFolgasConfig();
+      const dateStr = fmt(dateObj);
+      if (cfg.customMissingDays && cfg.customMissingDays.includes(dateStr)) return false;
+      if (cfg.customRestDays && cfg.customRestDays.includes(dateStr)) return true;
       const dow = dateObj.getDay();
       if (cfg.weeklyDays && cfg.weeklyDays.includes(dow)) return true;
-      const dateStr = fmt(dateObj);
-      if (cfg.customDays && cfg.customDays.includes(dateStr)) return true;
       return false;
     }
 
@@ -4682,7 +4688,7 @@
 
         if (dateStr > todayStr2) {
           cls = 'hc-future';
-          cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Dia futuro">${cellContent}</div>`);
+          cells.push(`<div class="heatmap-cell ${cls}" data-date="${dateStr}" data-dow="${dowName}" style="cursor:pointer;" title="${dateStr} (${dowName}) · Dia futuro">${cellContent}</div>`);
         } else {
           elapsedDays++;
           if (hasRec) {
@@ -4691,12 +4697,12 @@
               plannedWorkDays++;
               workDaysCovered++;
               cls = 'hc-ok';
-              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de serviço">${cellContent}</div>`);
+              cells.push(`<div class="heatmap-cell ${cls}" data-date="${dateStr}" data-dow="${dowName}" style="cursor:pointer;" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de serviço (Clique para gerir)">${cellContent}</div>`);
             } else {
               workDaysCovered++;
               restDaysCount++;
               cls = 'hc-ok';
-              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de descanso/turno extra">${cellContent}</div>`);
+              cells.push(`<div class="heatmap-cell ${cls}" data-date="${dateStr}" data-dow="${dowName}" style="cursor:pointer;" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de descanso/turno extra (Clique para gerir)">${cellContent}</div>`);
             }
           } else {
             if (isRest) {
@@ -4704,12 +4710,13 @@
               restDaysList.push(d);
               cls = 'hc-rest';
               cellContent = `<span>${d}</span><span class="hc-sublabel" title="Descanso legal">Folga</span>`;
-              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Descanso Legal / Folga Semanal (Garantida por lei · Não penaliza a cadência)">${cellContent}</div>`);
+              cells.push(`<div class="heatmap-cell ${cls}" data-date="${dateStr}" data-dow="${dowName}" style="cursor:pointer;" title="${dateStr} (${dowName}) · Descanso Legal / Folga Semanal (Garantida por lei · Clique para gerir)">${cellContent}</div>`);
             } else {
               plannedWorkDays++;
               missingWorkDays.push(d);
               cls = 'hc-bad';
-              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Falta de registo em dia de escala de serviço">${cellContent}</div>`);
+              cellContent = `<span>${d}</span><span class="hc-sublabel" title="Sem registo">Falta</span>`;
+              cells.push(`<div class="heatmap-cell ${cls}" data-date="${dateStr}" data-dow="${dowName}" style="cursor:pointer;" title="${dateStr} (${dowName}) · Falta de registo em dia de escala de serviço (Clique para gerir)">${cellContent}</div>`);
             }
           }
         }
@@ -4772,7 +4779,7 @@
             <div class="heatmap-legend" style="display:flex; flex-wrap:wrap; gap:12px; font-size:11.5px; margin-top:8px;">
               <span><i style="background:#16a34a"></i>Com registo (${recordedDays} d)</span>
               <span><i style="background:#e0f2fe; border:1px solid #7dd3fc"></i>Descanso legal (${restDaysCount} d · Lei)</span>
-              ${missingWorkDays.length > 0 ? `<span><i style="background:#dc2626"></i>Falta em escala (${missingWorkDays.length} d)</span>` : ''}
+              <span><i style="background:#ef4444; border:1px solid #dc2626"></i>Sem registo (${missingWorkDays.length} d)</span>
               <span><i style="background:transparent; border:1px dashed var(--border)"></i>Dias futuros</span>
             </div>
           </div>
@@ -4804,9 +4811,9 @@
                 <div style="font-size:0.62rem; color:#0369a1; margin-top:2px;">Por lei (${folgasLabel})</div>
               </div>
               <div style="background:var(--subtle); padding:6px 7px; border-radius:6px; border:1px solid var(--border);">
-                <div style="color:var(--muted); font-size:0.65rem; text-transform:uppercase; font-weight:600;">Faltas Reais</div>
+                <div style="color:var(--muted); font-size:0.65rem; text-transform:uppercase; font-weight:600;">Sem Registo / Faltas</div>
                 <div style="font-weight:700; font-size:0.92rem; color:${missingWorkDays.length > 0 ? '#dc2626' : '#16a34a'};">${missingWorkDays.length} d</div>
-                <div style="font-size:0.62rem; color:var(--muted); margin-top:2px;">${missingWorkDays.length === 0 ? '0 faltas' : 'Dias em falta'}</div>
+                <div style="font-size:0.62rem; color:var(--muted); margin-top:2px;">${missingWorkDays.length === 0 ? '0 faltas em serviço' : 'Dias em falta'}</div>
               </div>
             </div>
             <div class="small" style="font-size:0.75rem; color:var(--muted); line-height:1.35; padding:6px 8px; background:rgba(2,132,199,0.06); border-radius:6px; border-left:3px solid ${missingWorkDays.length > 0 ? '#f59e0b' : '#0284c7'};">
@@ -4819,6 +4826,131 @@
       `;
     }
 
+    function refreshComplianceViews() {
+      const wrap = $('execHeatmapWrap');
+      if (wrap) {
+        wrap.innerHTML = renderComplianceHeatmap(records.general, heatmapMonthOffset);
+        wireHeatmapEvents();
+      }
+      if (typeof renderDashboardExecutiveTab === 'function') {
+        renderDashboardExecutiveTab();
+      }
+    }
+
+    function openDayComplianceModal(dateStr, dowName) {
+      const folgasCfg = getFolgasConfig();
+      const dObj = new Date(dateStr + 'T00:00:00');
+      const today = todayStr();
+      if (dateStr > today) {
+        alert(`O dia ${dateStr} é uma data futura. A cadência operacional é apenas calculada para dias decorridos.`);
+        return;
+      }
+      const byDate = new Set(records.general.map(r => r.date || r.data?.fecha));
+      const hasRec = byDate.has(dateStr);
+      const isForcedMissing = Boolean(folgasCfg.customMissingDays && folgasCfg.customMissingDays.includes(dateStr));
+      const isCustomRest = Boolean(folgasCfg.customRestDays && folgasCfg.customRestDays.includes(dateStr));
+      const isRest = isLegalRestDay(dObj, folgasCfg);
+
+      let modal = document.getElementById('dayComplianceModal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'dayComplianceModal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,0.6); display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);';
+        document.body.appendChild(modal);
+      }
+
+      const currentStatusBadge = hasRec
+        ? '<span style="background:#dcfce7; color:#15803d; padding:3px 8px; border-radius:6px; font-weight:700; font-size:12px; border:1px solid #bbf7d0;">✓ Com Registo Técnico Efetuado</span>'
+        : (isRest
+          ? '<span style="background:#e0f2fe; color:#0369a1; padding:3px 8px; border-radius:6px; font-weight:700; font-size:12px; border:1px solid #7dd3fc;">⚖️ Descanso Legal / Folga por Lei</span>'
+          : '<span style="background:#fee2e2; color:#b91c1c; padding:3px 8px; border-radius:6px; font-weight:700; font-size:12px; border:1px solid #fca5a5;">⚠️ Sem Registo Técnico (Falta em serviço)</span>');
+
+      modal.innerHTML = `
+        <div style="background:var(--card, #fff); border:1px solid var(--border, #e2e8f0); border-radius:12px; width:100%; max-width:440px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); overflow:hidden; font-family:var(--font-sans, system-ui);">
+          <div style="padding:14px 18px; border-bottom:1px solid var(--border, #e2e8f0); display:flex; justify-content:space-between; align-items:center; background:var(--subtle, #f8fafc);">
+            <h4 style="margin:0; font-size:14px; font-weight:700; color:var(--text, #0f172a);">📅 Gestão de Cadência do Dia</h4>
+            <button type="button" id="closeDayCompModal" style="background:transparent; border:none; font-size:18px; line-height:1; cursor:pointer; color:var(--muted, #64748b);">✕</button>
+          </div>
+          <div style="padding:16px 18px;">
+            <div style="font-size:14px; font-weight:600; margin-bottom:4px;">${dowName ? dowName + ' · ' : ''}${dateStr}</div>
+            <div style="margin-bottom:14px;">${currentStatusBadge}</div>
+            
+            <p style="font-size:12.5px; color:var(--muted, #64748b); line-height:1.45; margin-bottom:16px;">
+              ${hasRec 
+                ? 'Este dia possui leituras de manutenção registadas na bitácora e cumpre a cadência operacional.' 
+                : 'Se um técnico esteve em serviço mas não realizou o registo obrigatório, pode assinalar como <strong>"Sem Registo / Falta"</strong>. Se for um dia de descanso legal previsto por lei, assinale como <strong>"Descanso Legal"</strong>.'}
+            </p>
+
+            ${!hasRec ? `
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button type="button" id="btnSetMissing" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #ef4444; background:#fef2f2; color:#b91c1c; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                  <span>⚠️ Marcar como Sem Registo / Falta</span>
+                  <span style="font-size:11px; opacity:0.8;">Penaliza Cadência</span>
+                </button>
+                <button type="button" id="btnSetRest" style="width:100%; padding:9px 12px; border-radius:8px; border:1px solid #0284c7; background:#f0f9ff; color:#0369a1; font-weight:700; font-size:12.5px; text-align:left; cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                  <span>⚖️ Marcar como Descanso Legal por Lei</span>
+                  <span style="font-size:11px; opacity:0.8;">Não Penaliza</span>
+                </button>
+                ${(isForcedMissing || isCustomRest) ? `
+                  <button type="button" id="btnResetDay" style="width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border, #cbd5e1); background:transparent; color:var(--text, #334155); font-size:12px; cursor:pointer;">
+                    🔄 Repor padrão automático da escala
+                  </button>
+                ` : ''}
+              </div>
+            ` : `
+              <div style="font-size:12px; color:#15803d; background:#f0fdf4; padding:8px 10px; border-radius:6px; border:1px solid #bbf7d0;">
+                ✓ Registado com sucesso no sistema. Não requer classificação manual.
+              </div>
+            `}
+          </div>
+          <div style="padding:10px 18px; border-top:1px solid var(--border, #e2e8f0); background:var(--subtle, #f8fafc); text-align:right;">
+            <button type="button" id="closeDayCompModal2" style="padding:6px 14px; border-radius:6px; border:1px solid var(--border, #cbd5e1); background:var(--card, #fff); font-size:12px; font-weight:600; cursor:pointer;">Fechar</button>
+          </div>
+        </div>
+      `;
+
+      modal.style.display = 'flex';
+      const close = () => { modal.style.display = 'none'; };
+      $('closeDayCompModal').onclick = close;
+      $('closeDayCompModal2').onclick = close;
+      modal.onclick = (e) => { if (e.target === modal) close(); };
+
+      const btnSetMissing = $('btnSetMissing');
+      if (btnSetMissing) {
+        btnSetMissing.onclick = () => {
+          folgasCfg.customMissingDays = folgasCfg.customMissingDays || [];
+          if (!folgasCfg.customMissingDays.includes(dateStr)) folgasCfg.customMissingDays.push(dateStr);
+          if (folgasCfg.customRestDays) folgasCfg.customRestDays = folgasCfg.customRestDays.filter(d => d !== dateStr);
+          saveFolgasConfig(folgasCfg);
+          close();
+          refreshComplianceViews();
+        };
+      }
+
+      const btnSetRest = $('btnSetRest');
+      if (btnSetRest) {
+        btnSetRest.onclick = () => {
+          folgasCfg.customRestDays = folgasCfg.customRestDays || [];
+          if (!folgasCfg.customRestDays.includes(dateStr)) folgasCfg.customRestDays.push(dateStr);
+          if (folgasCfg.customMissingDays) folgasCfg.customMissingDays = folgasCfg.customMissingDays.filter(d => d !== dateStr);
+          saveFolgasConfig(folgasCfg);
+          close();
+          refreshComplianceViews();
+        };
+      }
+
+      const btnResetDay = $('btnResetDay');
+      if (btnResetDay) {
+        btnResetDay.onclick = () => {
+          if (folgasCfg.customMissingDays) folgasCfg.customMissingDays = folgasCfg.customMissingDays.filter(d => d !== dateStr);
+          if (folgasCfg.customRestDays) folgasCfg.customRestDays = folgasCfg.customRestDays.filter(d => d !== dateStr);
+          saveFolgasConfig(folgasCfg);
+          close();
+          refreshComplianceViews();
+        };
+      }
+    }
+
     function wireHeatmapEvents() {
       const hmPrev = $('hmPrev');
       const hmNext = $('hmNext');
@@ -4828,38 +4960,37 @@
         selFolgas.onchange = (e) => {
           try {
             const val = JSON.parse(e.target.value);
-            saveFolgasConfig({ weeklyDays: val, customDays: [] });
-            const wrap = $('execHeatmapWrap');
-            if (wrap) {
-              wrap.innerHTML = renderComplianceHeatmap(records.general, heatmapMonthOffset);
-              wireHeatmapEvents();
-            }
-            if (typeof renderDashboardExecutiveTab === 'function') {
-              renderDashboardExecutiveTab();
-            }
+            const currentCfg = getFolgasConfig();
+            currentCfg.weeklyDays = val;
+            saveFolgasConfig(currentCfg);
+            refreshComplianceViews();
           } catch(err) {}
         };
+      }
+
+      const wrap = $('execHeatmapWrap');
+      if (wrap) {
+        const cellEls = wrap.querySelectorAll('.heatmap-cell[data-date]');
+        cellEls.forEach(el => {
+          el.onclick = () => {
+            const dateStr = el.getAttribute('data-date');
+            const dowName = el.getAttribute('data-dow') || '';
+            if (dateStr) openDayComplianceModal(dateStr, dowName);
+          };
+        });
       }
 
       if (hmPrev) {
         hmPrev.onclick = () => {
           heatmapMonthOffset--;
-          const wrap = $('execHeatmapWrap');
-          if (wrap) {
-            wrap.innerHTML = renderComplianceHeatmap(records.general, heatmapMonthOffset);
-            wireHeatmapEvents();
-          }
+          refreshComplianceViews();
         };
       }
       if (hmNext) {
         hmNext.onclick = () => {
           if (heatmapMonthOffset < 0) {
             heatmapMonthOffset++;
-            const wrap = $('execHeatmapWrap');
-            if (wrap) {
-              wrap.innerHTML = renderComplianceHeatmap(records.general, heatmapMonthOffset);
-              wireHeatmapEvents();
-            }
+            refreshComplianceViews();
           }
         };
       }
