@@ -4682,13 +4682,28 @@
   let loadTicketsIndicadoresInFlight = null;
   let isUpdatingStrategicBoardIndicadores = false;
 
+  const DUMMY_STRAT_IDS = new Set(['ticket_est_01', 'ticket_est_02', 'ticket_est_03']);
+  const DUMMY_STRAT_SNIPPETS = [
+    'calibracao de valvulas misturadoras',
+    'auditoria a sondas amperometricas',
+    'termografia preventiva e balanceamento',
+    'equilibrio termico dos permutadores',
+    'calibracao dos controladores de dosagem',
+    'instalacao de variadores de frequencia'
+  ];
+
   function getDeletedTicketIdsIndicadores() {
+    const set = new Set();
+    // Ban dummy ghost tickets permanently
+    DUMMY_STRAT_IDS.forEach(id => {
+      set.add(id);
+      set.add(id.toLowerCase());
+    });
     try {
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          const set = new Set();
           parsed.forEach(id => {
             if (id !== undefined && id !== null) {
               const s = String(id).trim();
@@ -4698,11 +4713,10 @@
               }
             }
           });
-          return set;
         }
       }
     } catch(e) {}
-    return new Set();
+    return set;
   }
 
   function markTicketAsDeletedIndicadores(id) {
@@ -4725,11 +4739,81 @@
     } catch(e) {}
   }
 
-  function isTicketDeletedIndicadores(id) {
-    if (!id) return false;
-    const strId = String(id).trim();
+  function isTicketDeletedIndicadores(tOrId) {
+    if (!tOrId) return false;
     const deleted = getDeletedTicketIdsIndicadores();
-    return deleted.has(strId) || deleted.has(strId.toLowerCase());
+
+    let id = '';
+    let desc = '';
+    let obs = '';
+
+    if (typeof tOrId === 'string') {
+      id = tOrId.trim();
+    } else if (typeof tOrId === 'object') {
+      id = String(tOrId.id || tOrId.ticketId || (tOrId.data && tOrId.data.id) || tOrId.key || '').trim();
+      desc = cleanStrForMatch(tOrId.descricao || (tOrId.data && tOrId.data.descricao) || '');
+      obs = cleanStrForMatch(tOrId.observacao || (tOrId.data && tOrId.data.observacao) || '');
+    }
+
+    if (id) {
+      if (deleted.has(id) || deleted.has(id.toLowerCase())) return true;
+      if (DUMMY_STRAT_IDS.has(id.toLowerCase())) return true;
+    }
+
+    if (desc || obs) {
+      const combined = desc + ' ' + obs;
+      for (const snip of DUMMY_STRAT_SNIPPETS) {
+        if (combined.includes(snip)) return true;
+      }
+    }
+
+    return false;
+  }
+
+  async function syncDeletedTicketsWithCloudIndicadores(newDeletedId) {
+    const deletedSet = getDeletedTicketIdsIndicadores();
+    if (newDeletedId) {
+      deletedSet.add(String(newDeletedId).trim());
+      deletedSet.add(String(newDeletedId).trim().toLowerCase());
+    }
+    const arr = Array.from(deletedSet);
+    try {
+      localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(arr));
+    } catch(e) {}
+
+    if (typeof API_URL !== 'undefined' && API_URL) {
+      try {
+        safeFetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'setConfig', key: 'deleted_tickets', value: JSON.stringify(arr) })
+        }).catch(()=>{});
+      } catch(e) {}
+    }
+  }
+
+  async function pullDeletedTicketsFromCloudIndicadores() {
+    if (typeof API_URL === 'undefined' || !API_URL) return;
+    try {
+      const url = new URL(API_URL);
+      url.searchParams.set('action', 'getConfig');
+      url.searchParams.set('key', 'deleted_tickets');
+      const res = await safeFetch(url.toString());
+      const data = await safeParseJsonResponse(res);
+      if (data && data.value) {
+        const cloudArr = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        if (Array.isArray(cloudArr)) {
+          const set = getDeletedTicketIdsIndicadores();
+          cloudArr.forEach(id => {
+            if (id) {
+              set.add(String(id).trim());
+              set.add(String(id).trim().toLowerCase());
+            }
+          });
+          localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(Array.from(set)));
+        }
+      }
+    } catch(e) {}
   }
 
   function getUpdatedTicketsMapIndicadores() {
@@ -4755,7 +4839,7 @@
 
   function isStrategicTicket(t) {
     if (!t || !t.id) return false;
-    if (isTicketDeletedIndicadores(t.id)) return false;
+    if (isTicketDeletedIndicadores(t)) return false;
 
     // 1. Tipo explícito Estratégico
     const tipo = String(t.tipo || '').trim().toLowerCase();
@@ -4767,7 +4851,7 @@
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim() === strId)) {
+        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim() === strId && !isTicketDeletedIndicadores(s))) {
           return true;
         }
       }
@@ -4788,81 +4872,29 @@
   }
 
   function getDefaultStrategicTickets() {
-    const today = new Date().toISOString().slice(0, 10);
-    const deleted = getDeletedTicketIdsIndicadores();
-    const all = [
-      {
-        id: 'ticket_est_01',
-        tipo: 'Estratégico',
-        quarto: 'Central Térmica & Rede Primária',
-        categoria: 'AVAC & AQS',
-        prioridade: 'Máxima',
-        descricao: '[ESTRATÉGICO] Equilíbrio térmico dos permutadores e substituição de válvulas no retorno de AQS para garantir estabilidade acima de 50°C nos ramais distantes e redução de 12% no consumo elétrico.',
-        turno: 'Manhã',
-        dataReporte: today,
-        horaReporte: '08:45',
-        situacao: 'em_andamento',
-        colaborador: 'Direção Técnica / Engenharia',
-        observacao: 'Intervenção prioritária com impacto direto no plano de qualidade sanitária e eficiência energética global.',
-        comentarioCierre: ''
-      },
-      {
-        id: 'ticket_est_02',
-        tipo: 'Estratégico',
-        quarto: 'Piscina & Zona Wellness',
-        categoria: 'Piscinas & Spa',
-        prioridade: 'Máxima',
-        descricao: '[ESTRATÉGICO] Calibração dos controladores de dosagem redox/pH e instalação de sondas de telemetria contínua para prevenir desvios nas horas de pico de utilização.',
-        turno: 'Manhã',
-        dataReporte: today,
-        horaReporte: '10:15',
-        situacao: 'aberto',
-        colaborador: 'Supervisão de Manutenção',
-        observacao: 'Melhoria de qualidade destinada à segurança sanitária e satisfação dos hóspedes.',
-        comentarioCierre: ''
-      },
-      {
-        id: 'ticket_est_03',
-        tipo: 'Estratégico',
-        quarto: 'Quadro Geral & Bombagem',
-        categoria: 'Eletricidade & Automação',
-        prioridade: 'Alta',
-        descricao: '[ESTRATÉGICO] Instalação de variadores de frequência nos grupos de circulação para otimização do perfil de consumo elétrico (-18% kWh previsto).',
-        turno: 'Manhã',
-        dataReporte: today,
-        horaReporte: '09:30',
-        situacao: 'finalizado',
-        colaborador: 'Coordenação de Eletricidade',
-        observacao: 'Concluído com ensaios de harmónicos em conformidade.',
-        comentarioCierre: 'Variadores instalados e parametrizados. Economia de 18.2% validada em carga operacional.'
-      }
-    ];
-    return all.filter(t => !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+    // Nunca re-gerar tickets fantasma de exemplo
+    return [];
   }
 
   function getSavedStrategicTicketsIndicadores() {
-    const deleted = getDeletedTicketIdsIndicadores();
     try {
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (raw !== null) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+          const filtered = parsed.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
+          if (filtered.length !== parsed.length) {
+            saveStrategicTicketsIndicadores(filtered);
+          }
+          return filtered;
         }
       }
     } catch(e) {}
-    // Se o utilizador já realizou exclusões, NUNCA ressuscitar tickets padrão
-    if (deleted.size > 0) return [];
-    const defaults = getDefaultStrategicTickets();
-    try {
-      localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(defaults));
-    } catch(e) {}
-    return defaults;
+    return [];
   }
 
   function saveStrategicTicketsIndicadores(strats) {
-    const deleted = getDeletedTicketIdsIndicadores();
-    const cleanStrats = (strats || []).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+    const cleanStrats = (strats || []).filter(t => t && t.id && !isTicketDeletedIndicadores(t));
     try {
       localStorage.setItem(STRATEGIC_TICKETS_KEY, JSON.stringify(cleanStrats));
       window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: cleanStrats } }));
@@ -4871,15 +4903,15 @@
 
   function persistTicketInAllTicketsKeyIndicadores(ticket) {
     if (!ticket || !ticket.id) return;
+    if (isTicketDeletedIndicadores(ticket)) return;
     const strId = String(ticket.id).trim();
-    if (isTicketDeletedIndicadores(strId)) return;
     try {
       let list = [];
       const raw = localStorage.getItem(ALL_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          list = parsed.filter(t => t && t.id && !isTicketDeletedIndicadores(t.id));
+          list = parsed.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
         }
       }
       const idx = list.findIndex(t => String(t.id).trim() === strId);
@@ -4893,7 +4925,6 @@
   }
 
   function getConsolidatedTicketsIndicadores() {
-    const deleted = getDeletedTicketIdsIndicadores();
     const updatedMap = getUpdatedTicketsMapIndicadores();
     const map = new Map();
 
@@ -4901,11 +4932,9 @@
     try {
       const savedStrats = getSavedStrategicTicketsIndicadores();
       (savedStrats || []).forEach(st => {
-        if (st && st.id) {
+        if (st && st.id && !isTicketDeletedIndicadores(st)) {
           const id = String(st.id).trim();
-          if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
-            map.set(id, { ...st, tipo: 'Estratégico' });
-          }
+          map.set(id, { ...st, tipo: 'Estratégico' });
         }
       });
     } catch(e) {}
@@ -4917,14 +4946,12 @@
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
           arr.forEach(t => {
-            if (t && t.id) {
+            if (t && t.id && !isTicketDeletedIndicadores(t)) {
               const id = String(t.id).trim();
-              if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
-                if (map.has(id)) {
-                  map.set(id, { ...map.get(id), ...t });
-                } else {
-                  map.set(id, { ...t });
-                }
+              if (map.has(id)) {
+                map.set(id, { ...map.get(id), ...t });
+              } else {
+                map.set(id, { ...t });
               }
             }
           });
@@ -4935,14 +4962,12 @@
     // 3. Cache em memória se disponível
     if (cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores)) {
       cachedTicketsIndicadores.forEach(t => {
-        if (t && t.id) {
+        if (t && t.id && !isTicketDeletedIndicadores(t)) {
           const id = String(t.id).trim();
-          if (!deleted.has(id) && !deleted.has(id.toLowerCase())) {
-            if (map.has(id)) {
-              map.set(id, { ...map.get(id), ...t });
-            } else {
-              map.set(id, { ...t });
-            }
+          if (map.has(id)) {
+            map.set(id, { ...map.get(id), ...t });
+          } else {
+            map.set(id, { ...t });
           }
         }
       });
@@ -4951,17 +4976,17 @@
     // 4. Sobreposição de atualizações locais com máxima prioridade
     Object.keys(updatedMap).forEach(uid => {
       const cleanUid = String(uid).trim();
-      if (!deleted.has(cleanUid) && !deleted.has(cleanUid.toLowerCase())) {
-        const upd = updatedMap[uid];
+      const upd = updatedMap[uid];
+      if (upd && !isTicketDeletedIndicadores(upd) && !isTicketDeletedIndicadores(cleanUid)) {
         if (map.has(cleanUid)) {
           map.set(cleanUid, { ...map.get(cleanUid), ...upd });
-        } else if (upd && isStrategicTicket(upd)) {
+        } else if (isStrategicTicket(upd)) {
           map.set(cleanUid, { ...upd });
         }
       }
     });
 
-    return Array.from(map.values()).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+    return Array.from(map.values()).filter(t => t && t.id && !isTicketDeletedIndicadores(t));
   }
 
   async function loadTicketsIndicadores(forceFresh) {
@@ -4974,10 +4999,12 @@
 
   async function _execLoadTicketsIndicadores(forceFresh) {
     const now = Date.now();
-    const deleted = getDeletedTicketIdsIndicadores();
+
+    // Sincroniza lista negra de tickets apagados da nuvem
+    pullDeletedTicketsFromCloudIndicadores().catch(()=>{});
 
     if (!forceFresh && cachedTicketsIndicadores && Array.isArray(cachedTicketsIndicadores) && cachedTicketsIndicadores.length > 0 && (now - cachedTicketsIndicadoresTimestamp) < 30000) {
-      return cachedTicketsIndicadores.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+      return cachedTicketsIndicadores.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
     }
 
     // 1. Tentar API remota se solicitado ou se a cache expirou
@@ -4989,7 +5016,7 @@
         const res = await safeFetch(url.toString());
         const data = await safeParseJsonResponse(res);
         if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-          remoteTickets = data.tickets.filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+          remoteTickets = data.tickets.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
         }
       } catch(e) {}
     }
@@ -5000,14 +5027,14 @@
 
     if (remoteTickets && remoteTickets.length > 0) {
       remoteTickets.forEach(t => {
-        if (t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase())) {
+        if (t && t.id && !isTicketDeletedIndicadores(t)) {
           ticketMap.set(String(t.id).trim(), { ...t });
         }
       });
     }
 
     consolidated.forEach(t => {
-      if (t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase())) {
+      if (t && t.id && !isTicketDeletedIndicadores(t)) {
         const id = String(t.id).trim();
         if (ticketMap.has(id)) {
           ticketMap.set(id, { ...ticketMap.get(id), ...t });
@@ -5017,7 +5044,7 @@
       }
     });
 
-    const merged = Array.from(ticketMap.values()).filter(t => t && t.id && !deleted.has(String(t.id).trim()) && !deleted.has(String(t.id).toLowerCase()));
+    const merged = Array.from(ticketMap.values()).filter(t => t && t.id && !isTicketDeletedIndicadores(t));
     cachedTicketsIndicadores = merged;
     cachedTicketsIndicadoresTimestamp = Date.now();
 
@@ -5240,14 +5267,15 @@
     if (!ticketId) return;
     const strId = String(ticketId).trim();
     markTicketAsDeletedIndicadores(strId);
+    syncDeletedTicketsWithCloudIndicadores(strId);
 
     // 1. Remover de STRATEGIC_TICKETS_KEY
-    const strats = getSavedStrategicTicketsIndicadores().filter(s => s && String(s.id).trim() !== strId && String(s.id).trim().toLowerCase() !== strId.toLowerCase());
+    const strats = getSavedStrategicTicketsIndicadores().filter(s => s && !isTicketDeletedIndicadores(s) && String(s.id).trim() !== strId && String(s.id).trim().toLowerCase() !== strId.toLowerCase());
     saveStrategicTicketsIndicadores(strats);
 
     // 2. Remover de cachedTicketsIndicadores
     if (cachedTicketsIndicadores) {
-      cachedTicketsIndicadores = cachedTicketsIndicadores.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
+      cachedTicketsIndicadores = cachedTicketsIndicadores.filter(t => t && !isTicketDeletedIndicadores(t) && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
     }
 
     // 3. Remover de ALL_TICKETS_KEY
@@ -5256,8 +5284,21 @@
       if (raw) {
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
-          const filtered = arr.filter(t => t && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
+          const filtered = arr.filter(t => t && !isTicketDeletedIndicadores(t) && String(t.id).trim() !== strId && String(t.id).trim().toLowerCase() !== strId.toLowerCase());
           localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(filtered));
+        }
+      }
+    } catch(e) {}
+
+    // 4. Remover de UPDATED_TICKETS_KEY
+    try {
+      const rawUpd = localStorage.getItem(UPDATED_TICKETS_KEY);
+      if (rawUpd) {
+        const map = JSON.parse(rawUpd);
+        if (map && typeof map === 'object') {
+          delete map[strId];
+          delete map[strId.toLowerCase()];
+          localStorage.setItem(UPDATED_TICKETS_KEY, JSON.stringify(map));
         }
       }
     } catch(e) {}
@@ -5265,17 +5306,33 @@
     updateStrategicBoardIndicadores();
 
     try {
+      window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: strats } }));
     } catch(e) {}
 
-    // Sincronizar exclusão remota
+    // Sincronizar exclusão remota sem bloqueio de preflight CORS
     if (typeof API_URL !== 'undefined' && API_URL) {
       try {
         await safeFetch(API_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'deleteTicket', id: ticketId, ticketId: ticketId, data: { id: ticketId } })
         });
+        safeFetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'delete', type: 'pedidos', id: ticketId })
+        }).catch(()=>{});
+        safeFetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'delete', type: 'ticket', id: ticketId })
+        }).catch(()=>{});
+        safeFetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'deleteRecord', type: 'pedidos', id: ticketId })
+        }).catch(()=>{});
       } catch(e) {}
     }
   }
@@ -5596,6 +5653,7 @@
       const wrap = $('execStrategicBoardWrap');
       if (!wrap) return;
 
+      await loadTicketsIndicadores(false).catch(()=>{});
       const tickets = getConsolidatedTicketsIndicadores();
       wrap.innerHTML = renderStrategicBoardIndicadoresHTML(tickets, currentStratFilterIndicadores);
       wireStrategicBoardIndicadoresEvents(wrap, tickets);
@@ -6511,52 +6569,52 @@
     // =========================================================================
     const DEFAULT_HOTEL_EQUIPAMENTOS = [
       // --- Cozinha Piso 0 ---
-      { id: 'REF01', ref: 'REF01', nome: 'Frigorífico 1 Cozinha Piso 0', descricao: 'Frigorífico 1 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['frigorifico cozinha piso 0 1', 'frigorifico 1 cozinha piso 0', 'frigorifico cozinha piso 0', 'ref 01', 'ref01'] },
-      { id: 'REF02', ref: 'REF02', nome: 'Frigorífico 2 Cozinha Piso 0', descricao: 'Frigorífico 2 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['frigorifico cozinha piso 0 2', 'frigorifico 2 cozinha piso 0', 'ref 02', 'ref02'] },
-      { id: 'REF03', ref: 'REF03', nome: 'Frigorífico 3 Cozinha Piso 0', descricao: 'Frigorífico 3 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['frigorifico cozinha piso 0 3', 'frigorifico 3 cozinha piso 0', 'ref 03', 'ref03'] },
-      { id: 'REF04', ref: 'REF04', nome: 'Frigorífico 4 Cozinha Piso 0', descricao: 'Frigorífico 4 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['frigorifico cozinha piso 0 4', 'frigorifico 4 cozinha piso 0', 'ref 04', 'ref04'] },
-      { id: 'REF05', ref: 'REF05', nome: 'Frigorífico 5 Cozinha Piso 0', descricao: 'Frigorífico 5 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['frigorifico cozinha piso 0 5', 'frigorifico 5 cozinha piso 0', 'ref 05', 'ref05'] },
-      { id: 'CON01', ref: 'CON01', nome: 'Congelador Cozinha Piso 0', descricao: 'Congelador de alimentos na Cozinha Piso 0', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO 0', ativo: 1, aliases: ['congelador cozinha piso 0', 'con 01', 'con01'] },
+      { id: 'REF01', ref: 'REF01', nome: 'Frigorífico 1 Cozinha Piso 0', descricao: 'Frigorífico 1 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 1', 'frigorifico 1 cozinha piso 0', 'frigorifico cozinha piso 0', 'frigorifico 1 cocina piso 0', 'frigorifico 1 cocina', 'nevera 1 cocina', 'ref 01', 'ref01', 'ref-01', 'ref_01', 'ref 1'] },
+      { id: 'REF02', ref: 'REF02', nome: 'Frigorífico 2 Cozinha Piso 0', descricao: 'Frigorífico 2 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 2', 'frigorifico 2 cozinha piso 0', 'frigorifico 2 cocina piso 0', 'frigorifico 2 cocina', 'nevera 2 cocina', 'ref 02', 'ref02', 'ref-02', 'ref_02', 'ref 2'] },
+      { id: 'REF03', ref: 'REF03', nome: 'Frigorífico 3 Cozinha Piso 0', descricao: 'Frigorífico 3 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 3', 'frigorifico 3 cozinha piso 0', 'frigorifico 3 cocina piso 0', 'frigorifico 3 cocina', 'nevera 3 cocina', 'ref 03', 'ref03', 'ref-03', 'ref_03', 'ref 3'] },
+      { id: 'REF04', ref: 'REF04', nome: 'Frigorífico 4 Cozinha Piso 0', descricao: 'Frigorífico 4 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 4', 'frigorifico 4 cozinha piso 0', 'frigorifico 4 cocina piso 0', 'frigorifico 4 cocina', 'nevera 4 cocina', 'ref 04', 'ref04', 'ref-04', 'ref_04', 'ref 4'] },
+      { id: 'REF05', ref: 'REF05', nome: 'Frigorífico 5 Cozinha Piso 0', descricao: 'Frigorífico 5 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 5', 'frigorifico 5 cozinha piso 0', 'frigorifico 5 cocina piso 0', 'frigorifico 5 cocina', 'nevera 5 cocina', 'ref 05', 'ref05', 'ref-05', 'ref_05', 'ref 5'] },
+      { id: 'CON01', ref: 'CON01', nome: 'Congelador Cozinha Piso 0', descricao: 'Congelador de alimentos na Cozinha Piso 0', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['congelador cozinha piso 0', 'congelador cocina piso 0', 'congelador cocina 0', 'congelador cocina', 'con 01', 'con01', 'con-01', 'con_01', 'con 1'] },
 
       // --- Cozinha Piso -1 ---
-      { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', descricao: 'Frigorífico principal de produção na Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 1, aliases: ['frigorifico cozinha piso -1', 'frigorifico cozinha piso - 1', 'frigorifico cozinha -1', 'frigorifico cozinha', 'ref 08', 'ref08'] },
-      { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1, aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cozinha', 'con 02', 'con02'] },
-      { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 1, aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cozinha', 'con 03', 'con03'] },
-      { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', descricao: 'Climatização da Cozinha de Produção Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 1, isRange: false, aliases: ['ar condicionado cozinha piso -1', 'ar condicionado cozinha -1', 'ac 06', 'ac06', 'arc06', 'arc 06'] },
+      { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', descricao: 'Frigorífico principal de produção na Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['frigorifico cozinha piso -1', 'frigorifico cozinha piso - 1', 'frigorifico cozinha -1', 'frigorifico cocina piso -1', 'frigorifico cocina -1', 'nevera cocina -1', 'ref 08', 'ref08', 'ref-08', 'ref_08', 'ref 8'] },
+      { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cocina -1', 'congelador 1 cocina piso -1', 'con 02', 'con02', 'con-02', 'con_02', 'con 2'] },
+      { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cocina -1', 'congelador 2 cocina piso -1', 'con 03', 'con03', 'con-03', 'con_03', 'con 3'] },
+      { id: 'AC06', ref: 'AC06', nome: 'Ar Condicionado Cozinha Piso -1', descricao: 'Climatização da Cozinha de Produção Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado cozinha piso -1', 'ar condicionado cozinha -1', 'aire acondicionado cocina -1', 'aire cocina -1', 'ac 06', 'ac06', 'ac-06', 'arc06', 'arc 06', 'ac 6'] },
 
       // --- Armazém Piso -1 ---
-      { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', descricao: 'Frigorífico principal de armazenagem no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1, aliases: ['frigorifico armazem 1', 'frigorifico armazem piso -1', 'ref 09', 'ref09'] },
-      { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', descricao: 'Frigorífico secundário/reserva no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 1, aliases: ['frigorifico armazem 2', 'frigorifico armazem piso -1 2', 'ref 10', 'ref10'] },
-      { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', descricao: 'Climatização do Economato / Armazém Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 1, isRange: false, aliases: ['ar condicionado armazem piso -1', 'ar condicionado armazem -1', 'ac 07', 'ac07', 'arc07', 'arc 07'] },
+      { id: 'REF09', ref: 'REF09', nome: 'Frigorífico Armazém 1', descricao: 'Frigorífico principal de armazenagem no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', aliases: ['frigorifico armazem 1', 'frigorifico armazem piso -1', 'frigorifico almacen 1', 'frigorifico almacen piso -1', 'nevera almacen 1', 'frigorifico armazem', 'ref 09', 'ref09', 'ref-09', 'ref_09', 'ref 9'] },
+      { id: 'REF10', ref: 'REF10', nome: 'Frigorífico Armazém 2', descricao: 'Frigorífico secundário/reserva no Armazém Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', aliases: ['frigorifico armazem 2', 'frigorifico armazem piso -1 2', 'frigorifico almacen 2', 'frigorifico almacen piso -1 2', 'nevera almacen 2', 'ref 10', 'ref10', 'ref-10', 'ref_10'] },
+      { id: 'AC07', ref: 'AC07', nome: 'Ar Condicionado Armazém Piso -1', descricao: 'Climatização do Economato / Armazém Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ALMACEN PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado armazem piso -1', 'ar condicionado armazem -1', 'aire acondicionado almacen -1', 'aire almacen -1', 'ac 07', 'ac07', 'ac-07', 'arc07', 'arc 07', 'ac 7'] },
 
       // --- Bar Pequeno Almoço ---
-      { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pequeno Almoço', descricao: 'Frigorífico de apoio ao Bar do Pequeno Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1, aliases: ['frigorifico bar pq. almoco', 'frigorifico bar pequeno almoco', 'ref 06', 'ref06'] },
-      { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', descricao: 'Climatização do Bar do Pequeno Almoço', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 1, isRange: false, aliases: ['ar condicionado bar pequeno almoco', 'ac 03', 'ac03', 'arc03', 'arc 03'] },
+      { id: 'REF06', ref: 'REF06', nome: 'Frigorífico Bar Pequeno Almoço', descricao: 'Frigorífico de apoio ao Bar do Pequeno Almoço', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', aliases: ['frigorifico bar pq. almoco', 'frigorifico bar pequeno almoco', 'frigorifico bar desayuno', 'nevera bar desayuno', 'ref 06', 'ref06', 'ref-06', 'ref_06', 'ref 6'] },
+      { id: 'AC03', ref: 'AC03', nome: 'Ar Condicionado Bar Pequeno Almoço', descricao: 'Climatização do Bar do Pequeno Almoço', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR PEQUENO ALMOCO', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar pequeno almoco', 'aire acondicionado bar desayuno', 'ac 03', 'ac03', 'ac-03', 'arc03', 'arc 03', 'ac 3'] },
 
       // --- Bar Receção / Copa ---
-      { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', descricao: 'Frigorífico de bebidas e apoio ao Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCAO', ativo: 1, aliases: ['frigorifico bar rececao', 'frigorifico bar recepcion', 'ref 07', 'ref07'] },
-      { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', descricao: 'Vinhera / Garrafeira climatizada do Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 1, isRange: true, aliases: ['vinhera bar rececao', 'vinhera bar recepcion', 'vih 03', 'vih03'] },
-      { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', descricao: 'Climatização do Bar Receção e Copa', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 1, isRange: false, aliases: ['ar condicionado bar rececao', 'ar condicionado copa', 'ac 04', 'ac04', 'arc04', 'arc 04', 'copa - rececao / zona'] },
+      { id: 'REF07', ref: 'REF07', nome: 'Frigorífico Bar Receção', descricao: 'Frigorífico de bebidas e apoio ao Bar Receção', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', aliases: ['frigorifico bar rececao', 'frigorifico bar recepcion', 'nevera bar recepcion', 'ref 07', 'ref07', 'ref-07', 'ref_07', 'ref 7'] },
+      { id: 'VIH03', ref: 'VIH03', nome: 'Vinhera Bar Receção', descricao: 'Vinhera / Garrafeira climatizada do Bar Receção', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: true, aliases: ['vinhera bar rececao', 'vinhera bar recepcion', 'vinoteca bar recepcion', 'vih 03', 'vih03', 'vih-03', 'vih_03', 'vih 3'] },
+      { id: 'AC04', ref: 'AC04', nome: 'Ar Condicionado Bar Receção', descricao: 'Climatização do Bar Receção e Copa', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR RECEPCAO', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar rececao', 'ar condicionado copa', 'aire acondicionado bar recepcion', 'ac 04', 'ac04', 'ac-04', 'arc04', 'arc 04', 'ac 4', 'copa - rececao / zona'] },
 
       // --- Bar Rooftop ---
-      { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', descricao: 'Vinhera / Garrafeira climatizada do Bar Rooftop', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 1, isRange: true, aliases: ['vinhera bar rooftop', 'vih 01', 'vih01'] },
-      { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', descricao: 'Climatização do Bar Rooftop Piso Superior', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 1, isRange: false, aliases: ['ar condicionado bar rooftop', 'ac 05', 'ac05', 'arc05', 'arc 05'] },
+      { id: 'VIH01', ref: 'VIH01', nome: 'Vinhera Bar Rooftop', descricao: 'Vinhera / Garrafeira climatizada do Bar Rooftop', tipo: 'Vinhera', min: 5, max: 16, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: true, aliases: ['vinhera bar rooftop', 'vinoteca bar rooftop', 'vih 01', 'vih01', 'vih-01', 'vih_01', 'vih 1'] },
+      { id: 'AC05', ref: 'AC05', nome: 'Ar Condicionado Bar Rooftop', descricao: 'Climatização do Bar Rooftop Piso Superior', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'BAR ROOFTOP', ativo: 'Sim', isRange: false, aliases: ['ar condicionado bar rooftop', 'aire acondicionado bar rooftop', 'ac 05', 'ac05', 'ac-05', 'arc05', 'arc 05', 'ac 5'] },
 
       // --- Áreas Públicas & Climatização ---
-      { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', descricao: 'Climatização da Sala e Receção / Zona Pública', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 1, isRange: false, aliases: ['ar condicionado sala/rececao', 'ar condicionado sala rececao', 'ac 01', 'ac01', 'arc01'] },
-      { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', descricao: 'Climatização da área de Show Cooking', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 1, isRange: false, aliases: ['ar condicionado show cooking', 'show cooking', 'ac 02', 'ac02', 'arc02'] },
-      { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', descricao: 'Climatização da Sala de Restaurante', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 1, isRange: false, aliases: ['ar condicionado restaurante', 'ac 08', 'ac08', 'arc08'] },
-      { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', descricao: 'Climatização da Sala de Reuniões e Gabinete Admin', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 1, isRange: false, aliases: ['ar condicionado sala reunioes', 'ac 09', 'ac09', 'arc09'] }
+      { id: 'AC01', ref: 'AC01', nome: 'Ar Condicionado Sala/Receção', descricao: 'Climatização da Sala e Receção / Zona Pública', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RECEÇÃO / ZONA PÚBLICA', ativo: 'Sim', isRange: false, aliases: ['ar condicionado sala/rececao', 'ar condicionado sala rececao', 'aire acondicionado recepcion', 'ac 01', 'ac01', 'ac-01', 'arc01', 'ac 1'] },
+      { id: 'AC02', ref: 'AC02', nome: 'Ar Condicionado Show Cooking', descricao: 'Climatização da área de Show Cooking', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'SHOW COOKING', ativo: 'Sim', isRange: false, aliases: ['ar condicionado show cooking', 'show cooking', 'aire acondicionado show cooking', 'ac 02', 'ac02', 'ac-02', 'arc02', 'ac 2'] },
+      { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Restaurante', descricao: 'Climatização da Sala de Restaurante', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'RESTAURANTE', ativo: 'Sim', isRange: false, aliases: ['ar condicionado restaurante', 'aire acondicionado restaurante', 'ac 08', 'ac08', 'ac-08', 'arc08', 'ac 8'] },
+      { id: 'AC09', ref: 'AC09', nome: 'Ar Condicionado Sala Reuniões / Admin', descricao: 'Climatização da Sala de Reuniões e Gabinete Admin', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'ZONA PÚBLICA / ADMIN', ativo: 'Sim', isRange: false, aliases: ['ar condicionado sala reunioes', 'aire acondicionado reuniones', 'ac 09', 'ac09', 'ac-09', 'arc09', 'ac 9'] }
     ];
 
     function normalizeLocation(loc) {
       if (!loc) return 'Outras Localizações';
       let s = String(loc).trim().toUpperCase();
       s = s.replace(/\s*-\s*/g, ' - ').replace(/\s+/g, ' ').trim();
-      if (s.includes('COZINHA') && (s.includes('-1') || s.includes('- 1'))) return 'COZINHA PISO -1';
-      if (s.includes('COZINHA') && (s.includes('0') || s.includes('PISO 0'))) return 'COZINHA PISO 0';
-      if (s.includes('ALMACEN') || s.includes('ARMAZEM') || s.includes('ARMAZÉM')) return 'ALMACEN PISO -1';
-      if (s.includes('PEQUENO ALMOCO') || s.includes('PEQUENO ALMOÇO')) return 'BAR PEQUENO ALMOCO';
+      if ((s.includes('COZINHA') || s.includes('COCINA')) && (s.includes('-1') || s.includes('- 1'))) return 'COZINHA PISO -1';
+      if ((s.includes('COZINHA') || s.includes('COCINA')) && (s.includes('0') || s.includes('PISO 0') || s.includes('PLANTA 0'))) return 'COZINHA PISO 0';
+      if (s.includes('ALMACEN') || s.includes('ARMAZEM') || s.includes('ARMAZÉM') || s.includes('ECONOMATO')) return 'ALMACEN PISO -1';
+      if (s.includes('PEQUENO ALMOCO') || s.includes('PEQUENO ALMOÇO') || s.includes('DESAYUNO')) return 'BAR PEQUENO ALMOCO';
       if (s.includes('RECECAO') || s.includes('RECEÇÃO') || s.includes('RECEPCION') || s.includes('RECEPCIÓN') || s.includes('COPA')) {
         if (s.includes('BAR')) return 'BAR RECEPCAO';
         return 'RECEÇÃO / ZONA PÚBLICA';
@@ -6564,7 +6622,7 @@
       if (s.includes('ROOFTOP')) return 'BAR ROOFTOP';
       if (s.includes('SHOW COOKING') || s.includes('SHOW COCKING')) return 'SHOW COOKING';
       if (s.includes('RESTAURANTE')) return 'RESTAURANTE';
-      if (s.includes('REUNIOES') || s.includes('REUNIÕES') || s.includes('ADMIN')) return 'ZONA PÚBLICA / ADMIN';
+      if (s.includes('REUNIOES') || s.includes('REUNIÕES') || s.includes('REUNIONES') || s.includes('ADMIN')) return 'ZONA PÚBLICA / ADMIN';
       return s;
     }
 
@@ -6579,8 +6637,46 @@
         .trim();
     }
 
+    // Deteta se uma string é apenas um código de referência interna ou ID técnico
+    function isReferenceCode(str) {
+      if (!str) return true;
+      const s = String(str).trim();
+      if (!s) return true;
+      if (/^(eq|id|sq)_[0-9]+(_[a-z0-9]+)?$/i.test(s)) return true;
+      if (/^(REF|CON|VIH|GAR|FRIG|AC|ARC)[\s._\-\d]+$/i.test(s)) return true;
+      if (/^[a-zA-Z]{1,4}[0-9]{1,4}$/.test(s)) return true;
+      if (/^[0-9a-f]{16,}$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(s)) return true;
+      return false;
+    }
+
+    // Extrai o código técnico unificado de uma string (ex: "REF09", "AC06", "CON02", "VIH01")
+    function extractCanonicalCode(str) {
+      if (!str) return null;
+      const s = String(str).toUpperCase().replace(/[\s._-]+/g, '');
+      const m = s.match(/(REF|CON|VIH|AC|ARC)(0?[1-9]|10)/);
+      if (m) {
+        let prefix = m[1];
+        if (prefix === 'ARC') prefix = 'AC';
+        let num = parseInt(m[2], 10);
+        const padNum = num < 10 ? '0' + num : '' + num;
+        return prefix + padNum;
+      }
+      return null;
+    }
+
     function findCanonicalEquip(rawId, rawName, rawLoc, rawTipo) {
       const candidates = [rawId, rawName].filter(Boolean);
+
+      // 1. Extração direta de código normalizado (ex: REF09, AC07, CON01)
+      for (const cand of candidates) {
+        const code = extractCanonicalCode(cand);
+        if (code) {
+          const match = DEFAULT_HOTEL_EQUIPAMENTOS.find(d => d.id === code);
+          if (match) return match;
+        }
+      }
+
+      // 2. Correspondência exata limpa
       for (const cand of candidates) {
         const clean = cleanStrForMatch(cand);
         if (!clean) continue;
@@ -6597,7 +6693,25 @@
         }
       }
 
-      // Se temos localização e tipo, tenta fazer correspondência contextual unívoca
+      // 3. Correspondência por substrings em aliases e nomes
+      for (const cand of candidates) {
+        const clean = cleanStrForMatch(cand);
+        if (!clean || clean.length < 5) continue;
+        for (const def of DEFAULT_HOTEL_EQUIPAMENTOS) {
+          const defCleanName = cleanStrForMatch(def.nome);
+          if (defCleanName.includes(clean) || clean.includes(defCleanName)) return def;
+          if (Array.isArray(def.aliases)) {
+            for (const al of def.aliases) {
+              const alClean = cleanStrForMatch(al);
+              if (alClean.length >= 6 && (clean.includes(alClean) || alClean.includes(clean))) {
+                return def;
+              }
+            }
+          }
+        }
+      }
+
+      // 4. Correspondência contextual se temos localização e tipo
       if (rawLoc || rawTipo) {
         const normLoc = normalizeLocation(rawLoc);
         const cleanTipo = cleanStrForMatch(rawTipo);
@@ -6645,7 +6759,7 @@
         if (eqAliasesClean.includes(candClean)) return true;
 
         const canon = findCanonicalEquip(cand, null, d.ubicacao || d.ubicacion, d.tipo);
-        if (canon && String(canon.id).toUpperCase() === String(eq.id).toUpperCase()) return true;
+        if (canon && (String(canon.id).toUpperCase() === String(eq.id).toUpperCase() || String(canon.ref || '').toUpperCase() === String(eq.id).toUpperCase())) return true;
       }
       return false;
     }
@@ -6768,21 +6882,34 @@
         const normId = canon ? String(canon.id).toLowerCase() : (rawId ? rawId.toLowerCase() : cleanStrForMatch(rawName));
         if (!normId || deletedIds.has(normId)) return;
 
+        const safeName = canon ? canon.nome : ((rawName && !isReferenceCode(rawName)) ? rawName : rawId);
+        const safeDesc = canon ? canon.descricao : (eq.descricao || safeName);
+
         const existing = equipMap.get(normId);
         if (!existing) {
           const toAdd = Object.assign({}, canon || {}, eq);
-          if (rawLoc) toAdd.ubicacao = normalizeLocation(rawLoc);
-          if (!toAdd.nome && canon) toAdd.nome = canon.nome;
-          if (!toAdd.descricao && canon) toAdd.descricao = canon.descricao;
+          toAdd.nome = safeName;
+          toAdd.descricao = safeDesc;
+          toAdd.ubicacao = normalizeLocation(rawLoc || (canon ? canon.ubicacao : 'Outras Localizações'));
           equipMap.set(normId, toAdd);
-        } else if (isHighPriority) {
-          if (eq.nome && !isReferenceCode(eq.nome)) existing.nome = eq.nome;
-          if (eq.descricao) existing.descricao = eq.descricao;
-          if (eq.tipo) existing.tipo = eq.tipo;
-          if (eq.ubicacao) existing.ubicacao = normalizeLocation(eq.ubicacao);
-          if (eq.min !== undefined) existing.min = eq.min;
-          if (eq.max !== undefined) existing.max = eq.max;
-          if (eq.ativo !== undefined) existing.ativo = eq.ativo;
+        } else {
+          if (canon) {
+            if (!existing.nome || isReferenceCode(existing.nome) || existing.nome === existing.id) {
+              existing.nome = canon.nome;
+            }
+            if (!existing.descricao || isReferenceCode(existing.descricao)) {
+              existing.descricao = canon.descricao;
+            }
+          }
+          if (isHighPriority) {
+            if (eq.nome && !isReferenceCode(eq.nome) && !canon) existing.nome = eq.nome;
+            if (eq.descricao) existing.descricao = eq.descricao;
+            if (eq.tipo) existing.tipo = eq.tipo;
+            if (eq.ubicacao) existing.ubicacao = normalizeLocation(eq.ubicacao);
+            if (eq.min !== undefined) existing.min = eq.min;
+            if (eq.max !== undefined) existing.max = eq.max;
+            if (eq.ativo !== undefined) existing.ativo = eq.ativo;
+          }
         }
       };
 
@@ -6847,11 +6974,22 @@
         if (!targetKey) return;
         if (deletedIds.has(targetKey.toLowerCase())) return;
 
+        const safeName = canon ? canon.nome : ((rawName && !isReferenceCode(rawName)) ? rawName : (rawId || 'Equipamento'));
+        const safeDesc = canon ? canon.descricao : (rawItem.descricao || safeName);
+
         const existing = listById.get(targetKey);
         if (existing) {
+          if (canon) {
+            if (!existing.nome || isReferenceCode(existing.nome) || existing.nome === existing.id) {
+              existing.nome = canon.nome;
+            }
+            if (!existing.descricao || isReferenceCode(existing.descricao)) {
+              existing.descricao = canon.descricao;
+            }
+          }
           if (isHighPriority) {
-            if (rawName && !isReferenceCode(rawName)) existing.nome = rawName;
-            if (rawItem.descricao) existing.descricao = rawItem.descricao;
+            if (rawName && !isReferenceCode(rawName) && !canon) existing.nome = rawName;
+            if (rawItem.descricao && !isReferenceCode(rawItem.descricao)) existing.descricao = rawItem.descricao;
             if (rawTipo) existing.tipo = rawTipo;
             if (rawLoc) existing.ubicacao = normalizeLocation(rawLoc);
             if (rawItem.min !== undefined && rawItem.min !== null) existing.min = rawItem.min;
@@ -6867,14 +7005,13 @@
           const isCong = rawTipo.toLowerCase().includes('congelador');
           const isVin = rawTipo.toLowerCase().includes('vin');
           const isAC = rawTipo.toLowerCase().includes('ar condicionado') || rawTipo.toLowerCase().includes('aire acondicionado') || rawTipo.toLowerCase().includes('climat') || rawTipo.toLowerCase().includes('ac');
-          const finalName = (rawName && !isReferenceCode(rawName)) ? rawName : (rawId || 'Equipamento');
 
           const newEq = {
             id: rawId || ('EQ_' + Date.now()),
             ref: rawItem.ref || rawId,
             refShort: formatRefShort(rawItem.ref || rawId),
-            nome: finalName,
-            descricao: rawItem.descricao || finalName,
+            nome: safeName,
+            descricao: safeDesc,
             tipo: isAC ? 'Ar Condicionado' : (rawTipo || (isCong ? 'Congelador' : 'Frigorifico')),
             min: rawItem.min !== undefined ? rawItem.min : (isAC ? 16 : (isCong ? -18 : (isVin ? 5 : 0))),
             max: rawItem.max !== undefined ? rawItem.max : (isAC ? 28 : (isCong ? -1 : (isVin ? 16 : 8))),
@@ -6948,8 +7085,17 @@
 
       let list = Array.from(listById.values());
 
-      // 7. Normalização de Localizações e referências
+      // 7. Normalização de Localizações e referências e sanitização canónica de nomes
       list.forEach(eq => {
+        const canon = findCanonicalEquip(eq.id, eq.nome, eq.ubicacao, eq.tipo);
+        if (canon) {
+          if (!eq.nome || isReferenceCode(eq.nome) || eq.nome === eq.id || eq.nome === eq.ref) {
+            eq.nome = canon.nome;
+          }
+          if (!eq.descricao || isReferenceCode(eq.descricao)) {
+            eq.descricao = canon.descricao;
+          }
+        }
         eq.ubicacao = normalizeLocation(eq.ubicacao);
         if (!eq.ref) eq.ref = eq.id;
         if (!eq.refShort) eq.refShort = formatRefShort(eq.ref || eq.id);
