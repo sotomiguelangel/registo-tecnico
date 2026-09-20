@@ -1558,6 +1558,8 @@
   .heatmap-cell.hc-none{ background:#eef2f1; color:var(--ink-400); }
   .heatmap-cell.hc-ok{ background:var(--ok-500); color:#fff; }
   .heatmap-cell.hc-bad{ background:var(--coral-500); color:#fff; }
+  .heatmap-cell.hc-rest{ background:#e0f2fe; border:1px solid #7dd3fc; color:#0369a1; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1; }
+  .heatmap-cell.hc-rest .hc-sublabel{ font-size:7.5px; font-weight:600; opacity:0.9; letter-spacing:-0.2px; }
   .heatmap-cell.hc-future{ background:rgba(56,189,248,0.08); border:1px dashed rgba(56,189,248,0.45); color:var(--ink-400); }
   .heatmap-legend{ display:flex; justify-content:center; gap:12px; margin-top:10px; font-family:var(--mono); font-size:9.5px; color:var(--ink-600); flex-wrap:wrap; }
   .heatmap-legend span{ display:flex; align-items:center; gap:5px; }
@@ -11948,6 +11950,31 @@
    * Se existe pelo menos um registo para o dia → 'ok' (verde)
    * Se não há registos → 'none' (cinzento)
    */
+  function getFolgasConfig(){
+    const DEFAULT_CONFIG = {
+      mode: 'weekly',
+      weeklyDays: [0, 1], // 0 = Domingo, 1 = Segunda-feira (escala legal de descanso do pessoal técnico)
+      customDays: []
+    };
+    try {
+      const raw = localStorage.getItem('bitacora_folgas_config');
+      if(raw){
+        const parsed = JSON.parse(raw);
+        if(parsed && Array.isArray(parsed.weeklyDays)) return parsed;
+      }
+    } catch(e){}
+    return DEFAULT_CONFIG;
+  }
+
+  function isLegalRestDay(dateObj, folgasCfg){
+    const cfg = folgasCfg || getFolgasConfig();
+    const dow = dateObj.getDay();
+    if(cfg.weeklyDays && cfg.weeklyDays.includes(dow)) return true;
+    const dateStr = fmt(dateObj);
+    if(cfg.customDays && cfg.customDays.includes(dateStr)) return true;
+    return false;
+  }
+
   function dayStatusFromRecords(recordsForDay){
     if(recordsForDay && recordsForDay.length > 0) {
       return 'ok';
@@ -11962,6 +11989,7 @@
     const daysInMonth = new Date(y, m+1, 0).getDate();
     const monthLabel = first.toLocaleDateString('pt-PT', { month:'long', year:'numeric' });
     const todayStr2 = todayStr();
+    const folgasCfg = getFolgasConfig();
 
     const byDate = {};
     generalRaw.forEach(r=>{ (byDate[r.data.fecha] = byDate[r.data.fecha] || []).push(r); });
@@ -11969,29 +11997,69 @@
     const firstWeekday = (first.getDay()+6)%7; // 0=segunda
     const cells = [];
     for(let i=0;i<firstWeekday;i++) cells.push('<div class="heatmap-cell hc-empty"></div>');
+    
+    const dows = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
     let recordedDays = 0, elapsedDays = 0;
+    let plannedWorkDays = 0, workDaysCovered = 0;
+    let restDaysCount = 0;
+    const restDaysList = [];
+    const missingWorkDays = [];
+
     for(let d=1; d<=daysInMonth; d++){
-      const dateStr = fmt(new Date(y,m,d));
-      let cls, label = d;
-      if(dateStr > todayStr2){ cls = 'hc-future'; }
-      else{
+      const curDate = new Date(y,m,d);
+      const dateStr = fmt(curDate);
+      const dowIndex = (curDate.getDay() + 6) % 7;
+      const dowName = dows[dowIndex];
+      const isRest = isLegalRestDay(curDate, folgasCfg);
+      const recs = byDate[dateStr] || [];
+      const hasRec = recs.length > 0;
+
+      let cls, label = `<span>${d}</span>`;
+      if(dateStr > todayStr2){
+        cls = 'hc-future';
+        cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)} (${dowName}) · Futuro">${label}</div>`);
+      } else {
         elapsedDays++;
-        const st = dayStatusFromRecords(byDate[dateStr] || []);
-        if(st === 'none'){
-          cls = 'hc-none';
-        } else {
-          cls = st === 'bad' ? 'hc-bad' : 'hc-ok';
+        if(hasRec){
           recordedDays++;
+          if(!isRest){
+            plannedWorkDays++;
+            workDaysCovered++;
+            cls = 'hc-ok';
+            cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)} (${dowName}) · Registo técnico em dia de serviço">${label}</div>`);
+          } else {
+            workDaysCovered++;
+            restDaysCount++;
+            cls = 'hc-ok';
+            cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)} (${dowName}) · Registo em dia de descanso/turno extra">${label}</div>`);
+          }
+        } else {
+          if(isRest){
+            restDaysCount++;
+            restDaysList.push(d);
+            cls = 'hc-rest';
+            label = `<span>${d}</span><span class="hc-sublabel" title="Descanso legal">Folga</span>`;
+            cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)} (${dowName}) · Descanso Legal / Folga Semanal (Garantida por lei · Não afeta cadência)">${label}</div>`);
+          } else {
+            plannedWorkDays++;
+            missingWorkDays.push(d);
+            cls = 'hc-bad';
+            cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)} (${dowName}) · Falta de registo em escala de trabalho">${label}</div>`);
+          }
         }
       }
-      cells.push(`<div class="heatmap-cell ${cls}" title="${esc(dateStr)}">${label}</div>`);
     }
 
-    const pctMonth = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
-    const dows = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+    const workPct = plannedWorkDays > 0
+      ? Math.min(100, Math.round((workDaysCovered / plannedWorkDays) * 100))
+      : (recordedDays > 0 ? 100 : 0);
+
     return `<div class="heatmap-card">
-      <div class="heatmap-head">
-        <span class="ttl">${esc(monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1))} <small style="font-weight:600; font-size:11px; color:var(--ink-400); margin-left:6px;">(${recordedDays}/${elapsedDays} dias · ${pctMonth}%)</small></span>
+      <div class="heatmap-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <span class="ttl">${esc(monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1))} 
+          <small style="font-weight:700; font-size:11px; color:#16a34a; background:#dcfce7; padding:2px 7px; border-radius:12px; margin-left:6px;">${workPct}% em escala (${recordedDays}/${plannedWorkDays} d)</small>
+          <small style="font-weight:600; font-size:10.5px; color:#0369a1; background:#e0f2fe; padding:2px 6px; border-radius:12px; margin-left:4px;" title="Dias de descanso que o pessoal técnico tem por lei">⚖️ ${restDaysCount} folgas legais</small>
+        </span>
         <div class="heatmap-nav">
           <button id="hmPrev">‹</button>
           <button id="hmNext" ${monthOffset>=0?'disabled style="opacity:.4;cursor:default"':''}>›</button>
@@ -12001,9 +12069,10 @@
         ${dows.map(d=>`<div class="heatmap-dow">${d}</div>`).join('')}
         ${cells.join('')}
       </div>
-      <div class="heatmap-legend">
-        <span><i style="background:var(--ok-500)"></i>Com registo</span>
-        <span><i style="background:#eef2f1"></i>Sem registo</span>
+      <div class="heatmap-legend" style="display:flex; flex-wrap:wrap; gap:12px; font-size:9.5px; margin-top:8px;">
+        <span><i style="background:var(--ok-500)"></i>Com registo (${recordedDays} d)</span>
+        <span><i style="background:#e0f2fe; border:1px solid #7dd3fc"></i>Descanso legal (${restDaysCount} d · Lei)</span>
+        ${missingWorkDays.length > 0 ? `<span><i style="background:var(--coral-500)"></i>Falta em escala (${missingWorkDays.length} d)</span>` : ''}
         <span><i style="background:rgba(56,189,248,0.12); border:1px dashed rgba(56,189,248,0.6)"></i>Futuro</span>
       </div>
     </div>`;
@@ -12026,17 +12095,64 @@
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Mínimo entre a data 'hasta' e hoje para não contar dias futuros
     const end = endDate > today ? today : endDate;
-    
-    let total = 0, covered = 0;
+    const folgasCfg = getFolgasConfig();
+
+    let totalCalendarDays = 0;
+    let coveredDays = 0;
+    let restDaysCount = 0;
+    let workDaysTotal = 0;
+    let workDaysCovered = 0;
+    const missingWorkDaysList = [];
+    const restDaysList = [];
+
     for(let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)){
+      totalCalendarDays++;
       const key = fmt(d);
-      total++;
-      if(set.has(key)) covered++;
+      const hasRec = set.has(key);
+      const isRest = isLegalRestDay(d, folgasCfg);
+
+      if(hasRec){
+        coveredDays++;
+        if(!isRest){
+          workDaysTotal++;
+          workDaysCovered++;
+        } else {
+          workDaysCovered++;
+          restDaysCount++;
+          restDaysList.push(key);
+        }
+      } else {
+        if(isRest){
+          restDaysCount++;
+          restDaysList.push(key);
+        } else {
+          workDaysTotal++;
+          missingWorkDaysList.push(key);
+        }
+      }
     }
-    
-    return { total, covered, pct: (total > 0 && covered > 0) ? Math.round(covered / total * 100) : 0 };
+
+    const workPct = workDaysTotal > 0
+      ? Math.min(100, Math.round((workDaysCovered / workDaysTotal) * 100))
+      : (coveredDays > 0 ? 100 : 0);
+
+    const calendarPct = totalCalendarDays > 0
+      ? Math.round((coveredDays / totalCalendarDays) * 100)
+      : 0;
+
+    return {
+      total: totalCalendarDays,
+      covered: coveredDays,
+      pct: workPct, // A cadência agora reflete o cumprimento real em dias de escala de serviço
+      calendarPct,
+      workTotal: workDaysTotal,
+      workCovered: workDaysCovered,
+      workPct,
+      restDays: restDaysCount,
+      restDaysList,
+      missingWorkDays: missingWorkDaysList
+    };
   }
 
   function monthRangeOffset(offsetMonths){
@@ -12401,12 +12517,12 @@
       });
     }
 
-    // Cadência de Registos
-    if(comp.pct < 90){
+    // Cadência de Registos (salvaguardando dias de folga por lei)
+    if(comp.missingWorkDays && comp.missingWorkDays.length > 0){
       actionItems.push({
-        type: 'warn', tag: 'Cadência Operacional',
-        title: `Taxa de cumprimento do registo diário em ${comp.pct}% (${comp.covered}/${comp.total} dias)`,
-        desc: 'Existem dias sem preenchimento do registo técnico obrigatório.',
+        type: comp.workPct < 70 ? 'crit' : 'warn', tag: 'Cadência Operacional',
+        title: `Taxa de cumprimento em escala em ${comp.workPct}% (${comp.covered}/${comp.workTotal} dias de serviço)`,
+        desc: `Existem ${comp.missingWorkDays.length} dia(s) de serviço sem registo técnico. (${comp.restDays} dias salvaguardados como descanso legal por lei).`,
         rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
       });
     }
@@ -15059,7 +15175,7 @@
       <div class="off-sub">MS Funchal · Manutenção · Documento de cumprimento (DGS — prevenção da legionela · HACCP/APPCC)</div>
       <div class="off-meta">Período: ${desde} a ${hasta} · Gerado em ${todayStr()} às ${nowTimeStr()} · App Registo Técnico v${APP_VERSION}</div>
       <div class="off-sum">
-        <div><b>${comp.pct}%</b>cumprimento (${comp.covered}/${comp.total} dias)</div>
+        <div><b>${comp.workPct}%</b>cumprimento em escala (${comp.covered}/${comp.workTotal} dias de serviço · ${comp.restDays} folgas por lei)</div>
         ${stat('pH piscina','phPiscina',2,'')}
         ${stat('Cloro livre','cloroLibre',2,'ppm')}
         ${stat('Cloro total','cloroTotal',2,'ppm')}
@@ -15068,7 +15184,7 @@
         ${stat('AQS quartos','aqsQuartos',1,'°C')}
         <div><b>${tp.length}</b>leituras de refrigeração (${tempBadCount} fora do intervalo)</div>
       </div>
-      ${missingDays.length ? `<div class="off-missing">⚠ Dias sem registo geral: ${esc(missingDays.join(', '))}</div>` : '<div class="off-missing" style="color:#2a7">✓ Todos os dias com registo geral</div>'}
+      ${comp.missingWorkDays && comp.missingWorkDays.length ? `<div class="off-missing">⚠ Dias em falta em escala de serviço: ${esc(comp.missingWorkDays.join(', '))}. (${comp.restDays} dias salvaguardados como folgas por lei).</div>` : `<div class="off-missing" style="color:#2a7">✓ 100% de cumprimento nos dias de escala (${comp.restDays} dias salvaguardados como descanso legal por lei).</div>`}
       <h2>1. Controlo diário — Piscina e AQS</h2>
       <table><thead><tr>
         <th>Data</th><th>Hora</th><th>Técnico</th><th>Água m³</th><th>Elet. kWh</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préf.</th><th>Areia</th><th>Skim.</th><th>Observações</th>

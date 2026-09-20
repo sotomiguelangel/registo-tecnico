@@ -2759,6 +2759,27 @@
   .heatmap-cell.hc-none { background: var(--subtle); color: var(--muted); }
   .heatmap-cell.hc-ok { background: #16a34a; color: #ffffff; }
   .heatmap-cell.hc-bad { background: #dc2626; color: #ffffff; }
+  .heatmap-cell.hc-rest {
+    background: #e0f2fe;
+    border: 1px solid #7dd3fc;
+    color: #0369a1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.1;
+  }
+  .heatmap-cell.hc-rest .hc-sublabel {
+    font-size: 7.5px;
+    font-weight: 600;
+    opacity: 0.9;
+    letter-spacing: -0.2px;
+  }
+  :root[data-theme="dark"] .heatmap-cell.hc-rest {
+    background: rgba(14, 165, 233, 0.18);
+    border-color: rgba(14, 165, 233, 0.45);
+    color: #38bdf8;
+  }
   .heatmap-cell.hc-future {
     background: rgba(56, 189, 248, 0.06);
     border: 1px dashed rgba(56, 189, 248, 0.4);
@@ -4031,6 +4052,37 @@
       };
     }
 
+    function getFolgasConfig() {
+      const DEFAULT_CONFIG = {
+        mode: 'weekly',
+        weeklyDays: [0, 1], // 0 = Domingo, 1 = Segunda-feira (escala legal de descanso do pessoal de manutenção)
+        customDays: []
+      };
+      try {
+        const raw = localStorage.getItem('bitacora_folgas_config');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.weeklyDays)) return parsed;
+        }
+      } catch(e) {}
+      return DEFAULT_CONFIG;
+    }
+
+    function saveFolgasConfig(cfg) {
+      try {
+        localStorage.setItem('bitacora_folgas_config', JSON.stringify(cfg));
+      } catch(e) {}
+    }
+
+    function isLegalRestDay(dateObj, folgasCfg) {
+      const cfg = folgasCfg || getFolgasConfig();
+      const dow = dateObj.getDay();
+      if (cfg.weeklyDays && cfg.weeklyDays.includes(dow)) return true;
+      const dateStr = fmt(dateObj);
+      if (cfg.customDays && cfg.customDays.includes(dateStr)) return true;
+      return false;
+    }
+
     function complianceStatsRange(generalRaw, desde, hasta) {
       const set = new Set(generalRaw.filter(r => (r.date || r.data?.fecha) >= desde && (r.date || r.data?.fecha) <= hasta).map(r => r.date || r.data?.fecha));
       const start = new Date(desde + 'T00:00:00');
@@ -4039,15 +4091,63 @@
       today.setHours(0, 0, 0, 0);
 
       const end = endDate > today ? today : endDate;
+      const folgasCfg = getFolgasConfig();
 
-      let total = 0, covered = 0;
+      let totalCalendarDays = 0;
+      let coveredDays = 0;
+      let restDaysCount = 0;
+      let workDaysTotal = 0;
+      let workDaysCovered = 0;
+      const missingWorkDaysList = [];
+      const restDaysList = [];
+
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        totalCalendarDays++;
         const key = fmt(d);
-        total++;
-        if (set.has(key)) covered++;
+        const hasRec = set.has(key);
+        const isRest = isLegalRestDay(d, folgasCfg);
+
+        if (hasRec) {
+          coveredDays++;
+          if (!isRest) {
+            workDaysTotal++;
+            workDaysCovered++;
+          } else {
+            workDaysCovered++;
+            restDaysCount++;
+            restDaysList.push(key);
+          }
+        } else {
+          if (isRest) {
+            restDaysCount++;
+            restDaysList.push(key);
+          } else {
+            workDaysTotal++;
+            missingWorkDaysList.push(key);
+          }
+        }
       }
 
-      return { total, covered, pct: (total > 0 && covered > 0) ? Math.round(covered / total * 100) : 0 };
+      const workPct = workDaysTotal > 0
+        ? Math.min(100, Math.round((workDaysCovered / workDaysTotal) * 100))
+        : (coveredDays > 0 ? 100 : 0);
+
+      const calendarPct = totalCalendarDays > 0
+        ? Math.round((coveredDays / totalCalendarDays) * 100)
+        : 0;
+
+      return {
+        total: totalCalendarDays,
+        covered: coveredDays,
+        pct: workPct, // Cumprimento real da cadência focado nos dias de serviço
+        calendarPct,  // Cumprimento bruto do calendário civil
+        workTotal: workDaysTotal,
+        workCovered: workDaysCovered,
+        workPct,
+        restDays: restDaysCount,
+        restDaysList,
+        missingWorkDays: missingWorkDaysList
+      };
     }
 
     function getTarifas() {
@@ -4474,11 +4574,11 @@
           rec: `👉 Ação executiva: Alocar técnicos para medições em ${Math.ceil(pending / 5)} turnos adicionais.`
         });
       }
-      if (comp.pct < 90) {
+      if (comp.missingWorkDays && comp.missingWorkDays.length > 0) {
         actionItems.push({
-          type: 'warn', tag: 'Cadência Operacional',
-          title: `Taxa de cumprimento do registo diário em ${comp.pct}% (${comp.covered}/${comp.total} dias)`,
-          desc: 'Existem dias sem preenchimento do registo técnico obrigatório.',
+          type: comp.workPct < 70 ? 'crit' : 'warn', tag: 'Cadência Operacional',
+          title: `Taxa de cumprimento em escala em ${comp.workPct}% (${comp.covered}/${comp.workTotal} dias de serviço)`,
+          desc: `Existem ${comp.missingWorkDays.length} dia(s) de serviço sem registo técnico. (${comp.restDays} dias salvaguardados como descanso legal por lei).`,
           rec: '👉 Ação executiva: Reforçar o procedimento de passagem de turno com a equipa de manutenção.'
         });
       }
@@ -4549,6 +4649,7 @@
       const daysInMonth = new Date(y, m + 1, 0).getDate();
       const monthLabel = first.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
       const todayStr2 = todayStr();
+      const folgasCfg = getFolgasConfig();
 
       const byDate = new Set();
       generalRaw.forEach(r => {
@@ -4562,39 +4663,104 @@
         cells.push('<div class="heatmap-cell hc-empty"></div>');
       }
 
+      const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
       let recordedDays = 0, elapsedDays = 0;
-      const missingDays = [];
+      let plannedWorkDays = 0, workDaysCovered = 0;
+      let restDaysCount = 0;
+      const restDaysList = [];
+      const missingWorkDays = [];
+
       for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = fmt(new Date(y, m, d));
-        let cls, label = d;
+        const curDate = new Date(y, m, d);
+        const dateStr = fmt(curDate);
+        const dowIndex = (curDate.getDay() + 6) % 7;
+        const dowName = dows[dowIndex];
+        const isRest = isLegalRestDay(curDate, folgasCfg);
+        const hasRec = byDate.has(dateStr);
+
+        let cls, cellContent = `<span>${d}</span>`;
+
         if (dateStr > todayStr2) {
           cls = 'hc-future';
+          cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Dia futuro">${cellContent}</div>`);
         } else {
           elapsedDays++;
-          if (byDate.has(dateStr)) {
-            cls = 'hc-ok';
+          if (hasRec) {
             recordedDays++;
+            if (!isRest) {
+              plannedWorkDays++;
+              workDaysCovered++;
+              cls = 'hc-ok';
+              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de serviço">${cellContent}</div>`);
+            } else {
+              workDaysCovered++;
+              restDaysCount++;
+              cls = 'hc-ok';
+              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Registo técnico efetuado em dia de descanso/turno extra">${cellContent}</div>`);
+            }
           } else {
-            cls = 'hc-none';
-            missingDays.push(d);
+            if (isRest) {
+              restDaysCount++;
+              restDaysList.push(d);
+              cls = 'hc-rest';
+              cellContent = `<span>${d}</span><span class="hc-sublabel" title="Descanso legal">Folga</span>`;
+              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Descanso Legal / Folga Semanal (Garantida por lei · Não penaliza a cadência)">${cellContent}</div>`);
+            } else {
+              plannedWorkDays++;
+              missingWorkDays.push(d);
+              cls = 'hc-bad';
+              cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr} (${dowName}) · Falta de registo em dia de escala de serviço">${cellContent}</div>`);
+            }
           }
         }
-        cells.push(`<div class="heatmap-cell ${cls}" title="${dateStr}">${label}</div>`);
       }
 
-      const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-      const pctMonth = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
-      const isOk = pctMonth >= 90;
-      const isWarn = pctMonth >= 70 && !isOk;
+      const workPct = plannedWorkDays > 0
+        ? Math.min(100, Math.round((workDaysCovered / plannedWorkDays) * 100))
+        : (recordedDays > 0 ? 100 : 0);
+
+      const calendarPct = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
+      const isOk = missingWorkDays.length === 0 && workPct >= 90;
+      const isWarn = !isOk && workPct >= 70;
       const statusClass = isOk ? 'ok' : (isWarn ? 'warn' : 'bad');
-      const statusText = isOk ? 'Conforme (≥90%)' : (isWarn ? 'Atenção (<90%)' : 'Crítico (<70%)');
+      const statusText = (missingWorkDays.length === 0 && workPct === 100)
+        ? '100% em Escala (Conforme)'
+        : (isOk ? `Conforme (${workPct}%)` : (isWarn ? `Atenção (${workPct}%)` : `Crítico (${workPct}%)`));
+
+      const pctRecorded = elapsedDays > 0 ? Math.round((recordedDays / elapsedDays) * 100) : 0;
+      const pctRest = elapsedDays > 0 ? Math.round((restDaysCount / elapsedDays) * 100) : 0;
+      const pctMissing = Math.max(0, 100 - pctRecorded - pctRest);
+
+      const weeklyJson = JSON.stringify(folgasCfg.weeklyDays || [0, 1]);
+      let folgasLabel = 'Dom e Seg';
+      if (weeklyJson === '[6,0]') folgasLabel = 'Sáb e Dom';
+      else if (weeklyJson === '[0]') folgasLabel = 'Apenas Dom';
+      else if (weeklyJson === '[1,2]') folgasLabel = 'Seg e Ter';
+      else if (weeklyJson === '[]') folgasLabel = 'Sem folgas';
 
       return `
         <div class="card-heatmap-inner">
           <div class="card-heatmap-calendar">
-            <div class="heatmap-head">
-              <span class="ttl">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} <small style="font-weight:600; font-size:12px; color:var(--muted); margin-left:8px;">(${recordedDays}/${elapsedDays} dias · ${pctMonth}%)</small></span>
-              <div class="heatmap-nav">
+            <div class="heatmap-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div>
+                <span class="ttl">${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)}</span>
+                <div style="display:inline-flex; align-items:center; gap:6px; margin-left:8px; vertical-align:middle; flex-wrap:wrap;">
+                  <span style="font-weight:700; font-size:11.5px; color:#16a34a; background:#dcfce7; padding:2px 8px; border-radius:12px; border:1px solid #bbf7d0;">
+                    ${workPct}% em escala (${recordedDays}/${plannedWorkDays} d)
+                  </span>
+                  <span style="font-weight:600; font-size:11px; color:#0369a1; background:#e0f2fe; padding:2px 7px; border-radius:12px; border:1px solid #7dd3fc;" title="Dias de descanso que o pessoal técnico tem por lei">
+                    ⚖️ ${restDaysCount} folgas legais
+                  </span>
+                </div>
+              </div>
+              <div class="heatmap-nav" style="display:flex; align-items:center; gap:6px;">
+                <select id="selFolgasPattern" style="font-size:11px; padding:3px 6px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); cursor:pointer;" title="Configuração da escala de descanso legal por lei">
+                  <option value="[0,1]" ${weeklyJson === '[0,1]' ? 'selected' : ''}>Escala: Dom e Seg (Lei)</option>
+                  <option value="[6,0]" ${weeklyJson === '[6,0]' ? 'selected' : ''}>Escala: Sáb e Dom</option>
+                  <option value="[0]" ${weeklyJson === '[0]' ? 'selected' : ''}>Escala: Apenas Domingo</option>
+                  <option value="[1,2]" ${weeklyJson === '[1,2]' ? 'selected' : ''}>Escala: Seg e Ter</option>
+                  <option value="[]" ${weeklyJson === '[]' ? 'selected' : ''}>Sem folgas fixas</option>
+                </select>
                 <button type="button" id="hmPrev" title="Mês anterior">‹</button>
                 <button type="button" id="hmNext" title="Mês seguinte" ${offset >= 0 ? 'disabled style="opacity:.4; cursor:default"' : ''}>›</button>
               </div>
@@ -4603,9 +4769,10 @@
               ${dows.map(d => `<div class="heatmap-dow">${d}</div>`).join('')}
               ${cells.join('')}
             </div>
-            <div class="heatmap-legend">
-              <span><i style="background:#22c55e"></i>Com registo</span>
-              <span><i style="background:var(--subtle); border:1px solid var(--border)"></i>Sem registo</span>
+            <div class="heatmap-legend" style="display:flex; flex-wrap:wrap; gap:12px; font-size:11.5px; margin-top:8px;">
+              <span><i style="background:#16a34a"></i>Com registo (${recordedDays} d)</span>
+              <span><i style="background:#e0f2fe; border:1px solid #7dd3fc"></i>Descanso legal (${restDaysCount} d · Lei)</span>
+              ${missingWorkDays.length > 0 ? `<span><i style="background:#dc2626"></i>Falta em escala (${missingWorkDays.length} d)</span>` : ''}
               <span><i style="background:transparent; border:1px dashed var(--border)"></i>Dias futuros</span>
             </div>
           </div>
@@ -4614,26 +4781,38 @@
               <span style="font-size:0.86rem; font-weight:700; color:var(--text);">📋 Cadência Operacional</span>
               <span class="exec-pillar-tag ${statusClass}">${statusText}</span>
             </div>
-            <div style="font-size:1.6rem; font-weight:800; font-variant-numeric:tabular-nums; margin:6px 0; color:${isOk ? '#16a34a' : (isWarn ? '#d97706' : '#dc2626')};">
-              ${pctMonth}% <span style="font-size:0.85rem; font-weight:600; color:var(--muted);">cumprimento</span>
-            </div>
-            <div style="height:6px; background:var(--subtle); border-radius:4px; overflow:hidden; margin-bottom:10px;">
-              <div style="height:100%; width:${pctMonth}%; background:${isOk ? '#22c55e' : (isWarn ? '#f59e0b' : '#ef4444')}; border-radius:4px; transition:width 0.3s ease;"></div>
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px;">
-              <div style="background:var(--subtle); padding:6px 8px; border-radius:6px; border:1px solid var(--border);">
-                <div style="color:var(--muted); font-size:0.68rem; text-transform:uppercase;">Com Registo</div>
-                <div style="font-weight:700; font-size:0.95rem; color:#16a34a;">${recordedDays} / ${elapsedDays} d</div>
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin:4px 0 2px;">
+              <div style="font-size:1.65rem; font-weight:800; font-variant-numeric:tabular-nums; color:${isOk ? '#16a34a' : (isWarn ? '#d97706' : '#dc2626')};">
+                ${workPct}% <span style="font-size:0.82rem; font-weight:600; color:var(--muted);">cumprimento em escala</span>
               </div>
-              <div style="background:var(--subtle); padding:6px 8px; border-radius:6px; border:1px solid var(--border);">
-                <div style="color:var(--muted); font-size:0.68rem; text-transform:uppercase;">Dias em Falta</div>
-                <div style="font-weight:700; font-size:0.95rem; color:${missingDays.length > 0 ? '#dc2626' : '#16a34a'};">${missingDays.length} d</div>
+              <span style="font-size:0.75rem; color:var(--muted); font-weight:600;" title="Percentagem sobre os dias corridos totais do mês">${calendarPct}% do mês civil</span>
+            </div>
+            <div style="height:7px; background:var(--subtle); border-radius:4px; overflow:hidden; margin-bottom:10px; display:flex;">
+              <div style="height:100%; width:${pctRecorded}%; background:#16a34a;" title="Com registo: ${recordedDays} dias (${pctRecorded}%)"></div>
+              <div style="height:100%; width:${pctRest}%; background:#38bdf8;" title="Descanso legal por lei: ${restDaysCount} dias (${pctRest}%)"></div>
+              ${pctMissing > 0 ? `<div style="height:100%; width:${pctMissing}%; background:#dc2626;" title="Faltas reais em escala: ${missingWorkDays.length} dias"></div>` : ''}
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; font-size:0.8rem; font-family:var(--font-mono); margin-bottom:8px;">
+              <div style="background:var(--subtle); padding:6px 7px; border-radius:6px; border:1px solid var(--border);">
+                <div style="color:var(--muted); font-size:0.65rem; text-transform:uppercase; font-weight:600;">Com Registo</div>
+                <div style="font-weight:700; font-size:0.92rem; color:#16a34a;">${recordedDays} / ${plannedWorkDays} d</div>
+                <div style="font-size:0.62rem; color:var(--muted); margin-top:2px;">${workPct}% da escala</div>
+              </div>
+              <div style="background:#eff6ff; padding:6px 7px; border-radius:6px; border:1px solid #bfdbfe;">
+                <div style="color:#1d4ed8; font-size:0.65rem; text-transform:uppercase; font-weight:600;">Descanso Legal</div>
+                <div style="font-weight:700; font-size:0.92rem; color:#0284c7;">${restDaysCount} d</div>
+                <div style="font-size:0.62rem; color:#0369a1; margin-top:2px;">Por lei (${folgasLabel})</div>
+              </div>
+              <div style="background:var(--subtle); padding:6px 7px; border-radius:6px; border:1px solid var(--border);">
+                <div style="color:var(--muted); font-size:0.65rem; text-transform:uppercase; font-weight:600;">Faltas Reais</div>
+                <div style="font-weight:700; font-size:0.92rem; color:${missingWorkDays.length > 0 ? '#dc2626' : '#16a34a'};">${missingWorkDays.length} d</div>
+                <div style="font-size:0.62rem; color:var(--muted); margin-top:2px;">${missingWorkDays.length === 0 ? '0 faltas' : 'Dias em falta'}</div>
               </div>
             </div>
-            <div class="small" style="font-size:0.75rem; color:var(--muted); line-height:1.35; min-height:auto;">
-              ${missingDays.length > 0 
-                ? `⚠️ Sem registo: <strong>${missingDays.slice(0, 6).join(', ')}${missingDays.length > 6 ? ` +${missingDays.length - 6}` : ''}</strong>`
-                : '✓ Todos os dias decorridos com leitura técnica registada.'}
+            <div class="small" style="font-size:0.75rem; color:var(--muted); line-height:1.35; padding:6px 8px; background:rgba(2,132,199,0.06); border-radius:6px; border-left:3px solid ${missingWorkDays.length > 0 ? '#f59e0b' : '#0284c7'};">
+              ${missingWorkDays.length > 0 
+                ? `⚠️ <strong>${missingWorkDays.length} dia(s) em falta em escala de trabalho:</strong> ${missingWorkDays.slice(0, 6).join(', ')}. Os ${restDaysCount} dias de descanso semanal por lei estão salvaguardados.`
+                : `⚖️ <strong>Cumprimento total nos dias de trabalho:</strong> 100% dos dias de escala têm leitura registada. As ${restDaysCount} ausências (${restDaysList.slice(0, 6).join(', ')}) correspondem a <strong>dias de descanso que por lei o pessoal técnico tem direito</strong>.`}
             </div>
           </div>
         </div>
@@ -4643,6 +4822,25 @@
     function wireHeatmapEvents() {
       const hmPrev = $('hmPrev');
       const hmNext = $('hmNext');
+      const selFolgas = $('selFolgasPattern');
+
+      if (selFolgas) {
+        selFolgas.onchange = (e) => {
+          try {
+            const val = JSON.parse(e.target.value);
+            saveFolgasConfig({ weeklyDays: val, customDays: [] });
+            const wrap = $('execHeatmapWrap');
+            if (wrap) {
+              wrap.innerHTML = renderComplianceHeatmap(records.general, heatmapMonthOffset);
+              wireHeatmapEvents();
+            }
+            if (typeof renderDashboardExecutiveTab === 'function') {
+              renderDashboardExecutiveTab();
+            }
+          } catch(err) {}
+        };
+      }
+
       if (hmPrev) {
         hmPrev.onclick = () => {
           heatmapMonthOffset--;
