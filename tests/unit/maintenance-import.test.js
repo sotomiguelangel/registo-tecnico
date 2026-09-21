@@ -1,31 +1,51 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const indexHtml = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const indicadoresHtml = fs.readFileSync(new URL('../../indicadores.html', import.meta.url), 'utf8');
+const categoriesSource = fs.readFileSync(new URL('../../js/maintenance-categories.js', import.meta.url), 'utf8');
+const sandbox = { globalThis: {} };
+vm.runInNewContext(categoriesSource, sandbox);
+const categories = sandbox.globalThis.MaintenanceCategories;
 
 describe('Maintenance category import compatibility', () => {
     test('accepts maintenance-category header aliases', () => {
-        for (const source of [indexHtml]) {
-            assert.match(source, /categoriademanutencao:'categoria'/);
-            assert.match(source, /categoriamanutencao:'categoria'/);
-        }
-    });
+          for (const source of [indexHtml]) {
+              assert.match(source, /categoriademanutencao:'categoria'/);
+              assert.match(source, /categoriamanutencao:'categoria'/);
+          }
+      });
 
-    test('normalizes Casa de Banho variants to the canonical category', () => {
-        for (const source of [indexHtml, indicadoresHtml]) {
-            assert.match(
-                source,
-                /norm\.includes\('casa de banho'\).*return 'Casa de Banho'/s
-            );
-            assert.match(source, /normalizedCategory === norm/);
-        }
-    });
+      test('uses one shared normalizer in both pages', () => {
+          assert.match(indexHtml, /js\/maintenance-categories\.js/);
+          assert.match(indicadoresHtml, /js\/maintenance-categories\.js/);
+          assert.match(indexHtml, /MaintenanceCategories\.canonicalize/);
+          assert.match(indicadoresHtml, /MaintenanceCategories\.canonicalize/);
+      });
 
-    test('keeps unknown categories on the closed fallback', () => {
-        assert.match(indexHtml, /return 'Equipamento';\s*return 'Outros';/);
-    });
+      test('normalizes BOM, Unicode spaces, accents, and Portuguese bathroom variants', () => {
+          for (const value of [
+              '\uFEFF Casa\u00A0de\u202fBanho ',
+              'casa banho',
+              'BANHEIRO',
+              'wc',
+              'instalação sanitária'
+          ]) {
+              assert.equal(categories.canonicalize(value, { strict: true }), 'Casa de Banho');
+          }
+      });
+
+      test('rejects truly unknown categories in strict import mode', () => {
+          assert.equal(categories.canonicalize('Categoria inventada', { strict: true }), null);
+          assert.equal(categories.canonicalize('', { strict: true }), 'Outros');
+      });
+
+      test('keeps unknown categories on the non-strict display fallback', () => {
+          assert.equal(categories.canonicalize('Categoria inventada'), 'Outros');
+          assert.match(indexHtml, /categoria de manutenção desconhecida/);
+      });
 
     test('uses bounded import batches and an extended request timeout', () => {
         assert.match(indexHtml, /const IMPORT_BATCH_SIZE = 20;/);
