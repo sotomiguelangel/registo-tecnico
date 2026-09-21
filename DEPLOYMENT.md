@@ -13,8 +13,8 @@ O frontend exige uma URL de Web App no formato:
 https://script.google.com/macros/s/<DEPLOYMENT_ID>/exec
 ```
 
-Pode ser substituída antes do carregamento com `window.__APP_CONFIG__.API_URL` ou
-com `localStorage.setItem('bitacora_api_url', url)`. URLs de editor (`/edit`),
+O frontend usa o deployment configurado no repositório; não aceita overrides por
+`window.__APP_CONFIG__.API_URL` nem por `localStorage`. URLs de editor (`/edit`),
 login, `/dev` e páginas HTML são rejeitadas antes de qualquer pedido.
 
 ## Procedimento de publicação
@@ -25,8 +25,8 @@ login, `/dev` e páginas HTML são rejeitadas antes de qualquer pedido.
 3. Execute **Implementar → Nova implementação → Aplicação Web**.
 4. Selecione execução como o proprietário e acesso **Qualquer utilizador** (ou
    publique uma política CORS/autenticação equivalente).
-5. Copie o URL terminado em `/exec`, atualize `bitacora_api_url` ou
-   `window.__APP_CONFIG__.API_URL`, e recarregue sem cache.
+5. Copie o URL terminado em `/exec`, atualize a constante de configuração nos
+   ficheiros `js/config.js` e `js/runtime-config.js`, e recarregue sem cache.
 6. Verifique a implementação com um pedido GET/POST de `health` ou `login`.
    Uma resposta válida deve ter `Content-Type: application/json` e um objeto JSON
    com `ok`. 404, HTML, login Google ou `ok: false` são falhas e não são tratados
