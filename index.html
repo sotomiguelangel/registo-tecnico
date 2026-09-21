@@ -16202,11 +16202,12 @@
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
-  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
-  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
+  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
+  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
 
   const IMPORT_ALIASES = {
-    fecha:'fecha', data:'fecha', hora:'hora', usuario:'usuario', utilizador:'usuario',
+    fecha:'fecha', data:'fecha', dia:'fecha', date:'fecha', datahora:'fecha',
+    hora:'hora', time:'hora', usuario:'usuario', utilizador:'usuario', user:'usuario',
     agua:'agua', electricidad:'electricidad', electricidade:'electricidad', eletricidade:'electricidad',
     retornoaqs:'retornoAqs', aqsquartos:'aqsQuartos',
     estadopiscina:'estadoPiscina', temppiscina:'tempPiscina', ph:'phPiscina', phpiscina:'phPiscina',
@@ -16214,22 +16215,27 @@
     lavadoprefiltro:'lavadoPrefiltro', lavagemprefiltro:'lavadoPrefiltro',
     lavadofiltroarena:'lavadoFiltroArena', lavagemfiltroareia:'lavadoFiltroArena', lavagemfiltrodareia:'lavadoFiltroArena',
     limpiezaskimmer:'limpiezaSkimmer', limpezaskimmer:'limpiezaSkimmer',
-    observacoes:'observacoes', observacione:'observacoes', notas:'observacoes',
-    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto',
+    observacoes:'observacoes', observacione:'observacoes', notas:'observacoes', comentarios:'observacoes',
+    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto', localizacao:'quarto', localizacion:'quarto', area:'quarto', departamento:'quarto', habitacion:'quarto_or_numero', room:'quarto_or_numero',
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
     clorototalcaliente:'cloroTotalCaliente', clorototalquente:'cloroTotalCaliente',
     phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria',
-    equipamento:'nome', nome:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura',
+    equipamento:'nome', nome:'nome', equipment:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura',
     datareporte:'dataReporte', horareporte:'horaReporte',
     categoria:'categoria', categ:'categoria', cat:'categoria',
-    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao',
-    turno:'turno',
-    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador',
-    situacao:'situacao', estado:'situacao', status:'situacao',
+    classificacao:'categoria', classificacaointervencao:'categoria', classificacaodoticket:'categoria',
+    clasificacion:'categoria', clasificaciondeticket:'categoria', clasificacionticket:'categoria',
+    subcategoria:'categoria', especialidade:'categoria', especialidad:'categoria',
+    tipo:'tipo', tipodeintervencao:'tipo', tipodeintervencion:'tipo', tipologia:'tipo', intervencao:'tipo', intervencion:'tipo',
+    prioridade:'prioridade', prioridad:'prioridade', priority:'prioridade',
+    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao', description:'descricao',
+    turno:'turno', shift:'turno',
+    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador', operador:'colaborador',
+    situacao:'situacao', estado:'situacao', status:'situacao', situacion:'situacao',
     observacao:'observacao', obs:'observacao',
     comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre',
-    resolucao:'comentarioCierre', solucao:'comentarioCierre', fecho:'comentarioCierre'
+    resolucao:'comentarioCierre', solucao:'comentarioCierre', fecho:'comentarioCierre', cierre:'comentarioCierre'
   };
 
   let importType = 'general';
@@ -16254,6 +16260,27 @@
   }
   function parseCSV(text){
     return text.split(/\r?\n/).filter(l=> l.trim()!=='').map(parseCSVLine);
+  }
+
+  function normalizeImportDate(val){
+    if(!val) return '';
+    const s = String(val).trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const m1 = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if(m1){
+      const d = m1[1].padStart(2, '0');
+      const m = m1[2].padStart(2, '0');
+      const y = m1[3];
+      return `${y}-${m}-${d}`;
+    }
+    const m2 = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+    if(m2){
+      const y = m2[1];
+      const m = m2[2].padStart(2, '0');
+      const d = m2[3].padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+    return s;
   }
 
   function updateImportPlaceholder(){
@@ -16348,20 +16375,23 @@
         console.warn('Erro ao carregar registos existentes para verificação:', e);
       }
 
-      // Estruturas de correspondência rápida para identificar o registo existente exato
+      // Estruturas de correspondência rigorosas para identificar registos existentes sem falsos positivos
       const existingTicketById = new Map();
-      const existingTicketBySemKey = new Map();
+      const existingTicketByExactKey = new Map();
       if(importType === 'ticket' && Array.isArray(existingRecords)){
         existingRecords.forEach(t => {
           if(!t) return;
           if(t.id) existingTicketById.set(String(t.id).trim(), t);
-          if(t.dataReporte && t.quarto){
-            const k = `${t.dataReporte}_${String(t.quarto).toLowerCase().trim()}_${String(t.descricao || '').slice(0, 20).toLowerCase().trim()}`;
-            if(!existingTicketBySemKey.has(k)) existingTicketBySemKey.set(k, t);
+          if(t.dataReporte && t.quarto && t.descricao){
+            const hora = (t.horaReporte || t.hora || '').slice(0, 5);
+            const descNorm = String(t.descricao).toLowerCase().trim().replace(/\s+/g, ' ');
+            const exactKey = `${t.dataReporte}_${String(t.quarto).toLowerCase().trim()}_${hora}_${descNorm}`;
+            existingTicketByExactKey.set(exactKey, t);
           }
         });
       }
 
+      const existingRecordById = new Map();
       const existingGeneralMap = new Map();
       const existingQuartoMap = new Map();
       const existingTempMap = new Map();
@@ -16369,15 +16399,18 @@
         existingRecords.forEach(r => {
           const d = r && r.data ? r.data : (r || {});
           if(!d) return;
+          if(d.id) existingRecordById.set(String(d.id).trim(), d);
+          if(r && r.key) existingRecordById.set(String(r.key).trim(), d);
+
           if(importType === 'general' && d.fecha){
-            if(!existingGeneralMap.has(d.fecha)) existingGeneralMap.set(d.fecha, r);
-            if(d.hora) existingGeneralMap.set(`${d.fecha}_${d.hora}`, r);
+            const gKey = d.hora ? `${d.fecha}_${String(d.hora).slice(0, 5)}` : d.fecha;
+            existingGeneralMap.set(gKey, r);
           } else if(importType === 'quarto' && d.fecha && d.numero){
-            const k = `${d.fecha}_${normRoom(d.numero)}`;
-            if(!existingQuartoMap.has(k)) existingQuartoMap.set(k, r);
+            const qKey = `${d.fecha}_${normRoom(d.numero)}_${(d.hora || '00:00').slice(0, 5)}`;
+            existingQuartoMap.set(qKey, r);
           } else if(importType === 'temperatura' && d.fecha && d.nome){
-            const k = `${d.fecha}_${String(d.nome).toLowerCase().trim()}`;
-            if(!existingTempMap.has(k)) existingTempMap.set(k, r);
+            const tKey = `${d.fecha}_${String(d.nome).toLowerCase().trim()}_${(d.hora || '00:00').slice(0, 5)}`;
+            existingTempMap.set(tKey, r);
           }
         });
       }
@@ -16394,9 +16427,15 @@
           else obj.numero = obj.quarto_or_numero;
         }
 
+        // Normalização flexível de datas (aceita DD/MM/AAAA, AAAA-MM-DD, etc.)
+        if(obj.dataReporte) obj.dataReporte = normalizeImportDate(obj.dataReporte);
+        if(obj.fecha) obj.fecha = normalizeImportDate(obj.fecha);
+
         if(importType === 'ticket'){
           if(!obj.dataReporte && obj.fecha) obj.dataReporte = obj.fecha;
           if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
+          if(!obj.dataReporte) obj.dataReporte = todayStr();
+
           if(!obj.horaReporte && obj.hora) obj.horaReporte = obj.hora;
           if(!obj.hora && obj.horaReporte) obj.hora = obj.horaReporte;
           if(!obj.quarto && obj.numero) obj.quarto = obj.numero;
@@ -16419,23 +16458,32 @@
           else if(normSt.includes('fin') || normSt.includes('concl') || normSt.includes('fech') || normSt.includes('resolv') || normSt.includes('cerr')) obj.situacao = 'finalizado';
           else obj.situacao = 'aberto';
 
-          // Normalizar categoria para as 14 categorias oficiais
-          const normC = String(obj.categoria||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-          if(normC.includes('canaliz') || normC.includes('hidraul') || normC.includes('tubo') || normC.includes('fuga') || normC.includes('torneir')) obj.categoria = 'Canalização';
-          else if(normC.includes('porta') || normC.includes('fechad') || normC.includes('tranco') || normC.includes('mola') || normC.includes('chave')) obj.categoria = 'Portas/Fechaduras';
-          else if(normC.includes('pintur') || normC.includes('verniz') || normC.includes('tinta') || normC.includes('lixar')) obj.categoria = 'Pintura Preventiva';
-          else if(normC.includes('acabamento') || normC.includes('decor') || normC.includes('gesso') || normC.includes('pladur') || normC.includes('papel') || normC.includes('estrutur')) obj.categoria = 'Acabamentos/Decoração';
-          else if(normC.includes('eletric') || normC.includes('eletro') || normC.includes('quadro') || normC.includes('disjuntor') || normC.includes('tomada') || normC.includes('lampada') || normC.includes('luz')) obj.categoria = 'Elétrico';
-          else if(normC.includes('cozinha') || normC.includes('forno') || normC.includes('fogao') || normC.includes('exaustor') || normC.includes('fritadeir')) obj.categoria = 'Equipamento de Cozinha';
-          else if(normC.includes('cortina') || normC.includes('cortinado') || normC.includes('estor') || normC.includes('persiana')) obj.categoria = 'Cortinados';
-          else if(normC.includes('mobil') || normC.includes('movel') || normC.includes('moveis') || normC.includes('cadeira') || normC.includes('mesa') || normC.includes('cama') || normC.includes('sofa')) obj.categoria = 'Mobiliário';
-          else if(normC.includes('minibar') || normC.includes('frigobar')) obj.categoria = 'Minibar';
-          else if(normC.includes('clima') || normC.includes('arcond') || normC.includes('ar cond') || normC.includes('avac') || normC.includes('chiller') || normC.includes('ventil')) obj.categoria = 'Climatização';
-          else if(normC.includes('limpez') || normC.includes('manutencao geral') || normC.includes('higiene') || normC.includes('desinfe')) obj.categoria = 'Limpeza/Manutenção Geral';
-          else if(normC.includes('amenit') || normC.includes('acessor') || normC.includes('toalheir') || normC.includes('saboneteir') || normC.includes('espelho') || normC.includes('cabide') || normC.includes('utensil')) obj.categoria = 'Amenities/Acessórios';
-          else if(normC.includes('equip') || normC.includes('maquin') || normC.includes('motor') || normC.includes('bomba') || normC.includes('piscina') || normC.includes('caldeira') || normC.includes('seguranc')) obj.categoria = 'Equipamento';
-          else if(!obj.categoria) obj.categoria = 'Outros';
-          else obj.categoria = 'Outros';
+          // Compatibilidade: mapear classificação/tipo para categoria ou tipo
+          if(!obj.categoria && obj.classificacao) obj.categoria = obj.classificacao;
+          if(!obj.categoria && obj.clasificacion) obj.categoria = obj.clasificacion;
+
+          const rawCat = String(obj.categoria || '').trim();
+          const normRawCat = rawCat.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+          // Identificar e normalizar tipo de intervenção
+          if(!obj.tipo){
+            if(normRawCat.includes('estrat') || String(obj.descricao||'').toUpperCase().includes('[ESTRATÉGICO]')) obj.tipo = 'Estratégico';
+            else if(normRawCat.includes('prev')) obj.tipo = 'Preventivo';
+            else if(normRawCat.includes('melhor')) obj.tipo = 'Melhoria';
+            else if(normRawCat.includes('corr')) obj.tipo = 'Corretivo';
+            else obj.tipo = 'Corretivo';
+          } else {
+            const normTp = String(obj.tipo).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+            if(normTp.includes('estrat')) obj.tipo = 'Estratégico';
+            else if(normTp.includes('prev')) obj.tipo = 'Preventivo';
+            else if(normTp.includes('melhor')) obj.tipo = 'Melhoria';
+            else obj.tipo = 'Corretivo';
+          }
+
+          // Canonicalizar categoria para as 14 categorias canónicas oficiais
+          obj.categoria = canonicalizeMaintenanceCategory(obj.categoria);
+        } else {
+          if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
         }
 
         if (!obj.usuario) obj.usuario = getCurrentUserName();
@@ -16443,6 +16491,7 @@
         ['lavadoPrefiltro','lavadoFiltroArena','limpiezaSkimmer'].forEach(f=>{
           if(obj[f]) obj[f] = isYesVal(obj[f]) ? 'Sim' : (isNoVal(obj[f]) ? 'Não' : obj[f]);
         });
+
         const errores = [];
         const avisos = [];
         let existingMatch = null;
@@ -16452,8 +16501,7 @@
           else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.dataReporte)) errores.push('a data deve ser AAAA-MM-DD');
 
           if(!obj.quarto) errores.push('falta o quarto/local');
-          if(!obj.categoria) errores.push('falta a categoria');
-          if(!obj.descricao || obj.descricao.length < 5) errores.push('descrição com pelo menos 5 caracteres');
+          if(!obj.descricao || obj.descricao.length < 3) errores.push('descrição com pelo menos 3 caracteres');
 
           if(obj.dataReporte && obj.quarto){
             // 1. Procurar correspondência por ID exato se fornecido
@@ -16466,11 +16514,13 @@
                 type: 'ticket'
               };
             }
-            // 2. Procurar correspondência semântica por data, quarto e início de descrição
+            // 2. Procurar correspondência exata de conteúdo (mesma data, mesmo quarto, mesma hora e mesma descrição completa)
             if(!existingMatch && obj.descricao){
-              const semKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${obj.descricao.slice(0, 20).toLowerCase().trim()}`;
-              if(existingTicketBySemKey.has(semKey)){
-                const match = existingTicketBySemKey.get(semKey);
+              const hora = (obj.horaReporte || obj.hora || '').slice(0, 5);
+              const descNorm = String(obj.descricao).toLowerCase().trim().replace(/\s+/g, ' ');
+              const exactKey = `${obj.dataReporte}_${String(obj.quarto).toLowerCase().trim()}_${hora}_${descNorm}`;
+              if(existingTicketByExactKey.has(exactKey)){
+                const match = existingTicketByExactKey.get(exactKey);
                 existingMatch = {
                   id: match.id,
                   summary: `Ticket #${match.id} - ${obj.quarto} (${match.categoria || obj.categoria})`,
@@ -16480,7 +16530,7 @@
               }
             }
 
-            const intraKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${(obj.descricao||'').slice(0, 20).toLowerCase().trim()}`;
+            const intraKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${(obj.horaReporte||'').slice(0,5)}_${(obj.descricao||'').trim().toLowerCase()}`;
             if(fileSeenKeys.has(intraKey)){
               avisos.push('Ticket repetido dentro do próprio ficheiro CSV');
             } else {
@@ -16494,9 +16544,14 @@
           if(importType === 'quarto'){
             if(!obj.numero) errores.push('falta o número do quarto');
             else if(obj.fecha){
-              const qKey = `${obj.fecha}_${normRoom(obj.numero)}`;
-              if(existingQuartoMap.has(qKey)){
-                const match = existingQuartoMap.get(qKey);
+              let match = null;
+              if(obj.id && existingRecordById.has(String(obj.id).trim())){
+                match = existingRecordById.get(String(obj.id).trim());
+              } else {
+                const qKey = `${obj.fecha}_${normRoom(obj.numero)}_${(obj.hora || '00:00').slice(0, 5)}`;
+                if(existingQuartoMap.has(qKey)) match = existingQuartoMap.get(qKey);
+              }
+              if(match){
                 const d = match && match.data ? match.data : (match || {});
                 existingMatch = {
                   id: d.id || match.key,
@@ -16505,38 +16560,50 @@
                   type: 'quarto'
                 };
               }
-              if(fileSeenKeys.has(qKey)){
+              const intraKey = `${obj.fecha}_${normRoom(obj.numero)}_${obj.hora || ''}`;
+              if(fileSeenKeys.has(intraKey)){
                 avisos.push(`Quarto ${obj.numero} repetido dentro deste ficheiro para o dia ${obj.fecha}`);
               } else {
-                fileSeenKeys.add(qKey);
+                fileSeenKeys.add(intraKey);
               }
             }
           }
           if(importType === 'general' && obj.fecha){
-            const gKey = obj.hora ? `${obj.fecha}_${obj.hora}` : obj.fecha;
-            const match = existingGeneralMap.get(gKey) || existingGeneralMap.get(obj.fecha);
+            let match = null;
+            if(obj.id && existingRecordById.has(String(obj.id).trim())){
+              match = existingRecordById.get(String(obj.id).trim());
+            } else if(obj.hora){
+              const gKey = `${obj.fecha}_${String(obj.hora).slice(0, 5)}`;
+              if(existingGeneralMap.has(gKey)) match = existingGeneralMap.get(gKey);
+            }
             if(match){
               const d = match && match.data ? match.data : (match || {});
               existingMatch = {
                 id: d.id || match.key,
-                summary: `Registo Geral do dia ${obj.fecha}`,
+                summary: `Registo Geral do dia ${obj.fecha} às ${obj.hora || '00:00'}`,
                 existingData: d,
                 type: 'general'
               };
             }
-            if(fileSeenKeys.has(obj.fecha)){
+            const intraKey = `${obj.fecha}_${obj.hora || ''}`;
+            if(fileSeenKeys.has(intraKey)){
               avisos.push(`Data ${obj.fecha} repetida dentro deste ficheiro`);
             } else {
-              fileSeenKeys.add(obj.fecha);
+              fileSeenKeys.add(intraKey);
             }
           }
           if(importType === 'temperatura'){
             if(!obj.nome) errores.push('falta o nome do equipamento');
             if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
             else if(obj.fecha && obj.nome){
-              const tKey = `${obj.fecha}_${(obj.nome||'').toLowerCase().trim()}`;
-              if(existingTempMap.has(tKey)){
-                const match = existingTempMap.get(tKey);
+              let match = null;
+              if(obj.id && existingRecordById.has(String(obj.id).trim())){
+                match = existingRecordById.get(String(obj.id).trim());
+              } else {
+                const tKey = `${obj.fecha}_${String(obj.nome).toLowerCase().trim()}_${(obj.hora || '00:00').slice(0, 5)}`;
+                if(existingTempMap.has(tKey)) match = existingTempMap.get(tKey);
+              }
+              if(match){
                 const d = match && match.data ? match.data : (match || {});
                 existingMatch = {
                   id: d.id || match.key,
@@ -16545,10 +16612,11 @@
                   type: 'temperatura'
                 };
               }
-              if(fileSeenKeys.has(tKey)){
+              const intraKey = `${obj.fecha}_${String(obj.nome).toLowerCase()}_${obj.hora || ''}`;
+              if(fileSeenKeys.has(intraKey)){
                 avisos.push(`${obj.nome} repetido dentro deste ficheiro para o dia ${obj.fecha}`);
               } else {
-                fileSeenKeys.add(tKey);
+                fileSeenKeys.add(intraKey);
               }
             }
           }
@@ -16556,10 +16624,11 @@
         if(!obj.hora) obj.hora = obj.horaReporte || '00:00';
         if(!obj.horaReporte) obj.horaReporte = obj.hora;
 
+        // Padrão de importação: se o registo existir, predefinir 'sobrescrever' para aplicar atualizações sem perder dados; senão 'novo'
         let conflictAction = 'novo';
         if(existingMatch){
-          avisos.push(`Registo já existe na base de dados (ID: ${existingMatch.id})`);
-          conflictAction = 'obviar'; // Padrão seguro: obviar / manter existente para evitar duplicações
+          avisos.push(`Registo identificado na base de dados (ID: ${existingMatch.id})`);
+          conflictAction = 'sobrescrever';
         }
 
         return { obj, errores, avisos, existingMatch, conflictAction, originalRowIdx: rowIdx };
@@ -16578,7 +16647,7 @@
     const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.existingMatch);
     const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
 
-    let currentPolicy = 'obviar';
+    let currentPolicy = 'sobrescrever';
 
     function getStats(){
       const countNovos = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'novo').length;
@@ -16594,25 +16663,25 @@
           <div class="conflict-header">
             <div class="conflict-badge-title">
               <span>⚠️</span>
-              <span>Detetados <b>${withDuplicates.length}</b> registos já existentes na base de dados</span>
+              <span>Detetados <b>${withDuplicates.length}</b> registos correspondentes na base de dados</span>
             </div>
             <div class="conflict-desc">
-              Estes registos já constam na base de dados (causa comum: interrupção ou falha numa importação anterior). Escolha como proceder para que o processo possa continuar:
+              Identificados registos existentes com a mesma chave ou identificador. Escolha como deseja tratá-los:
             </div>
           </div>
           <div class="conflict-options-title">Ação rápida para todos os conflitos:</div>
           <div class="conflict-options-grid">
-            <button type="button" class="btn-conflict-opt active" data-policy="obviar" id="btnPolicyObviar">
-              <span class="opt-head"><span>⏭️</span> <span>Obviar / Manter</span></span>
-              <span class="opt-sub">Recomendado após falha: preserva os dados existentes e importa apenas as linhas novas em falta.</span>
-            </button>
-            <button type="button" class="btn-conflict-opt" data-policy="sobrescrever" id="btnPolicySobrescrever">
-              <span class="opt-head"><span>🔄</span> <span>Sobrescrever</span></span>
+            <button type="button" class="btn-conflict-opt active" data-policy="sobrescrever" id="btnPolicySobrescrever">
+              <span class="opt-head"><span>🔄</span> <span>Sobrescrever / Atualizar</span></span>
               <span class="opt-sub">Atualiza os registos existentes na base de dados com os novos valores deste ficheiro.</span>
             </button>
             <button type="button" class="btn-conflict-opt" data-policy="novo" id="btnPolicyNovo">
               <span class="opt-head"><span>➕</span> <span>Criar como Novos</span></span>
-              <span class="opt-sub">Adiciona novos registos independentes (duplica se já existir no mesmo dia/local).</span>
+              <span class="opt-sub">Importa todos os registos como novas entradas independentes.</span>
+            </button>
+            <button type="button" class="btn-conflict-opt" data-policy="obviar" id="btnPolicyObviar">
+              <span class="opt-head"><span>⏭️</span> <span>Obviar / Manter</span></span>
+              <span class="opt-sub">Preserva os registos existentes sem alterações e importa apenas registos novos.</span>
             </button>
           </div>
         </div>
@@ -16627,13 +16696,13 @@
       <div class="import-stats-bar" id="importStatsBar">
         <span class="import-stat-chip stat-total">📄 <b>${importParsedRows.length}</b> lidas</span>
         <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${countNovos}</b> novos</span>
-        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${countSobrescrever}</b> a sobrescrever</span>
-        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${countObviar}</b> mantidos (obviados)</span>
+        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${countSobrescrever}</b> a atualizar</span>
+        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${countObviar}</b> mantidos</span>
         ${invalid.length ? `<span class="import-stat-chip stat-err">⛔ <b>${invalid.length}</b> com erros</span>` : ''}
       </div>
 
       <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">
-        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição (mín. 5 carateres) são obrigatórios. Pode ajustar a ação de cada linha individualmente.' : 'Nota: pode ajustar a ação individual de cada linha com aviso na coluna "Ação / Estado".')}
+        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição são verificados. A categoria é mapeada automaticamente para as 14 categorias canónicas.' : 'Nota: pode ajustar a ação individual de cada linha com aviso na coluna "Ação / Estado".')}
       </p>
 
       <div class="table-scroll"><table class="report"><thead><tr>
@@ -16650,13 +16719,13 @@
         statusHtml = `
           <div class="conflict-row-ctrl">
             <div class="conflict-row-info">
-              <span class="badge-import-warn">⚠️ Já existe</span>
+              <span class="badge-import-warn">⚠️ Existente</span>
               <span class="conflict-match-detail" title="${esc(r.existingMatch.summary)}">ID: ${esc(r.existingMatch.id)}</span>
             </div>
             <select class="conflict-row-select sel-${r.conflictAction}" data-row-idx="${i}">
-              <option value="obviar" ${r.conflictAction === 'obviar' ? 'selected' : ''}>⏭️ Obviar (Manter atual)</option>
-              <option value="sobrescrever" ${r.conflictAction === 'sobrescrever' ? 'selected' : ''}>🔄 Sobrescrever existente</option>
+              <option value="sobrescrever" ${r.conflictAction === 'sobrescrever' ? 'selected' : ''}>🔄 Sobrescrever / Atualizar</option>
               <option value="novo" ${r.conflictAction === 'novo' ? 'selected' : ''}>➕ Criar como novo</option>
+              <option value="obviar" ${r.conflictAction === 'obviar' ? 'selected' : ''}>⏭️ Obviar (Manter atual)</option>
             </select>
           </div>
         `;
@@ -16680,8 +16749,8 @@
       const chipSob = $('statChipSobrescrever');
       const chipObv = $('statChipObviar');
       if(chipNovos) chipNovos.innerHTML = `✨ <b>${stats.countNovos}</b> novos`;
-      if(chipSob) chipSob.innerHTML = `🔄 <b>${stats.countSobrescrever}</b> a sobrescrever`;
-      if(chipObv) chipObv.innerHTML = `⏭️ <b>${stats.countObviar}</b> mantidos (obviados)`;
+      if(chipSob) chipSob.innerHTML = `🔄 <b>${stats.countSobrescrever}</b> a atualizar`;
+      if(chipObv) chipObv.innerHTML = `⏭️ <b>${stats.countObviar}</b> mantidos`;
 
       const btn = $('btnConfirmImport');
       if(!btn) return;
@@ -16692,13 +16761,13 @@
         btn.disabled = true;
         if(lbl) lbl.textContent = 'Não há linhas válidas para importar';
       } else if(totalExec === 0 && stats.countObviar > 0){
-        btn.disabled = true;
-        if(lbl) lbl.textContent = `Todos os ${stats.countObviar} registos existentes estão marcados para obviar (Nada a importar)`;
+        btn.disabled = false;
+        if(lbl) lbl.textContent = `Registos mantidos (Clique para Sobrescrever e Importar)`;
       } else {
         btn.disabled = false;
         let parts = [];
         if(stats.countNovos > 0) parts.push(`${stats.countNovos} novos`);
-        if(stats.countSobrescrever > 0) parts.push(`${stats.countSobrescrever} a sobrescrever`);
+        if(stats.countSobrescrever > 0) parts.push(`${stats.countSobrescrever} a atualizar`);
         if(stats.countObviar > 0) parts.push(`${stats.countObviar} mantidos`);
         if(lbl) lbl.textContent = `Importar (${parts.join(' · ')})`;
       }
@@ -16754,14 +16823,23 @@
         return;
       }
       if(totalExec === 0 && stats.countObviar > 0){
-        showToast('Todos os registos existentes foram marcados para obviar. Se deseja atualizar algum, escolha "Sobrescrever".');
-        return;
+        const ok = await confirmDialog(
+          'Sobrescrever registos existentes?',
+          'Todos os registos válidos estão atualmente marcados para "Obviar/Manter", o que não gravaria novos dados.<br><br>Deseja mudar para <b>"Sobrescrever / Atualizar"</b> e importar os dados deste ficheiro?',
+          'Sim, Sobrescrever e Importar',
+          'Cancelar'
+        );
+        if(!ok) return;
+        importParsedRows.forEach(r => {
+          if(r.errores.length === 0) r.conflictAction = 'sobrescrever';
+        });
+        updateCountersAndBtn();
       }
 
       let summaryList = [];
       if(stats.countNovos > 0) summaryList.push(`• ✨ <b>${stats.countNovos}</b> novo(s) registo(s) serão adicionados à base de dados.`);
-      if(stats.countSobrescrever > 0) summaryList.push(`• 🔄 <b>${stats.countSobrescrever}</b> registo(s) existente(s) serão sobrescrito(s) com os novos valores.`);
-      if(stats.countObviar > 0) summaryList.push(`• ⏭️ <b>${stats.countObviar}</b> registo(s) já existente(s) serão mantidos intactos (obviados sem duplicar).`);
+      if(stats.countSobrescrever > 0) summaryList.push(`• 🔄 <b>${stats.countSobrescrever}</b> registo(s) existente(s) serão atualizados com os novos valores.`);
+      if(stats.countObviar > 0) summaryList.push(`• ⏭️ <b>${stats.countObviar}</b> registo(s) já existente(s) serão mantidos intactos.`);
 
       const confirmMsg = `
         <div style="font-size:13px; line-height:1.5;">
@@ -16799,7 +16877,7 @@
         for(let i = 0; i < rowsToOverwrite.length; i++){
           const row = rowsToOverwrite[i];
           const existingId = row.existingMatch.id;
-          showToast(`A sobrescrever registo existente ${i + 1}/${rowsToOverwrite.length}…`);
+          showToast(`A atualizar registo existente ${i + 1}/${rowsToOverwrite.length}…`);
 
           if(importType === 'ticket'){
             const updatedTicket = Object.assign({}, row.existingMatch.existingData, row.obj, {
@@ -16815,12 +16893,19 @@
               if(idx !== -1) cachedTicketsData[idx] = updatedTicket;
               else cachedTicketsData.unshift(updatedTicket);
             }
-            await apiPost({
-              action: 'updateTicket',
-              id: existingId,
-              ticketId: existingId,
-              data: updatedTicket
-            });
+            try {
+              await apiPost({
+                action: 'updateTicket',
+                id: existingId,
+                ticketId: existingId,
+                data: updatedTicket
+              });
+            } catch(eUpd) {
+              await apiPost({
+                action: 'saveTicket',
+                data: updatedTicket
+              });
+            }
           } else {
             const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
               id: existingId,
@@ -16850,23 +16935,39 @@
               colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
               situacao: obj.situacao || 'aberto',
               turno: obj.turno || 'Manhã',
+              tipo: obj.tipo || 'Corretivo',
+              categoria: obj.categoria || 'Outros',
               observacao: obj.observacao || obj.observacoes || '',
               comentarioCierre: obj.comentarioCierre || ''
             });
           });
 
           if(importType === 'ticket'){
+            // Assegurar SEMPRE que os novos tickets são gravados no cache e localStorage imediatamente
+            chunk.forEach(item => {
+              recordTicketUpdate(item);
+              persistTicketInAllTicketsKey(item);
+              if(cachedTicketsData){
+                const existIdx = cachedTicketsData.findIndex(t => String(t.id) === String(item.id));
+                if(existIdx >= 0) cachedTicketsData[existIdx] = item;
+                else cachedTicketsData.unshift(item);
+              }
+            });
             try {
               await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk });
             } catch(errBatch) {
               for(const item of chunk){
-                recordTicketUpdate(item);
-                persistTicketInAllTicketsKey(item);
                 await apiPost({ action: 'saveTicket', data: item });
               }
             }
           } else {
-            await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+            try {
+              await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+            } catch(errBatch) {
+              for(const item of chunk){
+                await apiPost({ action: 'save', type: importType, data: item });
+              }
+            }
             const entry = dataStore[importType];
             if(entry && Array.isArray(entry.items)){
               chunk.forEach(item => {
@@ -16876,12 +16977,12 @@
             }
           }
           createdCount += chunk.length;
-          showToast(`A criar novos registos… ${createdCount}/${rowsToCreate.length}`);
+          showToast(`A gravar novos registos… ${createdCount}/${rowsToCreate.length}`);
         }
       }
 
       // 3. Notificação final de sucesso com detalhe completo
-      const finalMsg = `✅ Importação concluída!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) sobrescrito(s)\n• ${skippedCount} registo(s) existente(s) mantido(s) (obviados)`;
+      const finalMsg = `✅ Importação concluída com sucesso!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
       showToast(finalMsg);
 
       await confirmDialog(
@@ -16889,11 +16990,11 @@
         `<div style="font-size:13px; line-height:1.6;">
           <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
           <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-            <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos adicionados</p>
-            <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes sobrescritos com novos valores</p>
-            <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos (obviados sem duplicação)</p>
+            <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos gravados com sucesso</p>
+            <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados com os novos valores</p>
+            <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos</p>
           </div>
-          <p style="margin:0; font-size:12px; color:var(--ink-600);">A base de dados e a aplicação estão atualizadas e consistentes.</p>
+          <p style="margin:0; font-size:12px; color:var(--ink-600);">A aplicação e a base de dados foram sincronizadas e os dados já estão visíveis.</p>
         </div>`,
         'Concluir',
         ''
@@ -16907,12 +17008,14 @@
 
       refreshChips();
       refreshConsumoResumen();
-      if(importType === 'quarto'){ await loadCycleDone(); renderRoomGrid(); }
-      if(importType === 'temperatura'){ renderTempWeek(); }
+      if(importType === 'quarto'){ await loadCycleDone(); renderRoomGrid(); renderHistory(); }
+      if(importType === 'temperatura'){ renderTempWeek(); renderHistory(); }
+      if(importType === 'general'){ renderHistory(); }
       if(importType === 'ticket'){
         invalidateTicketsCache();
         cachedTicketsData = null;
         if(typeof renderPedidosView === 'function') renderPedidosView();
+        if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
       }
     }catch(e){
       console.error('Erro na importação:', e);
@@ -16922,8 +17025,11 @@
         if(importType === 'ticket'){
           invalidateTicketsCache();
           cachedTicketsData = null;
+          if(typeof renderPedidosView === 'function') renderPedidosView();
+          if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
         } else {
           invalidateRecords(importType);
+          renderHistory();
         }
       }
       setLoading(btn, false);
