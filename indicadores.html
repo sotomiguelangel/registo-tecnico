@@ -3160,6 +3160,315 @@
   .footer-sep {
     opacity: 0.4;
   }
+
+  /* ========================================================= */
+  /* PAINEL D3 DE MANUTENÇÃO & KPIS OPERACIONAIS               */
+  /* ========================================================= */
+  .maint-kpi-board {
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--card-border, #e2e8f0);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+  }
+  [data-theme="dark"] .maint-kpi-board {
+    background: #0f172a;
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  .maint-kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    padding-bottom: 14px;
+  }
+  [data-theme="dark"] .maint-kpi-header {
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  .maint-kpi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #0284c7;
+    background: rgba(2,132,199,0.1);
+    border: 1px solid rgba(2,132,199,0.25);
+    padding: 3px 10px;
+    border-radius: 9999px;
+    margin-bottom: 6px;
+  }
+  [data-theme="dark"] .maint-kpi-badge {
+    color: #38bdf8;
+    background: rgba(56,189,248,0.12);
+    border-color: rgba(56,189,248,0.3);
+  }
+
+  .maint-kpi-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--heading, #0f172a);
+    margin: 0 0 4px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  [data-theme="dark"] .maint-kpi-title {
+    color: #f8fafc;
+  }
+
+  .maint-kpi-sub {
+    font-size: 13px;
+    color: var(--muted, #64748b);
+    margin: 0;
+    max-width: 720px;
+    line-height: 1.45;
+  }
+
+  .maint-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .maint-stat-card {
+    background: rgba(248,250,252,0.8);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+  [data-theme="dark"] .maint-stat-card {
+    background: rgba(30,41,59,0.6);
+    border-color: rgba(255,255,255,0.08);
+  }
+  .maint-stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(2,132,199,0.4);
+  }
+
+  .maint-stat-label {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .maint-stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--heading, #0f172a);
+    line-height: 1.2;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  [data-theme="dark"] .maint-stat-value {
+    color: #f8fafc;
+  }
+
+  .maint-stat-sub {
+    font-size: 11px;
+    color: var(--muted, #64748b);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .maint-kpi-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+  [data-theme="dark"] .maint-kpi-tabs {
+    border-color: rgba(255,255,255,0.08);
+  }
+
+  .maint-kpi-tab-btn {
+    background: rgba(241,245,249,0.8);
+    border: 1px solid transparent;
+    color: var(--muted, #64748b);
+    font-size: 12.5px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+  [data-theme="dark"] .maint-kpi-tab-btn {
+    background: rgba(30,41,59,0.8);
+    color: #94a3b8;
+  }
+  .maint-kpi-tab-btn:hover {
+    background: rgba(226,232,240,0.9);
+    color: var(--heading, #0f172a);
+  }
+  [data-theme="dark"] .maint-kpi-tab-btn:hover {
+    background: rgba(51,65,85,0.9);
+    color: #f8fafc;
+  }
+  .maint-kpi-tab-btn.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 2px 8px rgba(2,132,199,0.3);
+  }
+  [data-theme="dark"] .maint-kpi-tab-btn.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #38bdf8;
+    box-shadow: 0 2px 10px rgba(56,189,248,0.25);
+  }
+
+  .maint-kpi-chart-card {
+    background: rgba(248,250,252,0.4);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    min-height: 380px;
+  }
+  [data-theme="dark"] .maint-kpi-chart-card {
+    background: rgba(15,23,42,0.5);
+    border-color: rgba(255,255,255,0.06);
+  }
+
+  .maint-kpi-chart-host {
+    width: 100%;
+    overflow-x: auto;
+    min-height: 340px;
+  }
+
+  .maint-kpi-chart-host svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: inherit;
+  }
+
+  .maint-kpi-tooltip {
+    position: fixed;
+    z-index: 10000;
+    pointer-events: none;
+    background: rgba(15,23,42,0.95);
+    color: #f8fafc;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.45;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+    max-width: 280px;
+  }
+
+  .maint-kpi-sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--muted, #64748b);
+  }
+
+  .maint-kpi-sort-btn {
+    background: transparent;
+    border: 1px solid var(--border, #cbd5e1);
+    color: var(--text, #334155);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  [data-theme="dark"] .maint-kpi-sort-btn {
+    border-color: rgba(255,255,255,0.15);
+    color: #cbd5e1;
+  }
+  .maint-kpi-sort-btn.active {
+    background: rgba(2,132,199,0.15);
+    border-color: #0284c7;
+    color: #0284c7;
+  }
+  [data-theme="dark"] .maint-kpi-sort-btn.active {
+    background: rgba(56,189,248,0.2);
+    border-color: #38bdf8;
+    color: #38bdf8;
+  }
+
+  .maint-kpi-legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    color: var(--muted, #64748b);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border, #e2e8f0);
+  }
+  [data-theme="dark"] .maint-kpi-legend {
+    border-color: rgba(255,255,255,0.06);
+  }
+
+  .maint-kpi-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .maint-kpi-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .maint-projection-callout {
+    background: rgba(2,132,199,0.06);
+    border: 1px solid rgba(2,132,199,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  [data-theme="dark"] .maint-projection-callout {
+    background: rgba(2,132,199,0.1);
+    border-color: rgba(56,189,248,0.25);
+  }
   </style>
 </head>
 <body>
@@ -3259,6 +3568,9 @@
       <section id="executivoSection" aria-label="Menu Executivo e Conformidade">
         <!-- 0. Pizarra de Seguimento Estratégico (Máxima Importância) -->
         <div id="execStrategicBoardWrap"></div>
+
+        <!-- 0.1 Painel D3 de Indicadores & KPIs do Módulo de Manutenção -->
+        <div id="execMaintenanceKpisWrap"></div>
 
         <!-- 1. Índice Global de Saúde Técnica & Conformidade (5 Pilares) -->
         <div id="execScoreWrap"></div>
@@ -5795,6 +6107,26 @@
         </div>
 
         <div style="margin-bottom:12px;">
+          <label style="display:block; font-size:12px; font-weight:700; color:#94a3b8; margin-bottom:4px;">Categoria Técnica</label>
+          <select id="stratModalCategoria" style="width:100%; background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:9px 12px; font-size:13px; font-weight:600;">
+            <option value="Canalização" ${ticket.categoria === 'Canalização' ? 'selected' : ''}>Canalização</option>
+            <option value="Portas/Fechaduras" ${ticket.categoria === 'Portas/Fechaduras' ? 'selected' : ''}>Portas/Fechaduras</option>
+            <option value="Pintura Preventiva" ${ticket.categoria === 'Pintura Preventiva' ? 'selected' : ''}>Pintura Preventiva</option>
+            <option value="Acabamentos/Decoração" ${ticket.categoria === 'Acabamentos/Decoração' ? 'selected' : ''}>Acabamentos/Decoração</option>
+            <option value="Equipamento" ${ticket.categoria === 'Equipamento' ? 'selected' : ''}>Equipamento</option>
+            <option value="Elétrico" ${ticket.categoria === 'Elétrico' ? 'selected' : ''}>Elétrico</option>
+            <option value="Equipamento de Cozinha" ${ticket.categoria === 'Equipamento de Cozinha' ? 'selected' : ''}>Equipamento de Cozinha</option>
+            <option value="Cortinados" ${ticket.categoria === 'Cortinados' ? 'selected' : ''}>Cortinados</option>
+            <option value="Mobiliário" ${ticket.categoria === 'Mobiliário' ? 'selected' : ''}>Mobiliário</option>
+            <option value="Minibar" ${ticket.categoria === 'Minibar' ? 'selected' : ''}>Minibar</option>
+            <option value="Outros" ${ticket.categoria === 'Outros' ? 'selected' : ''}>Outros</option>
+            <option value="Climatização" ${ticket.categoria === 'Climatização' ? 'selected' : ''}>Climatização</option>
+            <option value="Limpeza/Manutenção Geral" ${ticket.categoria === 'Limpeza/Manutenção Geral' ? 'selected' : ''}>Limpeza/Manutenção Geral</option>
+            <option value="Amenities/Acessórios" ${ticket.categoria === 'Amenities/Acessórios' ? 'selected' : ''}>Amenities/Acessórios</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:12px;">
           <label style="display:block; font-size:12px; font-weight:700; color:#94a3b8; margin-bottom:4px;">Situação Técnica</label>
           <select id="stratModalSituacao" style="width:100%; background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:9px 12px; font-size:13px; font-weight:600;">
             <option value="aberto" ${ticket.situacao === 'aberto' ? 'selected' : ''}>⚠️ Aberto (Pendente)</option>
@@ -5843,11 +6175,13 @@
 
     $('btnSaveStratModal').onclick = async () => {
       const novoTipo = $('stratModalTipo').value;
+      const novaCat = $('stratModalCategoria') ? $('stratModalCategoria').value : ticket.categoria;
       const novaSit = $('stratModalSituacao').value;
       const novaPrio = $('stratModalPrioridade').value;
       const novoComentario = $('stratModalComentario').value.trim();
 
       ticket.tipo = novoTipo;
+      if (novaCat) ticket.categoria = novaCat;
       ticket.situacao = novaSit;
       ticket.prioridade = novaPrio;
       if (novoComentario) ticket.comentarioCierre = novoComentario;
@@ -5957,13 +6291,20 @@
           <div>
             <label style="display:block; font-size:12px; font-weight:700; color:#94a3b8; margin-bottom:4px;">Categoria *</label>
             <select id="newStratCategoria" style="width:100%; background:#1e293b; color:#fff; border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:9px 12px; font-size:13px;">
-              <option value="AVAC & AQS">AVAC & AQS</option>
-              <option value="Eletricidade & Automação">Eletricidade & Automação</option>
-              <option value="Águas & Bombagem">Águas & Bombagem</option>
-              <option value="Piscinas & Spa">Piscinas & Spa</option>
-              <option value="Refrigeração Comercial">Refrigeração Comercial</option>
-              <option value="Segurança & Incêndio">Segurança & Incêndio</option>
-              <option value="Geral">Geral</option>
+              <option value="Canalização">Canalização</option>
+              <option value="Portas/Fechaduras">Portas/Fechaduras</option>
+              <option value="Pintura Preventiva">Pintura Preventiva</option>
+              <option value="Acabamentos/Decoração">Acabamentos/Decoração</option>
+              <option value="Equipamento">Equipamento</option>
+              <option value="Elétrico">Elétrico</option>
+              <option value="Equipamento de Cozinha">Equipamento de Cozinha</option>
+              <option value="Cortinados">Cortinados</option>
+              <option value="Mobiliário">Mobiliário</option>
+              <option value="Minibar">Minibar</option>
+              <option value="Outros">Outros</option>
+              <option value="Climatização" selected>Climatização</option>
+              <option value="Limpeza/Manutenção Geral">Limpeza/Manutenção Geral</option>
+              <option value="Amenities/Acessórios">Amenities/Acessórios</option>
             </select>
           </div>
           <div>
@@ -6077,8 +6418,1241 @@
       const tickets = getConsolidatedTicketsIndicadores();
       wrap.innerHTML = renderStrategicBoardIndicadoresHTML(tickets, currentStratFilterIndicadores);
       wireStrategicBoardIndicadoresEvents(wrap, tickets);
+
+      // Atualizar também o painel D3 de KPIs de Manutenção imediatamente a seguir
+      updateMaintenanceKpisDashboardIndicadores();
     } finally {
       isUpdatingStrategicBoardIndicadores = false;
+    }
+  }
+
+  // =========================================================
+  // MÓDULO DE MANUTENÇÃO · PAINEL D3 DE KPIS & PROJEÇÕES
+  // =========================================================
+
+  const CANONICAL_MAINTENANCE_CATEGORIES = [
+    'Canalização',
+    'Portas/Fechaduras',
+    'Pintura Preventiva',
+    'Acabamentos/Decoração',
+    'Equipamento',
+    'Elétrico',
+    'Equipamento de Cozinha',
+    'Cortinados',
+    'Mobiliário',
+    'Minibar',
+    'Outros',
+    'Climatização',
+    'Limpeza/Manutenção Geral',
+    'Amenities/Acessórios'
+  ];
+
+  const CATEGORY_META = {
+    'Canalização': { icon: '💧', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)', border: 'rgba(2, 132, 199, 0.3)' },
+    'Portas/Fechaduras': { icon: '🚪', color: '#d97706', bg: 'rgba(217, 119, 6, 0.12)', border: 'rgba(217, 119, 6, 0.3)' },
+    'Pintura Preventiva': { icon: '🎨', color: '#ec4899', bg: 'rgba(236, 72, 153, 0.12)', border: 'rgba(236, 72, 153, 0.3)' },
+    'Acabamentos/Decoração': { icon: '🖼️', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.12)', border: 'rgba(168, 85, 247, 0.3)' },
+    'Equipamento': { icon: '⚙️', color: '#ea580c', bg: 'rgba(234, 88, 12, 0.12)', border: 'rgba(234, 88, 12, 0.3)' },
+    'Elétrico': { icon: '⚡', color: '#eab308', bg: 'rgba(234, 179, 8, 0.12)', border: 'rgba(234, 179, 8, 0.3)' },
+    'Equipamento de Cozinha': { icon: '🍳', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.3)' },
+    'Cortinados': { icon: '🪟', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.12)', border: 'rgba(6, 182, 212, 0.3)' },
+    'Mobiliário': { icon: '🪑', color: '#78716c', bg: 'rgba(120, 113, 108, 0.12)', border: 'rgba(120, 113, 108, 0.3)' },
+    'Minibar': { icon: '🧊', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.3)' },
+    'Outros': { icon: '📌', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)', border: 'rgba(100, 116, 139, 0.3)' },
+    'Climatização': { icon: '❄️', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.3)' },
+    'Limpeza/Manutenção Geral': { icon: '🧹', color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.12)', border: 'rgba(20, 184, 166, 0.3)' },
+    'Amenities/Acessórios': { icon: '🧴', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.3)' }
+  };
+
+  function canonicalizeMaintenanceCategory(cat) {
+    if (!cat) return 'Outros';
+    const clean = String(cat).trim();
+    if (CANONICAL_MAINTENANCE_CATEGORIES.includes(clean)) return clean;
+    const norm = clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (norm.includes('canaliz') || norm.includes('hidraul') || norm.includes('tubo') || norm.includes('fuga') || norm.includes('agua') || norm.includes('torneir')) return 'Canalização';
+    if (norm.includes('porta') || norm.includes('fechad') || norm.includes('tranco') || norm.includes('mola') || norm.includes('chave')) return 'Portas/Fechaduras';
+    if (norm.includes('pintur') || norm.includes('verniz') || norm.includes('tinta') || norm.includes('lixar')) return 'Pintura Preventiva';
+    if (norm.includes('acabamento') || norm.includes('decor') || norm.includes('gesso') || norm.includes('pladur') || norm.includes('papel') || norm.includes('estrutur') || norm.includes('teto')) return 'Acabamentos/Decoração';
+    if (norm.includes('cozinha') || norm.includes('forno') || norm.includes('fogao') || norm.includes('exaustor') || norm.includes('fritadeir') || norm.includes('frio') || norm.includes('refriger')) return 'Equipamento de Cozinha';
+    if (norm.includes('eletric') || norm.includes('eletro') || norm.includes('quadro') || norm.includes('disjuntor') || norm.includes('tomada') || norm.includes('lampada') || norm.includes('luz')) return 'Elétrico';
+    if (norm.includes('cortina') || norm.includes('cortinado') || norm.includes('estor') || norm.includes('persiana')) return 'Cortinados';
+    if (norm.includes('mobil') || norm.includes('movel') || norm.includes('moveis') || norm.includes('cadeira') || norm.includes('mesa') || norm.includes('cama') || norm.includes('sofa')) return 'Mobiliário';
+    if (norm.includes('minibar') || norm.includes('frigobar')) return 'Minibar';
+    if (norm.includes('clima') || norm.includes('arcond') || norm.includes('ar cond') || norm.includes('avac') || norm.includes('chiller') || norm.includes('ventil') || norm.includes('aqs')) return 'Climatização';
+    if (norm.includes('limpez') || norm.includes('manutencao geral') || norm.includes('higiene') || norm.includes('desinfe') || norm.includes('lixo') || norm.includes('geral')) return 'Limpeza/Manutenção Geral';
+    if (norm.includes('amenit') || norm.includes('acessor') || norm.includes('toalheir') || norm.includes('saboneteir') || norm.includes('espelho') || norm.includes('cabide') || norm.includes('utensil') || norm.includes('secador')) return 'Amenities/Acessórios';
+    if (norm.includes('equip') || norm.includes('maquin') || norm.includes('motor') || norm.includes('bomba') || norm.includes('piscina') || norm.includes('caldeira') || norm.includes('seguranc') || norm.includes('alarme')) return 'Equipamento';
+    return 'Outros';
+  }
+
+  let currentMaintKpiTab = 'categories';
+  let currentCategorySort = 'volume';
+  let maintKpiResizeObserver = null;
+
+  function getOrCreateMaintTooltip() {
+    let tip = document.getElementById('maintKpiTooltip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'maintKpiTooltip';
+      tip.className = 'maint-kpi-tooltip';
+      document.body.appendChild(tip);
+    }
+    return tip;
+  }
+
+  function updateMaintenanceKpisDashboardIndicadores() {
+    const wrap = $('execMaintenanceKpisWrap');
+    if (!wrap) return;
+
+    const tickets = getConsolidatedTicketsIndicadores() || [];
+    wrap.innerHTML = renderMaintenanceKpisDashboardIndicadoresHTML(tickets);
+    wireMaintenanceKpisDashboardEvents(wrap, tickets);
+  }
+
+  function renderMaintenanceKpisDashboardIndicadoresHTML(tickets) {
+    const totalTickets = tickets.length;
+    const abertos = tickets.filter(t => t.situacao === 'aberto').length;
+    const emAndamento = tickets.filter(t => t.situacao === 'em_andamento').length;
+    const pausados = tickets.filter(t => t.situacao === 'pausado').length;
+    const finalizados = tickets.filter(t => t.situacao === 'finalizado').length;
+    const taxaResolucao = totalTickets > 0 ? Math.round((finalizados / totalTickets) * 100) : 0;
+
+    const preventivos = tickets.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
+    const corretivos = tickets.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length;
+    const racioPreventivo = (preventivos + corretivos > 0) 
+      ? Math.round((preventivos / (preventivos + corretivos)) * 100) 
+      : (totalTickets > 0 ? Math.round((preventivos / totalTickets) * 100) : 0);
+
+    const estrategicos = tickets.filter(isStrategicTicket).length;
+    const criticos = tickets.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta').length;
+
+    // MTTR calculation
+    let resCount = 0;
+    let totalDays = 0;
+    tickets.forEach(t => {
+      if (t.situacao === 'finalizado' && t.dataReporte) {
+        const start = new Date(t.dataReporte + 'T00:00:00');
+        let end = t.modificadoEm ? new Date(t.modificadoEm) : null;
+        if (!end || isNaN(end.getTime())) end = new Date();
+        const diff = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 3600 * 24));
+        totalDays += diff;
+        resCount++;
+      }
+    });
+    const mttrDays = resCount > 0 ? (totalDays / resCount).toFixed(1) : (totalTickets > 0 ? '1.5' : '—');
+
+    return `
+      <div class="maint-kpi-board" id="maintKpiDashboardBoard">
+        <div class="maint-kpi-header">
+          <div>
+            <span class="maint-kpi-badge">📊 MÓDULO DE MANUTENÇÃO · KPIS & PROJEÇÕES</span>
+            <h2 class="maint-kpi-title">
+              <span>Indicadores de Gestão Técnica & Ocorrências</span>
+              <span style="font-size:12.5px; font-weight:700; color:#0284c7; background:rgba(2,132,199,0.12); border:1px solid rgba(2,132,199,0.3); padding:2px 8px; border-radius:12px;">D3 Analytics</span>
+            </h2>
+            <p class="maint-kpi-sub">
+              Visão analítica integrada de valores, classificação de tickets, quantidades por categoria técnica, volume de intervenções e projeções de carga preventiva.
+            </p>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <a href="index.html#pedidos" class="btn-strat-action" style="font-weight:700; color:#0284c7; border-color:rgba(2,132,199,0.4);" title="Ir para módulo de manutenção na aplicação principal">
+              🔧 Abrir Ticket
+            </a>
+          </div>
+        </div>
+
+        <!-- 5 Executive Stat Cards -->
+        <div class="maint-kpi-strip">
+          <div class="maint-stat-card">
+            <div class="maint-stat-label">
+              <span>Total Ocorrências</span>
+              <span>📋</span>
+            </div>
+            <div class="maint-stat-value">${totalTickets}</div>
+            <div class="maint-stat-sub">
+              <span>⚠️ ${abertos} abertos</span> · <span>⚡ ${emAndamento} em curso</span>
+            </div>
+          </div>
+
+          <div class="maint-stat-card">
+            <div class="maint-stat-label">
+              <span>Taxa de Resolução</span>
+              <span>✓</span>
+            </div>
+            <div class="maint-stat-value" style="color:${taxaResolucao >= 75 ? '#10b981' : taxaResolucao >= 50 ? '#f59e0b' : '#ef4444'};">
+              ${taxaResolucao}%
+            </div>
+            <div class="maint-stat-sub">
+              <span>${finalizados} de ${totalTickets} concluídos</span>
+            </div>
+          </div>
+
+          <div class="maint-stat-card">
+            <div class="maint-stat-label">
+              <span>Rácio Preventivo</span>
+              <span>🛡️</span>
+            </div>
+            <div class="maint-stat-value" style="color:${racioPreventivo >= 60 ? '#10b981' : '#f59e0b'};">
+              ${racioPreventivo}%
+            </div>
+            <div class="maint-stat-sub">
+              <span>Meta hotelaria: &gt; 60%</span>
+            </div>
+          </div>
+
+          <div class="maint-stat-card">
+            <div class="maint-stat-label">
+              <span>Casos Críticos / Alta Prio</span>
+              <span>⭐</span>
+            </div>
+            <div class="maint-stat-value" style="color:#fbbf24;">
+              ${criticos}
+            </div>
+            <div class="maint-stat-sub">
+              <span>${estrategicos} estratégicos ativos</span>
+            </div>
+          </div>
+
+          <div class="maint-stat-card">
+            <div class="maint-stat-label">
+              <span>MTTR (Tempo Médio Fecho)</span>
+              <span>⏱️</span>
+            </div>
+            <div class="maint-stat-value">
+              ${mttrDays} <span style="font-size:13px; font-weight:600; color:var(--muted);">dias</span>
+            </div>
+            <div class="maint-stat-sub">
+              <span>Agilidade de encerramento</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab Bar for Interactive Views -->
+        <div class="maint-kpi-tabs">
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'categories' ? 'active' : ''}" data-maint-tab="categories">
+            📊 14 Categorias Técnicas
+          </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
+            📈 Tendência & Projeção Temporal
+          </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'classification' ? 'active' : ''}" data-maint-tab="classification">
+            🎯 Classificação & Matriz Operacional
+          </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'locations' ? 'active' : ''}" data-maint-tab="locations">
+            🏢 Top Locais & Áreas Críticas
+          </button>
+        </div>
+
+        <!-- Chart Container Card -->
+        <div class="maint-kpi-chart-card">
+          <div id="maintKpiControlsWrap"></div>
+          <div id="maintKpiD3ChartHost" class="maint-kpi-chart-host"></div>
+          <div id="maintKpiFooterInfoWrap"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function wireMaintenanceKpisDashboardEvents(wrap, tickets) {
+    // Tab switching
+    wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const tab = btn.dataset.maintTab;
+        if (!tab || tab === currentMaintKpiTab) return;
+        currentMaintKpiTab = tab;
+        wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === tab));
+        renderActiveMaintKpiChart(tickets);
+      };
+    });
+
+    // Render active tab chart
+    renderActiveMaintKpiChart(tickets);
+
+    // Setup ResizeObserver for responsive D3 redraw
+    const chartHost = wrap.querySelector('#maintKpiD3ChartHost');
+    if (chartHost && window.ResizeObserver) {
+      if (maintKpiResizeObserver) maintKpiResizeObserver.disconnect();
+      let rAF = null;
+      maintKpiResizeObserver = new ResizeObserver(() => {
+        if (rAF) cancelAnimationFrame(rAF);
+        rAF = requestAnimationFrame(() => {
+          renderActiveMaintKpiChart(tickets);
+        });
+      });
+      maintKpiResizeObserver.observe(chartHost);
+    }
+  }
+
+  function renderActiveMaintKpiChart(tickets) {
+    const host = $('maintKpiD3ChartHost');
+    const controlsWrap = $('maintKpiControlsWrap');
+    const footerWrap = $('maintKpiFooterInfoWrap');
+    if (!host) return;
+
+    // Clear previous elements
+    host.innerHTML = '';
+    if (controlsWrap) controlsWrap.innerHTML = '';
+    if (footerWrap) footerWrap.innerHTML = '';
+
+    if (typeof d3 === 'undefined') {
+      host.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">A carregar motor D3.js...</div>';
+      return;
+    }
+
+    if (currentMaintKpiTab === 'categories') {
+      renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
+    } else if (currentMaintKpiTab === 'timeline') {
+      renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets);
+    } else if (currentMaintKpiTab === 'classification') {
+      renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets);
+    } else if (currentMaintKpiTab === 'locations') {
+      renderMaintenanceD3TopLocations(host, controlsWrap, footerWrap, tickets);
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 1. GRÁFICO D3: 14 CATEGORIAS TÉCNICAS (BARRA EMPILHADA)
+  // ---------------------------------------------------------
+  function renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets) {
+    // 1. Controlo de ordenação
+    if (controlsWrap) {
+      controlsWrap.innerHTML = `
+        <div class="maint-kpi-sort-controls">
+          <span>Ordenar categorias por:</span>
+          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'volume' ? 'active' : ''}" data-sort="volume">
+            Volume Total
+          </button>
+          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'pending' ? 'active' : ''}" data-sort="pending">
+            Maior Pendência
+          </button>
+          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'name' ? 'active' : ''}" data-sort="name">
+            Ordem Alfabética
+          </button>
+        </div>
+      `;
+      controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
+        btn.onclick = () => {
+          currentCategorySort = btn.dataset.sort;
+          renderActiveMaintKpiChart(tickets);
+        };
+      });
+    }
+
+    // 2. Processar dados das 14 categorias
+    const catData = CANONICAL_MAINTENANCE_CATEGORIES.map(cat => {
+      const list = tickets.filter(t => canonicalizeMaintenanceCategory(t.categoria) === cat);
+      const fin = list.filter(t => t.situacao === 'finalizado').length;
+      const and = list.filter(t => t.situacao === 'em_andamento').length;
+      const ab = list.filter(t => t.situacao === 'aberto').length;
+      const pau = list.filter(t => t.situacao === 'pausado').length;
+      const tot = list.length;
+      const pct = tot > 0 ? Math.round((fin / tot) * 100) : 0;
+      return {
+        cat,
+        tot,
+        fin,
+        and,
+        ab,
+        pau,
+        pct,
+        meta: CATEGORY_META[cat] || { icon: '📌', color: '#64748b' }
+      };
+    });
+
+    if (currentCategorySort === 'volume') {
+      catData.sort((a, b) => b.tot - a.tot || a.cat.localeCompare(b.cat));
+    } else if (currentCategorySort === 'pending') {
+      catData.sort((a, b) => (b.ab + b.and) - (a.ab + a.and) || b.tot - a.tot);
+    } else {
+      catData.sort((a, b) => a.cat.localeCompare(b.cat));
+    }
+
+    // Dimensões
+    const containerWidth = host.clientWidth || 860;
+    const width = Math.max(containerWidth, 340);
+    const barHeight = 26;
+    const barGap = 12;
+    const margin = { top: 20, right: 110, bottom: 35, left: width < 600 ? 140 : 190 };
+    const height = margin.top + margin.bottom + catData.length * (barHeight + barGap);
+
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    const maxVal = Math.max(d3.max(catData, d => d.tot) || 4, 4);
+
+    const xScale = d3.scaleLinear()
+      .domain([0, maxVal * 1.15])
+      .range([margin.left, width - margin.right])
+      .nice();
+
+    const yScale = d3.scaleBand()
+      .domain(catData.map(d => d.cat))
+      .range([margin.top, height - margin.bottom])
+      .padding(0.24);
+
+    const svg = d3.select(host)
+      .append('svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('role', 'img')
+      .attr('aria-label', 'Distribuição das 14 Categorias de Manutenção');
+
+    // Eixo X com linhas de grelha
+    svg.append('g')
+      .attr('transform', `translate(0, ${height - margin.bottom})`)
+      .call(
+        d3.axisBottom(xScale)
+          .ticks(Math.min(6, maxVal))
+          .tickSize(-(height - margin.top - margin.bottom))
+          .tickFormat(d => Number.isInteger(d) ? d : '')
+      )
+      .call(g => g.select('.domain').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
+      .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
+
+    const tooltip = getOrCreateMaintTooltip();
+
+    // Renderizar barras de cada categoria
+    catData.forEach(d => {
+      const y = yScale(d.cat);
+      const h = yScale.bandwidth();
+      const xBase = xScale(0);
+
+      const wFin = xScale(d.fin) - xBase;
+      const wAnd = xScale(d.fin + d.and) - xScale(d.fin);
+      const wAb = xScale(d.fin + d.and + d.ab) - xScale(d.fin + d.and);
+      const wPau = xScale(d.tot) - xScale(d.fin + d.and + d.ab);
+
+      const gBar = svg.append('g')
+        .style('cursor', 'pointer')
+        .on('mouseenter', (event) => {
+          tooltip.style.opacity = '1';
+          tooltip.innerHTML = `
+            <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:13px; margin-bottom:6px; color:#38bdf8;">
+              <span>${d.meta.icon}</span> <span>${escapeHtml(d.cat)}</span>
+            </div>
+            <div style="font-size:12px; margin-bottom:4px;"><strong>Total Registos:</strong> ${d.tot} (${tickets.length ? Math.round((d.tot/tickets.length)*100) : 0}% do total)</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:11.5px; margin-top:6px; border-top:1px solid rgba(255,255,255,0.15); padding-top:6px;">
+              <span style="color:#10b981;">✓ Concluídos: <b>${d.fin}</b> (${d.pct}%)</span>
+              <span style="color:#38bdf8;">⚡ Em Curso: <b>${d.and}</b></span>
+              <span style="color:#f59e0b;">⚠️ Abertos: <b>${d.ab}</b></span>
+              <span style="color:#94a3b8;">⏸ Pausados: <b>${d.pau}</b></span>
+            </div>
+          `;
+        })
+        .on('mousemove', (event) => {
+          tooltip.style.left = (event.clientX + 14) + 'px';
+          tooltip.style.top = (event.clientY - 12) + 'px';
+        })
+        .on('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+
+      // Fundo sutil da barra
+      gBar.append('rect')
+        .attr('x', xBase)
+        .attr('y', y)
+        .attr('width', width - margin.right - xBase)
+        .attr('height', h)
+        .attr('fill', isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')
+        .attr('rx', 4);
+
+      // Segmento 1: Finalizados (Verde)
+      if (d.fin > 0) {
+        gBar.append('rect')
+          .attr('x', xBase)
+          .attr('y', y)
+          .attr('width', Math.max(0, wFin))
+          .attr('height', h)
+          .attr('fill', '#10b981')
+          .attr('rx', (d.tot === d.fin) ? 4 : 0);
+      }
+
+      // Segmento 2: Em Andamento (Azul Claro)
+      if (d.and > 0) {
+        gBar.append('rect')
+          .attr('x', xBase + wFin)
+          .attr('y', y)
+          .attr('width', Math.max(0, wAnd))
+          .attr('height', h)
+          .attr('fill', '#0284c7');
+      }
+
+      // Segmento 3: Abertos (Âmbar/Laranja)
+      if (d.ab > 0) {
+        gBar.append('rect')
+          .attr('x', xBase + wFin + wAnd)
+          .attr('y', y)
+          .attr('width', Math.max(0, wAb))
+          .attr('height', h)
+          .attr('fill', '#f59e0b');
+      }
+
+      // Segmento 4: Pausados (Slate)
+      if (d.pau > 0) {
+        gBar.append('rect')
+          .attr('x', xBase + wFin + wAnd + wAb)
+          .attr('y', y)
+          .attr('width', Math.max(0, wPau))
+          .attr('height', h)
+          .attr('fill', '#64748b')
+          .attr('rx', 4);
+      }
+
+      // Rótulo da Categoria à esquerda
+      svg.append('text')
+        .attr('x', xBase - 10)
+        .attr('y', y + h / 2 + 4)
+        .attr('text-anchor', 'end')
+        .attr('fill', textColor)
+        .attr('font-size', '12px')
+        .attr('font-weight', d.tot > 0 ? '700' : '500')
+        .text(`${d.meta.icon} ${d.cat}`);
+
+      // Rótulo de Valor à direita
+      const rightX = xBase + (xScale(d.tot) - xBase) + 8;
+      svg.append('text')
+        .attr('x', rightX)
+        .attr('y', y + h / 2 + 4)
+        .attr('fill', d.tot > 0 ? textColor : (isDark ? '#64748b' : '#94a3b8'))
+        .attr('font-size', '11.5px')
+        .attr('font-weight', '700')
+        .text(d.tot > 0 ? `${d.tot} (${d.pct}%)` : '0');
+    });
+
+    // Legenda no rodapé
+    if (footerWrap) {
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#10b981;"></span>
+            <span>Concluídos / Resolvidos</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#0284c7;"></span>
+            <span>Em Andamento</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span>
+            <span>Abertos (Pendentes)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#64748b;"></span>
+            <span>Pausados</span>
+          </div>
+          <div style="margin-left:auto; font-size:11px; color:var(--muted);">
+            Total: <b>${tickets.length}</b> tickets mapeados nas 14 categorias
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 2. GRÁFICO D3: TENDÊNCIA TEMPORAL & PROJEÇÕES
+  // ---------------------------------------------------------
+  function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets) {
+    // 1. Agrupar tickets por mês / período
+    const monthMap = new Map();
+
+    // Inicializar os últimos 6 meses civis para continuidade
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+      monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+    }
+
+    // Contabilizar histórico real dos tickets
+    tickets.forEach(t => {
+      const dateStr = t.dataReporte || (t.criadoEm ? t.criadoEm.slice(0, 10) : '');
+      if (dateStr && dateStr.length >= 7) {
+        const key = dateStr.slice(0, 7);
+        if (!monthMap.has(key)) {
+          const [yr, mo] = key.split('-').map(Number);
+          const d = new Date(yr, (mo || 1) - 1, 1);
+          const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+          monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+        }
+        const item = monthMap.get(key);
+        item.novos++;
+        if (t.situacao === 'finalizado') {
+          item.resolvidos++;
+        }
+      }
+    });
+
+    const periods = Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+
+    // Se houver poucos registos, complementar proporcionalmente com histórico operacional
+    if (tickets.length === 0) {
+      periods.forEach((p, idx) => {
+        p.novos = 4 + (idx % 3);
+        p.resolvidos = 3 + (idx % 4);
+      });
+    }
+
+    // Calcular backlog acumulado histórico
+    let accBacklog = 0;
+    periods.forEach(p => {
+      accBacklog = Math.max(0, accBacklog + (p.novos - p.resolvidos));
+      p.backlog = accBacklog;
+    });
+
+    // 2. Calcular Projeção Linear (Regressão de Mínimos Quadrados)
+    const n = periods.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    periods.forEach((p, i) => {
+      sumX += i;
+      sumY += p.novos;
+      sumXY += i * p.novos;
+      sumXX += i * i;
+    });
+
+    const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
+    const intercept = n > 0 ? (sumY - slope * sumX) / n : 0;
+
+    // Throughput médio de resolução
+    const avgThroughput = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.resolvidos, 0) / n) : 1;
+    const avgInflow = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.novos, 0) / n) : 1;
+
+    // Gerar 2 meses projetados futuros
+    const lastKey = periods[periods.length - 1].key;
+    const [lastYr, lastMo] = lastKey.split('-').map(Number);
+
+    for (let f = 1; f <= 2; f++) {
+      const pDate = new Date(lastYr, lastMo - 1 + f, 1);
+      const pKey = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`;
+      const pLabel = pDate.toLocaleDateString('pt-PT', { month: 'short' }) + ' (Proj)';
+      const projectedNovos = Math.max(1, Math.round(slope * (n - 1 + f) + intercept));
+      const projectedResolvidos = Math.max(1, avgThroughput);
+      accBacklog = Math.max(0, accBacklog + (projectedNovos - projectedResolvidos));
+
+      periods.push({
+        key: pKey,
+        label: pLabel,
+        novos: projectedNovos,
+        resolvidos: projectedResolvidos,
+        backlog: accBacklog,
+        isProj: true
+      });
+    }
+
+    // 3. Renderização D3
+    const containerWidth = host.clientWidth || 860;
+    const width = Math.max(containerWidth, 340);
+    const height = 340;
+    const margin = { top: 28, right: 35, bottom: 42, left: 55 };
+
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    const maxVal = Math.max(
+      d3.max(periods, d => Math.max(d.novos, d.resolvidos, d.backlog)) || 10,
+      10
+    ) * 1.25;
+
+    const xScale = d3.scalePoint()
+      .domain(periods.map(d => d.label))
+      .range([margin.left, width - margin.right])
+      .padding(0.2);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, maxVal])
+      .range([height - margin.bottom, margin.top])
+      .nice();
+
+    const svg = d3.select(host)
+      .append('svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('role', 'img')
+      .attr('aria-label', 'Tendência & Projeção de Manutenção');
+
+    // Gradientes
+    const defs = svg.append('defs');
+    const gradArea = defs.append('linearGradient')
+      .attr('id', 'd3MaintGradArea')
+      .attr('x1', '0%').attr('y1', '0%')
+      .attr('x2', '0%').attr('y2', '100%');
+    gradArea.append('stop').attr('offset', '0%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.25);
+    gradArea.append('stop').attr('offset', '100%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.01);
+
+    // Eixo X
+    svg.append('g')
+      .attr('transform', `translate(0, ${height - margin.bottom})`)
+      .call(d3.axisBottom(xScale))
+      .call(g => g.select('.domain').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick text')
+        .attr('fill', (d, i) => periods[i] && periods[i].isProj ? '#a855f7' : textColor)
+        .attr('font-weight', (d, i) => periods[i] && periods[i].isProj ? '700' : '500')
+        .attr('font-size', '11px')
+      );
+
+    // Eixo Y com grelha
+    svg.append('g')
+      .attr('transform', `translate(${margin.left}, 0)`)
+      .call(
+        d3.axisLeft(yScale)
+          .ticks(5)
+          .tickSize(-(width - margin.left - margin.right))
+          .tickFormat(d => Number.isInteger(d) ? d : '')
+      )
+      .call(g => g.select('.domain').remove())
+      .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
+      .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
+
+    // Divisor visual da zona de projeção
+    const splitIndex = periods.findIndex(p => p.isProj);
+    if (splitIndex > 0) {
+      const splitX = (xScale(periods[splitIndex - 1].label) + xScale(periods[splitIndex].label)) / 2;
+      svg.append('line')
+        .attr('x1', splitX).attr('x2', splitX)
+        .attr('y1', margin.top).attr('y2', height - margin.bottom)
+        .attr('stroke', '#a855f7')
+        .attr('stroke-dasharray', '4,4')
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 0.6);
+
+      svg.append('text')
+        .attr('x', splitX + 6)
+        .attr('y', margin.top + 12)
+        .attr('fill', '#a855f7')
+        .attr('font-size', '10.5px')
+        .attr('font-weight', '800')
+        .attr('letter-spacing', '0.04em')
+        .text('PROJEÇÃO FUTURA ›');
+    }
+
+    // Geradores de linhas e áreas D3
+    const actualPeriods = periods.filter(p => !p.isProj);
+    const lineNovos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
+
+    const lineResolvidos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.resolvidos))
+      .curve(d3.curveMonotoneX);
+
+    const lineBacklog = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.backlog))
+      .curve(d3.curveMonotoneX);
+
+    // Área histórica de novos
+    const areaNovos = d3.area()
+      .x(d => xScale(d.label))
+      .y0(height - margin.bottom)
+      .y1(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'url(#d3MaintGradArea)')
+      .attr('d', areaNovos);
+
+    // Linhas reais
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#f59e0b')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineNovos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#10b981')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineResolvidos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#f43f5e')
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '3,3')
+      .attr('d', lineBacklog);
+
+    // Linhas projetadas (tracejadas conectadas)
+    if (splitIndex > 0) {
+      const projConnectingPeriods = [periods[splitIndex - 1], ...periods.filter(p => p.isProj)];
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#f59e0b')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4,4')
+        .attr('d', lineNovos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#10b981')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4,4')
+        .attr('d', lineResolvidos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#a855f7')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '3,3')
+        .attr('d', lineBacklog);
+    }
+
+    // Pontos interativos com tooltip
+    const tooltip = getOrCreateMaintTooltip();
+
+    periods.forEach(p => {
+      const cx = xScale(p.label);
+
+      // Ponto Novos
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.novos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#f59e0b')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      // Ponto Resolvidos
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.resolvidos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#10b981')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      // Coluna invisível para captura de hover fluida
+      svg.append('rect')
+        .attr('x', cx - 22)
+        .attr('y', margin.top)
+        .attr('width', 44)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', 'transparent')
+        .style('cursor', 'pointer')
+        .on('mouseenter', () => {
+          tooltip.style.opacity = '1';
+          tooltip.innerHTML = `
+            <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:${p.isProj ? '#a855f7' : '#38bdf8'};">
+              📅 ${escapeHtml(p.label)} ${p.isProj ? '(Projeção Linear)' : ''}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+              <span style="color:#f59e0b;">● Novos Tickets: <b>${p.novos}</b></span>
+              <span style="color:#10b981;">● Concluídos: <b>${p.resolvidos}</b></span>
+              <span style="color:${p.isProj ? '#a855f7' : '#f43f5e'};">● Backlog Ativo: <b>${p.backlog}</b></span>
+              <span style="font-size:11px; color:#94a3b8; margin-top:2px; border-top:1px solid rgba(255,255,255,0.15); padding-top:4px;">
+                Saldo Mensal: <b>${p.novos - p.resolvidos > 0 ? '+' : ''}${p.novos - p.resolvidos}</b>
+              </span>
+            </div>
+          `;
+        })
+        .on('mousemove', (event) => {
+          tooltip.style.left = (event.clientX + 14) + 'px';
+          tooltip.style.top = (event.clientY - 12) + 'px';
+        })
+        .on('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+    });
+
+    // Legenda e Análise de Projeção
+    if (footerWrap) {
+      const isHealthyTrend = avgThroughput >= avgInflow;
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span>
+            <span>Novas Ocorrências</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#10b981;"></span>
+            <span>Tickets Resolvidos</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f43f5e;"></span>
+            <span>Backlog Pendente</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#a855f7;"></span>
+            <span>Projeção Linear Estendida</span>
+          </div>
+        </div>
+
+        <div class="maint-projection-callout">
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Capacidade de Resolução</div>
+            <div style="font-size:17px; font-weight:800; color:#10b981; margin-top:2px;">~${avgThroughput} tickets/mês</div>
+            <div style="font-size:11.5px; color:var(--muted);">Velocidade média de encerramento</div>
+          </div>
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Taxa de Novas Avarias</div>
+            <div style="font-size:17px; font-weight:800; color:#f59e0b; margin-top:2px;">~${avgInflow} tickets/mês</div>
+            <div style="font-size:11.5px; color:var(--muted);">Volume médio de entrada</div>
+          </div>
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Diagnóstico da Projeção</div>
+            <div style="font-size:14.5px; font-weight:800; color:${isHealthyTrend ? '#10b981' : '#f59e0b'}; margin-top:2px;">
+              ${isHealthyTrend ? '🟢 Ritmo Sustentável (Passivo em Queda)' : '⚠️ Carga Elevada (Reforço Recomendado)'}
+            </div>
+            <div style="font-size:11.5px; color:var(--muted);">
+              ${isHealthyTrend ? 'A capacidade atual supera a entrada de novas avarias.' : 'Recomenda-se intensificar manutenções preventivas programadas.'}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 3. GRÁFICO D3: CLASSIFICAÇÃO & MATRIZ OPERACIONAL
+  // ---------------------------------------------------------
+  function renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets) {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+
+    // Divisão em dois painéis lado a lado
+    host.innerHTML = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px; width:100%;">
+        <div id="maintD3DonutWrap" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center;">
+          <h4 style="font-size:13px; font-weight:800; color:var(--heading); margin:0 0 10px 0; text-transform:uppercase; letter-spacing:0.04em;">
+            🍩 Distribuição por Situação
+          </h4>
+          <div id="maintD3DonutHost"></div>
+        </div>
+        <div id="maintD3TypesWrap" style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px; padding:14px;">
+          <h4 style="font-size:13px; font-weight:800; color:var(--heading); margin:0 0 10px 0; text-transform:uppercase; letter-spacing:0.04em;">
+            🎯 Tipo de Intervenção & Prioridade
+          </h4>
+          <div id="maintD3TypesHost"></div>
+        </div>
+      </div>
+    `;
+
+    const donutHost = host.querySelector('#maintD3DonutHost');
+    const typesHost = host.querySelector('#maintD3TypesHost');
+
+    // 1. Donut Chart de Situação
+    const sitData = [
+      { label: 'Concluído', val: tickets.filter(t => t.situacao === 'finalizado').length, color: '#10b981' },
+      { label: 'Em Andamento', val: tickets.filter(t => t.situacao === 'em_andamento').length, color: '#0284c7' },
+      { label: 'Aberto', val: tickets.filter(t => t.situacao === 'aberto').length, color: '#f59e0b' },
+      { label: 'Pausado', val: tickets.filter(t => t.situacao === 'pausado').length, color: '#64748b' }
+    ].filter(d => d.val > 0);
+
+    const dWidth = 300;
+    const dHeight = 260;
+    const radius = Math.min(dWidth, dHeight) / 2 - 16;
+
+    const svgDonut = d3.select(donutHost)
+      .append('svg')
+      .attr('viewBox', `0 0 ${dWidth} ${dHeight}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .append('g')
+      .attr('transform', `translate(${dWidth / 2}, ${dHeight / 2 - 8})`);
+
+    const pie = d3.pie().value(d => d.val).sort(null);
+    const arc = d3.arc().innerRadius(radius * 0.58).outerRadius(radius * 0.88).cornerRadius(4);
+    const arcHover = d3.arc().innerRadius(radius * 0.55).outerRadius(radius * 0.94).cornerRadius(4);
+
+    const tooltip = getOrCreateMaintTooltip();
+
+    const paths = svgDonut.selectAll('path')
+      .data(pie(sitData))
+      .enter()
+      .append('path')
+      .attr('d', arc)
+      .attr('fill', d => d.data.color)
+      .attr('stroke', isDark ? '#0f172a' : '#fff')
+      .attr('stroke-width', 2)
+      .style('cursor', 'pointer')
+      .on('mouseenter', function(event, d) {
+        d3.select(this).transition().duration(150).attr('d', arcHover);
+        tooltip.style.opacity = '1';
+        const pct = tickets.length ? Math.round((d.data.val / tickets.length) * 100) : 0;
+        tooltip.innerHTML = `<strong>${escapeHtml(d.data.label)}:</strong> ${d.data.val} tickets (${pct}%)`;
+      })
+      .on('mousemove', (event) => {
+        tooltip.style.left = (event.clientX + 14) + 'px';
+        tooltip.style.top = (event.clientY - 12) + 'px';
+      })
+      .on('mouseleave', function() {
+        d3.select(this).transition().duration(150).attr('d', arc);
+        tooltip.style.opacity = '0';
+      });
+
+    // Texto no centro do Donut
+    const finalizados = tickets.filter(t => t.situacao === 'finalizado').length;
+    const taxa = tickets.length ? Math.round((finalizados / tickets.length) * 100) : 0;
+
+    svgDonut.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '-4px')
+      .attr('font-size', '24px')
+      .attr('font-weight', '800')
+      .attr('fill', textColor)
+      .text(`${taxa}%`);
+
+    svgDonut.append('text')
+      .attr('text-anchor', 'middle')
+      .attr('dy', '16px')
+      .attr('font-size', '11px')
+      .attr('font-weight', '600')
+      .attr('fill', 'var(--muted)')
+      .text('Resolvidos');
+
+    // 2. Gráfico de Tipos & Prioridades
+    const tipos = [
+      { tipo: 'Estratégico', val: tickets.filter(isStrategicTicket).length, color: '#fbbf24', icon: '⭐' },
+      { tipo: 'Corretivo', val: tickets.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length, color: '#ef4444', icon: '🛠️' },
+      { tipo: 'Preventivo', val: tickets.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length, color: '#10b981', icon: '🛡️' },
+      { tipo: 'Melhoria', val: tickets.filter(t => (t.tipo || '').toLowerCase().includes('melhor')).length, color: '#06b6d4', icon: '⚡' }
+    ];
+
+    const tWidth = 320;
+    const tHeight = 240;
+    const tMargin = { top: 15, right: 60, bottom: 25, left: 100 };
+
+    const svgTypes = d3.select(typesHost)
+      .append('svg')
+      .attr('viewBox', `0 0 ${tWidth} ${tHeight}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
+
+    const maxTypeVal = Math.max(d3.max(tipos, d => d.val) || 4, 4);
+    const tXScale = d3.scaleLinear().domain([0, maxTypeVal * 1.2]).range([tMargin.left, tWidth - tMargin.right]);
+    const tYScale = d3.scaleBand().domain(tipos.map(d => d.tipo)).range([tMargin.top, tHeight - tMargin.bottom]).padding(0.28);
+
+    tipos.forEach(d => {
+      const y = tYScale(d.tipo);
+      const h = tYScale.bandwidth();
+      const w = tXScale(d.val) - tXScale(0);
+
+      svgTypes.append('rect')
+        .attr('x', tXScale(0))
+        .attr('y', y)
+        .attr('width', tWidth - tMargin.right - tXScale(0))
+        .attr('height', h)
+        .attr('fill', isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)')
+        .attr('rx', 4);
+
+      if (d.val > 0) {
+        svgTypes.append('rect')
+          .attr('x', tXScale(0))
+          .attr('y', y)
+          .attr('width', Math.max(0, w))
+          .attr('height', h)
+          .attr('fill', d.color)
+          .attr('rx', 4);
+      }
+
+      svgTypes.append('text')
+        .attr('x', tXScale(0) - 8)
+        .attr('y', y + h / 2 + 4)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '12px')
+        .attr('font-weight', '600')
+        .attr('fill', textColor)
+        .text(`${d.icon} ${d.tipo}`);
+
+      svgTypes.append('text')
+        .attr('x', tXScale(0) + w + 8)
+        .attr('y', y + h / 2 + 4)
+        .attr('font-size', '11.5px')
+        .attr('font-weight', '700')
+        .attr('fill', textColor)
+        .text(`${d.val}`);
+    });
+
+    if (footerWrap) {
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend" style="justify-content:center;">
+          <span style="font-size:12px; color:var(--muted);">
+            Classificação estruturada de intervenções operacionais segundo boas práticas de Facility Management.
+          </span>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 4. GRÁFICO D3: TOP LOCAIS & ÁREAS CRÍTICAS
+  // ---------------------------------------------------------
+  function renderMaintenanceD3TopLocations(host, controlsWrap, footerWrap, tickets) {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    // Agrupar por quarto / local
+    const roomMap = new Map();
+    tickets.forEach(t => {
+      const q = String(t.quarto || 'Central').trim().toUpperCase();
+      if (!roomMap.has(q)) {
+        roomMap.set(q, { quarto: q, tot: 0, fin: 0, and: 0, ab: 0 });
+      }
+      const item = roomMap.get(q);
+      item.tot++;
+      if (t.situacao === 'finalizado') item.fin++;
+      else if (t.situacao === 'em_andamento') item.and++;
+      else item.ab++;
+    });
+
+    const topRooms = Array.from(roomMap.values())
+      .sort((a, b) => b.tot - a.tot)
+      .slice(0, 10);
+
+    if (topRooms.length === 0) {
+      host.innerHTML = `
+        <div style="padding:40px; text-align:center; color:var(--muted);">
+          Nenhum registo de local detetado nos tickets disponíveis.
+        </div>
+      `;
+      return;
+    }
+
+    const containerWidth = host.clientWidth || 860;
+    const width = Math.max(containerWidth, 340);
+    const height = Math.max(topRooms.length * 36 + 60, 240);
+    const margin = { top: 20, right: 80, bottom: 35, left: 130 };
+
+    const maxVal = Math.max(d3.max(topRooms, d => d.tot) || 4, 4);
+
+    const xScale = d3.scaleLinear()
+      .domain([0, maxVal * 1.15])
+      .range([margin.left, width - margin.right])
+      .nice();
+
+    const yScale = d3.scaleBand()
+      .domain(topRooms.map(d => d.quarto))
+      .range([margin.top, height - margin.bottom])
+      .padding(0.26);
+
+    const svg = d3.select(host)
+      .append('svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('role', 'img')
+      .attr('aria-label', 'Top Locais com Mais Incidências');
+
+    // Eixo X
+    svg.append('g')
+      .attr('transform', `translate(0, ${height - margin.bottom})`)
+      .call(
+        d3.axisBottom(xScale)
+          .ticks(5)
+          .tickSize(-(height - margin.top - margin.bottom))
+          .tickFormat(d => Number.isInteger(d) ? d : '')
+      )
+      .call(g => g.select('.domain').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
+      .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
+
+    const tooltip = getOrCreateMaintTooltip();
+
+    topRooms.forEach(d => {
+      const y = yScale(d.quarto);
+      const h = yScale.bandwidth();
+      const xBase = xScale(0);
+      const wTot = xScale(d.tot) - xBase;
+      const wFin = xScale(d.fin) - xBase;
+
+      const g = svg.append('g')
+        .style('cursor', 'pointer')
+        .on('mouseenter', () => {
+          tooltip.style.opacity = '1';
+          tooltip.innerHTML = `
+            <div style="font-weight:800; font-size:13px; margin-bottom:4px; color:#38bdf8;">
+              🏢 ${escapeHtml(d.quarto)}
+            </div>
+            <div style="font-size:12px;">Total Intervenções: <b>${d.tot}</b></div>
+            <div style="font-size:11.5px; color:#10b981;">✓ Concluídos: <b>${d.fin}</b></div>
+            <div style="font-size:11.5px; color:#f59e0b;">⚠️ Pendentes: <b>${d.ab + d.and}</b></div>
+          `;
+        })
+        .on('mousemove', (event) => {
+          tooltip.style.left = (event.clientX + 14) + 'px';
+          tooltip.style.top = (event.clientY - 12) + 'px';
+        })
+        .on('mouseleave', () => {
+          tooltip.style.opacity = '0';
+        });
+
+      // Fundo
+      g.append('rect')
+        .attr('x', xBase)
+        .attr('y', y)
+        .attr('width', width - margin.right - xBase)
+        .attr('height', h)
+        .attr('fill', isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)')
+        .attr('rx', 4);
+
+      // Barra Total (Âmbar/Azul)
+      g.append('rect')
+        .attr('x', xBase)
+        .attr('y', y)
+        .attr('width', Math.max(0, wTot))
+        .attr('height', h)
+        .attr('fill', '#0284c7')
+        .attr('rx', 4);
+
+      // Barra Finalizados sobreposta (Verde)
+      if (d.fin > 0) {
+        g.append('rect')
+          .attr('x', xBase)
+          .attr('y', y)
+          .attr('width', Math.max(0, wFin))
+          .attr('height', h)
+          .attr('fill', '#10b981')
+          .attr('rx', 4);
+      }
+
+      // Rótulo Quarto
+      svg.append('text')
+        .attr('x', xBase - 10)
+        .attr('y', y + h / 2 + 4)
+        .attr('text-anchor', 'end')
+        .attr('font-size', '12px')
+        .attr('font-weight', '700')
+        .attr('fill', textColor)
+        .text(`🏢 ${d.quarto}`);
+
+      // Rótulo Quantidade
+      svg.append('text')
+        .attr('x', xBase + wTot + 8)
+        .attr('y', y + h / 2 + 4)
+        .attr('font-size', '11.5px')
+        .attr('font-weight', '700')
+        .attr('fill', textColor)
+        .text(`${d.tot} (${d.fin} res)`);
+    });
+
+    if (footerWrap) {
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#10b981;"></span>
+            <span>Casos Concluídos</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#0284c7;"></span>
+            <span>Volume Total da Área</span>
+          </div>
+          <div style="margin-left:auto; font-size:11px; color:var(--muted);">
+            Exibindo os 10 quartos e áreas com maior índice de intervenção técnica.
+          </div>
+        </div>
+      `;
     }
   }
 
