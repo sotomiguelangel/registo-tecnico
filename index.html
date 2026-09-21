@@ -2431,6 +2431,184 @@
     background: rgba(2,132,199,0.1);
     border-color: rgba(56,189,248,0.25);
   }
+
+  /* Painel de Gestão de Conflitos e Duplicados na Importação */
+  .import-conflict-panel {
+    background: #fffdf5;
+    border: 1.5px solid var(--amber-500);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 3px 12px rgba(224, 161, 43, 0.08);
+  }
+  .conflict-badge-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #925700;
+    background: var(--amber-100);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  .conflict-desc {
+    font-size: 12.5px;
+    color: var(--ink-600);
+    line-height: 1.45;
+  }
+  .conflict-options-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-600);
+    margin: 12px 0 8px;
+    font-family: var(--mono);
+  }
+  .conflict-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .btn-conflict-opt {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+  .btn-conflict-opt:hover {
+    border-color: var(--aqua-500);
+    background: #fcfefe;
+  }
+  .btn-conflict-opt.active {
+    border-color: var(--petrol-800);
+    background: var(--aqua-100);
+    box-shadow: 0 2px 8px rgba(19, 67, 84, 0.12);
+  }
+  .btn-conflict-opt .opt-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--ink-900);
+    margin-bottom: 3px;
+  }
+  .btn-conflict-opt .opt-sub {
+    font-size: 11px;
+    color: var(--ink-600);
+    line-height: 1.3;
+  }
+  .import-stats-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: #f8faf9;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .import-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 600;
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .import-stat-chip.stat-total { color: var(--ink-900); }
+  .import-stat-chip.stat-novos { color: var(--ok-500); }
+  .import-stat-chip.stat-sobrescrever { color: var(--ice-500); }
+  .import-stat-chip.stat-obviar { color: #8a5f0f; }
+  .import-stat-chip.stat-err { color: var(--coral-500); }
+
+  .conflict-row-ctrl {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 175px;
+  }
+  .conflict-row-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .conflict-match-detail {
+    font-family: var(--mono);
+    color: var(--ink-400);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
+  }
+  .conflict-row-select {
+    font-size: 11.5px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    border: 1.5px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: all 0.15s ease;
+  }
+  .conflict-row-select.sel-obviar {
+    border-color: var(--amber-500);
+    background: #fffbf0;
+    color: #8a5f0f;
+    font-weight: 600;
+  }
+  .conflict-row-select.sel-sobrescrever {
+    border-color: var(--ice-500);
+    background: #f0f7ff;
+    color: #1e6bb8;
+    font-weight: 600;
+  }
+  .conflict-row-select.sel-novo {
+    border-color: var(--ok-500);
+    background: #f2fbf6;
+    color: #2e8b5c;
+    font-weight: 600;
+  }
+  .badge-import-new {
+    display: inline-block;
+    padding: 3px 8px;
+    background: var(--ok-100);
+    color: var(--ok-500);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-import-err {
+    display: inline-block;
+    padding: 3px 8px;
+    background: var(--coral-100);
+    color: var(--coral-500);
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge-import-warn {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--amber-100);
+    color: #8a5f0f;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -16158,27 +16336,55 @@
         return;
       }
 
-      // Obter registos existentes da base de dados para verificar duplicações prévias
+      // Obter registos existentes da base de dados para verificação e mapeamento de conflitos
       let existingRecords = [];
       try{
         if(importType === 'ticket'){
-          existingRecords = (await loadTickets()) || [];
+          existingRecords = (await loadTickets(true)) || [];
         } else {
-          existingRecords = await listRecords(importType);
+          existingRecords = await listRecords(importType, { fresh: true });
         }
-      }catch(e){}
+      }catch(e){
+        console.warn('Erro ao carregar registos existentes para verificação:', e);
+      }
 
-      const existingGeneralDates = new Set(existingRecords.filter(r=> r.data && r.data.fecha).map(r=> r.data.fecha));
-      const existingQuartoKeys = new Set(existingRecords.filter(r=> r.data && r.data.numero).map(r=> `${r.data.fecha}_${normRoom(r.data.numero)}`));
-      const existingTempKeys = new Set(existingRecords.filter(r=> r.data && r.data.nome && r.data.fecha).map(r=> `${r.data.fecha}_${(r.data.nome||'').toLowerCase().trim()}`));
-      const existingTicketKeys = new Set(
-        (importType === 'ticket' && Array.isArray(existingRecords))
-          ? existingRecords.map(t => `${t.dataReporte}_${String(t.quarto||'').toLowerCase().trim()}_${String(t.descricao||'').slice(0,20).toLowerCase().trim()}`)
-          : []
-      );
+      // Estruturas de correspondência rápida para identificar o registo existente exato
+      const existingTicketById = new Map();
+      const existingTicketBySemKey = new Map();
+      if(importType === 'ticket' && Array.isArray(existingRecords)){
+        existingRecords.forEach(t => {
+          if(!t) return;
+          if(t.id) existingTicketById.set(String(t.id).trim(), t);
+          if(t.dataReporte && t.quarto){
+            const k = `${t.dataReporte}_${String(t.quarto).toLowerCase().trim()}_${String(t.descricao || '').slice(0, 20).toLowerCase().trim()}`;
+            if(!existingTicketBySemKey.has(k)) existingTicketBySemKey.set(k, t);
+          }
+        });
+      }
 
+      const existingGeneralMap = new Map();
+      const existingQuartoMap = new Map();
+      const existingTempMap = new Map();
+      if(importType !== 'ticket' && Array.isArray(existingRecords)){
+        existingRecords.forEach(r => {
+          const d = r && r.data ? r.data : (r || {});
+          if(!d) return;
+          if(importType === 'general' && d.fecha){
+            if(!existingGeneralMap.has(d.fecha)) existingGeneralMap.set(d.fecha, r);
+            if(d.hora) existingGeneralMap.set(`${d.fecha}_${d.hora}`, r);
+          } else if(importType === 'quarto' && d.fecha && d.numero){
+            const k = `${d.fecha}_${normRoom(d.numero)}`;
+            if(!existingQuartoMap.has(k)) existingQuartoMap.set(k, r);
+          } else if(importType === 'temperatura' && d.fecha && d.nome){
+            const k = `${d.fecha}_${String(d.nome).toLowerCase().trim()}`;
+            if(!existingTempMap.has(k)) existingTempMap.set(k, r);
+          }
+        });
+      }
+
+      const fileSeenKeys = new Set();
       const dataRows = rows.slice(1);
-      importParsedRows = dataRows.map(row=>{
+      importParsedRows = dataRows.map((row, rowIdx)=>{
         const obj = {};
         colMap.forEach((key, idx)=>{ if(key) obj[key] = (row[idx]||'').trim(); });
 
@@ -16239,6 +16445,7 @@
         });
         const errores = [];
         const avisos = [];
+        let existingMatch = null;
 
         if(importType === 'ticket'){
           if(!obj.dataReporte) errores.push('falta a data de reporte');
@@ -16248,10 +16455,36 @@
           if(!obj.categoria) errores.push('falta a categoria');
           if(!obj.descricao || obj.descricao.length < 5) errores.push('descrição com pelo menos 5 caracteres');
 
-          if(obj.dataReporte && obj.quarto && obj.descricao){
-            const tKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${obj.descricao.slice(0, 20).toLowerCase().trim()}`;
-            if(existingTicketKeys.has(tKey)){
-              avisos.push(`Já existe ticket semelhante para ${obj.quarto} na data ${obj.dataReporte}`);
+          if(obj.dataReporte && obj.quarto){
+            // 1. Procurar correspondência por ID exato se fornecido
+            if(obj.id && existingTicketById.has(String(obj.id).trim())){
+              const match = existingTicketById.get(String(obj.id).trim());
+              existingMatch = {
+                id: match.id,
+                summary: `Ticket #${match.id} - ${obj.quarto}`,
+                existingData: match,
+                type: 'ticket'
+              };
+            }
+            // 2. Procurar correspondência semântica por data, quarto e início de descrição
+            if(!existingMatch && obj.descricao){
+              const semKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${obj.descricao.slice(0, 20).toLowerCase().trim()}`;
+              if(existingTicketBySemKey.has(semKey)){
+                const match = existingTicketBySemKey.get(semKey);
+                existingMatch = {
+                  id: match.id,
+                  summary: `Ticket #${match.id} - ${obj.quarto} (${match.categoria || obj.categoria})`,
+                  existingData: match,
+                  type: 'ticket'
+                };
+              }
+            }
+
+            const intraKey = `${obj.dataReporte}_${obj.quarto.toLowerCase().trim()}_${(obj.descricao||'').slice(0, 20).toLowerCase().trim()}`;
+            if(fileSeenKeys.has(intraKey)){
+              avisos.push('Ticket repetido dentro do próprio ficheiro CSV');
+            } else {
+              fileSeenKeys.add(intraKey);
             }
           }
         } else {
@@ -16262,14 +16495,39 @@
             if(!obj.numero) errores.push('falta o número do quarto');
             else if(obj.fecha){
               const qKey = `${obj.fecha}_${normRoom(obj.numero)}`;
-              if(existingQuartoKeys.has(qKey)){
-                avisos.push(`Já existe leitura para o quarto ${obj.numero} no dia ${obj.fecha}`);
+              if(existingQuartoMap.has(qKey)){
+                const match = existingQuartoMap.get(qKey);
+                const d = match && match.data ? match.data : (match || {});
+                existingMatch = {
+                  id: d.id || match.key,
+                  summary: `Quarto ${obj.numero} no dia ${obj.fecha}`,
+                  existingData: d,
+                  type: 'quarto'
+                };
+              }
+              if(fileSeenKeys.has(qKey)){
+                avisos.push(`Quarto ${obj.numero} repetido dentro deste ficheiro para o dia ${obj.fecha}`);
+              } else {
+                fileSeenKeys.add(qKey);
               }
             }
           }
           if(importType === 'general' && obj.fecha){
-            if(existingGeneralDates.has(obj.fecha)){
-              avisos.push(`Já existe registo geral para o dia ${obj.fecha}`);
+            const gKey = obj.hora ? `${obj.fecha}_${obj.hora}` : obj.fecha;
+            const match = existingGeneralMap.get(gKey) || existingGeneralMap.get(obj.fecha);
+            if(match){
+              const d = match && match.data ? match.data : (match || {});
+              existingMatch = {
+                id: d.id || match.key,
+                summary: `Registo Geral do dia ${obj.fecha}`,
+                existingData: d,
+                type: 'general'
+              };
+            }
+            if(fileSeenKeys.has(obj.fecha)){
+              avisos.push(`Data ${obj.fecha} repetida dentro deste ficheiro`);
+            } else {
+              fileSeenKeys.add(obj.fecha);
             }
           }
           if(importType === 'temperatura'){
@@ -16277,15 +16535,34 @@
             if(obj.temperatura === undefined || obj.temperatura === '') errores.push('falta a temperatura');
             else if(obj.fecha && obj.nome){
               const tKey = `${obj.fecha}_${(obj.nome||'').toLowerCase().trim()}`;
-              if(existingTempKeys.has(tKey)){
-                avisos.push(`Já existe medição para ${obj.nome} em ${obj.fecha}`);
+              if(existingTempMap.has(tKey)){
+                const match = existingTempMap.get(tKey);
+                const d = match && match.data ? match.data : (match || {});
+                existingMatch = {
+                  id: d.id || match.key,
+                  summary: `${obj.nome} no dia ${obj.fecha}`,
+                  existingData: d,
+                  type: 'temperatura'
+                };
+              }
+              if(fileSeenKeys.has(tKey)){
+                avisos.push(`${obj.nome} repetido dentro deste ficheiro para o dia ${obj.fecha}`);
+              } else {
+                fileSeenKeys.add(tKey);
               }
             }
           }
         }
         if(!obj.hora) obj.hora = obj.horaReporte || '00:00';
         if(!obj.horaReporte) obj.horaReporte = obj.hora;
-        return { obj, errores, avisos };
+
+        let conflictAction = 'novo';
+        if(existingMatch){
+          avisos.push(`Registo já existe na base de dados (ID: ${existingMatch.id})`);
+          conflictAction = 'obviar'; // Padrão seguro: obviar / manter existente para evitar duplicações
+        }
+
+        return { obj, errores, avisos, existingMatch, conflictAction, originalRowIdx: rowIdx };
       });
 
       renderImportPreview();
@@ -16298,96 +16575,336 @@
     const el = $('importPreview');
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
-    const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.avisos && r.avisos.length>0);
+    const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.existingMatch);
     const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
 
-    let dupBanner = '';
+    let currentPolicy = 'obviar';
+
+    function getStats(){
+      const countNovos = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'novo').length;
+      const countSobrescrever = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'sobrescrever').length;
+      const countObviar = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'obviar').length;
+      return { countNovos, countSobrescrever, countObviar };
+    }
+
+    let conflictPanelHtml = '';
     if(withDuplicates.length > 0){
-      dupBanner = `
-        <div style="background:var(--amber-100); border-left:4px solid var(--amber-500); padding:10px 14px; border-radius:8px; margin-bottom:12px; font-size:12.5px; color:#8a5f0f; line-height:1.4;">
-          ⚠️ <b>Aviso de Duplicação:</b> Foram detetadas <b>${withDuplicates.length} linha(s)</b> cujos registos já existem na base de dados (ex.: leitura para esse quarto ou dia). Poderá prosseguir com a importação ou retificar o ficheiro.
+      conflictPanelHtml = `
+        <div class="import-conflict-panel" id="importConflictPanel">
+          <div class="conflict-header">
+            <div class="conflict-badge-title">
+              <span>⚠️</span>
+              <span>Detetados <b>${withDuplicates.length}</b> registos já existentes na base de dados</span>
+            </div>
+            <div class="conflict-desc">
+              Estes registos já constam na base de dados (causa comum: interrupção ou falha numa importação anterior). Escolha como proceder para que o processo possa continuar:
+            </div>
+          </div>
+          <div class="conflict-options-title">Ação rápida para todos os conflitos:</div>
+          <div class="conflict-options-grid">
+            <button type="button" class="btn-conflict-opt active" data-policy="obviar" id="btnPolicyObviar">
+              <span class="opt-head"><span>⏭️</span> <span>Obviar / Manter</span></span>
+              <span class="opt-sub">Recomendado após falha: preserva os dados existentes e importa apenas as linhas novas em falta.</span>
+            </button>
+            <button type="button" class="btn-conflict-opt" data-policy="sobrescrever" id="btnPolicySobrescrever">
+              <span class="opt-head"><span>🔄</span> <span>Sobrescrever</span></span>
+              <span class="opt-sub">Atualiza os registos existentes na base de dados com os novos valores deste ficheiro.</span>
+            </button>
+            <button type="button" class="btn-conflict-opt" data-policy="novo" id="btnPolicyNovo">
+              <span class="opt-head"><span>➕</span> <span>Criar como Novos</span></span>
+              <span class="opt-sub">Adiciona novos registos independentes (duplica se já existir no mesmo dia/local).</span>
+            </button>
+          </div>
         </div>
       `;
     }
 
-    let html = `<div class="card" style="margin-top:16px;">
-      ${dupBanner}
-      <p style="font-size:13px; font-weight:700; margin:0 0 10px;">${valid.length} de ${importParsedRows.length} linhas prontas para importar${invalid.length ? ` · ${invalid.length} com problemas` : ''}${withDuplicates.length ? ` · ${withDuplicates.length} com avisos de já existente` : ''}</p>
-      <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">
-        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas na importação com a indicação da linha.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição (mín. 5 carateres) são obrigatórios. O estado padrão é "aberto" e o turno padrão é "Manhã".' : '')}
-      </p>
-      <div class="table-scroll"><table class="report"><thead><tr>
-        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th>Estado / Validação</th>
-      </tr></thead><tbody>`;
-    importParsedRows.forEach((r,i)=>{
-      const bad = r.errores.length>0;
-      const hasWarn = !bad && r.avisos && r.avisos.length>0;
-      let statusHtml = '✓';
-      if(bad) statusHtml = '⚠️ ' + esc(r.errores.join(', '));
-      else if(hasWarn) statusHtml = '<span style="color:#8a5f0f; font-weight:bold;">⚠️ ' + esc(r.avisos.join(', ')) + '</span>';
+    const { countNovos, countSobrescrever, countObviar } = getStats();
 
-      html += `<tr${bad?' style="color:var(--coral-500)"':(hasWarn?' style="background:var(--amber-100)"':'')}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${statusHtml}</td></tr>`;
+    let html = `<div class="card" style="margin-top:16px;">
+      ${conflictPanelHtml}
+
+      <div class="import-stats-bar" id="importStatsBar">
+        <span class="import-stat-chip stat-total">📄 <b>${importParsedRows.length}</b> lidas</span>
+        <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${countNovos}</b> novos</span>
+        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${countSobrescrever}</b> a sobrescrever</span>
+        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${countObviar}</b> mantidos (obviados)</span>
+        ${invalid.length ? `<span class="import-stat-chip stat-err">⛔ <b>${invalid.length}</b> com erros</span>` : ''}
+      </div>
+
+      <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">
+        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição (mín. 5 carateres) são obrigatórios. Pode ajustar a ação de cada linha individualmente.' : 'Nota: pode ajustar a ação individual de cada linha com aviso na coluna "Ação / Estado".')}
+      </p>
+
+      <div class="table-scroll"><table class="report"><thead><tr>
+        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th style="min-width:180px;">Ação / Estado</th>
+      </tr></thead><tbody>`;
+
+    importParsedRows.forEach((r,i)=>{
+      const bad = r.errores.length > 0;
+      let statusHtml = '';
+
+      if(bad){
+        statusHtml = `<span class="badge-import-err">⛔ ${esc(r.errores.join(', '))}</span>`;
+      } else if(r.existingMatch){
+        statusHtml = `
+          <div class="conflict-row-ctrl">
+            <div class="conflict-row-info">
+              <span class="badge-import-warn">⚠️ Já existe</span>
+              <span class="conflict-match-detail" title="${esc(r.existingMatch.summary)}">ID: ${esc(r.existingMatch.id)}</span>
+            </div>
+            <select class="conflict-row-select sel-${r.conflictAction}" data-row-idx="${i}">
+              <option value="obviar" ${r.conflictAction === 'obviar' ? 'selected' : ''}>⏭️ Obviar (Manter atual)</option>
+              <option value="sobrescrever" ${r.conflictAction === 'sobrescrever' ? 'selected' : ''}>🔄 Sobrescrever existente</option>
+              <option value="novo" ${r.conflictAction === 'novo' ? 'selected' : ''}>➕ Criar como novo</option>
+            </select>
+          </div>
+        `;
+      } else {
+        statusHtml = `<span class="badge-import-new">✨ Novo registo</span>`;
+      }
+
+      const rowBgStyle = bad ? ' style="color:var(--coral-500); background:#fff5f3;"' : (r.existingMatch ? ' style="background:#fffcf2;"' : '');
+      html += `<tr${rowBgStyle}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${statusHtml}</td></tr>`;
     });
+
     html += `</tbody></table></div>
-      <button class="primary" id="btnConfirmImport" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Importar ${valid.length} registo${valid.length===1?'':'s'}</span></button>
+      <button class="primary" id="btnConfirmImport" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Confirmar Importação</span></button>
     </div>`;
+
     el.innerHTML = html;
 
-    $('btnConfirmImport').addEventListener('click', async ()=>{
-      if(valid.length === 0){ showToast('Não há linhas válidas para importar'); return; }
-      let confirmMsg = `Vai adicionar ${valid.length} registo(s) novo(s) à folha. Esta ação não substitui dados existentes, apenas adiciona. Continuar?`;
-      if(withDuplicates.length > 0){
-        confirmMsg = `Atenção: ${withDuplicates.length} dos registos a importar já possuem registo existente para essa mesma data/quarto.\n\nDeseja mesmo importar estes registos adicionais?`;
+    function updateCountersAndBtn(){
+      const stats = getStats();
+      const chipNovos = $('statChipNovos');
+      const chipSob = $('statChipSobrescrever');
+      const chipObv = $('statChipObviar');
+      if(chipNovos) chipNovos.innerHTML = `✨ <b>${stats.countNovos}</b> novos`;
+      if(chipSob) chipSob.innerHTML = `🔄 <b>${stats.countSobrescrever}</b> a sobrescrever`;
+      if(chipObv) chipObv.innerHTML = `⏭️ <b>${stats.countObviar}</b> mantidos (obviados)`;
+
+      const btn = $('btnConfirmImport');
+      if(!btn) return;
+      const totalExec = stats.countNovos + stats.countSobrescrever;
+      const lbl = btn.querySelector('.lbl-text');
+
+      if(valid.length === 0){
+        btn.disabled = true;
+        if(lbl) lbl.textContent = 'Não há linhas válidas para importar';
+      } else if(totalExec === 0 && stats.countObviar > 0){
+        btn.disabled = true;
+        if(lbl) lbl.textContent = `Todos os ${stats.countObviar} registos existentes estão marcados para obviar (Nada a importar)`;
+      } else {
+        btn.disabled = false;
+        let parts = [];
+        if(stats.countNovos > 0) parts.push(`${stats.countNovos} novos`);
+        if(stats.countSobrescrever > 0) parts.push(`${stats.countSobrescrever} a sobrescrever`);
+        if(stats.countObviar > 0) parts.push(`${stats.countObviar} mantidos`);
+        if(lbl) lbl.textContent = `Importar (${parts.join(' · ')})`;
       }
-      const ok = await confirmDialog('Confirmar importação', confirmMsg, 'Importar');
+    }
+
+    // Inicializar estado do botão
+    updateCountersAndBtn();
+
+    // Eventos dos botões de política global
+    if(withDuplicates.length > 0){
+      const policyBtns = el.querySelectorAll('.btn-conflict-opt');
+      policyBtns.forEach(pBtn => {
+        pBtn.addEventListener('click', ()=>{
+          const pol = pBtn.dataset.policy;
+          currentPolicy = pol;
+          policyBtns.forEach(b => b.classList.toggle('active', b.dataset.policy === pol));
+
+          // Atualizar todas as linhas com registo existente detetado
+          importParsedRows.forEach((r, idx) => {
+            if(r.errores.length === 0 && r.existingMatch){
+              r.conflictAction = pol;
+              const sel = el.querySelector(`.conflict-row-select[data-row-idx="${idx}"]`);
+              if(sel){
+                sel.value = pol;
+                sel.className = `conflict-row-select sel-${pol}`;
+              }
+            }
+          });
+          updateCountersAndBtn();
+        });
+      });
+    }
+
+    // Eventos dos seletores individuais por linha
+    el.querySelectorAll('.conflict-row-select').forEach(sel => {
+      sel.addEventListener('change', (e)=>{
+        const idx = parseInt(e.target.dataset.rowIdx, 10);
+        if(!isNaN(idx) && importParsedRows[idx]){
+          const val = e.target.value;
+          importParsedRows[idx].conflictAction = val;
+          e.target.className = `conflict-row-select sel-${val}`;
+          updateCountersAndBtn();
+        }
+      });
+    });
+
+    // Evento de confirmação e execução da importação
+    $('btnConfirmImport').addEventListener('click', async ()=>{
+      const stats = getStats();
+      const totalExec = stats.countNovos + stats.countSobrescrever;
+      if(valid.length === 0){
+        showToast('Não há linhas válidas para importar');
+        return;
+      }
+      if(totalExec === 0 && stats.countObviar > 0){
+        showToast('Todos os registos existentes foram marcados para obviar. Se deseja atualizar algum, escolha "Sobrescrever".');
+        return;
+      }
+
+      let summaryList = [];
+      if(stats.countNovos > 0) summaryList.push(`• ✨ <b>${stats.countNovos}</b> novo(s) registo(s) serão adicionados à base de dados.`);
+      if(stats.countSobrescrever > 0) summaryList.push(`• 🔄 <b>${stats.countSobrescrever}</b> registo(s) existente(s) serão sobrescrito(s) com os novos valores.`);
+      if(stats.countObviar > 0) summaryList.push(`• ⏭️ <b>${stats.countObviar}</b> registo(s) já existente(s) serão mantidos intactos (obviados sem duplicar).`);
+
+      const confirmMsg = `
+        <div style="font-size:13px; line-height:1.5;">
+          <p style="margin:0 0 10px;"><b>Resumo do processamento de importação:</b></p>
+          <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+            ${summaryList.map(s => `<p style="margin:4px 0;">${s}</p>`).join('')}
+          </div>
+          <p style="margin:0; color:var(--ink-600);">Deseja confirmar e prosseguir com a importação?</p>
+        </div>
+      `;
+
+      const ok = await confirmDialog('Confirmar importação', confirmMsg, 'Prosseguir com importação', 'Cancelar');
       if(!ok) return;
-      await runImport(valid.map(r=> r.obj));
+      await runImport();
     });
   }
 
-  async function runImport(rowsToImport){
+  async function runImport(){
     const btn = $('btnConfirmImport');
+    if(!btn) return;
     setLoading(btn, true);
-    const CHUNK = 80;
-    let imported = 0;
+
+    const rowsToSkip = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'obviar');
+    const rowsToOverwrite = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'sobrescrever');
+    const rowsToCreate = importParsedRows.filter(r => r.errores.length === 0 && r.conflictAction === 'novo');
+
+    let overwrittenCount = 0;
+    let createdCount = 0;
+    const skippedCount = rowsToSkip.length;
+    const totalToProcess = rowsToOverwrite.length + rowsToCreate.length;
+
     try{
-      for(let i=0; i<rowsToImport.length; i+=CHUNK){
-        const chunk = rowsToImport.slice(i, i+CHUNK).map((obj, idx)=>{
-          const generatedId = 'id_' + Date.now() + '_' + (imported + idx) + '_' + Math.random().toString(36).slice(2,8);
-          return Object.assign({}, obj, {
-            id: obj.id || generatedId,
-            dataReporte: obj.dataReporte || obj.fecha || todayStr(),
-            horaReporte: obj.horaReporte || obj.hora || '00:00',
-            fecha: obj.dataReporte || obj.fecha || todayStr(),
-            hora: obj.horaReporte || obj.hora || '00:00',
-            quarto: obj.quarto || obj.numero || '',
-            colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
-            situacao: obj.situacao || 'aberto',
-            turno: obj.turno || 'Manhã',
-            observacao: obj.observacao || obj.observacoes || '',
-            comentarioCierre: obj.comentarioCierre || ''
+      // 1. Processar Sobrescritas (atualizar registos existentes sem criar duplicados)
+      if(rowsToOverwrite.length > 0){
+        for(let i = 0; i < rowsToOverwrite.length; i++){
+          const row = rowsToOverwrite[i];
+          const existingId = row.existingMatch.id;
+          showToast(`A sobrescrever registo existente ${i + 1}/${rowsToOverwrite.length}…`);
+
+          if(importType === 'ticket'){
+            const updatedTicket = Object.assign({}, row.existingMatch.existingData, row.obj, {
+              id: existingId,
+              editado: 'Sim',
+              modificadoEn: todayStr() + ' ' + nowTimeStr(),
+              modificadoPor: getCurrentUserName()
+            });
+            recordTicketUpdate(updatedTicket);
+            persistTicketInAllTicketsKey(updatedTicket);
+            if(cachedTicketsData){
+              const idx = cachedTicketsData.findIndex(t => String(t.id) === String(existingId));
+              if(idx !== -1) cachedTicketsData[idx] = updatedTicket;
+              else cachedTicketsData.unshift(updatedTicket);
+            }
+            await apiPost({
+              action: 'updateTicket',
+              id: existingId,
+              ticketId: existingId,
+              data: updatedTicket
+            });
+          } else {
+            const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
+              id: existingId,
+              fecha: row.obj.fecha || (row.existingMatch.existingData && row.existingMatch.existingData.fecha),
+              hora: row.obj.hora || (row.existingMatch.existingData && row.existingMatch.existingData.hora) || '00:00'
+            });
+            await updateRecordApi(importType, existingId, mergedData);
+          }
+          overwrittenCount++;
+        }
+      }
+
+      // 2. Processar Criações de Novos Registos
+      if(rowsToCreate.length > 0){
+        const CHUNK = 60;
+        for(let i = 0; i < rowsToCreate.length; i += CHUNK){
+          const chunk = rowsToCreate.slice(i, i + CHUNK).map((r, idx)=>{
+            const obj = r.obj;
+            const generatedId = 'id_' + Date.now() + '_' + (createdCount + idx) + '_' + Math.random().toString(36).slice(2,8);
+            return Object.assign({}, obj, {
+              id: obj.id || generatedId,
+              dataReporte: obj.dataReporte || obj.fecha || todayStr(),
+              horaReporte: obj.horaReporte || obj.hora || '00:00',
+              fecha: obj.dataReporte || obj.fecha || todayStr(),
+              hora: obj.horaReporte || obj.hora || '00:00',
+              quarto: obj.quarto || obj.numero || '',
+              colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
+              situacao: obj.situacao || 'aberto',
+              turno: obj.turno || 'Manhã',
+              observacao: obj.observacao || obj.observacoes || '',
+              comentarioCierre: obj.comentarioCierre || ''
+            });
           });
-        });
-        if(importType === 'ticket'){
-          try {
-            await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk });
-          } catch(errBatch) {
-            // Fallback caso a ação saveBatch no backend ainda não suporte o tipo 'ticket'
-            for(const item of chunk){
-              await apiPost({ action: 'saveTicket', data: item });
+
+          if(importType === 'ticket'){
+            try {
+              await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk });
+            } catch(errBatch) {
+              for(const item of chunk){
+                recordTicketUpdate(item);
+                persistTicketInAllTicketsKey(item);
+                await apiPost({ action: 'saveTicket', data: item });
+              }
+            }
+          } else {
+            await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+            const entry = dataStore[importType];
+            if(entry && Array.isArray(entry.items)){
+              chunk.forEach(item => {
+                entry.items.unshift({ key: item.id, data: item });
+              });
+              persistStore();
             }
           }
-        } else {
-          await apiPost({ action:'saveBatch', type: importType, rows: chunk });
+          createdCount += chunk.length;
+          showToast(`A criar novos registos… ${createdCount}/${rowsToCreate.length}`);
         }
-        imported += chunk.length;
-        showToast(`A importar… ${imported}/${rowsToImport.length}`);
       }
-      showToast(`✅ Foram importados ${imported} registo(s) ✓`);
+
+      // 3. Notificação final de sucesso com detalhe completo
+      const finalMsg = `✅ Importação concluída!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) sobrescrito(s)\n• ${skippedCount} registo(s) existente(s) mantido(s) (obviados)`;
+      showToast(finalMsg);
+
+      await confirmDialog(
+        'Importação concluída com sucesso',
+        `<div style="font-size:13px; line-height:1.6;">
+          <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
+          <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+            <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos adicionados</p>
+            <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes sobrescritos com novos valores</p>
+            <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos (obviados sem duplicação)</p>
+          </div>
+          <p style="margin:0; font-size:12px; color:var(--ink-600);">A base de dados e a aplicação estão atualizadas e consistentes.</p>
+        </div>`,
+        'Concluir',
+        ''
+      );
+
+      // Limpar campos de entrada apenas se o processamento terminou com sucesso
       $('importTextarea').value = '';
       $('importFile').value = '';
       $('importPreview').innerHTML = '';
       importParsedRows = [];
+
       refreshChips();
       refreshConsumoResumen();
       if(importType === 'quarto'){ await loadCycleDone(); renderRoomGrid(); }
@@ -16398,9 +16915,10 @@
         if(typeof renderPedidosView === 'function') renderPedidosView();
       }
     }catch(e){
-      showToast(`⚠️ Foram importados ${imported} antes do erro: ${e.message}`, true);
+      console.error('Erro na importação:', e);
+      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount} registos. Como os registos já gravados foram salvaguardados, pode repetir a importação escolhendo "Obviar" para continuar de onde parou.`, true);
     }finally{
-      if(imported > 0) {
+      if(createdCount > 0 || overwrittenCount > 0) {
         if(importType === 'ticket'){
           invalidateTicketsCache();
           cachedTicketsData = null;
