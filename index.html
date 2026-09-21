@@ -3007,6 +3007,7 @@
           <option value="Climatização">Climatização</option>
           <option value="Limpeza/Manutenção Geral">Limpeza/Manutenção Geral</option>
           <option value="Amenities/Acessórios">Amenities/Acessórios</option>
+          <option value="Casa de Banho">Casa de Banho</option>
         </select>
       </div>
       
@@ -3051,6 +3052,7 @@
               <option value="Climatização">Climatização</option>
               <option value="Limpeza/Manutenção Geral">Limpeza/Manutenção Geral</option>
               <option value="Amenities/Acessórios">Amenities/Acessórios</option>
+              <option value="Casa de Banho">Casa de Banho</option>
             </select>
           </label>
           <label class="field"><span class="lbl">Prioridade</span>
@@ -14110,7 +14112,8 @@
             { value: 'Outros', label: 'Outros' },
             { value: 'Climatização', label: 'Climatização' },
             { value: 'Limpeza/Manutenção Geral', label: 'Limpeza/Manutenção Geral' },
-            { value: 'Amenities/Acessórios', label: 'Amenities/Acessórios' }
+            { value: 'Amenities/Acessórios', label: 'Amenities/Acessórios' },
+            { value: 'Casa de Banho', label: 'Casa de Banho' }
           ]
         },
         { id: 'prioridade', label: 'Prioridade Operacional', type: 'select', value: 'Máxima',
@@ -14201,7 +14204,8 @@
     'Outros',
     'Climatização',
     'Limpeza/Manutenção Geral',
-    'Amenities/Acessórios'
+    'Amenities/Acessórios',
+    'Casa de Banho'
   ];
 
   const CATEGORY_META = {
@@ -14218,7 +14222,8 @@
     'Outros': { icon: '📌', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)', border: 'rgba(100, 116, 139, 0.3)' },
     'Climatização': { icon: '❄️', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.3)' },
     'Limpeza/Manutenção Geral': { icon: '🧹', color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.12)', border: 'rgba(20, 184, 166, 0.3)' },
-    'Amenities/Acessórios': { icon: '🧴', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.3)' }
+    'Amenities/Acessórios': { icon: '🧴', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.3)' },
+    'Casa de Banho': { icon: '🚿', color: '#0891b2', bg: 'rgba(8, 145, 178, 0.12)', border: 'rgba(8, 145, 178, 0.3)' }
   };
 
   function canonicalizeMaintenanceCategory(cat) {
@@ -14378,7 +14383,7 @@
 
         <div class="maint-kpi-tabs">
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'categories' ? 'active' : ''}" data-maint-tab="categories">
-            📊 14 Categorias Técnicas
+            📊 15 Categorias Técnicas
           </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
             📈 Tendência & Projeção Temporal
@@ -14518,7 +14523,7 @@
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet')
       .attr('role', 'img')
-      .attr('aria-label', 'Distribuição das 14 Categorias de Manutenção');
+      .attr('aria-label', 'Distribuição das 15 Categorias de Manutenção');
 
     svg.append('g')
       .attr('transform', `translate(0, ${height - margin.bottom})`)
@@ -14614,7 +14619,7 @@
           <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#0284c7;"></span><span>Em Andamento</span></div>
           <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span><span>Abertos (Pendentes)</span></div>
           <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#64748b;"></span><span>Pausados</span></div>
-          <div style="margin-left:auto; font-size:11px; color:var(--muted);">Total: <b>${tickets.length}</b> tickets mapeados nas 14 categorias</div>
+          <div style="margin-left:auto; font-size:11px; color:var(--muted);">Total: <b>${tickets.length}</b> tickets mapeados nas 15 categorias</div>
         </div>
       `;
     }
@@ -16480,7 +16485,7 @@
             else obj.tipo = 'Corretivo';
           }
 
-          // Canonicalizar categoria para as 14 categorias canónicas oficiais
+          // Canonicalizar categoria para as 15 categorias canónicas oficiais
           obj.categoria = canonicalizeMaintenanceCategory(obj.categoria);
         } else {
           if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
@@ -16702,7 +16707,7 @@
       </div>
 
       <p style="font-size:11px; color:var(--ink-400); margin:0 0 10px; font-family:var(--mono)">
-        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição são verificados. A categoria é mapeada automaticamente para as 14 categorias canónicas.' : 'Nota: pode ajustar a ação individual de cada linha com aviso na coluna "Ação / Estado".')}
+        ${importType === 'temperatura' ? 'Nota: na refrigeração, o servidor valida o equipamento, o sinal e o intervalo — linhas inválidas serão rejeitadas.' : (importType === 'ticket' ? 'Nota: nos tickets, Quarto/Local, Categoria e Descrição são verificados. A categoria é mapeada automaticamente para as 15 categorias canónicas.' : 'Nota: pode ajustar a ação individual de cada linha com aviso na coluna "Ação / Estado".')}
       </p>
 
       <div class="table-scroll"><table class="report"><thead><tr>
@@ -17867,7 +17872,8 @@
               { value: 'Outros', label: 'Outros' },
               { value: 'Climatização', label: 'Climatização' },
               { value: 'Limpeza/Manutenção Geral', label: 'Limpeza/Manutenção Geral' },
-              { value: 'Amenities/Acessórios', label: 'Amenities/Acessórios' }
+              { value: 'Amenities/Acessórios', label: 'Amenities/Acessórios' },
+              { value: 'Casa de Banho', label: 'Casa de Banho' }
             ]
           },
           { id: 'prioridade', label: 'Prioridade', type: 'select', value: ticket.prioridade || (currentTipo === 'Estratégico' ? 'Máxima' : 'Normal'),
@@ -18273,6 +18279,5 @@
 </script>
 </body>
 </html>
-
 
 
