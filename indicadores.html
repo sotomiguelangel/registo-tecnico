@@ -6469,10 +6469,18 @@
   };
 
   function canonicalizeMaintenanceCategory(cat) {
-    if (!cat) return 'Outros';
-    const clean = String(cat).trim();
-    if (CANONICAL_MAINTENANCE_CATEGORIES.includes(clean)) return clean;
-    const norm = clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (cat === undefined || cat === null) return 'Outros';
+    const clean = String(cat).replace(/\uFEFF/g, '').replace(/\s+/g, ' ').trim();
+    if (!clean) return 'Outros';
+    const norm = clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    const exactCategory = CANONICAL_MAINTENANCE_CATEGORIES.find(category => {
+      const normalizedCategory = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return normalizedCategory === norm;
+    });
+    if (exactCategory) return exactCategory;
+    if (norm === 'casa banho' || norm.includes('casa de banho') || norm.includes('casa banho') ||
+        norm.includes('banheiro') || norm === 'wc' || norm.includes('sanitario') ||
+        norm.includes('instalacao sanitaria')) return 'Casa de Banho';
     if (norm.includes('canaliz') || norm.includes('hidraul') || norm.includes('tubo') || norm.includes('fuga') || norm.includes('agua') || norm.includes('torneir')) return 'Canalização';
     if (norm.includes('porta') || norm.includes('fechad') || norm.includes('tranco') || norm.includes('mola') || norm.includes('chave')) return 'Portas/Fechaduras';
     if (norm.includes('pintur') || norm.includes('verniz') || norm.includes('tinta') || norm.includes('lixar')) return 'Pintura Preventiva';
