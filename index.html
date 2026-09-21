@@ -16872,6 +16872,53 @@
     });
   }
 
+  const IMPORT_BATCH_SIZE = 20;
+  const IMPORT_REQUEST_TIMEOUT_MS = 60 * 1000;
+  const IMPORT_PROGRESS_KEY = 'bitacora_import_progress_v2';
+
+  function importStableId(type, row, index) {
+    if (row && row.obj && row.obj.id) return String(row.obj.id);
+    const source = JSON.stringify((row && row.obj) || {});
+    let hash = 2166136261;
+    for (let i = 0; i < source.length; i++) {
+      hash ^= source.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `imp_${type}_${index}_${(hash >>> 0).toString(36)}`;
+  }
+
+  function readImportProgress(importType) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(IMPORT_PROGRESS_KEY) || 'null');
+      if (stored && stored.type === importType && Array.isArray(stored.completedIds)) {
+        return new Set(stored.completedIds.map(String));
+      }
+    } catch (e) {
+      console.warn('Não foi possível ler o progresso da importação:', e);
+    }
+    return new Set();
+  }
+
+  function writeImportProgress(importType, completedIds) {
+    try {
+      localStorage.setItem(IMPORT_PROGRESS_KEY, JSON.stringify({
+        type: importType,
+        completedIds: Array.from(completedIds),
+        updatedAt: new Date().toISOString()
+      }));
+    } catch (e) {
+      console.warn('Não foi possível persistir o progresso da importação:', e);
+    }
+  }
+
+  function clearImportProgress() {
+    try {
+      localStorage.removeItem(IMPORT_PROGRESS_KEY);
+    } catch (e) {
+      console.warn('Não foi possível limpar o progresso da importação:', e);
+    }
+  }
+
   async function runImport(){
     const btn = $('btnConfirmImport');
     if(!btn) return;
@@ -16883,8 +16930,17 @@
 
     let overwrittenCount = 0;
     let createdCount = 0;
+    let resumedCount = 0;
     const skippedCount = rowsToSkip.length;
-    const totalToProcess = rowsToOverwrite.length + rowsToCreate.length;
+    const completedIds = readImportProgress(importType);
+    importParsedRows.forEach((row, index) => {
+      if (row.errores.length === 0) {
+        row.importId = row.importId || importStableId(importType, row, index);
+      }
+    });
+    const pendingCreates = rowsToCreate.filter(row => !completedIds.has(String(row.importId)));
+    resumedCount = rowsToCreate.length - pendingCreates.length;
+    writeImportProgress(importType, completedIds);
 
     try{
       // 1. Processar Sobrescritas (atualizar registos existentes sem criar duplicados)
@@ -16892,6 +16948,10 @@
         for(let i = 0; i < rowsToOverwrite.length; i++){
           const row = rowsToOverwrite[i];
           const existingId = row.existingMatch.id;
+          if (completedIds.has(String(existingId))) {
+            resumedCount++;
+            continue;
+          }
           showToast(`A atualizar registo existente ${i + 1}/${rowsToOverwrite.length}…`);
 
           if(importType === 'ticket'){
@@ -16914,12 +16974,11 @@
                 id: existingId,
                 ticketId: existingId,
                 data: updatedTicket
-              });
+              }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eUpd) {
-              await apiPost({
-                action: 'saveTicket',
-                data: updatedTicket
-              });
+              // Não fazer fallback para saveTicket: após um timeout o pedido
+              // pode já ter sido aplicado e um save criaria um duplicado.
+              throw eUpd;
             }
           } else {
             const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
@@ -16927,19 +16986,25 @@
               fecha: row.obj.fecha || (row.existingMatch.existingData && row.existingMatch.existingData.fecha),
               hora: row.obj.hora || (row.existingMatch.existingData && row.existingMatch.existingData.hora) || '00:00'
             });
-            await updateRecordApi(importType, existingId, mergedData);
+            await apiPost({
+              action: 'update',
+              type: importType,
+              id: existingId,
+              data: mergedData
+            }, IMPORT_REQUEST_TIMEOUT_MS);
           }
           overwrittenCount++;
+          completedIds.add(String(existingId));
+          writeImportProgress(importType, completedIds);
         }
       }
 
       // 2. Processar Criações de Novos Registos
-      if(rowsToCreate.length > 0){
-        const CHUNK = 60;
-        for(let i = 0; i < rowsToCreate.length; i += CHUNK){
-          const chunk = rowsToCreate.slice(i, i + CHUNK).map((r, idx)=>{
+      if(pendingCreates.length > 0){
+        for(let i = 0; i < pendingCreates.length; i += IMPORT_BATCH_SIZE){
+          const chunk = pendingCreates.slice(i, i + IMPORT_BATCH_SIZE).map((r)=>{
             const obj = r.obj;
-            const generatedId = 'id_' + Date.now() + '_' + (createdCount + idx) + '_' + Math.random().toString(36).slice(2,8);
+            const generatedId = r.importId;
             return Object.assign({}, obj, {
               id: obj.id || generatedId,
               dataReporte: obj.dataReporte || obj.fecha || todayStr(),
@@ -16958,8 +17023,16 @@
           });
 
           if(importType === 'ticket'){
-            // Assegurar SEMPRE que os novos tickets são gravados no cache e localStorage imediatamente
-            chunk.forEach(item => {
+            await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+          } else {
+            await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+          }
+
+          // Só confirmar localmente depois da resposta do servidor. IDs
+          // estáveis tornam uma retoma segura mesmo após timeout de rede.
+          chunk.forEach(item => {
+            completedIds.add(String(item.id));
+            if(importType === 'ticket'){
               recordTicketUpdate(item);
               persistTicketInAllTicketsKey(item);
               if(cachedTicketsData){
@@ -16967,32 +17040,16 @@
                 if(existIdx >= 0) cachedTicketsData[existIdx] = item;
                 else cachedTicketsData.unshift(item);
               }
-            });
-            try {
-              await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk });
-            } catch(errBatch) {
-              for(const item of chunk){
-                await apiPost({ action: 'saveTicket', data: item });
-              }
-            }
-          } else {
-            try {
-              await apiPost({ action:'saveBatch', type: importType, rows: chunk });
-            } catch(errBatch) {
-              for(const item of chunk){
-                await apiPost({ action: 'save', type: importType, data: item });
-              }
             }
             const entry = dataStore[importType];
             if(entry && Array.isArray(entry.items)){
-              chunk.forEach(item => {
-                entry.items.unshift({ key: item.id, data: item });
-              });
+              entry.items.unshift({ key: item.id, data: item });
               persistStore();
             }
-          }
+          });
+          writeImportProgress(importType, completedIds);
           createdCount += chunk.length;
-          showToast(`A gravar novos registos… ${createdCount}/${rowsToCreate.length}`);
+          showToast(`A gravar novos registos… ${createdCount + resumedCount}/${rowsToCreate.length}`);
         }
       }
 
@@ -17016,6 +17073,7 @@
       );
 
       // Limpar campos de entrada apenas se o processamento terminou com sucesso
+      clearImportProgress();
       $('importTextarea').value = '';
       $('importFile').value = '';
       $('importPreview').innerHTML = '';
@@ -17034,7 +17092,7 @@
       }
     }catch(e){
       console.error('Erro na importação:', e);
-      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount} registos. Como os registos já gravados foram salvaguardados, pode repetir a importação escolhendo "Obviar" para continuar de onde parou.`, true);
+      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado; repita a importação para retomar sem duplicar dados.`, true);
     }finally{
       if(createdCount > 0 || overwrittenCount > 0) {
         if(importType === 'ticket'){
@@ -18289,4 +18347,3 @@
 </script>
 </body>
 </html>
-
