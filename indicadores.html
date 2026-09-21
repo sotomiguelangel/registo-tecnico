@@ -6123,6 +6123,7 @@
             <option value="Climatização" ${ticket.categoria === 'Climatização' ? 'selected' : ''}>Climatização</option>
             <option value="Limpeza/Manutenção Geral" ${ticket.categoria === 'Limpeza/Manutenção Geral' ? 'selected' : ''}>Limpeza/Manutenção Geral</option>
             <option value="Amenities/Acessórios" ${ticket.categoria === 'Amenities/Acessórios' ? 'selected' : ''}>Amenities/Acessórios</option>
+            <option value="Casa de Banho" ${ticket.categoria === 'Casa de Banho' ? 'selected' : ''}>Casa de Banho</option>
           </select>
         </div>
 
@@ -6305,6 +6306,7 @@
               <option value="Climatização" selected>Climatização</option>
               <option value="Limpeza/Manutenção Geral">Limpeza/Manutenção Geral</option>
               <option value="Amenities/Acessórios">Amenities/Acessórios</option>
+              <option value="Casa de Banho">Casa de Banho</option>
             </select>
           </div>
           <div>
@@ -6444,7 +6446,8 @@
     'Outros',
     'Climatização',
     'Limpeza/Manutenção Geral',
-    'Amenities/Acessórios'
+    'Amenities/Acessórios',
+    'Casa de Banho'
   ];
 
   const CATEGORY_META = {
@@ -6461,7 +6464,8 @@
     'Outros': { icon: '📌', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)', border: 'rgba(100, 116, 139, 0.3)' },
     'Climatização': { icon: '❄️', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.3)' },
     'Limpeza/Manutenção Geral': { icon: '🧹', color: '#14b8a6', bg: 'rgba(20, 184, 166, 0.12)', border: 'rgba(20, 184, 166, 0.3)' },
-    'Amenities/Acessórios': { icon: '🧴', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.3)' }
+    'Amenities/Acessórios': { icon: '🧴', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.3)' },
+    'Casa de Banho': { icon: '🚿', color: '#0891b2', bg: 'rgba(8, 145, 178, 0.12)', border: 'rgba(8, 145, 178, 0.3)' }
   };
 
   function canonicalizeMaintenanceCategory(cat) {
@@ -6630,7 +6634,7 @@
         <!-- Tab Bar for Interactive Views -->
         <div class="maint-kpi-tabs">
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'categories' ? 'active' : ''}" data-maint-tab="categories">
-            📊 14 Categorias Técnicas
+            📊 15 Categorias Técnicas
           </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
             📈 Tendência & Projeção Temporal
@@ -6712,7 +6716,7 @@
   }
 
   // ---------------------------------------------------------
-  // 1. GRÁFICO D3: 14 CATEGORIAS TÉCNICAS (BARRA EMPILHADA)
+  // 1. GRÁFICO D3: 15 CATEGORIAS TÉCNICAS (BARRA EMPILHADA)
   // ---------------------------------------------------------
   function renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets) {
     // 1. Controlo de ordenação
@@ -6739,7 +6743,7 @@
       });
     }
 
-    // 2. Processar dados das 14 categorias
+    // 2. Processar dados das 15 categorias
     const catData = CANONICAL_MAINTENANCE_CATEGORIES.map(cat => {
       const list = tickets.filter(t => canonicalizeMaintenanceCategory(t.categoria) === cat);
       const fin = list.filter(t => t.situacao === 'finalizado').length;
@@ -6797,7 +6801,7 @@
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet')
       .attr('role', 'img')
-      .attr('aria-label', 'Distribuição das 14 Categorias de Manutenção');
+      .attr('aria-label', 'Distribuição das 15 Categorias de Manutenção');
 
     // Eixo X com linhas de grelha
     svg.append('g')
@@ -6943,7 +6947,7 @@
             <span>Pausados</span>
           </div>
           <div style="margin-left:auto; font-size:11px; color:var(--muted);">
-            Total: <b>${tickets.length}</b> tickets mapeados nas 14 categorias
+            Total: <b>${tickets.length}</b> tickets mapeados nas 15 categorias
           </div>
         </div>
       `;
