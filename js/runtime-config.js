@@ -22,11 +22,8 @@
     return url.toString();
   }
 
-  const configured = root.__APP_CONFIG__ && root.__APP_CONFIG__.API_URL;
-  let stored = null;
-  try { stored = root.localStorage && root.localStorage.getItem('bitacora_api_url'); } catch (_) {}
   root.AppConfig = Object.freeze({
-    apiUrl: validateApiUrl(configured || stored || defaultApiUrl),
+    apiUrl: validateApiUrl(defaultApiUrl),
     defaultApiUrl
   });
 })(window);

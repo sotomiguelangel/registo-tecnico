@@ -2,11 +2,6 @@
 // Configuration - Centralized App Settings
 // ============================================
 
-const runtimeConfig =
-  typeof window !== 'undefined'
-    ? window.__APP_CONFIG__ || {}
-    : {};
-
 const DEFAULT_API_URL =
   'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
 
@@ -37,12 +32,7 @@ function validateApiUrl(value) {
 
 const CONFIG = Object.freeze({
   // API Configuration
-  API_URL:
-    validateApiUrl(
-      runtimeConfig.API_URL ||
-      (typeof localStorage !== 'undefined' && localStorage.getItem('bitacora_api_url')) ||
-      DEFAULT_API_URL
-    ),
+  API_URL: validateApiUrl(DEFAULT_API_URL),
 
   // App Version
   VERSION: '3.3.0',
