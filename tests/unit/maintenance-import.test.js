@@ -87,4 +87,11 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /<button type="button" class="primary" id="btnConfirmImport"/);
         assert.match(indexHtml, /addEventListener\('click', async \(event\)=>\{\s*event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
     });
+
+    test('maps frontend ticket categories to backend categories', () => {
+        assert.match(indexHtml, /'Canalização': 'Hidráulica'/);
+        assert.match(indexHtml, /'Equipamento': 'Equipamentos'/);
+        assert.match(indexHtml, /'Outros': 'Outro'/);
+        assert.match(indexHtml, /'Limpeza\/Manutenção Geral': 'Limpeza'/);
+    });
 });

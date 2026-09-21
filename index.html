@@ -16197,6 +16197,23 @@
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
   const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
+  const BACKEND_TICKET_CATEGORY_MAP = Object.freeze({
+    'Canalização': 'Hidráulica',
+    'Portas/Fechaduras': 'Vidros/Portas',
+    'Pintura Preventiva': 'Estrutural',
+    'Acabamentos/Decoração': 'Estrutural',
+    'Equipamento': 'Equipamentos',
+    'Elétrico': 'Elétrica',
+    'Equipamento de Cozinha': 'Equipamentos',
+    'Cortinados': 'Vidros/Portas',
+    'Mobiliário': 'Mobiliário',
+    'Minibar': 'Equipamentos',
+    'Outros': 'Outro',
+    'Climatização': 'Climatização',
+    'Limpeza/Manutenção Geral': 'Limpeza',
+    'Amenities/Acessórios': 'Utensílios',
+    'Casa de Banho': 'Casa de Banho'
+  });
   const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
 
   const IMPORT_ALIASES = {
@@ -16481,6 +16498,7 @@
           obj.categoria = canonicalizeMaintenanceCategory(rawCategory, { strict: true });
           unknownCategory = obj.categoria === null;
           if (unknownCategory) obj.categoria = 'Outros';
+          else obj.categoria = BACKEND_TICKET_CATEGORY_MAP[obj.categoria] || obj.categoria;
         } else {
           if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
         }
