@@ -81,6 +81,7 @@ describe('Maintenance category import compatibility', () => {
     test('uses authoritative remote tickets for import conflict detection', () => {
         assert.match(indexHtml, /const remoteTicketsResponse = await apiGet\(\{ action: 'listTickets' \}\)/);
         assert.match(indexHtml, /existingRecords = remoteTicketsResponse\.tickets/);
-        assert.match(indexHtml, /A importação foi cancelada para evitar conflitos/);
+        assert.match(indexHtml, /remoteConflictCheckFailed = importType === 'ticket'/);
+        assert.match(indexHtml, /A importação continuará como novos registos/);
     });
 });

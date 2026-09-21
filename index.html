@@ -16361,6 +16361,7 @@
 
       // Obter registos existentes da base de dados para verificação e mapeamento de conflitos
       let existingRecords = [];
+      let remoteConflictCheckFailed = false;
       try{
         if(importType === 'ticket'){
           // La detección de conflictos de importación debe usar el estado
@@ -16375,9 +16376,7 @@
         }
       }catch(e){
         console.warn('Erro ao carregar registos existentes para verificação:', e);
-        if(importType === 'ticket'){
-          throw new Error('Não foi possível consultar os tickets atuais no servidor. A importação foi cancelada para evitar conflitos.');
-        }
+        remoteConflictCheckFailed = importType === 'ticket';
       }
 
       // Estruturas de correspondência rigorosas para identificar registos existentes sem falsos positivos
@@ -16648,6 +16647,9 @@
       });
 
       renderImportPreview();
+      if(remoteConflictCheckFailed){
+        showToast('⚠️ Não foi possível consultar tickets existentes. A importação continuará como novos registos; o servidor validará a sessão ao gravar.', true);
+      }
     }catch(e){
       showToast('⚠️ Não foi possível ler o CSV: ' + e.message, true);
     }finally{ setLoading(btn, false); }
