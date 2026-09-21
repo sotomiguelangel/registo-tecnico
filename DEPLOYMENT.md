@@ -17,8 +17,11 @@ O frontend usa o deployment configurado no repositório; não aceita overrides p
 `window.__APP_CONFIG__.API_URL` nem por `localStorage`. URLs de editor (`/edit`),
 login, `/dev` e páginas HTML são rejeitadas antes de qualquer pedido.
 
-Para tickets, o backend Apps Script deve usar exatamente o mesmo catálogo do
-frontend: `Canalização`, `Portas/Fechaduras`, `Acabamentos/Decoração`,
+O backend completo está versionado em `backend-apps-script.gs`; copie o conteúdo
+integral desse ficheiro para o projeto Apps Script antes de criar a implementação.
+
+Para tickets, o backend Apps Script usa exatamente o mesmo catálogo do frontend:
+`Canalização`, `Portas/Fechaduras`, `Acabamentos/Decoração`,
 `Climatização`, `Casa de Banho`, `Outros`, `Elétrico`, `Cortinados`,
 `Cozinha/Equipamento`, `Amenities/Acessórios`, `Mobiliário`,
 `Pintura Preventiva`, `Limpeza/Manutenção Geral`, `Equipamento` e `Minibar`.
