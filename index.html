@@ -530,6 +530,7 @@
   })();
 </script>
 <script src="/node_modules/d3/dist/d3.min.js"></script>
+<script src="js/maintenance-categories.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -14190,23 +14191,7 @@
   // MÓDULO DE MANUTENÇÃO · PAINEL D3 DE KPIS & PROJEÇÕES
   // =========================================================
 
-  const CANONICAL_MAINTENANCE_CATEGORIES = [
-    'Canalização',
-    'Portas/Fechaduras',
-    'Pintura Preventiva',
-    'Acabamentos/Decoração',
-    'Equipamento',
-    'Elétrico',
-    'Equipamento de Cozinha',
-    'Cortinados',
-    'Mobiliário',
-    'Minibar',
-    'Outros',
-    'Climatização',
-    'Limpeza/Manutenção Geral',
-    'Amenities/Acessórios',
-    'Casa de Banho'
-  ];
+  const CANONICAL_MAINTENANCE_CATEGORIES = MaintenanceCategories.CANONICAL;
 
   const CATEGORY_META = {
     'Canalização': { icon: '💧', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)', border: 'rgba(2, 132, 199, 0.3)' },
@@ -14226,33 +14211,8 @@
     'Casa de Banho': { icon: '🚿', color: '#0891b2', bg: 'rgba(8, 145, 178, 0.12)', border: 'rgba(8, 145, 178, 0.3)' }
   };
 
-  function canonicalizeMaintenanceCategory(cat) {
-    if (cat === undefined || cat === null) return 'Outros';
-    const clean = String(cat).replace(/\uFEFF/g, '').replace(/\s+/g, ' ').trim();
-    if (!clean) return 'Outros';
-    const norm = clean.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
-    const exactCategory = CANONICAL_MAINTENANCE_CATEGORIES.find(category => {
-      const normalizedCategory = category.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return normalizedCategory === norm;
-    });
-    if (exactCategory) return exactCategory;
-    if (norm === 'casa banho' || norm.includes('casa de banho') || norm.includes('casa banho') ||
-        norm.includes('banheiro') || norm === 'wc' || norm.includes('sanitario') ||
-        norm.includes('instalacao sanitaria')) return 'Casa de Banho';
-    if (norm.includes('canaliz') || norm.includes('hidraul') || norm.includes('tubo') || norm.includes('fuga') || norm.includes('agua') || norm.includes('torneir')) return 'Canalização';
-    if (norm.includes('porta') || norm.includes('fechad') || norm.includes('tranco') || norm.includes('mola') || norm.includes('chave')) return 'Portas/Fechaduras';
-    if (norm.includes('pintur') || norm.includes('verniz') || norm.includes('tinta') || norm.includes('lixar')) return 'Pintura Preventiva';
-    if (norm.includes('acabamento') || norm.includes('decor') || norm.includes('gesso') || norm.includes('pladur') || norm.includes('papel') || norm.includes('estrutur') || norm.includes('teto')) return 'Acabamentos/Decoração';
-    if (norm.includes('cozinha') || norm.includes('forno') || norm.includes('fogao') || norm.includes('exaustor') || norm.includes('fritadeir') || norm.includes('frio') || norm.includes('refriger')) return 'Equipamento de Cozinha';
-    if (norm.includes('eletric') || norm.includes('eletro') || norm.includes('quadro') || norm.includes('disjuntor') || norm.includes('tomada') || norm.includes('lampada') || norm.includes('luz')) return 'Elétrico';
-    if (norm.includes('cortina') || norm.includes('cortinado') || norm.includes('estor') || norm.includes('persiana')) return 'Cortinados';
-    if (norm.includes('mobil') || norm.includes('movel') || norm.includes('moveis') || norm.includes('cadeira') || norm.includes('mesa') || norm.includes('cama') || norm.includes('sofa')) return 'Mobiliário';
-    if (norm.includes('minibar') || norm.includes('frigobar')) return 'Minibar';
-    if (norm.includes('clima') || norm.includes('arcond') || norm.includes('ar cond') || norm.includes('avac') || norm.includes('chiller') || norm.includes('ventil') || norm.includes('aqs')) return 'Climatização';
-    if (norm.includes('limpez') || norm.includes('manutencao geral') || norm.includes('higiene') || norm.includes('desinfe') || norm.includes('lixo') || norm.includes('geral')) return 'Limpeza/Manutenção Geral';
-    if (norm.includes('amenit') || norm.includes('acessor') || norm.includes('toalheir') || norm.includes('saboneteir') || norm.includes('espelho') || norm.includes('cabide') || norm.includes('utensil') || norm.includes('secador')) return 'Amenities/Acessórios';
-    if (norm.includes('equip') || norm.includes('maquin') || norm.includes('motor') || norm.includes('bomba') || norm.includes('piscina') || norm.includes('caldeira') || norm.includes('seguranc') || norm.includes('alarme')) return 'Equipamento';
-    return 'Outros';
+  function canonicalizeMaintenanceCategory(cat, options) {
+    return MaintenanceCategories.canonicalize(cat, options);
   }
 
   const normalizeTicketCategory = canonicalizeMaintenanceCategory;
@@ -16434,6 +16394,8 @@
       const dataRows = rows.slice(1);
       importParsedRows = dataRows.map((row, rowIdx)=>{
         const obj = {};
+        let rawCategory = '';
+        let unknownCategory = false;
         colMap.forEach((key, idx)=>{ if(key) obj[key] = (row[idx]||'').trim(); });
 
         if(obj.quarto_or_numero){
@@ -16495,8 +16457,11 @@
             else obj.tipo = 'Corretivo';
           }
 
-          // Canonicalizar categoria para as 15 categorias canónicas oficiais
-          obj.categoria = canonicalizeMaintenanceCategory(obj.categoria);
+          // Canonicalizar e rejeitar apenas categorias sem correspondência.
+          rawCategory = obj.categoria;
+          obj.categoria = canonicalizeMaintenanceCategory(rawCategory, { strict: true });
+          unknownCategory = obj.categoria === null;
+          if (unknownCategory) obj.categoria = 'Outros';
         } else {
           if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
         }
@@ -16512,6 +16477,9 @@
         let existingMatch = null;
 
         if(importType === 'ticket'){
+          if (unknownCategory) {
+            errores.push(`categoria de manutenção desconhecida: ${String(rawCategory).trim()}`);
+          }
           if(!obj.dataReporte) errores.push('falta a data de reporte');
           else if(!/^\d{4}-\d{2}-\d{2}$/.test(obj.dataReporte)) errores.push('a data deve ser AAAA-MM-DD');
 
