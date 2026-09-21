@@ -88,10 +88,9 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /addEventListener\('click', async \(event\)=>\{\s*event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
     });
 
-    test('maps frontend ticket categories to backend categories', () => {
-        assert.match(indexHtml, /'Canalização': 'Hidráulica'/);
-        assert.match(indexHtml, /'Equipamento': 'Equipamentos'/);
-        assert.match(indexHtml, /'Outros': 'Outro'/);
-        assert.match(indexHtml, /'Limpeza\/Manutenção Geral': 'Limpeza'/);
+    test('uses the shared frontend ticket category catalog', () => {
+        assert.doesNotMatch(indexHtml, /BACKEND_TICKET_CATEGORY_MAP/);
+        assert.doesNotMatch(indexHtml, /Hidráulica/);
+        assert.match(indexHtml, /categoria: obj\.categoria \|\| 'Outros'/);
     });
 });
