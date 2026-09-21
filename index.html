@@ -17024,16 +17024,9 @@
           });
 
           if(importType === 'ticket'){
-            await apiPost({ action:'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
-          } else {
-            await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
-          }
-
-          // Só confirmar localmente depois da resposta do servidor. IDs
-          // estáveis tornam uma retoma segura mesmo após timeout de rede.
-          chunk.forEach(item => {
-            completedIds.add(String(item.id));
-            if(importType === 'ticket'){
+            for (const item of chunk) {
+              await apiPost({ action: 'saveTicket', data: item }, IMPORT_REQUEST_TIMEOUT_MS);
+              completedIds.add(String(item.id));
               recordTicketUpdate(item);
               persistTicketInAllTicketsKey(item);
               if(cachedTicketsData){
@@ -17041,16 +17034,26 @@
                 if(existIdx >= 0) cachedTicketsData[existIdx] = item;
                 else cachedTicketsData.unshift(item);
               }
+              writeImportProgress(importType, completedIds);
+              createdCount++;
+              showToast(`A gravar novos tickets… ${createdCount + resumedCount}/${rowsToCreate.length}`);
             }
-            const entry = dataStore[importType];
-            if(entry && Array.isArray(entry.items)){
-              entry.items.unshift({ key: item.id, data: item });
-              persistStore();
-            }
-          });
-          writeImportProgress(importType, completedIds);
-          createdCount += chunk.length;
-          showToast(`A gravar novos registos… ${createdCount + resumedCount}/${rowsToCreate.length}`);
+          } else {
+            await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            // Só confirmar localmente depois da resposta do servidor. IDs
+            // estáveis tornam uma retoma segura mesmo após timeout de rede.
+            chunk.forEach(item => {
+              completedIds.add(String(item.id));
+              const entry = dataStore[importType];
+              if(entry && Array.isArray(entry.items)){
+                entry.items.unshift({ key: item.id, data: item });
+                persistStore();
+              }
+            });
+            writeImportProgress(importType, completedIds);
+            createdCount += chunk.length;
+            showToast(`A gravar novos registos… ${createdCount + resumedCount}/${rowsToCreate.length}`);
+          }
         }
       }
 

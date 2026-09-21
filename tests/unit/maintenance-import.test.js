@@ -52,6 +52,7 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /const IMPORT_REQUEST_TIMEOUT_MS = 60 \* 1000;/);
         assert.match(indexHtml, /slice\(i, i \+ IMPORT_BATCH_SIZE\)/);
         assert.match(indexHtml, /saveBatch'\, type: importType, rows: chunk \}, IMPORT_REQUEST_TIMEOUT_MS\)/);
+        assert.match(indexHtml, /apiPost\(\{ action: 'saveTicket', data: item \}, IMPORT_REQUEST_TIMEOUT_MS\)/);
     });
 
     test('persists stable progress and does not fall back after a timed-out batch', () => {
