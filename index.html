@@ -4113,8 +4113,18 @@
   async function apiPost(body, timeoutMs = 15000){
     return withRetry(async ()=>{
       const payload = Object.assign({}, body);
+      const action = typeof payload.action === 'string' ? payload.action.trim() : '';
+      if(!action){
+        throw new Error('Ação ausente no pedido.');
+      }
+      payload.action = action;
       const tk = getToken(); if(tk) payload.token = tk;
-      const res = await safeFetch(API_URL, {
+      // Mantém action/token no corpo para o dispatcher atual e na query para
+      // versões antigas do Apps Script que leem apenas e.parameter.
+      const requestUrl = new URL(API_URL);
+      requestUrl.searchParams.set('action', action);
+      if(tk) requestUrl.searchParams.set('token', tk);
+      const res = await safeFetch(requestUrl.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)

@@ -61,4 +61,19 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /Não fazer fallback para saveTicket/);
         assert.doesNotMatch(indexHtml, /for\(const item of chunk\)\{\s*await apiPost\(\{ action: 'saveTicket'/);
     });
+
+    test('sends action in both POST JSON and query string for deployed API compatibility', () => {
+        assert.match(indexHtml, /const action = typeof payload\.action === 'string' \? payload\.action\.trim\(\) : ''/);
+        assert.match(indexHtml, /if\(!action\)\{\s*throw new Error\('Ação ausente no pedido\.'/);
+        assert.match(indexHtml, /payload\.action = action/);
+        assert.match(indexHtml, /requestUrl\.searchParams\.set\('action', action\)/);
+        assert.match(indexHtml, /body: JSON\.stringify\(payload\)/);
+    });
+
+    test('keeps timeout and resumable progress guarantees on the batch request', () => {
+        assert.match(indexHtml, /safeFetch\(requestUrl\.toString\(\), \{/);
+        assert.match(indexHtml, /saveBatch'\, type: importType, rows: chunk \}, IMPORT_REQUEST_TIMEOUT_MS\)/);
+        assert.match(indexHtml, /Só confirmar localmente depois da resposta do servidor/);
+        assert.match(indexHtml, /clearImportProgress\(\)/);
+    });
 });
