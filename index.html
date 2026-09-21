@@ -16740,7 +16740,7 @@
     });
 
     html += `</tbody></table></div>
-      <button class="primary" id="btnConfirmImport" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Confirmar Importação</span></button>
+      <button type="button" class="primary" id="btnConfirmImport" style="margin-top:14px;"><span class="spinner"></span><span class="lbl-text">Confirmar Importação</span></button>
     </div>`;
 
     el.innerHTML = html;
@@ -16817,7 +16817,9 @@
     });
 
     // Evento de confirmação e execução da importação
-    $('btnConfirmImport').addEventListener('click', async ()=>{
+    $('btnConfirmImport').addEventListener('click', async (event)=>{
+      event.preventDefault();
+      event.stopPropagation();
       const stats = getStats();
       const totalExec = stats.countNovos + stats.countSobrescrever;
       if(valid.length === 0){
