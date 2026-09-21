@@ -3001,7 +3001,7 @@
           <option value="Acabamentos/Decoração">Acabamentos/Decoração</option>
           <option value="Equipamento">Equipamento</option>
           <option value="Elétrico">Elétrico</option>
-          <option value="Equipamento de Cozinha">Equipamento de Cozinha</option>
+          <option value="Cozinha/Equipamento">Cozinha/Equipamento</option>
           <option value="Cortinados">Cortinados</option>
           <option value="Mobiliário">Mobiliário</option>
           <option value="Minibar">Minibar</option>
@@ -3046,7 +3046,7 @@
               <option value="Acabamentos/Decoração">Acabamentos/Decoração</option>
               <option value="Equipamento">Equipamento</option>
               <option value="Elétrico">Elétrico</option>
-              <option value="Equipamento de Cozinha">Equipamento de Cozinha</option>
+              <option value="Cozinha/Equipamento">Cozinha/Equipamento</option>
               <option value="Cortinados">Cortinados</option>
               <option value="Mobiliário">Mobiliário</option>
               <option value="Minibar">Minibar</option>
@@ -14127,7 +14127,7 @@
             { value: 'Acabamentos/Decoração', label: 'Acabamentos/Decoração' },
             { value: 'Equipamento', label: 'Equipamento' },
             { value: 'Elétrico', label: 'Elétrico' },
-            { value: 'Equipamento de Cozinha', label: 'Equipamento de Cozinha' },
+            { value: 'Cozinha/Equipamento', label: 'Cozinha/Equipamento' },
             { value: 'Cortinados', label: 'Cortinados' },
             { value: 'Mobiliário', label: 'Mobiliário' },
             { value: 'Minibar', label: 'Minibar' },
@@ -14221,7 +14221,7 @@
     'Acabamentos/Decoração': { icon: '🖼️', color: '#a855f7', bg: 'rgba(168, 85, 247, 0.12)', border: 'rgba(168, 85, 247, 0.3)' },
     'Equipamento': { icon: '⚙️', color: '#ea580c', bg: 'rgba(234, 88, 12, 0.12)', border: 'rgba(234, 88, 12, 0.3)' },
     'Elétrico': { icon: '⚡', color: '#eab308', bg: 'rgba(234, 179, 8, 0.12)', border: 'rgba(234, 179, 8, 0.3)' },
-    'Equipamento de Cozinha': { icon: '🍳', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.3)' },
+    'Cozinha/Equipamento': { icon: '🍳', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.3)' },
     'Cortinados': { icon: '🪟', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.12)', border: 'rgba(6, 182, 212, 0.3)' },
     'Mobiliário': { icon: '🪑', color: '#78716c', bg: 'rgba(120, 113, 108, 0.12)', border: 'rgba(120, 113, 108, 0.3)' },
     'Minibar': { icon: '🧊', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.12)', border: 'rgba(59, 130, 246, 0.3)' },
@@ -16197,34 +16197,6 @@
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
   const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
-  const BACKEND_TICKET_CATEGORY_MAP = Object.freeze({
-    'Canalização': 'Hidráulica',
-    'Portas/Fechaduras': 'Vidros/Portas',
-    'Pintura Preventiva': 'Estrutural',
-    'Acabamentos/Decoração': 'Estrutural',
-    'Equipamento': 'Equipamentos',
-    'Elétrico': 'Elétrica',
-    'Equipamento de Cozinha': 'Equipamentos',
-    'Cortinados': 'Vidros/Portas',
-    'Mobiliário': 'Mobiliário',
-    'Minibar': 'Equipamentos',
-    'Outros': 'Outro',
-    'Climatização': 'Climatização',
-    'Limpeza/Manutenção Geral': 'Limpeza',
-    'Amenities/Acessórios': 'Utensílios',
-    'Casa de Banho': 'Casa de Banho'
-  });
-  const BACKEND_TICKET_CATEGORIES = new Set([
-    'Elétrica', 'Hidráulica', 'Climatização', 'Estrutural',
-    'Vidros/Portas', 'Mobiliário', 'Piscina', 'Jardim/Exterior',
-    'Segurança', 'Limpeza', 'Utensílios', 'Refrigeração', 'AQS',
-    'Equipamentos', 'Casa de Banho', 'Outro'
-  ]);
-  function toBackendTicketCategory(value){
-    const text = String(value || '').trim();
-    const mapped = BACKEND_TICKET_CATEGORY_MAP[text] || text;
-    return BACKEND_TICKET_CATEGORIES.has(mapped) ? mapped : 'Outro';
-  }
   const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
 
   const IMPORT_ALIASES = {
@@ -16509,7 +16481,6 @@
           obj.categoria = canonicalizeMaintenanceCategory(rawCategory, { strict: true });
           unknownCategory = obj.categoria === null;
           if (unknownCategory) obj.categoria = 'Outros';
-          else obj.categoria = toBackendTicketCategory(obj.categoria);
         } else {
           if(!obj.fecha && obj.dataReporte) obj.fecha = obj.dataReporte;
         }
@@ -17037,7 +17008,7 @@
               situacao: obj.situacao || 'aberto',
               turno: obj.turno || 'Manhã',
               tipo: obj.tipo || 'Corretivo',
-              categoria: importType === 'ticket' ? toBackendTicketCategory(obj.categoria) : (obj.categoria || 'Outros'),
+              categoria: obj.categoria || 'Outros',
               observacao: obj.observacao || obj.observacoes || '',
               comentarioCierre: obj.comentarioCierre || ''
             });
@@ -17957,7 +17928,7 @@
               { value: 'Acabamentos/Decoração', label: 'Acabamentos/Decoração' },
               { value: 'Equipamento', label: 'Equipamento' },
               { value: 'Elétrico', label: 'Elétrico' },
-              { value: 'Equipamento de Cozinha', label: 'Equipamento de Cozinha' },
+              { value: 'Cozinha/Equipamento', label: 'Cozinha/Equipamento' },
               { value: 'Cortinados', label: 'Cortinados' },
               { value: 'Mobiliário', label: 'Mobiliário' },
               { value: 'Minibar', label: 'Minibar' },

@@ -4,19 +4,19 @@
   var categories = [
     'Canalização',
     'Portas/Fechaduras',
-    'Pintura Preventiva',
     'Acabamentos/Decoração',
-    'Equipamento',
-    'Elétrico',
-    'Equipamento de Cozinha',
-    'Cortinados',
-    'Mobiliário',
-    'Minibar',
-    'Outros',
     'Climatização',
-    'Limpeza/Manutenção Geral',
+    'Casa de Banho',
+    'Outros',
+    'Elétrico',
+    'Cortinados',
+    'Cozinha/Equipamento',
     'Amenities/Acessórios',
-    'Casa de Banho'
+    'Mobiliário',
+    'Pintura Preventiva',
+    'Limpeza/Manutenção Geral',
+    'Equipamento',
+    'Minibar'
   ];
 
   function normalizeText(value) {
@@ -64,7 +64,7 @@
     if (normalized.indexOf('cozinha') !== -1 || normalized.indexOf('forno') !== -1 ||
         normalized.indexOf('fogao') !== -1 || normalized.indexOf('exaustor') !== -1 ||
         normalized.indexOf('fritadeir') !== -1 || normalized.indexOf('frio') !== -1 ||
-        normalized.indexOf('refriger') !== -1) return 'Equipamento de Cozinha';
+        normalized.indexOf('refriger') !== -1) return 'Cozinha/Equipamento';
     if (normalized.indexOf('eletric') !== -1 || normalized.indexOf('eletro') !== -1 ||
         normalized.indexOf('quadro') !== -1 || normalized.indexOf('disjuntor') !== -1 ||
         normalized.indexOf('tomada') !== -1 || normalized.indexOf('lampada') !== -1 ||
