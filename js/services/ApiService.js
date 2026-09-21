@@ -39,8 +39,9 @@ class ApiService {
      * Make API request with retry logic
      */
     async request(action, data = {}, options = {}) {
-        const url = this.buildUrl(action);
-        const body = this.buildBody({ action, ...data });
+        const normalizedAction = this.normalizeAction(action);
+        const url = this.buildUrl(normalizedAction);
+        const body = this.buildBody({ action: normalizedAction, ...data });
         
         const fetchOptions = {
             method: 'POST',
@@ -92,6 +93,16 @@ class ApiService {
         
         throw lastError;
     }
+
+    /**
+     * Reject malformed requests before they reach the API.
+     */
+    normalizeAction(action) {
+        if (typeof action !== 'string' || !action.trim()) {
+            throw new ApiError('Ação ausente no pedido.', 'BAD_REQUEST');
+        }
+        return action.trim();
+    }
     
     /**
      * Execute fetch with timeout
@@ -132,6 +143,7 @@ class ApiService {
      * Build URL with query params
      */
     buildUrl(action) {
+        action = this.normalizeAction(action);
         const url = new URL(this.apiUrl || window.location.href);
         url.searchParams.set('action', action);
         
