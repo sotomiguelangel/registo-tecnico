@@ -82,4 +82,9 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /if\(importType !== 'ticket'\)/);
         assert.doesNotMatch(indexHtml, /remoteConflictCheckFailed/);
     });
+
+    test('prevents the import confirmation button from submitting a host form', () => {
+        assert.match(indexHtml, /<button type="button" class="primary" id="btnConfirmImport"/);
+        assert.match(indexHtml, /addEventListener\('click', async \(event\)=>\{\s*event\.preventDefault\(\);\s*event\.stopPropagation\(\);/);
+    });
 });
