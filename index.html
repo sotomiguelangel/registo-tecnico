@@ -16363,12 +16363,21 @@
       let existingRecords = [];
       try{
         if(importType === 'ticket'){
-          existingRecords = (await loadTickets(true)) || [];
+          // La detección de conflictos de importación debe usar el estado
+          // autoritativo del servidor, no la caché local consolidada.
+          const remoteTicketsResponse = await apiGet({ action: 'listTickets' });
+          if(!remoteTicketsResponse || !Array.isArray(remoteTicketsResponse.tickets)){
+            throw new Error('A resposta remota de tickets é inválida.');
+          }
+          existingRecords = remoteTicketsResponse.tickets;
         } else {
           existingRecords = await listRecords(importType, { fresh: true });
         }
       }catch(e){
         console.warn('Erro ao carregar registos existentes para verificação:', e);
+        if(importType === 'ticket'){
+          throw new Error('Não foi possível consultar os tickets atuais no servidor. A importação foi cancelada para evitar conflitos.');
+        }
       }
 
       // Estruturas de correspondência rigorosas para identificar registos existentes sem falsos positivos

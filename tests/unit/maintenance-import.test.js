@@ -76,4 +76,10 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /Só confirmar localmente depois da resposta do servidor/);
         assert.match(indexHtml, /clearImportProgress\(\)/);
     });
+
+    test('uses authoritative remote tickets for import conflict detection', () => {
+        assert.match(indexHtml, /const remoteTicketsResponse = await apiGet\(\{ action: 'listTickets' \}\)/);
+        assert.match(indexHtml, /existingRecords = remoteTicketsResponse\.tickets/);
+        assert.match(indexHtml, /A importação foi cancelada para evitar conflitos/);
+    });
 });
