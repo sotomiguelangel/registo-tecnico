@@ -93,5 +93,7 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /'Equipamento': 'Equipamentos'/);
         assert.match(indexHtml, /'Outros': 'Outro'/);
         assert.match(indexHtml, /'Limpeza\/Manutenção Geral': 'Limpeza'/);
+        assert.match(indexHtml, /function toBackendTicketCategory\(value\)/);
+        assert.match(indexHtml, /return BACKEND_TICKET_CATEGORIES\.has\(mapped\) \? mapped : 'Outro'/);
     });
 });
