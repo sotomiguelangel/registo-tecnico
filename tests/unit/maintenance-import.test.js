@@ -78,10 +78,8 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /clearImportProgress\(\)/);
     });
 
-    test('uses authoritative remote tickets for import conflict detection', () => {
-        assert.match(indexHtml, /const remoteTicketsResponse = await apiGet\(\{ action: 'listTickets' \}\)/);
-        assert.match(indexHtml, /existingRecords = remoteTicketsResponse\.tickets/);
-        assert.match(indexHtml, /remoteConflictCheckFailed = importType === 'ticket'/);
-        assert.match(indexHtml, /A importação continuará como novos registos/);
+    test('does not block ticket preview on remote lookups', () => {
+        assert.match(indexHtml, /if\(importType !== 'ticket'\)/);
+        assert.doesNotMatch(indexHtml, /remoteConflictCheckFailed/);
     });
 });
