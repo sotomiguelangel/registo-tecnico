@@ -356,6 +356,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
   <script src="/node_modules/d3/dist/d3.min.js"></script>
+  <script src="js/runtime-config.js"></script>
   <script src="js/maintenance-categories.js"></script>
   <script>
     if (typeof window.d3 === 'undefined') {
@@ -3987,8 +3988,7 @@
       temperatura: 'Temperatura'
     };
 
-    const API_URL = (typeof window !== 'undefined' && (localStorage.getItem('bitacora_api_url') || (window.CONFIG && window.CONFIG.API_URL))) 
-      || 'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
+    const API_URL = window.AppConfig.apiUrl;
 
     async function safeFetch(url, opts = {}, timeoutMs = 35000) {
       if (typeof window !== 'undefined' && typeof window.safeFetch === 'function' && window.safeFetch !== safeFetch) {

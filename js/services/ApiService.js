@@ -2,10 +2,12 @@
 // API Service - Communication with Google Sheets backend
 // ============================================
 
+import { CONFIG, validateApiUrl } from '../config.js';
+
 class ApiService {
     constructor(config = {}) {
-        this.apiUrl = config.apiUrl || (typeof CONFIG !== 'undefined' ? CONFIG.API_URL : '');
-        this.timeout = config.timeout || (typeof CONFIG !== 'undefined' ? CONFIG.API_TIMEOUT : 35000);
+        this.apiUrl = validateApiUrl(config.apiUrl || CONFIG.API_URL);
+        this.timeout = config.timeout || CONFIG.API_TIMEOUT;
         this.token = null;
         this.retryCount = 0;
         this.maxRetries = 3;
@@ -17,10 +19,12 @@ class ApiService {
     setToken(token) {
         this.token = token;
         const key = typeof CONSTANTS !== 'undefined' ? CONSTANTS.STORAGE_KEYS.TOKEN : 'bitacora_token';
-        if (token) {
-            localStorage.setItem(key, token);
-        } else {
-            localStorage.removeItem(key);
+        if (typeof localStorage !== 'undefined') {
+            if (token) {
+                localStorage.setItem(key, token);
+            } else {
+                localStorage.removeItem(key);
+            }
         }
     }
     
@@ -30,7 +34,7 @@ class ApiService {
     getToken() {
         if (!this.token) {
             const key = typeof CONSTANTS !== 'undefined' ? CONSTANTS.STORAGE_KEYS.TOKEN : 'bitacora_token';
-            this.token = localStorage.getItem(key);
+            this.token = typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
         }
         return this.token;
     }
@@ -40,6 +44,7 @@ class ApiService {
      */
     async request(action, data = {}, options = {}) {
         const normalizedAction = this.normalizeAction(action);
+        this.validateRequestData(normalizedAction, data);
         const url = this.buildUrl(normalizedAction);
         const body = this.buildBody({ action: normalizedAction, ...data });
         
@@ -78,7 +83,14 @@ class ApiService {
                 lastError = error;
                 
                 // Don't retry on auth errors or abort
-                if (error.name === 'AbortError' || error.type === 'AUTH') {
+                if (
+                    error.name === 'AbortError' ||
+                    error.type === 'AUTH' ||
+                    error.code === 'TIMEOUT' ||
+                    error.code === 'PARSE_ERROR' ||
+                    error.code === 'INVALID_CONTENT_TYPE' ||
+                    /^HTTP_4\d\d$/.test(error.code || '')
+                ) {
                     throw error;
                 }
                 
@@ -102,6 +114,16 @@ class ApiService {
             throw new ApiError('Ação ausente no pedido.', 'BAD_REQUEST');
         }
         return action.trim();
+    }
+
+    validateRequestData(action, data) {
+        if (action === 'saveBatch' && (!data || !Array.isArray(data.rows) || !data.rows.length)) {
+            throw new ApiError('Lote de importação vazio ou inválido.', 'BAD_REQUEST');
+        }
+        if (data && Object.prototype.hasOwnProperty.call(data, 'type') &&
+            (typeof data.type !== 'string' || !data.type.trim())) {
+            throw new ApiError('Categoria/tipo ausente no pedido.', 'BAD_REQUEST');
+        }
     }
     
     /**
@@ -127,16 +149,36 @@ class ApiService {
      */
     async parseResponse(response) {
         const text = await response.text();
-        
+        const contentType = (response.headers && response.headers.get('content-type')) || '';
+        if (!response.ok) {
+            throw new ApiError(
+                `O servidor rejeitou o pedido (HTTP ${response.status}). ${this.describeNonJson(text)}`,
+                `HTTP_${response.status}`
+            );
+        }
+        if (contentType && !/application\/json|text\/json/i.test(contentType)) {
+            throw new ApiError(
+                `O servidor devolveu conteúdo não JSON (HTTP ${response.status}). ${this.describeNonJson(text)}`,
+                'INVALID_CONTENT_TYPE'
+            );
+        }
         try {
             const json = JSON.parse(text);
+            if (!json || typeof json !== 'object' || Array.isArray(json)) {
+                throw new Error('not an object');
+            }
             return json;
         } catch (e) {
             throw new ApiError(
-                `Resposta inválida do servidor (${response.status})`,
+                `O servidor não devolveu dados JSON válidos (HTTP ${response.status}). ${this.describeNonJson(text)}`,
                 'PARSE_ERROR'
             );
         }
+    }
+
+    describeNonJson(text) {
+        const detail = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+        return detail ? `Resposta: ${detail}` : 'Resposta vazia.';
     }
     
     /**
@@ -144,7 +186,7 @@ class ApiService {
      */
     buildUrl(action) {
         action = this.normalizeAction(action);
-        const url = new URL(this.apiUrl || window.location.href);
+        const url = new URL(validateApiUrl(this.apiUrl));
         url.searchParams.set('action', action);
         
         const token = this.getToken();

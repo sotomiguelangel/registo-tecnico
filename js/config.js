@@ -7,11 +7,42 @@ const runtimeConfig =
     ? window.__APP_CONFIG__ || {}
     : {};
 
+const DEFAULT_API_URL =
+  'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec';
+
+function validateApiUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error('API_URL não configurado.');
+  }
+
+  let url;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    throw new Error('API_URL inválido: URL malformado.');
+  }
+
+  const isAppsScript =
+    url.protocol === 'https:' &&
+    url.hostname === 'script.google.com' &&
+    /^\/macros\/s\/[^/]+\/exec$/.test(url.pathname);
+  const isLocal = ['http:', 'https:'].includes(url.protocol) &&
+    ['localhost', '127.0.0.1'].includes(url.hostname);
+
+  if (!isAppsScript && !isLocal) {
+    throw new Error('API_URL inválido: use a URL /macros/s/<deployment-id>/exec.');
+  }
+  return url.toString();
+}
+
 const CONFIG = Object.freeze({
   // API Configuration
   API_URL:
-    runtimeConfig.API_URL ||
-    'https://script.google.com/macros/s/AKfycbwFJmArbS54ZdgVN_oW7p-kaoUn6URWg86MBwnKppU1Xhaf7ZbTqdp8mG1ulW4dquszFw/exec',
+    validateApiUrl(
+      runtimeConfig.API_URL ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('bitacora_api_url')) ||
+      DEFAULT_API_URL
+    ),
 
   // App Version
   VERSION: '3.3.0',
@@ -81,4 +112,5 @@ if (typeof window !== 'undefined') {
 }
 
 export { CONFIG };
+export { DEFAULT_API_URL, validateApiUrl };
 export default CONFIG;
