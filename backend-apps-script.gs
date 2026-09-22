@@ -18052,6 +18052,106 @@ function createTicket(
 }
 
 // =========================================================
+// CRIAR TICKETS EM LOTE (BATCH)
+// =========================================================
+
+function createTicketBatch(
+  rows,
+  uid,
+  options
+) {
+  requirePermission(
+    uid,
+    PERMISSIONS.CREATE_TICKET
+  );
+
+  var source = requireArray(
+    rows,
+    'Lista de tickets',
+    BACKEND_RELEASE.MAX_BATCH_SIZE,
+    false
+  );
+
+  if (!source.length) {
+    return {
+      ok: true,
+      ids: [],
+      created: 0,
+      skipped: 0
+    };
+  }
+
+  var preparedRows = [];
+
+  source.forEach(function (row, index) {
+    try {
+      var prepared = prepareNewTicket(
+        row,
+        uid
+      );
+
+      if (row && row.id) {
+        prepared.id = requireId(
+          row.id,
+          'ID da linha ' + (index + 1)
+        );
+      }
+
+      preparedRows.push(prepared);
+    } catch (error) {
+      throw apiError(
+        getApiErrorCode(
+          error,
+          API_ERROR_CODES.VALIDATION
+        ),
+        'Linha ' +
+          (index + 1) +
+          ': ' +
+          safeString(
+            error.message || error
+          )
+      );
+    }
+  });
+
+  var settings = options || {};
+
+  var result = repositoryCreateBatch(
+    'ticket',
+    preparedRows,
+    {
+      idPrefix: 'ticket',
+      failIfExists: false
+    }
+  );
+
+  if (
+    result.created > 0 &&
+    typeof logAudit === 'function'
+  ) {
+    logAudit(
+      uid,
+      'createBatch',
+      'ticket',
+      '',
+      {
+        quantidade: result.created,
+        ignorados: result.skipped,
+        ids: result.ids
+      },
+      settings.requestId
+    );
+  }
+
+  return {
+    ok: true,
+    ids: result.ids,
+    created: result.created,
+    skipped: result.skipped
+  };
+}
+
+// =========================================================
 // ATUALIZAR DADOS BÁSICOS
 // =========================================================
 
@@ -28227,6 +28327,19 @@ function routeTicketWrite(
   uid,
   options
 ) {
+  if (
+    action ===
+    API_ACTIONS.SAVE_BATCH &&
+    body &&
+    body.type === 'ticket'
+  ) {
+    return createTicketBatch(
+      body.rows,
+      uid,
+      options
+    );
+  }
+
   if (
     action ===
     API_ACTIONS.SAVE_TICKET
