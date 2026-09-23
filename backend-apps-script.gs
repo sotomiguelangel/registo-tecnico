@@ -28074,6 +28074,14 @@ function routeOperationalWrite(
       );
     }
 
+    if (type === 'ticket') {
+      return createTicketBatch(
+        body.rows,
+        uid,
+        options
+      );
+    }
+
     if (
       type !== 'general' &&
       type !== 'quarto'

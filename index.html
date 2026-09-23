@@ -17967,7 +17967,24 @@
           });
 
           if(importType === 'ticket'){
-            await apiPost({ action: 'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({ action: 'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eBatch) {
+              const errTxt = String(eBatch && eBatch.message || '');
+              if (errTxt.includes('Tipo de registo') || errTxt.includes('inválido para importação') || errTxt.includes('VALIDATION') || errTxt.includes('Ação')) {
+                console.warn('Backend sem suporte a saveBatch para tickets, a gravar tickets individualmente:', eBatch);
+                for (let k = 0; k < chunk.length; k++) {
+                  const tRow = chunk[k];
+                  if (completedIds.has(String(tRow.id))) continue;
+                  showToast(`A gravar ticket ${k + 1}/${chunk.length}…`);
+                  await apiPost({ action: 'saveTicket', data: tRow }, IMPORT_REQUEST_TIMEOUT_MS);
+                  completedIds.add(String(tRow.id));
+                  writeImportProgress(importType, completedIds);
+                }
+              } else {
+                throw eBatch;
+              }
+            }
             chunk.forEach(item => {
               completedIds.add(String(item.id));
               recordTicketUpdate(item);
