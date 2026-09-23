@@ -712,7 +712,8 @@ var TICKET_MAINTENANCE_TYPES = [
   'correctivo',
   'preventivo',
   'inspecao',
-  'melhoria'
+  'melhoria',
+  'estrategico'
 ];
 
 var TICKET_MAINTENANCE_TYPE_LABELS =
@@ -720,7 +721,8 @@ var TICKET_MAINTENANCE_TYPE_LABELS =
     correctivo: 'Corretivo',
     preventivo: 'Preventivo',
     inspecao: 'Inspeção',
-    melhoria: 'Melhoria'
+    melhoria: 'Melhoria',
+    estrategico: 'Estratégico'
   });
 
 var TICKET_CATEGORIAS = [
@@ -15105,7 +15107,11 @@ function normalizeMaintenanceType(value) {
     inspection: 'inspecao',
 
     melhoria: 'melhoria',
-    improvement: 'melhoria'
+    improvement: 'melhoria',
+
+    estrategico: 'estrategico',
+    estrategica: 'estrategico',
+    strategic: 'estrategico'
   };
 
   return aliases[type] || '';
@@ -15984,10 +15990,23 @@ function prepareNewTicket(
       TICKET_PRIORITY.MEDIA
     );
 
+  var isStrat =
+    safeString(data.tipo).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(data.tipoManutencao).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(data.descricao).indexOf('[ESTRATÉGICO]') !== -1 ||
+    safeString(data.descricao).indexOf('⭐') !== -1 ||
+    safeString(data.prioridade).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(data.categoria).toLowerCase().indexOf('estrat') !== -1 ||
+    Boolean(data.isStrategic);
+
+  var rawType =
+    data.tipoManutencao ||
+    data.tipo ||
+    (isStrat ? 'estrategico' : 'correctivo');
+
   var maintenanceType =
     requireMaintenanceType(
-      data.tipoManutencao ||
-      'correctivo'
+      isStrat ? 'estrategico' : rawType
     );
 
   var category =
@@ -16087,6 +16106,12 @@ function prepareNewTicket(
 
     tipoManutencao:
       maintenanceType,
+
+    tipo:
+      TICKET_MAINTENANCE_TYPE_LABELS[maintenanceType] || (isStrat ? 'Estratégico' : (data.tipo || 'Corretivo')),
+
+    isStrategic:
+      isStrat || maintenanceType === 'estrategico',
 
     categoria:
       category,
@@ -16306,13 +16331,19 @@ function prepareTicketBasicUpdate(
   }
 
   if (
-    data.tipoManutencao !==
-    undefined
+    data.tipoManutencao !== undefined ||
+    data.tipo !== undefined
   ) {
+    var rawPatchType = data.tipoManutencao !== undefined ? data.tipoManutencao : data.tipo;
     patch.tipoManutencao =
       requireMaintenanceType(
-        data.tipoManutencao
+        rawPatchType
       );
+    patch.tipo =
+      TICKET_MAINTENANCE_TYPE_LABELS[patch.tipoManutencao] ||
+      patch.tipoManutencao;
+    patch.isStrategic =
+      patch.tipoManutencao === 'estrategico';
   }
 
   if (
@@ -16479,11 +16510,20 @@ function normalizeLegacyTicket(
     ) ||
     TICKET_PRIORITY.MEDIA;
 
+  var isStrat =
+    safeString(source.tipo).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(source.tipoManutencao).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(source.descricao).indexOf('[ESTRATÉGICO]') !== -1 ||
+    safeString(source.descricao).indexOf('⭐') !== -1 ||
+    safeString(source.prioridade).toLowerCase().indexOf('estrat') !== -1 ||
+    safeString(source.categoria).toLowerCase().indexOf('estrat') !== -1 ||
+    Boolean(source.isStrategic);
+
   var maintenanceType =
     normalizeMaintenanceType(
-      source.tipoManutencao
+      isStrat ? 'estrategico' : (source.tipoManutencao || source.tipo)
     ) ||
-    'correctivo';
+    (isStrat ? 'estrategico' : 'correctivo');
 
   var date =
     isValidIsoDate(
@@ -16571,6 +16611,12 @@ function normalizeLegacyTicket(
 
         tipoManutencao:
           maintenanceType,
+
+        tipo:
+          TICKET_MAINTENANCE_TYPE_LABELS[maintenanceType] || (isStrat ? 'Estratégico' : (source.tipo || 'Corretivo')),
+
+        isStrategic:
+          isStrat || maintenanceType === 'estrategico',
 
         categoria:
           normalizeTicketCategory(

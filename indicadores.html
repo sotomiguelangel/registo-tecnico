@@ -5574,9 +5574,12 @@
     if (!t || !t.id) return false;
     if (isTicketDeletedIndicadores(t)) return false;
 
-    // 1. Tipo explícito Estratégico
+    // 1. Tipo explícito Estratégico ou tipoManutencao
     const tipo = String(t.tipo || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico') return true;
+    const tipoManut = String(t.tipoManutencao || '').trim().toLowerCase();
+    if (tipo === 'estratégico' || tipo === 'estrategico' || tipo === 'estrategica' || tipo.includes('estrat')) return true;
+    if (tipoManut === 'estrategico' || tipoManut === 'estrategica' || tipoManut.includes('estrat')) return true;
+    if (t.isStrategic === true || t.estrategico === true) return true;
 
     // 2. Presente no repositório de tickets estratégicos salvos
     const strId = String(t.id).trim();
@@ -5681,10 +5684,12 @@
           arr.forEach(t => {
             if (t && t.id && !isTicketDeletedIndicadores(t)) {
               const id = String(t.id).trim();
-              if (map.has(id)) {
-                map.set(id, { ...map.get(id), ...t });
+              const existing = map.get(id);
+              const isStrat = isStrategicTicket(existing) || isStrategicTicket(t);
+              if (existing) {
+                map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
               } else {
-                map.set(id, { ...t });
+                map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
               }
             }
           });
@@ -5697,10 +5702,12 @@
       cachedTicketsIndicadores.forEach(t => {
         if (t && t.id && !isTicketDeletedIndicadores(t)) {
           const id = String(t.id).trim();
-          if (map.has(id)) {
-            map.set(id, { ...map.get(id), ...t });
+          const existing = map.get(id);
+          const isStrat = isStrategicTicket(existing) || isStrategicTicket(t);
+          if (existing) {
+            map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
           } else {
-            map.set(id, { ...t });
+            map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
           }
         }
       });
@@ -5711,15 +5718,38 @@
       const cleanUid = String(uid).trim();
       const upd = updatedMap[uid];
       if (upd && !isTicketDeletedIndicadores(upd) && !isTicketDeletedIndicadores(cleanUid)) {
-        if (map.has(cleanUid)) {
-          map.set(cleanUid, { ...map.get(cleanUid), ...upd });
-        } else if (isStrategicTicket(upd)) {
-          map.set(cleanUid, { ...upd });
+        const existing = map.get(cleanUid);
+        const isStrat = isStrategicTicket(existing) || isStrategicTicket(upd);
+        if (existing) {
+          map.set(cleanUid, { ...existing, ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+        } else {
+          map.set(cleanUid, { ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         }
       }
     });
 
-    return Array.from(map.values()).filter(t => t && t.id && !isTicketDeletedIndicadores(t));
+    // Auto-sincronizar tickets estratégicos consolidados para STRATEGIC_TICKETS_KEY
+    const consolidatedList = Array.from(map.values()).filter(t => t && t.id && !isTicketDeletedIndicadores(t));
+    try {
+      const currentSavedStrats = getSavedStrategicTicketsIndicadores();
+      const stratMap = new Map();
+      currentSavedStrats.forEach(s => { if (s && s.id && !isTicketDeletedIndicadores(s)) stratMap.set(String(s.id).trim(), s); });
+      let hasNewStrats = false;
+      consolidatedList.forEach(t => {
+        if (isStrategicTicket(t)) {
+          const id = String(t.id).trim();
+          if (!stratMap.has(id)) {
+            stratMap.set(id, { ...t, tipo: 'Estratégico' });
+            hasNewStrats = true;
+          }
+        }
+      });
+      if (hasNewStrats) {
+        saveStrategicTicketsIndicadores(Array.from(stratMap.values()));
+      }
+    } catch(e) {}
+
+    return consolidatedList;
   }
 
   async function loadTicketsIndicadores(forceFresh) {
@@ -5740,13 +5770,15 @@
       return cachedTicketsIndicadores.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
     }
 
-    // 1. Tentar API remota se solicitado ou se a cache expirou
+    // 1. Tentar API remota com autenticação se disponível
     let remoteTickets = null;
+    const token = localStorage.getItem('bitacora_token') || localStorage.getItem('sessionToken') || localStorage.getItem('bitacora_session_token') || '';
     if ((forceFresh || (now - cachedTicketsIndicadoresTimestamp >= 30000)) && typeof API_URL !== 'undefined' && API_URL) {
       try {
         const url = new URL(API_URL);
         url.searchParams.set('action', 'listTickets');
-        const res = await safeFetch(url.toString());
+        if (token) url.searchParams.set('token', token);
+        const res = await safeFetch(url.toString(), {}, 20000);
         const data = await safeParseJsonResponse(res);
         if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
           remoteTickets = data.tickets.filter(t => t && t.id && !isTicketDeletedIndicadores(t));
@@ -5761,7 +5793,8 @@
     if (remoteTickets && remoteTickets.length > 0) {
       remoteTickets.forEach(t => {
         if (t && t.id && !isTicketDeletedIndicadores(t)) {
-          ticketMap.set(String(t.id).trim(), { ...t });
+          const id = String(t.id).trim();
+          ticketMap.set(id, { ...t });
         }
       });
     }
@@ -5769,10 +5802,12 @@
     consolidated.forEach(t => {
       if (t && t.id && !isTicketDeletedIndicadores(t)) {
         const id = String(t.id).trim();
-        if (ticketMap.has(id)) {
-          ticketMap.set(id, { ...ticketMap.get(id), ...t });
+        const existing = ticketMap.get(id);
+        const isStrat = isStrategicTicket(existing) || isStrategicTicket(t);
+        if (existing) {
+          ticketMap.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         } else {
-          ticketMap.set(id, { ...t });
+          ticketMap.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         }
       }
     });
@@ -6243,14 +6278,21 @@
       // Enviar ao servidor em segundo plano se disponível
       if (typeof API_URL !== 'undefined' && API_URL) {
         try {
-          await safeFetch(API_URL, {
+          const token = localStorage.getItem('bitacora_token') || localStorage.getItem('sessionToken') || localStorage.getItem('bitacora_session_token') || '';
+          const postUrl = new URL(API_URL);
+          postUrl.searchParams.set('action', 'updateTicket');
+          if (token) postUrl.searchParams.set('token', token);
+          await safeFetch(postUrl.toString(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'updateTicket',
+              token: token,
               id: ticketId,
               data: {
                 tipo: novoTipo,
+                tipoManutencao: novoTipo === 'Estratégico' ? 'estrategico' : 'correctivo',
+                isStrategic: novoTipo === 'Estratégico',
                 situacao: novaSit,
                 prioridade: novaPrio,
                 descricao: ticket.descricao,
@@ -6364,6 +6406,8 @@
       const newTicket = {
         id: 'strat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         tipo: 'Estratégico',
+        tipoManutencao: 'estrategico',
+        isStrategic: true,
         prioridade: prioridade,
         quarto: quarto,
         categoria: categoria,
@@ -6400,10 +6444,14 @@
       // 3. Enviar ao servidor em segundo plano
       if (typeof API_URL !== 'undefined' && API_URL) {
         try {
-          await safeFetch(API_URL, {
+          const token = localStorage.getItem('bitacora_token') || localStorage.getItem('sessionToken') || localStorage.getItem('bitacora_session_token') || '';
+          const postUrl = new URL(API_URL);
+          postUrl.searchParams.set('action', 'saveTicket');
+          if (token) postUrl.searchParams.set('token', token);
+          await safeFetch(postUrl.toString(), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'saveTicket', data: newTicket })
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'saveTicket', token: token, data: newTicket })
           });
         } catch(e){}
       }
@@ -12247,10 +12295,57 @@
             if (data.equipamentos && Array.isArray(data.equipamentos) && data.equipamentos.length > 0) {
               mergeAndPersistEquipamentosInIndicadores(data.equipamentos);
             }
+
+            // Sincronizar e persistir tickets recebidos do backend
+            const serverTickets = (data && (data.tickets || (data.records && data.records.ticket))) || [];
+            if (Array.isArray(serverTickets) && serverTickets.length > 0) {
+              try {
+                let localTickets = [];
+                const rawT = localStorage.getItem(ALL_TICKETS_KEY);
+                if (rawT) {
+                  const parsedT = JSON.parse(rawT);
+                  if (Array.isArray(parsedT)) localTickets = parsedT;
+                }
+                const tMap = new Map();
+                serverTickets.forEach(st => {
+                  if (st && st.id && !isTicketDeletedIndicadores(st)) {
+                    tMap.set(String(st.id).trim(), { ...st });
+                  }
+                });
+                localTickets.forEach(lt => {
+                  if (lt && lt.id && !isTicketDeletedIndicadores(lt)) {
+                    const lid = String(lt.id).trim();
+                    if (!tMap.has(lid)) {
+                      tMap.set(lid, lt);
+                    } else {
+                      const cur = tMap.get(lid);
+                      const isStrat = isStrategicTicket(cur) || isStrategicTicket(lt);
+                      tMap.set(lid, { ...cur, ...lt, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+                    }
+                  }
+                });
+                const mergedTickets = Array.from(tMap.values());
+                localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(mergedTickets));
+                cachedTicketsIndicadores = mergedTickets;
+                cachedTicketsIndicadoresTimestamp = Date.now();
+                // Auto-sincronizar estratégicos
+                const stratsToSave = mergedTickets.filter(isStrategicTicket);
+                if (stratsToSave.length > 0) {
+                  const currentStrats = getSavedStrategicTicketsIndicadores();
+                  const sm = new Map();
+                  currentStrats.forEach(s => sm.set(String(s.id).trim(), s));
+                  stratsToSave.forEach(s => sm.set(String(s.id).trim(), { ...s, tipo: 'Estratégico' }));
+                  saveStrategicTicketsIndicadores(Array.from(sm.values()));
+                }
+              } catch(errT) {
+                console.warn('Erro ao mesclar tickets no bootstrap:', errT);
+              }
+            }
           } catch(e) {}
 
           loadTariffsOnce();
           load();
+          updateStrategicBoardIndicadores().catch(()=>{});
           setStatus(
             'Sincronizado com Google Sheets · ' + new Date().toLocaleTimeString('pt-PT'),
             totals.general + ' registos gerais · ' +

@@ -13743,12 +13743,14 @@
     if (isTicketDeleted(t)) return false;
     const strId = String(t.id).trim();
 
-    // Verificar tipo explícito
+    // 1. Verificar tipo explícito ou tipoManutencao
     const tipo = String(t.tipo || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico') return true;
-    if (tipo === 'corretivo' || tipo === 'preventivo' || tipo === 'melhoria') return false;
+    const tipoManut = String(t.tipoManutencao || '').trim().toLowerCase();
+    if (tipo === 'estratégico' || tipo === 'estrategico' || tipo === 'estrategica' || tipo.includes('estrat')) return true;
+    if (tipoManut === 'estrategico' || tipoManut === 'estrategica' || tipoManut.includes('estrat')) return true;
+    if (t.isStrategic === true || t.estrategico === true) return true;
 
-    // Verificar se existe em STRATEGIC_TICKETS_KEY
+    // 2. Verificar se existe em STRATEGIC_TICKETS_KEY
     try {
       const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (rawStrats) {
@@ -13759,6 +13761,7 @@
       }
     } catch(e) {}
 
+    // 3. Marcadores no texto, prioridade ou categoria
     const cat = String(t.categoria || '').toLowerCase();
     const prio = String(t.prioridade || '').toLowerCase();
     const desc = String(t.descricao || '').toLowerCase();
@@ -13819,7 +13822,8 @@
           parsed.forEach(t => {
             if (t && t.id && !isTicketDeleted(t)) {
               const id = String(t.id).trim();
-              ticketMap.set(id, { ...t, id });
+              const isStrat = isStrategicTicket(t);
+              ticketMap.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
             }
           });
         }
@@ -13831,8 +13835,9 @@
     strats.forEach(s => {
       if (s && s.id && !isTicketDeleted(s)) {
         const id = String(s.id).trim();
-        if (ticketMap.has(id)) {
-          ticketMap.set(id, { ...ticketMap.get(id), ...s, id, tipo: 'Estratégico' });
+        const existing = ticketMap.get(id);
+        if (existing) {
+          ticketMap.set(id, { ...existing, ...s, id, tipo: 'Estratégico' });
         } else {
           ticketMap.set(id, { ...s, id, tipo: 'Estratégico' });
         }
@@ -13844,15 +13849,38 @@
       const strUid = String(uid).trim();
       const upd = updatedMap[uid];
       if (upd && !isTicketDeleted(upd) && !isTicketDeleted(strUid)) {
-        if (ticketMap.has(strUid)) {
-          ticketMap.set(strUid, { ...ticketMap.get(strUid), ...upd, id: strUid });
+        const existing = ticketMap.get(strUid);
+        const isStrat = isStrategicTicket(existing) || isStrategicTicket(upd);
+        if (existing) {
+          ticketMap.set(strUid, { ...existing, ...upd, id: strUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         } else {
-          ticketMap.set(strUid, { ...upd, id: strUid });
+          ticketMap.set(strUid, { ...upd, id: strUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         }
       }
     });
 
     const consolidated = Array.from(ticketMap.values()).filter(t => t && t.id && !isTicketDeleted(t));
+
+    // Auto-sincronizar tickets estratégicos consolidados para STRATEGIC_TICKETS_KEY
+    try {
+      const currentSavedStrats = getSavedStrategicTickets();
+      const stratMap = new Map();
+      currentSavedStrats.forEach(s => { if (s && s.id && !isTicketDeleted(s)) stratMap.set(String(s.id).trim(), s); });
+      let hasNewStrats = false;
+      consolidated.forEach(t => {
+        if (isStrategicTicket(t)) {
+          const id = String(t.id).trim();
+          if (!stratMap.has(id)) {
+            stratMap.set(id, { ...t, tipo: 'Estratégico' });
+            hasNewStrats = true;
+          }
+        }
+      });
+      if (hasNewStrats) {
+        saveStrategicTickets(Array.from(stratMap.values()));
+      }
+    } catch(e) {}
+
     cachedTicketsData = consolidated;
     cachedTicketsTimestamp = Date.now();
     return consolidated;
@@ -13895,12 +13923,17 @@
             remoteTickets.forEach(rt => {
               if (rt && rt.id && !isTicketDeleted(rt)) {
                 const id = String(rt.id).trim();
-                if (stratIds.has(id)) {
+                if (stratIds.has(id) || isStrategicTicket(rt)) {
                   rt.tipo = 'Estratégico';
+                  if (!stratIds.has(id)) {
+                    currentStrats.push({ ...rt, tipo: 'Estratégico' });
+                    stratIds.add(id);
+                  }
                 }
                 persistTicketInAllTicketsKey(rt);
               }
             });
+            saveStrategicTickets(currentStrats);
             return getConsolidatedTickets();
           }
         }
@@ -14168,6 +14201,8 @@
       const newTicket = {
         id: newId,
         tipo: 'Estratégico',
+        tipoManutencao: 'estrategico',
+        isStrategic: true,
         prioridade: vals.prioridade || 'Máxima',
         quarto: vals.quarto.trim(),
         categoria: vals.categoria,
@@ -17007,7 +17042,9 @@
               colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
               situacao: obj.situacao || 'aberto',
               turno: obj.turno || 'Manhã',
-              tipo: obj.tipo || 'Corretivo',
+              tipo: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'Estratégico' : (obj.tipo || 'Corretivo'),
+              tipoManutencao: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'estrategico' : (obj.tipoManutencao || 'correctivo'),
+              isStrategic: isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat')),
               categoria: obj.categoria || 'Outros',
               observacao: obj.observacao || obj.observacoes || '',
               comentarioCierre: obj.comentarioCierre || ''
@@ -17020,6 +17057,13 @@
               completedIds.add(String(item.id));
               recordTicketUpdate(item);
               persistTicketInAllTicketsKey(item);
+              if (isStrategicTicket(item)) {
+                const strats = getSavedStrategicTickets();
+                if (!strats.some(s => String(s.id).trim() === String(item.id).trim())) {
+                  strats.unshift({ ...item, tipo: 'Estratégico' });
+                  saveStrategicTickets(strats);
+                }
+              }
               if(cachedTicketsData){
                 const existIdx = cachedTicketsData.findIndex(t => String(t.id) === String(item.id));
                 if(existIdx >= 0) cachedTicketsData[existIdx] = item;
@@ -18036,6 +18080,8 @@
             ticketId: ticketId,
             data: {
               tipo: ticket.tipo,
+              tipoManutencao: ticket.tipo === 'Estratégico' ? 'estrategico' : 'correctivo',
+              isStrategic: ticket.tipo === 'Estratégico',
               prioridade: ticket.prioridade,
               situacao: ticket.situacao,
               descricao: ticket.descricao,
