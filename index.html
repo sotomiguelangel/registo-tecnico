@@ -16904,10 +16904,52 @@
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
-  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
-  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
+  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','prioridade','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
+  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Prioridade','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
+
+  const IMPORT_FIELD_LABELS = {
+    id: 'ID / Nº',
+    fecha: 'Data',
+    dataReporte: 'Data',
+    hora: 'Hora',
+    horaReporte: 'Hora',
+    usuario: 'Utilizador',
+    colaborador: 'Colaborador',
+    quarto: 'Quarto / Local',
+    numero: 'Quarto',
+    categoria: 'Categoria',
+    tipo: 'Tipo',
+    prioridade: 'Prioridade',
+    descricao: 'Descrição do Pedido',
+    turno: 'Turno',
+    situacao: 'Estado',
+    observacao: 'Observações',
+    observacoes: 'Observações',
+    comentarioCierre: 'Comentário Fecho',
+    agua: 'Água (m³)',
+    electricidad: 'Eletricidade (kWh)',
+    retornoAqs: 'Retorno AQS (°C)',
+    aqsQuartos: 'AQS Quartos (°C)',
+    estadoPiscina: 'Estado Piscina',
+    tempPiscina: 'Temp. Piscina (°C)',
+    phPiscina: 'pH Piscina',
+    cloroLibre: 'Cloro Livre (ppm)',
+    cloroTotal: 'Cloro Total (ppm)',
+    lavadoPrefiltro: 'Lav. Pré-filtro',
+    lavadoFiltroArena: 'Filtro Areia',
+    limpiezaSkimmer: 'Skimmer',
+    nome: 'Equipamento',
+    temperatura: 'Temp. (°C)',
+    phCaliente: 'pH Quente',
+    cloroCaliente: 'Cloro Quente',
+    cloroTotalCaliente: 'Cloro Tot. Quente',
+    phFria: 'pH Fria',
+    cloroFria: 'Cloro Fria',
+    cloroTotalFria: 'Cloro Tot. Fria'
+  };
 
   const IMPORT_ALIASES = {
+    id:'id', ticket:'id', pedido:'id', npedido:'id', numpedido:'id', numeropedido:'id', nticket:'id', numticket:'id', numeroticket:'id', codigo:'id', cod:'id', ref:'id', referencia:'id', identificador:'id',
     fecha:'fecha', data:'fecha', dia:'fecha', date:'fecha', datahora:'fecha',
     hora:'hora', time:'hora', usuario:'usuario', utilizador:'usuario', user:'usuario',
     agua:'agua', electricidad:'electricidad', electricidade:'electricidad', eletricidade:'electricidad',
@@ -16918,34 +16960,98 @@
     lavadofiltroarena:'lavadoFiltroArena', lavagemfiltroareia:'lavadoFiltroArena', lavagemfiltrodareia:'lavadoFiltroArena',
     limpiezaskimmer:'limpiezaSkimmer', limpezaskimmer:'limpiezaSkimmer',
     observacoes:'observacoes', observacione:'observacoes', notas:'observacoes', comentarios:'observacoes',
-    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto', localizacao:'quarto', localizacion:'quarto', area:'quarto', departamento:'quarto', habitacion:'quarto_or_numero', room:'quarto_or_numero',
+    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto', localizacao:'quarto', localizacion:'quarto', habitacion:'quarto_or_numero', habitaciones:'quarto_or_numero', habitacionlocal:'quarto', ubicacion:'quarto', area:'quarto', zona:'quarto', espacio:'quarto', departamento:'quarto', dependencia:'quarto', lugar:'quarto', room:'quarto_or_numero',
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
     clorototalcaliente:'cloroTotalCaliente', clorototalquente:'cloroTotalCaliente',
     phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria',
     equipamento:'nome', nome:'nome', equipment:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura',
-    datareporte:'dataReporte', horareporte:'horaReporte',
+    datareporte:'dataReporte', horareporte:'horaReporte', fechareporte:'dataReporte', fechacreacion:'dataReporte', fechadecreacion:'dataReporte', datadecriacao:'dataReporte', dataabertura:'dataReporte', fechaapertura:'dataReporte',
     categoria:'categoria', categ:'categoria', cat:'categoria',
-    categoriademanutencao:'categoria', categoriamanutencao:'categoria',
+    categoriademanutencao:'categoria', categoriamanutencao:'categoria', categoriademantenimiento:'categoria', categoriamantenimiento:'categoria',
     maintenancecategory:'categoria', maintenancecategorie:'categoria',
     classificacao:'categoria', classificacaointervencao:'categoria', classificacaodoticket:'categoria',
     clasificacion:'categoria', clasificaciondeticket:'categoria', clasificacionticket:'categoria',
-    subcategoria:'categoria', especialidade:'categoria', especialidad:'categoria',
-    tipo:'tipo', tipodeintervencao:'tipo', tipodeintervencion:'tipo', tipologia:'tipo', intervencao:'tipo', intervencion:'tipo',
-    prioridade:'prioridade', prioridad:'prioridade', priority:'prioridade',
-    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao', description:'descricao',
-    turno:'turno', shift:'turno',
-    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador', operador:'colaborador',
-    situacao:'situacao', estado:'situacao', status:'situacao', situacion:'situacao',
+    subcategoria:'categoria', especialidade:'categoria', especialidad:'categoria', rama:'categoria', disciplina:'categoria', areatecnica:'categoria',
+    tipo:'tipo', tipodeintervencao:'tipo', tipodeintervencion:'tipo', tipologia:'tipo', intervencao:'tipo', intervencion:'tipo', tipointervencao:'tipo', tipointervencion:'tipo', carater:'tipo',
+    prioridade:'prioridade', prioridad:'prioridade', priority:'prioridade', urgencia:'prioridade', criticidade:'prioridade', criticidad:'prioridade', nivel:'prioridade',
+    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao', detalhes:'descricao', description:'descricao', descripcion:'descricao', detalle:'descricao', titulo:'descricao', title:'descricao', motivo:'descricao', falla:'descricao', averia:'descricao', avaria:'descricao', incidencia:'descricao', resumo:'descricao', resumen:'descricao', solicitud:'descricao', tarefa:'descricao', tarea:'descricao',
+    turno:'turno', shift:'turno', horario:'turno', jornada:'turno',
+    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador', operador:'colaborador', solicitante:'colaborador', criador:'colaborador', reportadopor:'colaborador', reportado_por:'colaborador', creadopor:'colaborador', creado_por:'colaborador', asignado:'colaborador', asignadoa:'colaborador', atribuido:'colaborador', atribuidoa:'colaborador',
+    situacao:'situacao', estado:'situacao', status:'situacao', situacion:'situacao', fase:'situacao',
     observacao:'observacao', obs:'observacao',
-    comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre',
-    resolucao:'comentarioCierre', solucao:'comentarioCierre', fecho:'comentarioCierre', cierre:'comentarioCierre'
+    comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre', comentariodecierre:'comentarioCierre',
+    resolucao:'comentarioCierre', resolucion:'comentarioCierre', solucao:'comentarioCierre', solucion:'comentarioCierre', fecho:'comentarioCierre', cierre:'comentarioCierre', acao:'comentarioCierre', accion:'comentarioCierre'
   };
 
   let importType = 'general';
   let importParsedRows = [];
 
   function normHeader(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
+
+  function detectImportTypeFromRows(rows){
+    if(!rows || rows.length < 1) return null;
+    const headerRow = rows[0];
+    const normHeaders = headerRow.map(h => normHeader(h));
+
+    let ticketScore = 0;
+    let generalScore = 0;
+    let roomScore = 0;
+    let tempScore = 0;
+
+    const ticketKeywords = [
+      'categoria', 'categ', 'classificacao', 'clasificacion', 'subcategoria', 'especialidade',
+      'descricao', 'desc', 'descripcion', 'problema', 'assunto', 'motivo', 'falla', 'averia', 'avaria',
+      'incidencia', 'solicitud', 'quarto', 'quartolocal', 'habitacion', 'habitacionlocal', 'local',
+      'ubicacion', 'localizacao', 'localizacion', 'area', 'turno', 'situacao', 'situacion', 'estado',
+      'comentariofecho', 'comentariocierre', 'ticket', 'pedido', 'npedido', 'prioridade', 'prioridad'
+    ];
+
+    const generalKeywords = [
+      'agua', 'electricidad', 'electricidade', 'eletricidade', 'retornoaqs', 'aqsquartos',
+      'estadopiscina', 'temppiscina', 'phpiscina', 'clorolibre', 'clorolivre', 'clorototal',
+      'lavadoprefiltro', 'lavagemprefiltro', 'lavadofiltroarena', 'lavagemfiltroareia', 'limpiezaskimmer', 'limpezaskimmer'
+    ];
+
+    const roomKeywords = [
+      'phcaliente', 'phquente', 'clorocaliente', 'cloroquente', 'clorototalcaliente', 'clorototalquente',
+      'phfria', 'clorofria', 'clorototalfria'
+    ];
+
+    const tempKeywords = [
+      'temperatura', 'temp', 'equipamento', 'equipment'
+    ];
+
+    normHeaders.forEach(h => {
+      if(ticketKeywords.includes(h)) ticketScore += 2;
+      if(generalKeywords.includes(h)) generalScore += 3;
+      if(roomKeywords.includes(h)) roomScore += 3;
+      if(tempKeywords.includes(h)) tempScore += 2;
+    });
+
+    const hasStrongTicketField = normHeaders.some(h => [
+      'categoria', 'descricao', 'descripcion', 'problema', 'ticket', 'pedido',
+      'avaria', 'averia', 'incidencia', 'comentariofecho', 'comentariocierre'
+    ].includes(h));
+
+    if(hasStrongTicketField && generalScore === 0 && roomScore === 0){
+      return 'ticket';
+    }
+
+    if(roomScore >= 3 && roomScore > generalScore) return 'quarto';
+    if(tempScore >= 2 && generalScore === 0 && roomScore === 0) return 'temperatura';
+    if(generalScore >= 3) return 'general';
+    if(ticketScore >= 2) return 'ticket';
+    return null;
+  }
+
+  function switchImportTab(newType){
+    importType = newType;
+    document.querySelectorAll('.period-toggle button[data-importtype]').forEach(b => {
+      b.classList.toggle('active', b.dataset.importtype === newType);
+    });
+    updateImportPlaceholder();
+  }
 
   function parseCSVLine(line){
     const result = [];
@@ -17006,11 +17112,34 @@
       document.querySelectorAll('.period-toggle button[data-importtype]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       importType = btn.dataset.importtype;
-      $('importPreview').innerHTML = '';
       updateImportPlaceholder();
+      if($('importTextarea') && $('importTextarea').value.trim()){
+        $('btnPreviewImport').click();
+      } else {
+        $('importPreview').innerHTML = '';
+      }
     });
   });
   updateImportPlaceholder();
+
+  function autoDetectFromInput(){
+    const text = ($('importTextarea').value || '').trim();
+    if(!text) return;
+    const firstLine = text.split(/\r?\n/)[0];
+    if(!firstLine) return;
+    const headerCols = parseCSVLine(firstLine);
+    if(headerCols.length < 2) return;
+    const detected = detectImportTypeFromRows([headerCols]);
+    if(detected && detected !== importType){
+      switchImportTab(detected);
+      const typeNames = { general: 'Leituras Gerais', quarto: 'Leituras de Quartos', temperatura: 'Refrigeração', ticket: 'Tickets / Pedidos' };
+      showToast(`ℹ️ Tipo detetado automaticamente: ${typeNames[detected] || detected}`);
+    }
+  }
+  if($('importTextarea')){
+    $('importTextarea').addEventListener('paste', ()=>{ setTimeout(autoDetectFromInput, 100); });
+    $('importTextarea').addEventListener('change', autoDetectFromInput);
+  }
 
   $('btnDownloadTemplate').addEventListener('click', ()=>{
     let headers, ejemplo, fname;
@@ -17044,7 +17173,10 @@
     const file = e.target.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = ()=> { $('importTextarea').value = reader.result; };
+    reader.onload = ()=> {
+      $('importTextarea').value = reader.result;
+      autoDetectFromInput();
+    };
     reader.readAsText(file, 'UTF-8');
   });
 
@@ -17057,6 +17189,16 @@
     try{
       const rows = parseCSV(text);
       if(rows.length < 2){ showToast('O CSV precisa do cabeçalho + pelo menos uma linha de dados'); setLoading(btn,false); return; }
+
+      // Deteção inteligente do tipo de ficheiro importado com comutação automática
+      const detectedType = detectImportTypeFromRows(rows);
+      let autoSwitchedNotice = false;
+      if(detectedType && detectedType !== importType){
+        switchImportTab(detectedType);
+        autoSwitchedNotice = true;
+        const typeNames = { general: 'Leituras Gerais', quarto: 'Leituras de Quartos', temperatura: 'Refrigeração', ticket: 'Tickets / Pedidos' };
+        showToast(`ℹ️ Tipo detetado automaticamente: ${typeNames[detectedType] || detectedType}`);
+      }
 
       const headerRow = rows[0];
       const colMap = headerRow.map(h=> IMPORT_ALIASES[normHeader(h)] || null);
@@ -17072,6 +17214,10 @@
       try{
         if(importType !== 'ticket'){
           existingRecords = await listRecords(importType, { fresh: true });
+        } else {
+          existingRecords = (typeof cachedTicketsData !== 'undefined' && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0)
+            ? cachedTicketsData
+            : (typeof getConsolidatedTickets === 'function' ? getConsolidatedTickets() : []);
         }
       }catch(e){
         console.warn('Erro ao carregar registos existentes para verificação:', e);
@@ -17145,15 +17291,29 @@
           if(!obj.quarto && obj.numero) obj.quarto = obj.numero;
           if(!obj.colaborador && obj.usuario) obj.colaborador = obj.usuario;
           if(!obj.colaborador) obj.colaborador = getCurrentUserName();
+          if(!obj.usuario && obj.colaborador) obj.usuario = obj.colaborador;
           if(!obj.turno) obj.turno = 'Manhã';
           if(!obj.observacao && obj.observacoes) obj.observacao = obj.observacoes;
           if(!obj.situacao) obj.situacao = 'aberto';
+          if(!obj.prioridade) obj.prioridade = 'media';
+
+          // Se a descrição estiver vazia mas houver observações, preencher a descrição
+          if(!obj.descricao && (obj.observacao || obj.observacoes)){
+            obj.descricao = obj.observacao || obj.observacoes;
+          }
 
           // Normalizar turno
           const normT = String(obj.turno||'').toLowerCase().trim();
           if(normT.includes('tard')) obj.turno = 'Tarde';
           else if(normT.includes('noit') || normT.includes('noche')) obj.turno = 'Noite';
           else obj.turno = 'Manhã';
+
+          // Normalizar prioridade
+          const normPr = String(obj.prioridade||'').toLowerCase().trim();
+          if(normPr.includes('crit') || normPr.includes('urg')) obj.prioridade = 'critica';
+          else if(normPr.includes('alt')) obj.prioridade = 'alta';
+          else if(normPr.includes('baix')) obj.prioridade = 'baixa';
+          else obj.prioridade = 'media';
 
           // Normalizar situação / estado
           const normSt = String(obj.situacao||'').toLowerCase().trim();
@@ -17344,18 +17504,76 @@
         return { obj, errores, avisos, existingMatch, conflictAction, originalRowIdx: rowIdx };
       });
 
-      renderImportPreview();
+      renderImportPreview(autoSwitchedNotice);
     }catch(e){
       showToast('⚠️ Não foi possível ler o CSV: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
-  function renderImportPreview(){
+  function renderImportCell(val, field, r){
+    if(val === undefined || val === null || val === '') return '<span style="color:var(--ink-300);">-</span>';
+    const str = String(val).trim();
+    if(field === 'situacao'){
+      const s = str.toLowerCase();
+      if(s === 'finalizado' || s === 'concluido' || s === 'fechado' || s === 'cerrado') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#ecfdf5; color:#065f46;">Finalizado</span>';
+      }
+      if(s === 'em_andamento' || s === 'progresso') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#eff6ff; color:#1e40af;">Em andamento</span>';
+      }
+      if(s === 'pausado' || s === 'pendente') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fffbeb; color:#92400e;">Pausado</span>';
+      }
+      return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fef2f2; color:#991b1b;">Aberto</span>';
+    }
+    if(field === 'prioridade'){
+      const p = str.toLowerCase();
+      if(p.includes('crit') || p.includes('urg')) return '<span style="color:#b91c1c; font-weight:700;">🚨 Crítica</span>';
+      if(p.includes('alt')) return '<span style="color:#c2410c; font-weight:600;">⚠️ Alta</span>';
+      if(p.includes('baix')) return '<span style="color:#4b5563;">Baixa</span>';
+      return '<span style="color:#0284c7; font-weight:500;">Média</span>';
+    }
+    if(field === 'tipo'){
+      const t = str.toLowerCase();
+      if(t.includes('estrat')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#f3e8ff; color:#6b21a8; font-weight:600;">Estratégico</span>';
+      if(t.includes('prev')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#dcfce7; color:#166534; font-weight:600;">Preventivo</span>';
+      if(t.includes('melhor')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#e0f2fe; color:#0369a1; font-weight:600;">Melhoria</span>';
+      return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#fef3c7; color:#92400e; font-weight:600;">Corretivo</span>';
+    }
+    if(field === 'categoria'){
+      return `<span style="font-weight:600; color:var(--petrol-800);">${esc(str)}</span>`;
+    }
+    if(field === 'quarto'){
+      return `<span style="font-weight:600; color:var(--ink-900);">${esc(str)}</span>`;
+    }
+    if(field === 'descricao'){
+      if(str.length > 55){
+        return `<span title="${esc(str)}" style="cursor:help;">${esc(str.slice(0, 52))}…</span>`;
+      }
+      return esc(str);
+    }
+    return esc(str);
+  }
+
+  function renderImportPreview(autoSwitchedNotice = false){
     const el = $('importPreview');
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
     const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.existingMatch);
-    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
+    
+    let fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
+    
+    // Se algum registo contiver ID explícito, mostrar a coluna ID no início
+    if(importType === 'ticket'){
+      const hasAnyId = importParsedRows.some(r => r.obj && r.obj.id);
+      if(hasAnyId && !fields.includes('id')){
+        fields = ['id', ...fields];
+      }
+      const hasAnyFecho = importParsedRows.some(r => r.obj && r.obj.comentarioCierre);
+      if(!hasAnyFecho){
+        fields = fields.filter(f => f !== 'comentarioCierre');
+      }
+    }
 
     let currentPolicy = 'sobrescrever';
 
@@ -17398,16 +17616,40 @@
       `;
     }
 
-    const { countNovos, countSobrescrever, countObviar } = getStats();
+    const typeTitles = {
+      general: 'Leituras Gerais (Contadores / Piscina)',
+      quarto: 'Leituras de Quartos (pH / Cloro)',
+      temperatura: 'Refrigeração / Câmaras',
+      ticket: 'Tickets / Pedidos de Manutenção'
+    };
+    const typeIcons = {
+      general: '🏢',
+      quarto: '🛏️',
+      temperatura: '❄️',
+      ticket: '🎫'
+    };
+
+    const typeBannerHtml = `
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">${typeIcons[importType] || '📋'}</span>
+          <span style="font-size:13.5px; color:#0369a1; font-weight:700;">Modo ativo: <u>${typeTitles[importType] || importType}</u></span>
+        </div>
+        <div style="font-size:12px; color:#0c4a6e;">
+          ${autoSwitchedNotice ? '✨ <b>Ajustado automaticamente</b> conforme o cabeçalho do ficheiro' : 'Caso pretenda outro formato, altere nos botões acima'}
+        </div>
+      </div>
+    `;
 
     let html = `<div class="card" style="margin-top:16px;">
+      ${typeBannerHtml}
       ${conflictPanelHtml}
 
       <div class="import-stats-bar" id="importStatsBar">
         <span class="import-stat-chip stat-total">📄 <b>${importParsedRows.length}</b> lidas</span>
-        <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${countNovos}</b> novos</span>
-        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${countSobrescrever}</b> a atualizar</span>
-        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${countObviar}</b> mantidos</span>
+        <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${getStats().countNovos}</b> novos</span>
+        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${getStats().countSobrescrever}</b> a atualizar</span>
+        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${getStats().countObviar}</b> mantidos</span>
         ${invalid.length ? `<span class="import-stat-chip stat-err">⛔ <b>${invalid.length}</b> com erros</span>` : ''}
       </div>
 
@@ -17416,7 +17658,7 @@
       </p>
 
       <div class="table-scroll"><table class="report"><thead><tr>
-        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th style="min-width:180px;">Ação / Estado</th>
+        <th>#</th>${fields.map(f=>`<th>${esc(IMPORT_FIELD_LABELS[f] || f)}</th>`).join('')}<th style="min-width:180px;">Ação / Estado</th>
       </tr></thead><tbody>`;
 
     importParsedRows.forEach((r,i)=>{
@@ -17444,7 +17686,7 @@
       }
 
       const rowBgStyle = bad ? ' style="color:var(--coral-500); background:#fff5f3;"' : (r.existingMatch ? ' style="background:#fffcf2;"' : '');
-      html += `<tr${rowBgStyle}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${statusHtml}</td></tr>`;
+      html += `<tr${rowBgStyle}><td>${i+1}</td>${fields.map(f=>`<td>${renderImportCell(r.obj[f], f, r)}</td>`).join('')}<td>${statusHtml}</td></tr>`;
     });
 
     html += `</tbody></table></div>
