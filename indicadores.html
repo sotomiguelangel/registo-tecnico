@@ -4069,7 +4069,7 @@
       temperatura: 'Temperatura'
     };
 
-    const API_URL = window.AppConfig.apiUrl;
+    let API_URL = window.AppConfig.apiUrl;
 
     async function safeFetch(url, opts = {}, timeoutMs = 35000) {
       if (typeof window !== 'undefined' && typeof window.safeFetch === 'function' && window.safeFetch !== safeFetch) {

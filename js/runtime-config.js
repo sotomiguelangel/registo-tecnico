@@ -22,8 +22,41 @@
     return url.toString();
   }
 
-  root.AppConfig = Object.freeze({
-    apiUrl: validateApiUrl(defaultApiUrl),
-    defaultApiUrl
-  });
+  function getActiveApiUrl() {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const custom = localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url');
+        if (custom) return validateApiUrl(custom);
+      }
+    } catch (e) {}
+    return validateApiUrl(defaultApiUrl);
+  }
+
+  root.AppConfig = {
+    get apiUrl() {
+      return getActiveApiUrl();
+    },
+    defaultApiUrl,
+    setCustomApiUrl(newUrl) {
+      if (!newUrl || !String(newUrl).trim()) {
+        try {
+          localStorage.removeItem('registo_tecnico_api_url');
+          localStorage.removeItem('bitacora_api_url');
+        } catch (e) {}
+        return validateApiUrl(defaultApiUrl);
+      }
+      const validated = validateApiUrl(newUrl);
+      try {
+        localStorage.setItem('registo_tecnico_api_url', validated);
+      } catch (e) {}
+      return validated;
+    },
+    resetApiUrl() {
+      try {
+        localStorage.removeItem('registo_tecnico_api_url');
+        localStorage.removeItem('bitacora_api_url');
+      } catch (e) {}
+      return validateApiUrl(defaultApiUrl);
+    }
+  };
 })(window);

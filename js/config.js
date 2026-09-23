@@ -30,9 +30,22 @@ function validateApiUrl(value) {
   return url.toString();
 }
 
+function getActiveApiUrl() {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const custom = localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url');
+      if (custom) return validateApiUrl(custom);
+    } catch {}
+  }
+  return validateApiUrl(DEFAULT_API_URL);
+}
+
 const CONFIG = Object.freeze({
   // API Configuration
-  API_URL: validateApiUrl(DEFAULT_API_URL),
+  get API_URL() {
+    return getActiveApiUrl();
+  },
+  DEFAULT_API_URL,
 
   // App Version
   VERSION: '3.3.0',
