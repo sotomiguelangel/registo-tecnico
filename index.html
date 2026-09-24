@@ -5153,6 +5153,87 @@
     return null;
   }
 
+  // Devolve uma abreviatura curta para a referência técnica
+  function formatRefShort(refId) {
+    if (!refId) return '';
+    const s = String(refId).trim();
+    if (/^#[a-z0-9_-]+$/i.test(s)) return s;
+    if (/^eq_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+      const m = s.match(/^eq_[0-9]+_([a-z0-9]+)$/i);
+      return '#' + m[1];
+    }
+    if (/^eq_([0-9]+)$/i.test(s)) {
+      const m = s.match(/^eq_([0-9]+)$/i);
+      return '#' + m[1].slice(-4);
+    }
+    if (/^id_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+      const m = s.match(/^id_[0-9]+_([a-z0-9]+)$/i);
+      return '#' + m[1];
+    }
+    if (/^\d{3,5}$/.test(s)) {
+      return '#' + s;
+    }
+    return s;
+  }
+
+  // Formata SEMPRE um nome humano legível e profissional para o equipamento, nunca expondo IDs técnicos
+  function formatHumanEquipName(rawName, eqTipo, eqLoc, rawId, refCode) {
+    const sName = String(rawName || '').trim();
+    const sId = String(rawId || '').trim();
+
+    // 1. Se tem um nome personalizado já humano (não nulo, não código de referência nem ID gerado)
+    if (sName && !isReferenceCode(sName) && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length > 2 && sName !== sId) {
+      return sName;
+    }
+
+    // 2. Tenta encontrar a definição canónica correspondente do hotel
+    const canon = findCanonicalEquip(rawId, sName, eqLoc, eqTipo);
+    if (canon && canon.nome) return canon.nome;
+
+    // 3. Obtém código de referência curto amigável (ex: #3949, #3130, REF01)
+    const refShort = formatRefShort(refCode || rawId || sName);
+
+    // 4. Determina o tipo descritivo
+    let tipoLabel = 'Equipamento';
+    const tipoStr = (String(eqTipo || '') + ' ' + sName).toLowerCase();
+    if (tipoStr.includes('ar condicionado') || tipoStr.includes('aire') || tipoStr.includes('climat') || tipoStr.includes('ac ') || tipoStr.startsWith('ac')) {
+      tipoLabel = 'Ar Condicionado';
+    } else if (tipoStr.includes('congelador') || tipoStr.includes('arca') || tipoStr.includes('con')) {
+      tipoLabel = 'Congelador';
+    } else if (tipoStr.includes('vin') || tipoStr.includes('adega') || tipoStr.includes('garrafeir')) {
+      tipoLabel = 'Vinhera';
+    } else if (tipoStr.includes('balc') || tipoStr.includes('vitrine') || tipoStr.includes('bancada')) {
+      tipoLabel = 'Balcão';
+    } else if (tipoStr.includes('frigorifico') || tipoStr.includes('frigo') || tipoStr.includes('nevera') || tipoStr.includes('ref')) {
+      tipoLabel = 'Frigorífico';
+    }
+
+    // 5. Determina localização formatada
+    let locLabel = '';
+    if (eqLoc) {
+      const norm = normalizeLocation(eqLoc);
+      if (norm && norm !== 'OUTRAS LOCALIZAÇÕES' && norm !== 'Outras Localizações') {
+        locLabel = norm
+          .toLowerCase()
+          .split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+          .replace(/\b-1\b/g, '-1')
+          .replace(/\b0\b/g, '0');
+      }
+    }
+
+    // 6. Constrói designação elegante e sem códigos crus
+    if (refShort && refShort.startsWith('#')) {
+      return locLabel ? `${tipoLabel} ${locLabel} (${refShort})` : `${tipoLabel} ${refShort}`;
+    } else if (refShort && /^[A-Z]{2,4}\d+/i.test(refShort)) {
+      return locLabel ? `${tipoLabel} ${refShort} (${locLabel})` : `${tipoLabel} ${refShort}`;
+    } else if (locLabel) {
+      return `${tipoLabel} ${locLabel}`;
+    }
+    return refShort ? `${tipoLabel} (${refShort})` : tipoLabel;
+  }
+
   function isRecordMatchingEquip(record, eq) {
     if (!record || !eq) return false;
     const d = record.data ? record.data : record;
@@ -7712,8 +7793,9 @@
         const vin = isVinera(e);
         const isAc = isAireAcondicionado(e);
         const icon = isAc ? '💨' : (vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
-        const descTxt = (e.descricao && e.descricao !== e.nome) ? ` — ${e.descricao}` : '';
-        return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
+        const dispName = formatHumanEquipName(e.nome, e.tipo, e.ubicacao, e.id, e.ref);
+        const descTxt = (e.descricao && e.descricao !== e.nome && e.descricao !== dispName) ? ` — ${e.descricao}` : '';
+        return `<option value="${esc(e.id)}">${icon} ${esc(dispName)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
       }).join('');
     if(current) sel.value = current;
     selectEquip(sel.value);
@@ -7732,16 +7814,17 @@
     const readingFormatted = st ? st.readingFormatted : '';
     const lastReading = st ? st.lastReading : null;
 
-    const title = `${icon} ${eq.nome} · Informação do Equipamento`;
+    const displayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+    const title = `${icon} ${displayName} · Informação do Equipamento`;
     let bodyHtml = `
       <div style="font-family:var(--sans); font-size:13px; line-height:1.5; color:var(--ink-700);">
         <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px;">
           <div style="display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px;">
             <div style="color:var(--ink-400); font-weight:600;">Nome / Código:</div>
-            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(eq.nome)} ${eq.ref && eq.ref !== eq.nome ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
+            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(displayName)} ${eq.ref && eq.ref !== eq.nome && eq.ref !== displayName ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
 
             <div style="color:var(--ink-400); font-weight:600;">Descrição:</div>
-            <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || eq.nome)}</div>
+            <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || displayName)}</div>
 
             <div style="color:var(--ink-400); font-weight:600;">Tipo de Equipamento:</div>
             <div>${icon} ${esc(eq.tipo)} ${vin ? '<span style="font-size:11px; color:#8a5f0f; background:var(--amber-100); padding:1px 5px; border-radius:4px; margin-left:4px;">Rango Mín-Máx</span>' : ''}</div>
@@ -8343,9 +8426,10 @@
           <tbody>
             ${!equipamentos.length ? '<tr><td colspan="6" style="padding:14px; text-align:center; color:var(--ink-400);">Nenhum equipamento registado.</td></tr>' : equipamentos.map(eq => {
               const inativo = isNoVal(eq.ativo);
+              const dispName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
               return `
                 <tr style="${inativo ? 'opacity:0.6; background:#f9f9f9;' : ''}">
-                  <td style="padding:8px 10px; font-weight:700;">${esc(eq.nome)}</td>
+                  <td style="padding:8px 10px; font-weight:700;">${esc(dispName)} ${eq.ref && eq.ref !== dispName ? `<span style="font-size:10.5px; color:var(--ink-400); font-weight:normal;">(${esc(eq.ref)})</span>` : ''}</td>
                   <td style="padding:8px 10px;">${esc(eq.tipo)}</td>
                   <td style="padding:8px 10px; font-size:11.5px; color:var(--ink-600);">${esc(eq.ubicacao||'—')}</td>
                   <td style="padding:8px 10px; font-family:var(--mono); font-size:11.5px;">${esc(String(eq.min))} a ${esc(String(eq.max))} °C</td>
