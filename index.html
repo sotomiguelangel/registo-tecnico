@@ -14437,6 +14437,7 @@
 
   let currentMaintKpiTab = 'categories';
   let currentCategorySort = 'volume';
+  let currentMaintTimelineSegment = 'all';
   let maintKpiResizeObserver = null;
 
   function getOrCreateMaintTooltip() {
@@ -14505,25 +14506,25 @@
         <div class="maint-kpi-strip">
           <div class="maint-stat-card">
             <div class="maint-stat-label">
-              <span>Total Ocorrências</span>
+              <span>Total Ocorrências (Acumulado)</span>
               <span>📋</span>
             </div>
             <div class="maint-stat-value">${totalTickets}</div>
             <div class="maint-stat-sub">
-              <span>⚠️ ${abertos} abertos</span> · <span>⚡ ${emAndamento} em curso</span>
+              <span>${abertos} abertos</span> · <span>${emAndamento} em curso</span>
             </div>
           </div>
 
           <div class="maint-stat-card">
             <div class="maint-stat-label">
-              <span>Taxa de Resolução</span>
+              <span>Taxa de Resolução Global</span>
               <span>✓</span>
             </div>
             <div class="maint-stat-value" style="color:${taxaResolucao >= 75 ? '#10b981' : taxaResolucao >= 50 ? '#f59e0b' : '#ef4444'};">
               ${taxaResolucao}%
             </div>
             <div class="maint-stat-sub">
-              <span>${finalizados} de ${totalTickets} concluídos</span>
+              <span>${finalizados} concluídos no histórico geral</span>
             </div>
           </div>
 
@@ -14833,17 +14834,91 @@
     }
   }
 
-  function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets) {
+  // ---------------------------------------------------------
+  // 2. GRÁFICO D3: TENDÊNCIA TEMPORAL & PROJEÇÕES OPERACIONAIS
+  // ---------------------------------------------------------
+  function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, allTickets) {
+    const rawList = allTickets || [];
+
+    // 0. Segmentação operacional (Filtro por severidade/natureza)
+    let filteredTickets = rawList;
+    if (currentMaintTimelineSegment === 'critical') {
+      filteredTickets = rawList.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t));
+    } else if (currentMaintTimelineSegment === 'corrective') {
+      filteredTickets = rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t)));
+    } else if (currentMaintTimelineSegment === 'preventive') {
+      filteredTickets = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev'));
+    }
+
+    const countAll = rawList.length;
+    const countCrit = rawList.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)).length;
+    const countCorr = rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length;
+    const countPrev = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
+
+    if (controlsWrap) {
+      controlsWrap.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; color:var(--muted);">Filtro Operacional:</span>
+            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'all' ? 'active' : ''}" data-timeline-seg="all">
+              Todas as Ocorrências (${countAll})
+            </button>
+            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'critical' ? 'active' : ''}" data-timeline-seg="critical">
+              ⭐ Críticos & Estratégicos (${countCrit})
+            </button>
+            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'corrective' ? 'active' : ''}" data-timeline-seg="corrective">
+              ⚡ Corretivos Urgentes (${countCorr})
+            </button>
+            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'preventive' ? 'active' : ''}" data-timeline-seg="preventive">
+              🛡️ Preventivos (${countPrev})
+            </button>
+          </div>
+          <div style="font-size:11.5px; color:#0284c7; font-weight:700; background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.25); padding:3px 10px; border-radius:6px;">
+            Eixo Vertical: <b>Fluxo Mensal (Tickets / Mês)</b>
+          </div>
+        </div>
+      `;
+
+      controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(btn => {
+        btn.onclick = (e) => {
+          e.preventDefault();
+          const seg = btn.dataset.timelineSeg;
+          if (!seg || seg === currentMaintTimelineSegment) return;
+          currentMaintTimelineSegment = seg;
+          renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, allTickets);
+        };
+      });
+    }
+
+    // 1. Agrupar tickets por mês / período histórico
     const monthMap = new Map();
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
-      monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+      monthMap.set(key, {
+        key,
+        label,
+        novos: 0,
+        resolvidos: 0,
+        criticos: 0,
+        preventivos: 0,
+        corretivos: 0,
+        locaisMap: new Map(),
+        topLocal: '—',
+        saldo: 0,
+        backlog: 0,
+        isProj: false
+      });
     }
 
-    tickets.forEach(t => {
+    const isResolved = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
+
+    filteredTickets.forEach(t => {
       const dateStr = t.dataReporte || (t.criadoEm ? t.criadoEm.slice(0, 10) : '');
       if (dateStr && dateStr.length >= 7) {
         const key = dateStr.slice(0, 7);
@@ -14851,68 +14926,135 @@
           const [yr, mo] = key.split('-').map(Number);
           const d = new Date(yr, (mo || 1) - 1, 1);
           const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
-          monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+          monthMap.set(key, {
+            key,
+            label,
+            novos: 0,
+            resolvidos: 0,
+            criticos: 0,
+            preventivos: 0,
+            corretivos: 0,
+            locaisMap: new Map(),
+            topLocal: '—',
+            saldo: 0,
+            backlog: 0,
+            isProj: false
+          });
         }
         const item = monthMap.get(key);
         item.novos++;
-        if (t.situacao === 'finalizado') item.resolvidos++;
+        if (isResolved(t)) {
+          item.resolvidos++;
+        }
+        if (t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)) {
+          item.criticos++;
+        }
+        const tipoLower = String(t.tipo || '').toLowerCase();
+        if (tipoLower.includes('prev')) item.preventivos++;
+        if (tipoLower.includes('corr')) item.corretivos++;
+
+        const loc = (t.quarto || t.local || 'Geral').trim().toUpperCase();
+        item.locaisMap.set(loc, (item.locaisMap.get(loc) || 0) + 1);
       }
+    });
+
+    monthMap.forEach(item => {
+      let maxCount = 0;
+      item.locaisMap.forEach((cnt, loc) => {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          item.topLocal = `${loc} (${cnt})`;
+        }
+      });
     });
 
     const periods = Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
 
-    if (tickets.length === 0) {
+    // Fallback ilustrativo se sem dados
+    if (filteredTickets.length === 0) {
       periods.forEach((p, idx) => {
         p.novos = 4 + (idx % 3);
         p.resolvidos = 3 + (idx % 4);
       });
     }
 
-    let accBacklog = 0;
+    // 2. Conciliação Matemática de Saldo & Backlog (Stock & Flow)
+    const actualCurrentOpenBacklog = filteredTickets.filter(t => !isResolved(t)).length;
+
+    let totalHistoricalNetFlow = 0;
     periods.forEach(p => {
-      accBacklog = Math.max(0, accBacklog + (p.novos - p.resolvidos));
-      p.backlog = accBacklog;
+      p.saldo = p.novos - p.resolvidos;
+      totalHistoricalNetFlow += p.saldo;
     });
 
-    const n = periods.length;
+    // Ponto de partida do backlog para garantir que no mês corrente coincide com os tickets em aberto
+    const baselineBacklog = Math.max(0, actualCurrentOpenBacklog - totalHistoricalNetFlow);
+    let runningBacklog = baselineBacklog;
+    periods.forEach((p, idx) => {
+      runningBacklog = Math.max(0, runningBacklog + p.saldo);
+      if (idx === periods.length - 1) {
+        p.backlog = actualCurrentOpenBacklog;
+        runningBacklog = actualCurrentOpenBacklog;
+      } else {
+        p.backlog = runningBacklog;
+      }
+    });
+
+    // 3. Cadência Operacional Real e Projeção Baseada em Meses Ativos
+    const activeMonths = periods.filter(p => p.novos > 0 || p.resolvidos > 0);
+    const recentSample = activeMonths.length > 0 ? activeMonths.slice(-3) : periods;
+    const demonstratedThroughput = Math.round(recentSample.reduce((acc, p) => acc + p.resolvidos, 0) / Math.max(1, recentSample.length));
+    const demonstratedInflow = Math.round(recentSample.reduce((acc, p) => acc + p.novos, 0) / Math.max(1, recentSample.length));
+
+    // Tendência linear calculada sobre a amostra operacional real
+    const regSample = activeMonths.length >= 2 ? activeMonths : periods;
+    const mCount = regSample.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    periods.forEach((p, i) => {
+    regSample.forEach((p, i) => {
       sumX += i;
       sumY += p.novos;
       sumXY += i * p.novos;
       sumXX += i * i;
     });
+    const regSlope = mCount > 1 ? (mCount * sumXY - sumX * sumY) / (mCount * sumXX - sumX * sumX) : 0;
+    const regIntercept = mCount > 0 ? (sumY - regSlope * sumX) / mCount : demonstratedInflow;
 
-    const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
-    const intercept = n > 0 ? (sumY - slope * sumX) / n : 0;
-    const avgThroughput = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.resolvidos, 0) / n) : 1;
-    const avgInflow = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.novos, 0) / n) : 1;
-
+    // Gerar 2 meses projetados futuros com cadência coerente
     const lastKey = periods[periods.length - 1].key;
     const [lastYr, lastMo] = lastKey.split('-').map(Number);
+    let projBacklog = runningBacklog;
 
     for (let f = 1; f <= 2; f++) {
       const pDate = new Date(lastYr, lastMo - 1 + f, 1);
       const pKey = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`;
       const pLabel = pDate.toLocaleDateString('pt-PT', { month: 'short' }) + ' (Proj)';
-      const projectedNovos = Math.max(1, Math.round(slope * (n - 1 + f) + intercept));
-      const projectedResolvidos = Math.max(1, avgThroughput);
-      accBacklog = Math.max(0, accBacklog + (projectedNovos - projectedResolvidos));
+
+      const rawTrend = Math.round(regSlope * (mCount - 1 + f) + regIntercept);
+      // Evitar saltos irreais: limita a projeção a um intervalo razoável em torno do fluxo recente demonstrado
+      const projectedNovos = Math.max(1, Math.min(Math.round(demonstratedInflow * 1.25), Math.max(Math.round(demonstratedInflow * 0.85), rawTrend)));
+      const projectedResolvidos = Math.max(1, demonstratedThroughput);
+      projBacklog = Math.max(0, projBacklog + (projectedNovos - projectedResolvidos));
 
       periods.push({
         key: pKey,
         label: pLabel,
         novos: projectedNovos,
         resolvidos: projectedResolvidos,
-        backlog: accBacklog,
+        saldo: projectedNovos - projectedResolvidos,
+        backlog: projBacklog,
+        criticos: Math.round(projectedNovos * 0.12),
+        preventivos: Math.round(projectedNovos * 0.4),
+        corretivos: Math.round(projectedNovos * 0.6),
+        topLocal: 'Projeção Global',
         isProj: true
       });
     }
 
+    // 4. Renderização D3 com Demarcação Explícita de Eixos e Projeção
     const containerWidth = host.clientWidth || 860;
     const width = Math.max(containerWidth, 340);
-    const height = 340;
-    const margin = { top: 28, right: 35, bottom: 42, left: 55 };
+    const height = 350;
+    const margin = { top: 32, right: 35, bottom: 44, left: 62 };
 
     const isDark = document.documentElement.dataset.theme === 'dark';
     const textColor = isDark ? '#cbd5e1' : '#334155';
@@ -14921,36 +15063,46 @@
     const maxVal = Math.max(
       d3.max(periods, d => Math.max(d.novos, d.resolvidos, d.backlog)) || 10,
       10
-    ) * 1.25;
+    ) * 1.22;
 
-    const xScale = d3.scalePoint().domain(periods.map(d => d.label)).range([margin.left, width - margin.right]).padding(0.2);
-    const yScale = d3.scaleLinear().domain([0, maxVal]).range([height - margin.bottom, margin.top]).nice();
+    const xScale = d3.scalePoint()
+      .domain(periods.map(d => d.label))
+      .range([margin.left, width - margin.right])
+      .padding(0.25);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, maxVal])
+      .range([height - margin.bottom, margin.top])
+      .nice();
 
     const svg = d3.select(host)
       .append('svg')
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet')
       .attr('role', 'img')
-      .attr('aria-label', 'Tendência & Projeção de Manutenção');
+      .attr('aria-label', 'Tendência & Projeção Temporal de Ocorrências e Resolução');
 
+    // Gradientes
     const defs = svg.append('defs');
     const gradArea = defs.append('linearGradient')
       .attr('id', 'd3MaintGradAreaIndex')
       .attr('x1', '0%').attr('y1', '0%')
       .attr('x2', '0%').attr('y2', '100%');
-    gradArea.append('stop').attr('offset', '0%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.25);
+    gradArea.append('stop').attr('offset', '0%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.22);
     gradArea.append('stop').attr('offset', '100%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.01);
 
+    // Eixo X
     svg.append('g')
       .attr('transform', `translate(0, ${height - margin.bottom})`)
       .call(d3.axisBottom(xScale))
       .call(g => g.select('.domain').attr('stroke', gridColor))
       .call(g => g.selectAll('.tick text')
         .attr('fill', (d, i) => periods[i] && periods[i].isProj ? '#a855f7' : textColor)
-        .attr('font-weight', (d, i) => periods[i] && periods[i].isProj ? '700' : '500')
+        .attr('font-weight', (d, i) => periods[i] && periods[i].isProj ? '700' : '600')
         .attr('font-size', '11px')
       );
 
+    // Eixo Y com grelha
     svg.append('g')
       .attr('transform', `translate(${margin.left}, 0)`)
       .call(
@@ -14963,65 +15115,190 @@
       .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
       .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
 
+    // Rótulo explícito no Eixo Y (Unidade: Tickets / Mês)
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -(height - margin.bottom + margin.top) / 2)
+      .attr('y', 17)
+      .attr('text-anchor', 'middle')
+      .attr('fill', textColor)
+      .attr('font-size', '10.5px')
+      .attr('font-weight', '700')
+      .attr('letter-spacing', '0.02em')
+      .text('Nº de Tickets / Mês (Fluxo Mensal)');
+
+    // Demarcação visual nítida da zona de projeção futura
     const splitIndex = periods.findIndex(p => p.isProj);
     if (splitIndex > 0) {
       const splitX = (xScale(periods[splitIndex - 1].label) + xScale(periods[splitIndex].label)) / 2;
+
+      // Fundo sombreado para a zona projetada
+      svg.append('rect')
+        .attr('x', splitX)
+        .attr('y', margin.top)
+        .attr('width', width - margin.right - splitX)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', isDark ? 'rgba(168, 85, 247, 0.08)' : 'rgba(168, 85, 247, 0.04)')
+        .attr('rx', 4);
+
       svg.append('line')
         .attr('x1', splitX).attr('x2', splitX)
         .attr('y1', margin.top).attr('y2', height - margin.bottom)
         .attr('stroke', '#a855f7')
         .attr('stroke-dasharray', '4,4')
         .attr('stroke-width', 1.5)
-        .attr('opacity', 0.6);
+        .attr('opacity', 0.85);
 
       svg.append('text')
-        .attr('x', splitX + 6).attr('y', margin.top + 12)
-        .attr('fill', '#a855f7').attr('font-size', '10.5px').attr('font-weight', '800').attr('letter-spacing', '0.04em')
-        .text('PROJEÇÃO FUTURA ›');
+        .attr('x', splitX + 8)
+        .attr('y', margin.top + 14)
+        .attr('fill', '#a855f7')
+        .attr('font-size', '10.5px')
+        .attr('font-weight', '800')
+        .attr('letter-spacing', '0.04em')
+        .text('ZONA DE PROJEÇÃO FUTURA ›');
     }
 
+    // Geradores de linhas e áreas D3
     const actualPeriods = periods.filter(p => !p.isProj);
-    const lineNovos = d3.line().x(d => xScale(d.label)).y(d => yScale(d.novos)).curve(d3.curveMonotoneX);
-    const lineResolvidos = d3.line().x(d => xScale(d.label)).y(d => yScale(d.resolvidos)).curve(d3.curveMonotoneX);
-    const lineBacklog = d3.line().x(d => xScale(d.label)).y(d => yScale(d.backlog)).curve(d3.curveMonotoneX);
+    const lineNovos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
 
-    const areaNovos = d3.area().x(d => xScale(d.label)).y0(height - margin.bottom).y1(d => yScale(d.novos)).curve(d3.curveMonotoneX);
+    const lineResolvidos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.resolvidos))
+      .curve(d3.curveMonotoneX);
 
-    svg.append('path').datum(actualPeriods).attr('fill', 'url(#d3MaintGradAreaIndex)').attr('d', areaNovos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#f59e0b').attr('stroke-width', 2.5).attr('d', lineNovos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#10b981').attr('stroke-width', 2.5).attr('d', lineResolvidos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#f43f5e').attr('stroke-width', 2).attr('stroke-dasharray', '3,3').attr('d', lineBacklog);
+    const lineBacklog = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.backlog))
+      .curve(d3.curveMonotoneX);
 
+    // Área histórica de novos
+    const areaNovos = d3.area()
+      .x(d => xScale(d.label))
+      .y0(height - margin.bottom)
+      .y1(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'url(#d3MaintGradAreaIndex)')
+      .attr('d', areaNovos);
+
+    // Linhas reais contínuas
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#f59e0b')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineNovos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#10b981')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineResolvidos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#ef4444')
+      .attr('stroke-width', 2.2)
+      .attr('stroke-dasharray', '4,3')
+      .attr('d', lineBacklog);
+
+    // Linhas projetadas (conectadas e tracejadas)
     if (splitIndex > 0) {
       const projConnectingPeriods = [periods[splitIndex - 1], ...periods.filter(p => p.isProj)];
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#f59e0b').attr('stroke-width', 2).attr('stroke-dasharray', '4,4').attr('d', lineNovos);
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#10b981').attr('stroke-width', 2).attr('stroke-dasharray', '4,4').attr('d', lineResolvidos);
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#a855f7').attr('stroke-width', 2).attr('stroke-dasharray', '3,3').attr('d', lineBacklog);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#f59e0b')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,4')
+        .attr('d', lineNovos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#10b981')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,4')
+        .attr('d', lineResolvidos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#a855f7')
+        .attr('stroke-width', 2.2)
+        .attr('stroke-dasharray', '3,3')
+        .attr('d', lineBacklog);
     }
 
+    // Pontos interativos com tooltip
     const tooltip = getOrCreateMaintTooltip();
 
     periods.forEach(p => {
       const cx = xScale(p.label);
-      svg.append('circle').attr('cx', cx).attr('cy', yScale(p.novos)).attr('r', p.isProj ? 5 : 4).attr('fill', '#f59e0b').attr('stroke', isDark ? '#0f172a' : '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
-      svg.append('circle').attr('cx', cx).attr('cy', yScale(p.resolvidos)).attr('r', p.isProj ? 5 : 4).attr('fill', '#10b981').attr('stroke', isDark ? '#0f172a' : '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
 
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.novos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#f59e0b')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.resolvidos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#10b981')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.backlog))
+        .attr('r', p.isProj ? 4.5 : 3.5)
+        .attr('fill', p.isProj ? '#a855f7' : '#ef4444')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer');
+
+      // Coluna invisível para captura de hover fluida
       svg.append('rect')
-        .attr('x', cx - 22).attr('y', margin.top).attr('width', 44).attr('height', height - margin.top - margin.bottom)
-        .attr('fill', 'transparent').style('cursor', 'pointer')
+        .attr('x', cx - 22)
+        .attr('y', margin.top)
+        .attr('width', 44)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', 'transparent')
+        .style('cursor', 'pointer')
         .on('mouseenter', () => {
           tooltip.style.opacity = '1';
+          const saldoFormatted = p.saldo > 0 ? `+${p.saldo}` : String(p.saldo);
           tooltip.innerHTML = `
             <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:${p.isProj ? '#a855f7' : '#38bdf8'};">
-              📅 ${esc(p.label)} ${p.isProj ? '(Projeção Linear)' : ''}
+              📅 ${esc(p.label)} ${p.isProj ? '· [Projeção Operacional]' : '· [Histórico Real]'}
             </div>
             <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
-              <span style="color:#f59e0b;">● Novos Tickets: <b>${p.novos}</b></span>
-              <span style="color:#10b981;">● Concluídos: <b>${p.resolvidos}</b></span>
-              <span style="color:${p.isProj ? '#a855f7' : '#f43f5e'};">● Backlog Ativo: <b>${p.backlog}</b></span>
-              <span style="font-size:11px; color:#94a3b8; margin-top:2px; border-top:1px solid rgba(255,255,255,0.15); padding-top:4px;">
-                Saldo Mensal: <b>${p.novos - p.resolvidos > 0 ? '+' : ''}${p.novos - p.resolvidos}</b>
-              </span>
+              <span style="color:#f59e0b;">● Novas Ocorrências: <b>${p.novos} tickets/mês</b></span>
+              <span style="color:#10b981;">● Tickets Concluídos: <b>${p.resolvidos} tickets/mês</b></span>
+              <span style="color:${p.saldo > 0 ? '#f59e0b' : '#10b981'};">● Saldo Líquido do Mês: <b>${saldoFormatted} tickets</b></span>
+              <span style="color:${p.isProj ? '#a855f7' : '#ef4444'}; font-weight:700;">● Backlog Acumulado no Fim do Mês: <b>${p.backlog} pendentes</b></span>
+            </div>
+            <div style="margin-top:6px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-size:11px; color:#cbd5e1;">
+              <span>⭐ Críticos/Alta Prio: <b>${p.criticos}</b></span> · 
+              <span>🛡️ Prev: <b>${p.preventivos}</b></span> · 
+              <span>⚡ Corr: <b>${p.corretivos}</b></span>
+              ${p.topLocal && p.topLocal !== '—' ? `<div style="margin-top:2px;">📍 Principal foco: <b>${esc(p.topLocal)}</b></div>` : ''}
             </div>
           `;
         })
@@ -15034,34 +15311,60 @@
         });
     });
 
+    // Legenda e Análise Operacional Hoteleira Conciliada
     if (footerWrap) {
-      const isHealthyTrend = avgThroughput >= avgInflow;
+      const isHealthyTrend = demonstratedThroughput >= demonstratedInflow;
+      const criticalBacklogCount = rawList.filter(t => (t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)) && !isResolved(t)).length;
+      const routineBacklogCount = Math.max(0, actualCurrentOpenBacklog - criticalBacklogCount);
+
       footerWrap.innerHTML = `
-        <div class="maint-kpi-legend">
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span><span>Novas Ocorrências</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#10b981;"></span><span>Tickets Resolvidos</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#f43f5e;"></span><span>Backlog Pendente</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#a855f7;"></span><span>Projeção Linear Estendida</span></div>
+        <div class="maint-kpi-legend" style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px;">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span>
+            <span>Novas Ocorrências (Histórico Real)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#10b981;"></span>
+            <span>Tickets Resolvidos (Histórico Real)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#ef4444;"></span>
+            <span>Backlog Saldo Pendente (Acumulado)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#a855f7;"></span>
+            <span>Projeções Futuras (Out-Nov 2026)</span>
+          </div>
         </div>
 
-        <div class="maint-projection-callout">
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Capacidade de Resolução</div>
-            <div style="font-size:17px; font-weight:800; color:#10b981; margin-top:2px;">~${avgThroughput} tickets/mês</div>
-            <div style="font-size:11.5px; color:var(--muted);">Velocidade média de encerramento</div>
+        <div class="maint-projection-callout" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Capacidade de Resolução Real</div>
+            <div style="font-size:18px; font-weight:800; color:#10b981; margin-top:2px;">~${demonstratedThroughput} tickets/mês</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">Cadência média nos meses ativos (sem diluição por meses vazios)</div>
           </div>
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Taxa de Novas Avarias</div>
-            <div style="font-size:17px; font-weight:800; color:#f59e0b; margin-top:2px;">~${avgInflow} tickets/mês</div>
-            <div style="font-size:11.5px; color:var(--muted);">Volume médio de entrada</div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Taxa de Novas Ocorrências</div>
+            <div style="font-size:18px; font-weight:800; color:#f59e0b; margin-top:2px;">~${demonstratedInflow} tickets/mês</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">Média real de entrada de avarias nas instalações</div>
           </div>
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Diagnóstico da Projeção</div>
-            <div style="font-size:14.5px; font-weight:800; color:${isHealthyTrend ? '#10b981' : '#f59e0b'}; margin-top:2px;">
-              ${isHealthyTrend ? '🟢 Ritmo Sustentável (Passivo em Queda)' : '⚠️ Carga Elevada (Reforço Recomendado)'}
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Saldo de Backlog Atual</div>
+            <div style="font-size:18px; font-weight:800; color:#38bdf8; margin-top:2px;">${actualCurrentOpenBacklog} pendentes</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+              ⭐ <b>${criticalBacklogCount} críticos/estratégicos</b> · ${routineBacklogCount} rotineiros (100% conciliado)
             </div>
-            <div style="font-size:11.5px; color:var(--muted);">
-              ${isHealthyTrend ? 'A capacidade atual supera a entrada de novas avarias.' : 'Recomenda-se intensificar manutenções preventivas programadas.'}
+          </div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Diagnóstico Operacional Hoteleiro</div>
+            <div style="font-size:14px; font-weight:800; color:${isHealthyTrend ? '#10b981' : '#f59e0b'}; margin-top:2px;">
+              ${isHealthyTrend ? '🟢 Equilíbrio Operacional Sustentável' : '⚠️ Atenção: Carga com Ligeira Tendência de Alta'}
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+              ${isHealthyTrend ? 'A capacidade da equipa cobre o ritmo de novas avarias.' : 'Projeção ponderada: recomenda-se reforçar manutenções preventivas programadas.'}
             </div>
           </div>
         </div>
