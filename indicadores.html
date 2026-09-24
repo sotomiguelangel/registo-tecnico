@@ -5490,29 +5490,25 @@
   const DELETED_TICKETS_KEY = 'bitacora_deleted_tickets';
   const UPDATED_TICKETS_KEY = 'bitacora_updated_tickets';
 
-  let currentStratFilterIndicadores = 'active';
+  let currentStratFilterIndicadores = 'all';
   let cachedTicketsIndicadores = null;
   let cachedTicketsIndicadoresTimestamp = 0;
   let loadTicketsIndicadoresInFlight = null;
   let isUpdatingStrategicBoardIndicadores = false;
 
-  const DUMMY_STRAT_IDS = new Set(['ticket_est_01', 'ticket_est_02', 'ticket_est_03']);
-  const DUMMY_STRAT_SNIPPETS = [
-    'calibracao de valvulas misturadoras',
-    'auditoria a sondas amperometricas',
-    'termografia preventiva e balanceamento',
-    'equilibrio termico dos permutadores',
-    'calibracao dos controladores de dosagem',
-    'instalacao de variadores de frequencia'
-  ];
+  function cleanStrForMatch(str) {
+    if (!str) return '';
+    return String(str)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
 
   function getDeletedTicketIdsIndicadores() {
     const set = new Set();
-    // Ban dummy ghost tickets permanently
-    DUMMY_STRAT_IDS.forEach(id => {
-      set.add(id);
-      set.add(id.toLowerCase());
-    });
     try {
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
@@ -5531,6 +5527,21 @@
       }
     } catch(e) {}
     return set;
+  }
+
+  function unmarkTicketAsDeletedIndicadores(id) {
+    if (!id) return;
+    const strId = String(id).trim().toLowerCase();
+    try {
+      const raw = localStorage.getItem(DELETED_TICKETS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter(x => x && String(x).trim().toLowerCase() !== strId);
+          localStorage.setItem(DELETED_TICKETS_KEY, JSON.stringify(filtered));
+        }
+      }
+    } catch(e) {}
   }
 
   function markTicketAsDeletedIndicadores(id) {
@@ -5558,27 +5569,14 @@
     const deleted = getDeletedTicketIdsIndicadores();
 
     let id = '';
-    let desc = '';
-    let obs = '';
-
     if (typeof tOrId === 'string') {
       id = tOrId.trim();
     } else if (typeof tOrId === 'object') {
       id = String(tOrId.id || tOrId.ticketId || (tOrId.data && tOrId.data.id) || tOrId.key || '').trim();
-      desc = cleanStrForMatch(tOrId.descricao || (tOrId.data && tOrId.data.descricao) || '');
-      obs = cleanStrForMatch(tOrId.observacao || (tOrId.data && tOrId.data.observacao) || '');
     }
 
     if (id) {
       if (deleted.has(id) || deleted.has(id.toLowerCase())) return true;
-      if (DUMMY_STRAT_IDS.has(id.toLowerCase())) return true;
-    }
-
-    if (desc || obs) {
-      const combined = desc + ' ' + obs;
-      for (const snip of DUMMY_STRAT_SNIPPETS) {
-        if (combined.includes(snip)) return true;
-      }
     }
 
     return false;
@@ -5654,36 +5652,46 @@
   function isStrategicTicket(t) {
     if (!t || !t.id) return false;
     if (isTicketDeletedIndicadores(t)) return false;
-
-    // 1. Tipo explícito Estratégico ou tipoManutencao
-    const tipo = String(t.tipo || '').trim().toLowerCase();
-    const tipoManut = String(t.tipoManutencao || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico' || tipo === 'estrategica' || tipo.includes('estrat')) return true;
-    if (tipoManut === 'estrategico' || tipoManut === 'estrategica' || tipoManut.includes('estrat')) return true;
-    if (t.isStrategic === true || t.estrategico === true) return true;
-
-    // 2. Presente no repositório de tickets estratégicos salvos
     const strId = String(t.id).trim();
+
+    // 1. Flags booleanas explícitas ou equivalentes
+    if (t.isStrategic === true || t.isStrategic === 'true' || t.isStrategic === 1 || t.isStrategic === '1' || t.isStrategic === 'Sim' || t.isStrategic === 'sim') return true;
+    if (t.estrategico === true || t.estrategico === 'true' || t.estrategico === 1 || t.estrategico === '1' || t.estrategico === 'Sim' || t.estrategico === 'sim') return true;
+
+    // 2. Tipo explícito ou tipoManutencao (tolerante a maiúsculas/minúsculas e acentos)
+    const tipo = String(t.tipo || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const tipoManut = String(t.tipoManutencao || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (tipo.includes('estrat') || tipo.includes('strategic')) return true;
+    if (tipoManut.includes('estrat') || tipoManut.includes('strategic')) return true;
+
+    // 3. ID gerado pelo fluxo de tickets estratégicos ou salvo no repositório de estratégicos
+    const strIdLower = strId.toLowerCase();
+    if (strIdLower.startsWith('strat_') || strIdLower.startsWith('ticket_strat_') || strIdLower.includes('_strat')) return true;
     try {
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim() === strId && !isTicketDeletedIndicadores(s))) {
+        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim().toLowerCase() === strIdLower && !isTicketDeletedIndicadores(s))) {
           return true;
         }
       }
     } catch(e) {}
 
-    // 3. Marcadores no texto, prioridade ou categoria
-    const desc = String(t.descricao || '').toLowerCase();
-    const obs = String(t.observacao || '').toLowerCase();
-    const prio = String(t.prioridade || '').toLowerCase();
-    const cat = String(t.categoria || '').toLowerCase();
+    // 4. Marcadores no texto, prioridade ou categoria (amplo e flexível em PT/ES)
+    const desc = String(t.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const obs = String(t.observacao || t.observacoes || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const titulo = String(t.titulo || t.title || t.assunto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    if (desc.includes('[estrat') || desc.includes('⭐') || desc.includes('[estrategico]')) return true;
-    if (obs.includes('[estrat') || obs.includes('[estrategico]')) return true;
-    if (prio.includes('estrat')) return true;
-    if (cat.includes('estrat')) return true;
+    if (desc.includes('estrat') || desc.includes('⭐') || desc.includes('strategic')) return true;
+    if (obs.includes('estrat') || obs.includes('⭐') || obs.includes('strategic')) return true;
+    if (titulo.includes('estrat') || titulo.includes('⭐') || titulo.includes('strategic')) return true;
+    if (prio.includes('estrat') || prio.includes('⭐')) return true;
+    if (prio.includes('max') || prio.includes('crit')) {
+      if (t.isStrategic || !tipo || tipo.includes('estrat') || desc.length > 0) return true;
+    }
+    if (cat.includes('estrat') || cat.includes('strategic')) return true;
 
     return false;
   }
@@ -5751,7 +5759,7 @@
       (savedStrats || []).forEach(st => {
         if (st && st.id && !isTicketDeletedIndicadores(st)) {
           const id = String(st.id).trim();
-          map.set(id, { ...st, tipo: 'Estratégico' });
+          map.set(id, { ...st, tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true });
         }
       });
     } catch(e) {}
@@ -5768,9 +5776,9 @@
               const existing = map.get(id);
               const isStrat = isStrategicTicket(existing) || isStrategicTicket(t);
               if (existing) {
-                map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+                map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
               } else {
-                map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+                map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
               }
             }
           });
@@ -5786,9 +5794,9 @@
           const existing = map.get(id);
           const isStrat = isStrategicTicket(existing) || isStrategicTicket(t);
           if (existing) {
-            map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+            map.set(id, { ...existing, ...t, id, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
           } else {
-            map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+            map.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
           }
         }
       });
@@ -5802,9 +5810,9 @@
         const existing = map.get(cleanUid);
         const isStrat = isStrategicTicket(existing) || isStrategicTicket(upd);
         if (existing) {
-          map.set(cleanUid, { ...existing, ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+          map.set(cleanUid, { ...existing, ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
         } else {
-          map.set(cleanUid, { ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
+          map.set(cleanUid, { ...upd, id: cleanUid, ...(isStrat ? { tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true } : {}) });
         }
       }
     });
@@ -5819,10 +5827,9 @@
       consolidatedList.forEach(t => {
         if (isStrategicTicket(t)) {
           const id = String(t.id).trim();
-          if (!stratMap.has(id)) {
-            stratMap.set(id, { ...t, tipo: 'Estratégico' });
-            hasNewStrats = true;
-          }
+          const stratObj = { ...(stratMap.get(id) || {}), ...t, tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true };
+          stratMap.set(id, stratObj);
+          hasNewStrats = true;
         }
       });
       if (hasNewStrats) {
@@ -5902,28 +5909,34 @@
 
   function renderStrategicBoardIndicadoresHTML(allTickets, activeFilter) {
     const stratTickets = (allTickets || []).filter(isStrategicTicket);
-    const filter = activeFilter || 'active';
+    const filter = activeFilter || currentStratFilterIndicadores || 'all';
+
+    const isDone = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
 
     const totalCount = stratTickets.length;
     const abertosCount = stratTickets.filter(t => t.situacao === 'aberto').length;
     const emAndamentoCount = stratTickets.filter(t => t.situacao === 'em_andamento').length;
     const pausadosCount = stratTickets.filter(t => t.situacao === 'pausado').length;
-    const finalizadosCount = stratTickets.filter(t => t.situacao === 'finalizado').length;
+    const finalizadosCount = stratTickets.filter(isDone).length;
+    const ativosCount = totalCount - finalizadosCount;
 
     let filtered = [...stratTickets];
     if (filter === 'active') {
-      filtered = filtered.filter(t => t.situacao !== 'finalizado');
-    } else if (filter === 'aberto') {
+      filtered = filtered.filter(t => !isDone(t));
+    } else if (filter === 'aberto' || filter === 'abertos') {
       filtered = filtered.filter(t => t.situacao === 'aberto');
     } else if (filter === 'em_andamento') {
       filtered = filtered.filter(t => t.situacao === 'em_andamento');
-    } else if (filter === 'finalizado') {
-      filtered = filtered.filter(t => t.situacao === 'finalizado');
+    } else if (filter === 'finalizado' || filter === 'finalizados' || filter === 'concluidos') {
+      filtered = filtered.filter(isDone);
     }
 
     filtered.sort((a, b) => {
-      const aStrat = (a.situacao !== 'finalizado') ? 1 : 0;
-      const bStrat = (b.situacao !== 'finalizado') ? 1 : 0;
+      const aStrat = !isDone(a) ? 1 : 0;
+      const bStrat = !isDone(b) ? 1 : 0;
       if (aStrat !== bStrat) return bStrat - aStrat;
       return (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || ''));
     });
@@ -6035,19 +6048,19 @@
         </div>
 
         <div class="strategic-filter-tabs">
-          <button type="button" class="strategic-tab-btn ${filter === 'active' ? 'active' : ''}" data-strat-filter="active">
-            Em Resolução (${abertosCount + emAndamentoCount + pausadosCount})
-          </button>
           <button type="button" class="strategic-tab-btn ${filter === 'all' ? 'active' : ''}" data-strat-filter="all">
             Todos (${totalCount})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter === 'aberto' ? 'active' : ''}" data-strat-filter="aberto">
+          <button type="button" class="strategic-tab-btn ${filter === 'active' ? 'active' : ''}" data-strat-filter="active">
+            Em Resolução (${ativosCount})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter === 'aberto' || filter === 'abertos' ? 'active' : ''}" data-strat-filter="aberto">
             Abertos (${abertosCount})
           </button>
           <button type="button" class="strategic-tab-btn ${filter === 'em_andamento' ? 'active' : ''}" data-strat-filter="em_andamento">
             Em Andamento (${emAndamentoCount})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter === 'finalizado' ? 'active' : ''}" data-strat-filter="finalizado">
+          <button type="button" class="strategic-tab-btn ${filter === 'finalizado' || filter === 'finalizados' || filter === 'concluidos' ? 'active' : ''}" data-strat-filter="finalizado">
             Concluídos (${finalizadosCount})
           </button>
         </div>
@@ -6068,7 +6081,7 @@
         e.preventDefault();
         const f = btn.dataset.stratFilter;
         currentStratFilterIndicadores = f;
-        const currentTickets = (cachedTicketsIndicadores && cachedTicketsIndicadores.length > 0) ? cachedTicketsIndicadores : allTickets;
+        const currentTickets = getConsolidatedTicketsIndicadores();
         wrap.innerHTML = renderStrategicBoardIndicadoresHTML(currentTickets, currentStratFilterIndicadores);
         wireStrategicBoardIndicadoresEvents(wrap, currentTickets);
       };
@@ -6302,8 +6315,12 @@
       if (novaCat) ticket.categoria = novaCat;
       ticket.situacao = novaSit;
       ticket.prioridade = novaPrio;
+      ticket.tipoManutencao = novoTipo === 'Estratégico' ? 'estrategico' : (novoTipo === 'Preventivo' ? 'preventivo' : (novoTipo === 'Melhoria' ? 'melhoria' : 'correctivo'));
+      ticket.isStrategic = novoTipo === 'Estratégico';
+      ticket.estrategico = novoTipo === 'Estratégico';
       if (novoComentario) ticket.comentarioCierre = novoComentario;
       ticket.modificadoEm = new Date().toISOString();
+      unmarkTicketAsDeletedIndicadores(ticket.id);
 
       if (novoTipo === 'Estratégico') {
         if (!ticket.descricao.includes('[ESTRATÉGICO]')) {
@@ -6489,6 +6506,7 @@
         tipo: 'Estratégico',
         tipoManutencao: 'estrategico',
         isStrategic: true,
+        estrategico: true,
         prioridade: prioridade,
         quarto: quarto,
         categoria: categoria,
@@ -6501,6 +6519,8 @@
         colaborador: user.nome || user.nombre || 'Coordenação Estratégica',
         comentarioCierre: ''
       };
+
+      unmarkTicketAsDeletedIndicadores(newTicket.id);
 
       // 1. Persistir em STRATEGIC_TICKETS_KEY
       const strats = getSavedStrategicTicketsIndicadores() || [];
@@ -12992,6 +13012,15 @@
                     }
                   }
                 });
+                // Preservar também tickets estratégicos salvos localmente
+                const savedStrats = getSavedStrategicTicketsIndicadores();
+                (savedStrats || []).forEach(st => {
+                  if (st && st.id && !isTicketDeletedIndicadores(st)) {
+                    const sid = String(st.id).trim();
+                    const cur = tMap.get(sid);
+                    tMap.set(sid, { ...(cur || {}), ...st, tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true });
+                  }
+                });
                 const mergedTickets = Array.from(tMap.values());
                 localStorage.setItem(ALL_TICKETS_KEY, JSON.stringify(mergedTickets));
                 cachedTicketsIndicadores = mergedTickets;
@@ -13002,7 +13031,7 @@
                   const currentStrats = getSavedStrategicTicketsIndicadores();
                   const sm = new Map();
                   currentStrats.forEach(s => sm.set(String(s.id).trim(), s));
-                  stratsToSave.forEach(s => sm.set(String(s.id).trim(), { ...s, tipo: 'Estratégico' }));
+                  stratsToSave.forEach(s => sm.set(String(s.id).trim(), { ...(sm.get(String(s.id).trim()) || {}), ...s, tipo: 'Estratégico', tipoManutencao: 'estrategico', isStrategic: true, estrategico: true }));
                   saveStrategicTicketsIndicadores(Array.from(sm.values()));
                 }
               } catch(errT) {

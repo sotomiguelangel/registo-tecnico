@@ -13691,26 +13691,12 @@
 
   let cachedTicketsData = null;
   let cachedTicketsTimestamp = 0;
-  let currentStrategicFilter = 'active';
+  let currentStrategicFilter = 'all';
   let loadTicketsInFlight = null;
   let isRefreshingBoard = false;
 
-  const DUMMY_STRAT_IDS = new Set(['ticket_est_01', 'ticket_est_02', 'ticket_est_03']);
-  const DUMMY_STRAT_SNIPPETS = [
-    'calibracao de valvulas misturadoras',
-    'auditoria a sondas amperometricas',
-    'termografia preventiva e balanceamento',
-    'equilibrio termico dos permutadores',
-    'calibracao dos controladores de dosagem',
-    'instalacao de variadores de frequencia'
-  ];
-
   function getDeletedTicketIds() {
     const set = new Set();
-    DUMMY_STRAT_IDS.forEach(id => {
-      set.add(id);
-      set.add(id.toLowerCase());
-    });
     try {
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
@@ -13798,27 +13784,14 @@
     const deletedSet = getDeletedTicketIds();
 
     let id = '';
-    let desc = '';
-    let obs = '';
-
     if (typeof tOrId === 'string') {
       id = tOrId.trim();
     } else if (typeof tOrId === 'object') {
       id = String(tOrId.id || tOrId.ticketId || (tOrId.data && tOrId.data.id) || tOrId.key || '').trim();
-      desc = cleanStrForMatch(tOrId.descricao || (tOrId.data && tOrId.data.descricao) || '');
-      obs = cleanStrForMatch(tOrId.observacao || (tOrId.data && tOrId.data.observacao) || '');
     }
 
     if (id) {
       if (deletedSet.has(id) || deletedSet.has(id.toLowerCase())) return true;
-      if (DUMMY_STRAT_IDS.has(id.toLowerCase())) return true;
-    }
-
-    if (desc || obs) {
-      const combined = desc + ' ' + obs;
-      for (const snip of DUMMY_STRAT_SNIPPETS) {
-        if (combined.includes(snip)) return true;
-      }
     }
 
     return false;
@@ -13914,33 +13887,46 @@
     if (isTicketDeleted(t)) return false;
     const strId = String(t.id).trim();
 
-    // 1. Verificar tipo explícito ou tipoManutencao
-    const tipo = String(t.tipo || '').trim().toLowerCase();
-    const tipoManut = String(t.tipoManutencao || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico' || tipo === 'estrategica' || tipo.includes('estrat')) return true;
-    if (tipoManut === 'estrategico' || tipoManut === 'estrategica' || tipoManut.includes('estrat')) return true;
-    if (t.isStrategic === true || t.estrategico === true) return true;
+    // 1. Flags booleanas explícitas ou equivalentes
+    if (t.isStrategic === true || t.isStrategic === 'true' || t.isStrategic === 1 || t.isStrategic === '1' || t.isStrategic === 'Sim' || t.isStrategic === 'sim') return true;
+    if (t.estrategico === true || t.estrategico === 'true' || t.estrategico === 1 || t.estrategico === '1' || t.estrategico === 'Sim' || t.estrategico === 'sim') return true;
 
-    // 2. Verificar se existe em STRATEGIC_TICKETS_KEY
+    // 2. Tipo explícito ou tipoManutencao (tolerante a maiúsculas/minúsculas e acentos)
+    const tipo = String(t.tipo || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const tipoManut = String(t.tipoManutencao || t.tipo_manutencao || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (tipo.includes('estrat') || tipo.includes('strategic')) return true;
+    if (tipoManut.includes('estrat') || tipoManut.includes('strategic')) return true;
+
+    // 3. ID gerado pelo fluxo de tickets estratégicos ou salvo no repositório de estratégicos
+    const strIdLower = strId.toLowerCase();
+    if (strIdLower.startsWith('strat_') || strIdLower.startsWith('ticket_strat_') || strIdLower.includes('_strat')) return true;
     try {
       const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (rawStrats) {
         const arr = JSON.parse(rawStrats);
-        if (Array.isArray(arr) && arr.some(s => s && String(s.id).trim() === strId && !isTicketDeleted(s))) {
+        if (Array.isArray(arr) && arr.some(s => s && String(s.id).trim().toLowerCase() === strIdLower && !isTicketDeleted(s))) {
           return true;
         }
       }
     } catch(e) {}
 
-    // 3. Marcadores no texto, prioridade ou categoria
-    const cat = String(t.categoria || '').toLowerCase();
-    const prio = String(t.prioridade || '').toLowerCase();
-    const desc = String(t.descricao || '').toLowerCase();
-    const obs = String(t.observacao || '').toLowerCase();
-    return prio.includes('estrat') ||
-           cat.includes('estrat') ||
-           desc.includes('[estrat') || desc.includes('⭐') ||
-           obs.includes('[estrat');
+    // 4. Marcadores no texto, prioridade ou categoria (amplo e flexível em PT/ES)
+    const desc = String(t.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const obs = String(t.observacao || t.observacoes || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const titulo = String(t.titulo || t.title || t.assunto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    if (desc.includes('estrat') || desc.includes('⭐') || desc.includes('strategic')) return true;
+    if (obs.includes('estrat') || obs.includes('⭐') || obs.includes('strategic')) return true;
+    if (titulo.includes('estrat') || titulo.includes('⭐') || titulo.includes('strategic')) return true;
+    if (prio.includes('estrat') || prio.includes('⭐')) return true;
+    if (prio.includes('max') || prio.includes('crit')) {
+      if (t.isStrategic || !tipo || tipo.includes('estrat') || desc.length > 0) return true;
+    }
+    if (cat.includes('estrat') || cat.includes('strategic')) return true;
+
+    return false;
   }
 
   function getDefaultStrategicTickets() {
@@ -14117,30 +14103,35 @@
   }
 
   function renderStrategicBoardHTML(allTickets, activeFilter) {
-    const filter = activeFilter || currentStrategicFilter || 'active';
+    const filter = activeFilter || currentStrategicFilter || 'all';
     const tickets = (allTickets || []).filter(isStrategicTicket);
+
+    const isDone = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
     
     const countTotal = tickets.length;
     const countAbertos = tickets.filter(t => t.situacao === 'aberto').length;
     const countAndamento = tickets.filter(t => t.situacao === 'em_andamento').length;
     const countPausados = tickets.filter(t => t.situacao === 'pausado').length;
-    const countFinalizados = tickets.filter(t => t.situacao === 'finalizado').length;
-    const countAtivos = countAbertos + countAndamento + countPausados;
+    const countFinalizados = tickets.filter(isDone).length;
+    const countAtivos = countTotal - countFinalizados;
 
     let displayList = [...tickets];
     if (filter === 'active') {
-      displayList = displayList.filter(t => t.situacao !== 'finalizado');
-    } else if (filter === 'abertos') {
+      displayList = displayList.filter(t => !isDone(t));
+    } else if (filter === 'abertos' || filter === 'aberto') {
       displayList = displayList.filter(t => t.situacao === 'aberto');
     } else if (filter === 'em_andamento') {
       displayList = displayList.filter(t => t.situacao === 'em_andamento');
-    } else if (filter === 'finalizados') {
-      displayList = displayList.filter(t => t.situacao === 'finalizado');
+    } else if (filter === 'finalizados' || filter === 'finalizado' || filter === 'concluidos') {
+      displayList = displayList.filter(isDone);
     }
 
     displayList.sort((a, b) => {
-      const aDone = a.situacao === 'finalizado' ? 1 : 0;
-      const bDone = b.situacao === 'finalizado' ? 1 : 0;
+      const aDone = isDone(a) ? 1 : 0;
+      const bDone = isDone(b) ? 1 : 0;
       if (aDone !== bDone) return aDone - bDone;
       return (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || ''));
     });
@@ -14229,19 +14220,19 @@
         </div>
 
         <div class="strategic-filter-tabs">
-          <button type="button" class="strategic-tab-btn ${filter==='active'?'active':''}" data-strat-tab="active">
-            Ativos (${countAtivos})
-          </button>
           <button type="button" class="strategic-tab-btn ${filter==='all'?'active':''}" data-strat-tab="all">
             Todos (${countTotal})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter==='abertos'?'active':''}" data-strat-tab="abertos">
+          <button type="button" class="strategic-tab-btn ${filter==='active'?'active':''}" data-strat-tab="active">
+            Ativos (${countAtivos})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='abertos' || filter==='aberto'?'active':''}" data-strat-tab="abertos">
             Abertos (${countAbertos})
           </button>
           <button type="button" class="strategic-tab-btn ${filter==='em_andamento'?'active':''}" data-strat-tab="em_andamento">
             Em Andamento (${countAndamento})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter==='finalizados'?'active':''}" data-strat-tab="finalizados">
+          <button type="button" class="strategic-tab-btn ${filter==='finalizados' || filter==='finalizado' || filter==='concluidos'?'active':''}" data-strat-tab="finalizados">
             Concluídos (${countFinalizados})
           </button>
         </div>
@@ -19255,6 +19246,9 @@
 
         // Se mudou para Estratégico:
         if (novoTipo === 'Estratégico') {
+          ticket.tipoManutencao = 'estrategico';
+          ticket.isStrategic = true;
+          ticket.estrategico = true;
           if (!ticket.descricao.includes('[ESTRATÉGICO]')) {
             ticket.descricao = `[ESTRATÉGICO] ${ticket.descricao.trim()}`;
           }
@@ -19263,6 +19257,9 @@
           }
         } else {
           // Se mudou para NÃO Estratégico (Corretivo, Preventivo, Melhoria):
+          ticket.tipoManutencao = novoTipo === 'Preventivo' ? 'preventivo' : (novoTipo === 'Melhoria' ? 'melhoria' : 'correctivo');
+          ticket.isStrategic = false;
+          ticket.estrategico = false;
           ticket.descricao = ticket.descricao.replace(/^\[ESTRATÉGICO\]\s*/gi, '').replace(/⭐\s*/g, '').trim();
           if (ticket.prioridade === 'Máxima' && novaPrio === 'Máxima') {
             ticket.prioridade = 'Alta';
@@ -19414,6 +19411,9 @@
       const data = {
         id: 'ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         tipo: tipoVal,
+        tipoManutencao: isStrat ? 'estrategico' : (tipoVal === 'Preventivo' ? 'preventivo' : (tipoVal === 'Melhoria' ? 'melhoria' : 'correctivo')),
+        isStrategic: isStrat,
+        estrategico: isStrat,
         prioridade: prioridadeVal,
         quarto: $('p-quarto') ? $('p-quarto').value.trim() : '',
         categoria: $('p-categoria') ? $('p-categoria').value : '',
