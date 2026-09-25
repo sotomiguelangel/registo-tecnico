@@ -26,7 +26,16 @@
     try {
       if (typeof localStorage !== 'undefined') {
         const custom = localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url');
-        if (custom) return validateApiUrl(custom);
+        if (custom) {
+          if (custom.includes('AKfycbyC4LqU_W2W') || custom.includes('1616m8s5g4mY8S2zH2q7G4E2G2')) {
+            try {
+              localStorage.removeItem('registo_tecnico_api_url');
+              localStorage.removeItem('bitacora_api_url');
+            } catch (e) {}
+            return validateApiUrl(defaultApiUrl);
+          }
+          return validateApiUrl(custom);
+        }
       }
     } catch (e) {}
     return validateApiUrl(defaultApiUrl);

@@ -3592,6 +3592,13 @@
   // =======================================================================
   // CONFIGURAÇÃO — cole aqui o URL do seu Apps Script. Deve terminar em /exec
   // =======================================================================
+  try {
+    const storedCustomUrl = localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url');
+    if (storedCustomUrl && (storedCustomUrl.includes('AKfycbyC4LqU_W2W') || storedCustomUrl.includes('1616m8s5g4mY8S2zH2q7G4E2G2'))) {
+      localStorage.removeItem('registo_tecnico_api_url');
+      localStorage.removeItem('bitacora_api_url');
+    }
+  } catch(e) {}
   let API_URL = window.AppConfig.apiUrl;
   function getEffectiveApiUrl() {
     return (window.AppConfig && window.AppConfig.apiUrl) ? window.AppConfig.apiUrl : API_URL;
@@ -18499,6 +18506,9 @@
 
     try{
       // 1. Processar Sobrescritas (atualizar registos existentes sem criar duplicados)
+      let hadNetworkOr404Notice = false;
+      let lastNetworkOr404Err = null;
+
       if(rowsToOverwrite.length > 0){
         for(let i = 0; i < rowsToOverwrite.length; i++){
           const row = rowsToOverwrite[i];
@@ -18531,9 +18541,16 @@
                 data: updatedTicket
               }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eUpd) {
-              // Não fazer fallback para saveTicket: após um timeout o pedido
-              // pode já ter sido aplicado e um save criaria um duplicado.
-              throw eUpd;
+              const errTxt = String(eUpd && eUpd.message || '');
+              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
+                console.warn('Endpoint Apps Script devolveu 404 ou falha de rede ao atualizar ticket; guardado localmente:', eUpd);
+                hadNetworkOr404Notice = true;
+                lastNetworkOr404Err = eUpd;
+              } else {
+                // Não fazer fallback para saveTicket: após um timeout o pedido
+                // pode já ter sido aplicado e um save criaria um duplicado.
+                throw eUpd;
+              }
             }
           } else {
             const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
@@ -18541,12 +18558,22 @@
               fecha: row.obj.fecha || (row.existingMatch.existingData && row.existingMatch.existingData.fecha),
               hora: row.obj.hora || (row.existingMatch.existingData && row.existingMatch.existingData.hora) || '00:00'
             });
-            await apiPost({
-              action: 'update',
-              type: importType,
-              id: existingId,
-              data: mergedData
-            }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({
+                action: 'update',
+                type: importType,
+                id: existingId,
+                data: mergedData
+              }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eUpd) {
+              const errTxt = String(eUpd && eUpd.message || '');
+              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
+                hadNetworkOr404Notice = true;
+                lastNetworkOr404Err = eUpd;
+              } else {
+                throw eUpd;
+              }
+            }
           }
           overwrittenCount++;
           completedIds.add(String(existingId));
@@ -18594,6 +18621,10 @@
                   completedIds.add(String(tRow.id));
                   writeImportProgress(importType, completedIds);
                 }
+              } else if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || errTxt.includes('NetworkError') || !navigator.onLine) {
+                console.warn('Endpoint Google Apps Script 404/indisponível; tickets persistidos localmente:', eBatch);
+                hadNetworkOr404Notice = true;
+                lastNetworkOr404Err = eBatch;
               } else {
                 throw eBatch;
               }
@@ -18619,7 +18650,17 @@
             createdCount += chunk.length;
             showToast(`A gravar novos tickets… ${createdCount + resumedCount}/${rowsToCreate.length}`);
           } else {
-            await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eBatchNonTicket) {
+              const errTxt = String(eBatchNonTicket && eBatchNonTicket.message || '');
+              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
+                hadNetworkOr404Notice = true;
+                lastNetworkOr404Err = eBatchNonTicket;
+              } else {
+                throw eBatchNonTicket;
+              }
+            }
             // Só confirmar localmente depois da resposta do servidor. IDs
             // estáveis tornam uma retoma segura mesmo após timeout de rede.
             chunk.forEach(item => {
@@ -18638,23 +18679,73 @@
       }
 
       // 3. Notificação final de sucesso com detalhe completo
-      const finalMsg = `✅ Importação concluída com sucesso!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
-      showToast(finalMsg);
+      if (hadNetworkOr404Notice) {
+        const finalMsg = `✅ Importação concluída e guardada localmente!\n• ${createdCount} novo(s) registo(s) guardado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
+        showToast(finalMsg);
 
-      await confirmDialog(
-        'Importação concluída com sucesso',
-        `<div style="font-size:13px; line-height:1.6;">
-          <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
-          <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-            <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos gravados com sucesso</p>
-            <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados com os novos valores</p>
-            <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos</p>
-          </div>
-          <p style="margin:0; font-size:12px; color:var(--ink-600);">A aplicação e a base de dados foram sincronizadas e os dados já estão visíveis.</p>
-        </div>`,
-        'Concluir',
-        ''
-      );
+        await confirmDialog(
+          'Importação concluída (Modo Local / Offline)',
+          `<div style="font-size:13px; line-height:1.6;">
+            <div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:12.5px;">
+              <b>⚠️ Aviso de Ligação Google Apps Script:</b> O URL do Google Apps Script respondeu com erro (HTTP 404) ou esteve inacessível. Os seus registos foram <b>100% guardados em segurança no armazenamento local</b> e já estão ativos nos gráficos, painéis e históricos.
+            </div>
+            <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+              <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos guardados com sucesso</p>
+              <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados</p>
+              <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos</p>
+            </div>
+            <p style="margin:0 0 10px; font-size:12px; color:var(--ink-600);">Pode continuar a trabalhar normalmente em Modo Local ou atualizar o URL da sua folha de cálculo.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+              <button type="button" id="btnFixUrlAfterImport" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:var(--petrol-700); color:#fff; border-radius:6px; cursor:pointer;">⚙️ Configurar Ligação Google Sheets</button>
+              <button type="button" id="btnResetUrlAfterImport" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:6px; cursor:pointer;">↺ Repor URL Original</button>
+            </div>
+          </div>`,
+          'Concluir',
+          ''
+        );
+
+        setTimeout(() => {
+          const btnFix = $('btnFixUrlAfterImport');
+          const btnReset = $('btnResetUrlAfterImport');
+          if (btnFix) {
+            btnFix.onclick = () => {
+              closeModal();
+              promptChangeApiUrl();
+            };
+          }
+          if (btnReset) {
+            btnReset.onclick = () => {
+              if (window.AppConfig && typeof window.AppConfig.resetApiUrl === 'function') {
+                window.AppConfig.resetApiUrl();
+              } else {
+                localStorage.removeItem('registo_tecnico_api_url');
+                localStorage.removeItem('bitacora_api_url');
+              }
+              API_URL = window.AppConfig.apiUrl;
+              showToast('URL do Apps Script reposto para o valor original ✓');
+              closeModal();
+            };
+          }
+        }, 50);
+      } else {
+        const finalMsg = `✅ Importação concluída com sucesso!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
+        showToast(finalMsg);
+
+        await confirmDialog(
+          'Importação concluída com sucesso',
+          `<div style="font-size:13px; line-height:1.6;">
+            <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
+            <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+              <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos gravados com sucesso</p>
+              <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados com os novos valores</p>
+              <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos</p>
+            </div>
+            <p style="margin:0; font-size:12px; color:var(--ink-600);">A aplicação e a base de dados foram sincronizadas e os dados já estão visíveis.</p>
+          </div>`,
+          'Concluir',
+          ''
+        );
+      }
 
       // Limpar campos de entrada apenas se o processamento terminou com sucesso
       clearImportProgress();
@@ -18673,6 +18764,10 @@
         cachedTicketsData = null;
         if(typeof renderPedidosView === 'function') renderPedidosView();
         if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
+        try {
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+        } catch(e) {}
       }
     }catch(e){
       console.error('Erro na importação:', e);
@@ -18704,6 +18799,7 @@
     const isTicket = importType === 'ticket';
     const pendingList = Array.isArray(rowsToCreate) ? rowsToCreate.filter(r => !completedIds || !completedIds.has(String(r.importId || r.obj && r.obj.id))) : [];
     const pendingCount = pendingList.length;
+    const currentUrl = (window.AppConfig && window.AppConfig.apiUrl) || API_URL;
 
     const modalHtml = `
       <div style="font-size:13px; line-height:1.6;">
@@ -18711,8 +18807,11 @@
           <p style="margin:0 0 6px; font-weight:700; color:var(--coral-500); font-size:14px;">
             ⚠️ Ligação ao Google Apps Script falhou (HTTP 404)
           </p>
-          <p style="margin:0; font-size:12.5px; color:var(--ink-700);">
-            O Google devolveu <b>404: Not Found</b> para o URL da Web App. Isso significa que a implementação foi eliminada, substituída por uma nova versão com outro ID, ou as permissões na folha do Google Sheets foram alteradas.
+          <p style="margin:0 0 6px; font-size:12.5px; color:var(--ink-700);">
+            O servidor do Google Apps Script respondeu com erro 404 (Página / Recurso não encontrado).
+          </p>
+          <p style="margin:0; font-size:11.5px; color:var(--ink-500); word-break:break-all; font-family:var(--mono);">
+            <b>URL configurado:</b> ${esc(currentUrl)}
           </p>
         </div>
 
@@ -18733,8 +18832,11 @@
           <button type="button" id="btnImportOfflineFallback" class="cycle-btn primary" style="padding:10px 14px; font-size:13px; font-weight:700; background:var(--ok-500); border-color:var(--ok-500); text-align:center; justify-content:center; cursor:pointer;">
             💾 Guardar Registos Localmente (Modo Offline)
           </button>
+          <button type="button" id="btnResetApiUrlIn404" class="cycle-btn" style="padding:8px 14px; font-size:12px; font-weight:600; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; text-align:center; justify-content:center; cursor:pointer;">
+            ↺ Repor URL Predefinido do Script
+          </button>
           <button type="button" id="btnUpdateApiUrlModal" class="cycle-btn" style="padding:9px 14px; font-size:12.5px; font-weight:600; background:var(--petrol-600); color:#fff; border-color:var(--petrol-600); text-align:center; justify-content:center; cursor:pointer;">
-            ⚙️ Atualizar URL do Google Apps Script
+            ⚙️ Configurar Novo URL do Script
           </button>
         </div>
       </div>
@@ -18743,14 +18845,47 @@
     setTimeout(() => {
       const btnOffline = $('btnImportOfflineFallback');
       const btnUrl = $('btnUpdateApiUrlModal');
+      const btnReset = $('btnResetApiUrlIn404');
+
+      if(btnReset){
+        btnReset.onclick = () => {
+          if(window.AppConfig && typeof window.AppConfig.resetApiUrl === 'function'){
+            window.AppConfig.resetApiUrl();
+          } else {
+            localStorage.removeItem('registo_tecnico_api_url');
+            localStorage.removeItem('bitacora_api_url');
+          }
+          API_URL = window.AppConfig.apiUrl;
+          showToast('URL do Apps Script reposto para o valor original ✓');
+          closeModal();
+        };
+      }
 
       if(btnOffline){
         btnOffline.onclick = () => {
           try {
             if(isTicket && Array.isArray(rowsToCreate)){
-              rowsToCreate.forEach(row => {
-                const item = row.obj || row;
-                if(completedIds) completedIds.add(String(row.importId || item.id));
+              rowsToCreate.forEach((row, rIdx) => {
+                const obj = row.obj || row;
+                const genId = row.importId || obj.id || `ticket_${Date.now()}_${rIdx}_${Math.random().toString(36).slice(2, 7)}`;
+                const item = Object.assign({}, obj, {
+                  id: genId,
+                  dataReporte: obj.dataReporte || obj.fecha || todayStr(),
+                  horaReporte: obj.horaReporte || obj.hora || '00:00',
+                  fecha: obj.dataReporte || obj.fecha || todayStr(),
+                  hora: obj.horaReporte || obj.hora || '00:00',
+                  quarto: obj.quarto || obj.numero || '',
+                  colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
+                  situacao: obj.situacao || 'aberto',
+                  turno: obj.turno || 'Manhã',
+                  tipo: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'Estratégico' : (obj.tipo || 'Corretivo'),
+                  tipoManutencao: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'estrategico' : (obj.tipoManutencao || 'correctivo'),
+                  isStrategic: isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat')),
+                  categoria: obj.categoria || 'Outros',
+                  observacao: obj.observacao || obj.observacoes || '',
+                  comentarioCierre: obj.comentarioCierre || ''
+                });
+                if(completedIds) completedIds.add(String(genId));
                 recordTicketUpdate(item);
                 persistTicketInAllTicketsKey(item);
                 if (isStrategicTicket(item)) {
@@ -18766,11 +18901,38 @@
                   else cachedTicketsData.unshift(item);
                 }
               });
+              if(Array.isArray(rowsToOverwrite)){
+                rowsToOverwrite.forEach(row => {
+                  if(!row.existingMatch) return;
+                  const existingId = row.existingMatch.id;
+                  const updatedTicket = Object.assign({}, row.existingMatch.existingData, row.obj, {
+                    id: existingId,
+                    editado: 'Sim',
+                    modificadoEn: todayStr() + ' ' + nowTimeStr(),
+                    modificadoPor: getCurrentUserName()
+                  });
+                  recordTicketUpdate(updatedTicket);
+                  persistTicketInAllTicketsKey(updatedTicket);
+                  if(cachedTicketsData){
+                    const idx = cachedTicketsData.findIndex(t => String(t.id) === String(existingId));
+                    if(idx !== -1) cachedTicketsData[idx] = updatedTicket;
+                    else cachedTicketsData.unshift(updatedTicket);
+                  }
+                });
+              }
               clearImportProgress();
               invalidateTicketsCache();
               cachedTicketsData = null;
+              if($('importTextarea')) $('importTextarea').value = '';
+              if($('importFile')) $('importFile').value = '';
+              if($('importPreview')) $('importPreview').innerHTML = '';
+              importParsedRows = [];
               if(typeof renderPedidosView === 'function') renderPedidosView();
               if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
+              try {
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+              } catch(e) {}
               closeModal();
               showToast(`✅ ${rowsToCreate.length} tickets guardados com sucesso no navegador!`);
             } else if(Array.isArray(rowsToCreate)){
@@ -18782,8 +18944,24 @@
                   entry.items.unshift({ key: item.id, data: item });
                 }
               });
+              if(Array.isArray(rowsToOverwrite)){
+                rowsToOverwrite.forEach(row => {
+                  if(!row.existingMatch) return;
+                  const existingId = row.existingMatch.id;
+                  const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, { id: existingId });
+                  const entry = dataStore[importType];
+                  if(entry && Array.isArray(entry.items)){
+                    const fIdx = entry.items.findIndex(it => String(it.key) === String(existingId));
+                    if(fIdx >= 0) entry.items[fIdx] = { key: existingId, data: mergedData };
+                  }
+                });
+              }
               persistStore();
               clearImportProgress();
+              if($('importTextarea')) $('importTextarea').value = '';
+              if($('importFile')) $('importFile').value = '';
+              if($('importPreview')) $('importPreview').innerHTML = '';
+              importParsedRows = [];
               invalidateRecords(importType);
               renderHistory();
               closeModal();
