@@ -403,6 +403,7 @@
     --error:#f87171;
   }
   * { box-sizing:border-box; }
+  html { overflow-y: scroll; }
   body {
     margin:0;
     font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -3356,7 +3357,8 @@
     border-radius: 12px;
     padding: 16px;
     position: relative;
-    min-height: 380px;
+    min-height: 440px;
+    contain: layout;
   }
   [data-theme="dark"] .maint-kpi-chart-card {
     background: rgba(15,23,42,0.5);
@@ -6827,28 +6829,22 @@
     // Render active tab chart once
     renderActiveMaintKpiChart(tickets);
 
-    // Responsive width resize only (ignoring vertical layout changes to prevent render loop)
-    const chartCard = wrap.querySelector('.maint-kpi-chart-card') || wrap;
-    if (chartCard && window.ResizeObserver) {
-      if (maintKpiResizeObserver) {
-        maintKpiResizeObserver.disconnect();
-        maintKpiResizeObserver = null;
-      }
-      let lastObservedWidth = Math.round(chartCard.clientWidth || 0);
+    // Responsive window resize only (debounced, requires >= 32px change to avoid scrollbar jitter and render loops)
+    if (!window._maintKpiResizeAttachedIndicadores) {
+      window._maintKpiResizeAttachedIndicadores = true;
+      let lastMaintWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
       let maintKpiResizeTimer = null;
-      maintKpiResizeObserver = new ResizeObserver(entries => {
-        for (const entry of entries) {
-          const newWidth = Math.round(entry.contentRect ? entry.contentRect.width : (chartCard.clientWidth || 0));
-          if (newWidth > 0 && Math.abs(newWidth - lastObservedWidth) >= 16) {
-            lastObservedWidth = newWidth;
-            if (maintKpiResizeTimer) clearTimeout(maintKpiResizeTimer);
-            maintKpiResizeTimer = setTimeout(() => {
-              renderActiveMaintKpiChart(tickets);
-            }, 150);
-          }
+      window.addEventListener('resize', () => {
+        const curW = window.innerWidth;
+        if (Math.abs(curW - lastMaintWindowWidth) >= 32) {
+          lastMaintWindowWidth = curW;
+          clearTimeout(maintKpiResizeTimer);
+          maintKpiResizeTimer = setTimeout(() => {
+            const currentTickets = typeof getConsolidatedTicketsIndicadores === 'function' ? getConsolidatedTicketsIndicadores() : tickets;
+            renderActiveMaintKpiChart(currentTickets);
+          }, 150);
         }
       });
-      maintKpiResizeObserver.observe(chartCard);
     }
   }
 
@@ -6885,46 +6881,60 @@
   // 1. GRÁFICO D3: 15 CATEGORIAS TÉCNICAS (BARRA EMPILHADA)
   // ---------------------------------------------------------
   function renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets) {
+    if (host) host.innerHTML = '';
+
     // 1. Controlo de ordenação
     if (controlsWrap) {
-      controlsWrap.innerHTML = `
-        <div class="maint-kpi-sort-controls" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span>Ordenar categorias por:</span>
-            <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'volume' ? 'active' : ''}" data-sort="volume">
-              Volume Total
-            </button>
-            <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'pending' ? 'active' : ''}" data-sort="pending">
-              Maior Pendência
-            </button>
-            <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'name' ? 'active' : ''}" data-sort="name">
-              Ordem Alfabética
+      const existingSortBtns = controlsWrap.querySelectorAll('.maint-kpi-sort-btn');
+      if (existingSortBtns.length > 0) {
+        existingSortBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.sort === currentCategorySort);
+        });
+      } else {
+        controlsWrap.innerHTML = `
+          <div class="maint-kpi-sort-controls" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>Ordenar categorias por:</span>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'volume' ? 'active' : ''}" data-sort="volume">
+                Volume Total
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'pending' ? 'active' : ''}" data-sort="pending">
+                Maior Pendência
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'name' ? 'active' : ''}" data-sort="name">
+                Ordem Alfabética
+              </button>
+            </div>
+            <button type="button" id="maintBtnGoComparison" class="maint-kpi-btn-compare">
+              <span>⚖️ Comparar entre Meses</span>
             </button>
           </div>
-          <button type="button" id="maintBtnGoComparison" class="maint-kpi-btn-compare">
-            <span>⚖️ Comparar entre Meses</span>
-          </button>
-        </div>
-      `;
-      controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
-        btn.onclick = (e) => {
-          if (e) e.preventDefault();
-          currentCategorySort = btn.dataset.sort;
-          renderActiveMaintKpiChart(tickets);
-        };
-      });
+        `;
+        controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
+          btn.onclick = (e) => {
+            if (e) e.preventDefault();
+            const sortVal = btn.dataset.sort;
+            if (!sortVal || sortVal === currentCategorySort) return;
+            currentCategorySort = sortVal;
+            controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(b => {
+              b.classList.toggle('active', b.dataset.sort === sortVal);
+            });
+            renderMaintenanceD3CategoryChart(host, null, footerWrap, tickets);
+          };
+        });
 
-      const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
-      if (btnGoComp) {
-        btnGoComp.onclick = (e) => {
-          if (e) e.preventDefault();
-          currentMaintKpiTab = 'comparison';
-          const tabsWrap = document.querySelector('.maint-kpi-tabs');
-          if (tabsWrap) {
-            tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'comparison'));
-          }
-          renderActiveMaintKpiChart(tickets);
-        };
+        const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
+        if (btnGoComp) {
+          btnGoComp.onclick = (e) => {
+            if (e) e.preventDefault();
+            currentMaintKpiTab = 'comparison';
+            const tabsWrap = document.querySelector('.maint-kpi-tabs');
+            if (tabsWrap) {
+              tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'comparison'));
+            }
+            renderActiveMaintKpiChart(tickets);
+          };
+        }
       }
     }
 
@@ -7143,6 +7153,7 @@
   // 2. GRÁFICO D3: TENDÊNCIA TEMPORAL & PROJEÇÕES OPERACIONAIS
   // ---------------------------------------------------------
   function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, allTickets) {
+    if (host) host.innerHTML = '';
     const rawList = allTickets || [];
 
     // 0. Segmentação operacional (Filtro por severidade/natureza)
@@ -7161,39 +7172,49 @@
     const countPrev = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
 
     if (controlsWrap) {
-      controlsWrap.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
-          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-            <span style="font-size:12px; font-weight:700; color:var(--muted);">Filtro Operacional:</span>
-            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'all' ? 'active' : ''}" data-timeline-seg="all">
-              Todas as Ocorrências (${countAll})
-            </button>
-            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'critical' ? 'active' : ''}" data-timeline-seg="critical">
-              ⭐ Críticos & Estratégicos (${countCrit})
-            </button>
-            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'corrective' ? 'active' : ''}" data-timeline-seg="corrective">
-              ⚡ Corretivos Urgentes (${countCorr})
-            </button>
-            <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'preventive' ? 'active' : ''}" data-timeline-seg="preventive">
-              🛡️ Preventivos (${countPrev})
-            </button>
+      const existingSegBtns = controlsWrap.querySelectorAll('[data-timeline-seg]');
+      if (existingSegBtns.length > 0) {
+        existingSegBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.timelineSeg === currentMaintTimelineSegment);
+        });
+      } else {
+        controlsWrap.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="font-size:12px; font-weight:700; color:var(--muted);">Filtro Operacional:</span>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'all' ? 'active' : ''}" data-timeline-seg="all">
+                Todas as Ocorrências (${countAll})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'critical' ? 'active' : ''}" data-timeline-seg="critical">
+                ⭐ Críticos & Estratégicos (${countCrit})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'corrective' ? 'active' : ''}" data-timeline-seg="corrective">
+                ⚡ Corretivos Urgentes (${countCorr})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'preventive' ? 'active' : ''}" data-timeline-seg="preventive">
+                🛡️ Preventivos (${countPrev})
+              </button>
+            </div>
+            <div style="font-size:11.5px; color:#0284c7; font-weight:700; background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.25); padding:3px 10px; border-radius:6px;">
+              Eixo Vertical: <b>Fluxo Mensal (Tickets / Mês)</b>
+            </div>
           </div>
-          <div style="font-size:11.5px; color:#0284c7; font-weight:700; background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.25); padding:3px 10px; border-radius:6px;">
-            Eixo Vertical: <b>Fluxo Mensal (Tickets / Mês)</b>
-          </div>
-        </div>
-      `;
+        `;
 
-      controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(btn => {
-        btn.onclick = (e) => {
-          e.preventDefault();
-          const seg = btn.dataset.timelineSeg;
-          if (!seg || seg === currentMaintTimelineSegment) return;
-          currentMaintTimelineSegment = seg;
-          updateMaintKpiStrip(allTickets, currentMaintTimelineSegment);
-          renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, allTickets);
-        };
-      });
+        controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            const seg = btn.dataset.timelineSeg;
+            if (!seg || seg === currentMaintTimelineSegment) return;
+            currentMaintTimelineSegment = seg;
+            controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(b => {
+              b.classList.toggle('active', b.dataset.timelineSeg === seg);
+            });
+            updateMaintKpiStrip(allTickets, currentMaintTimelineSegment);
+            renderMaintenanceD3TimelineProjection(host, null, footerWrap, allTickets);
+          };
+        });
+      }
     }
 
     // 1. Agrupar tickets por mês / período histórico e detetar mês em curso
