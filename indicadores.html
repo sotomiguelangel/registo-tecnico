@@ -6811,6 +6811,7 @@
   }
 
   function wireMaintenanceKpisDashboardEvents(wrap, tickets) {
+    if (!wrap) return;
     // Tab switching
     wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(btn => {
       btn.onclick = (e) => {
@@ -6823,21 +6824,31 @@
       };
     });
 
-    // Render active tab chart
+    // Render active tab chart once
     renderActiveMaintKpiChart(tickets);
 
-    // Setup ResizeObserver for responsive D3 redraw
-    const chartHost = wrap.querySelector('#maintKpiD3ChartHost');
-    if (chartHost && window.ResizeObserver) {
-      if (maintKpiResizeObserver) maintKpiResizeObserver.disconnect();
-      let rAF = null;
-      maintKpiResizeObserver = new ResizeObserver(() => {
-        if (rAF) cancelAnimationFrame(rAF);
-        rAF = requestAnimationFrame(() => {
-          renderActiveMaintKpiChart(tickets);
-        });
+    // Responsive width resize only (ignoring vertical layout changes to prevent render loop)
+    const chartCard = wrap.querySelector('.maint-kpi-chart-card') || wrap;
+    if (chartCard && window.ResizeObserver) {
+      if (maintKpiResizeObserver) {
+        maintKpiResizeObserver.disconnect();
+        maintKpiResizeObserver = null;
+      }
+      let lastObservedWidth = Math.round(chartCard.clientWidth || 0);
+      let maintKpiResizeTimer = null;
+      maintKpiResizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const newWidth = Math.round(entry.contentRect ? entry.contentRect.width : (chartCard.clientWidth || 0));
+          if (newWidth > 0 && Math.abs(newWidth - lastObservedWidth) >= 16) {
+            lastObservedWidth = newWidth;
+            if (maintKpiResizeTimer) clearTimeout(maintKpiResizeTimer);
+            maintKpiResizeTimer = setTimeout(() => {
+              renderActiveMaintKpiChart(tickets);
+            }, 150);
+          }
+        }
       });
-      maintKpiResizeObserver.observe(chartHost);
+      maintKpiResizeObserver.observe(chartCard);
     }
   }
 
@@ -6896,7 +6907,8 @@
         </div>
       `;
       controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
-        btn.onclick = () => {
+        btn.onclick = (e) => {
+          if (e) e.preventDefault();
           currentCategorySort = btn.dataset.sort;
           renderActiveMaintKpiChart(tickets);
         };
@@ -6904,7 +6916,8 @@
 
       const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
       if (btnGoComp) {
-        btnGoComp.onclick = () => {
+        btnGoComp.onclick = (e) => {
+          if (e) e.preventDefault();
           currentMaintKpiTab = 'comparison';
           const tabsWrap = document.querySelector('.maint-kpi-tabs');
           if (tabsWrap) {
