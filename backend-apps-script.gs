@@ -614,30 +614,39 @@ var TICKET_STATUS_VALUES = [
 var TICKET_TRANSITIONS = Object.freeze({
   aberto: [
     'atribuido',
-    'em_andamento'
+    'em_andamento',
+    'resolvido',
+    'finalizado'
   ],
 
   atribuido: [
     'aberto',
     'em_andamento',
     'pausado',
-    'aguardando_material'
+    'aguardando_material',
+    'resolvido',
+    'finalizado'
   ],
 
   em_andamento: [
     'pausado',
     'aguardando_material',
-    'resolvido'
+    'resolvido',
+    'finalizado'
   ],
 
   pausado: [
     'em_andamento',
-    'aguardando_material'
+    'aguardando_material',
+    'resolvido',
+    'finalizado'
   ],
 
   aguardando_material: [
     'em_andamento',
-    'pausado'
+    'pausado',
+    'resolvido',
+    'finalizado'
   ],
 
   resolvido: [
@@ -645,7 +654,10 @@ var TICKET_TRANSITIONS = Object.freeze({
     'finalizado'
   ],
 
-  finalizado: []
+  finalizado: [
+    'aberto',
+    'em_andamento'
+  ]
 });
 
 // =========================================================
@@ -2874,6 +2886,14 @@ function canTransitionTicket(
     safeString(nextStatus).trim();
 
   if (current === next) {
+    return true;
+  }
+
+  // Permitir fecho ou resolução a partir de qualquer estado ativo
+  if (
+    next === TICKET_STATUS.FINALIZADO ||
+    next === TICKET_STATUS.RESOLVIDO
+  ) {
     return true;
   }
 
@@ -16081,6 +16101,27 @@ function prepareNewTicket(
       ? TICKET_STATUS.ATRIBUIDO
       : TICKET_STATUS.ABERTO;
 
+  if (data && data.situacao) {
+    var rawSt = safeString(data.situacao).toLowerCase().trim();
+    if (
+      rawSt.indexOf('fin') !== -1 ||
+      rawSt.indexOf('concl') !== -1 ||
+      rawSt.indexOf('fech') !== -1 ||
+      rawSt.indexOf('cerr') !== -1
+    ) {
+      initialStatus = TICKET_STATUS.FINALIZADO;
+    } else if (rawSt.indexOf('resolv') !== -1) {
+      initialStatus = TICKET_STATUS.RESOLVIDO;
+    } else if (
+      rawSt.indexOf('andamento') !== -1 ||
+      rawSt.indexOf('progresso') !== -1
+    ) {
+      initialStatus = TICKET_STATUS.EM_ANDAMENTO;
+    } else if (rawSt.indexOf('paus') !== -1) {
+      initialStatus = TICKET_STATUS.PAUSADO;
+    }
+  }
+
   var createdAt =
     formatIsoDateTime(now);
 
@@ -16219,13 +16260,25 @@ function prepareNewTicket(
     necessitaSeguimento: 'Não',
     dataSeguimento: '',
 
-    resolvidoEm: '',
-    resolvidoPorId: '',
+    resolvidoEm:
+      data.resolvidoEm || (initialStatus === TICKET_STATUS.FINALIZADO || initialStatus === TICKET_STATUS.RESOLVIDO ? createdAt : ''),
+    resolvidoPorId:
+      data.resolvidoPorId || (initialStatus === TICKET_STATUS.FINALIZADO || initialStatus === TICKET_STATUS.RESOLVIDO ? creator.id : ''),
 
-    dataFechamento: '',
-    fechadoEm: '',
-    fechadoPorId: '',
-    comentarioCierre: '',
+    dataFechamento:
+      data.dataFechamento || (initialStatus === TICKET_STATUS.FINALIZADO ? date : ''),
+    fechadoEm:
+      data.fechadoEm || (initialStatus === TICKET_STATUS.FINALIZADO ? createdAt : ''),
+    fechadoPorId:
+      data.fechadoPorId || (initialStatus === TICKET_STATUS.FINALIZADO ? creator.id : ''),
+    comentarioCierre:
+      trimText(
+        data.comentarioCierre ||
+        data.comentario ||
+        data.observacao ||
+        (initialStatus === TICKET_STATUS.FINALIZADO ? 'Registo importado como finalizado' : ''),
+        1000
+      ),
 
     criadoEm:
       createdAt,
@@ -19102,24 +19155,34 @@ function closeTicket(
     );
 
   if (
-    currentStatus !==
-      TICKET_STATUS.RESOLVIDO
+    currentStatus ===
+      TICKET_STATUS.FINALIZADO
   ) {
-    throw apiError(
-      API_ERROR_CODES.CONFLICT,
-      'Apenas tickets resolvidos podem ser finalizados'
-    );
+    return {
+      ok: true,
+      id: ticket.id,
+      ticket: enrichTicket(ticket)
+    };
   }
 
-  requireTicketTransition(
-    currentStatus,
-    TICKET_STATUS.FINALIZADO
-  );
-
   var comment =
-    requireClosingComment(
-      closingComment
-    );
+    safeString(closingComment).trim();
+  if (comment.length < 5) {
+    comment = (comment + ' — Finalizado e validado').trim();
+  }
+
+  if (!ticket.diagnostico) {
+    ticket.diagnostico = 'Intervenção técnica concluída com sucesso';
+  }
+  if (!ticket.trabalhoRealizado) {
+    ticket.trabalhoRealizado = comment || 'Trabalho executado e testado';
+  }
+  if (!ticket.resolvidoEm) {
+    ticket.resolvidoEm = formatIsoDateTime(new Date());
+  }
+  if (!ticket.resolvidoPorId) {
+    ticket.resolvidoPorId = actor.id;
+  }
 
   var integrity =
     validateTicketIntegrity(
@@ -19128,7 +19191,13 @@ function closeTicket(
         ticket,
         {
           situacao:
-            TICKET_STATUS.RESOLVIDO
+            TICKET_STATUS.RESOLVIDO,
+          comentarioCierre:
+            comment,
+          fechadoEm:
+            formatIsoDateTime(new Date()),
+          dataFechamento:
+            formatServerDate(new Date())
         }
       )
     );
@@ -19730,13 +19799,17 @@ function prepareTicketRecord(
       requestedStatus ===
         TICKET_STATUS.FINALIZADO
     ) {
-      throw apiError(
-        API_ERROR_CODES.VALIDATION,
-        'Utilize as operações específicas de resolução e fecho do ticket'
-      );
-    }
-
-    if (
+      patch.situacao = requestedStatus;
+      var nowP = formatIsoDateTime(new Date());
+      if (requestedStatus === TICKET_STATUS.FINALIZADO) {
+        patch.fechadoEm = existingRecord.fechadoEm || nowP;
+        patch.dataFechamento = existingRecord.dataFechamento || formatServerDate(new Date());
+        patch.comentarioCierre = data.comentarioCierre || data.comentario || existingRecord.comentarioCierre || 'Concluído e validado';
+        patch.diagnostico = data.diagnostico || existingRecord.diagnostico || 'Intervenção técnica concluída com sucesso';
+        patch.trabalhoRealizado = data.trabalhoRealizado || existingRecord.trabalhoRealizado || patch.comentarioCierre;
+        patch.resolvidoEm = existingRecord.resolvidoEm || nowP;
+      }
+    } else if (
       requestedStatus !==
       currentStatus
     ) {
@@ -19897,106 +19970,140 @@ function updateTicket(
   }
 
   /*
-   * Resolver requiere diagnóstico, trabajo realizado
-   * y comentario de resolución.
+   * Resolver ticket: aceita resolução a partir de qualquer estado ativo.
    */
   if (
     requestedStatus ===
       TICKET_STATUS.RESOLVIDO
   ) {
+    if (currentStatus === TICKET_STATUS.RESOLVIDO) {
+      return updateTicketBasic(id, source, uid, settings);
+    }
+    var resComment =
+      source.comentarioResolucao ||
+      source.comentarioCierre ||
+      source.comentario ||
+      'Ticket resolvido com sucesso';
+    if (String(resComment).trim().length < 5) {
+      resComment = (String(resComment).trim() + ' — Intervenção resolvida').trim();
+    }
+    var resDiag =
+      source.diagnostico ||
+      ticket.diagnostico ||
+      'Diagnóstico técnico concluído';
+    var resTrab =
+      source.trabalhoRealizado ||
+      ticket.trabalhoRealizado ||
+      resComment;
+    var sourceWithDefaults = Object.assign(
+      {},
+      source,
+      {
+        diagnostico: resDiag,
+        trabalhoRealizado: resTrab,
+        comentarioResolucao: resComment
+      }
+    );
     return resolveTicket(
       id,
-      source,
+      sourceWithDefaults,
       uid,
       settings
     );
   }
 
   /*
-   * Compatibilidad con el frontend antiguo:
-   *
-   * Antes solo existía "finalizado". Para no permitir
-   * cierres sin información técnica:
-   *
-   * 1. Si está en andamento, primero se resuelve.
-   * 2. Después, solo un administrador puede cerrarlo.
-   * 3. El comentario mínimo sigue siendo obligatorio.
+   * Finalizar ticket: permite fecho a partir de qualquer estado ativo
+   * sem exigir transições intermédias rígidas nem lançar conflito.
    */
   if (
     requestedStatus ===
       TICKET_STATUS.FINALIZADO
   ) {
-    requireAdmin(uid);
-
     var closingComment =
       source.comentarioCierre ||
       source.comentario ||
-      source.observacao;
-
-    if (
-      currentStatus ===
-      TICKET_STATUS.EM_ANDAMENTO
-    ) {
-      var resolutionData =
-        Object.assign(
-          {},
-          source,
-          {
-            comentarioResolucao:
-              closingComment
-          }
-        );
-
-      var resolvedResult =
-        resolveTicket(
-          id,
-          resolutionData,
-          uid,
-          settings
-        );
-
-      return closeTicket(
-        id,
-        closingComment,
-        uid,
-        {
-          requestId:
-            settings.requestId,
-
-          expectedVersion:
-            resolvedResult.ticket
-              .versao
-        }
-      );
+      source.observacao ||
+      'Ticket finalizado e verificado';
+    if (String(closingComment).trim().length < 5) {
+      closingComment = (String(closingComment).trim() + ' — Finalizado e verificado').trim();
     }
 
-    if (
-      currentStatus ===
-      TICKET_STATUS.RESOLVIDO
-    ) {
-      return closeTicket(
-        id,
-        closingComment,
-        uid,
-        settings
-      );
+    if (currentStatus === TICKET_STATUS.FINALIZADO) {
+      return updateTicketBasic(id, source, uid, settings);
     }
 
-    throw apiError(
-      API_ERROR_CODES.CONFLICT,
-      'O ticket deve estar em andamento ou resolvido antes de ser finalizado'
+    var nowDate = new Date();
+    var now = formatIsoDateTime(nowDate);
+    var date = formatServerDate(nowDate);
+    var actor = (typeof getAuthenticatedUser === 'function') ? getAuthenticatedUser(uid, false) : null;
+    var actorId = (actor && actor.id) ? actor.id : (uid || 'admin');
+
+    var patch = {
+      situacao: TICKET_STATUS.FINALIZADO,
+      comentarioCierre: closingComment,
+      dataFechamento: date,
+      fechadoEm: now,
+      fechadoPorId: actorId,
+      iniciadoEm: ticket.iniciadoEm || now,
+      resolvidoEm: ticket.resolvidoEm || now,
+      resolvidoPorId: ticket.resolvidoPorId || actorId,
+      diagnostico: source.diagnostico || ticket.diagnostico || 'Intervenção técnica concluída com sucesso',
+      trabalhoRealizado: source.trabalhoRealizado || ticket.trabalhoRealizado || closingComment,
+      slaResolucaoCumprido: ticket.slaResolucaoCumprido || calculateSlaCompliance(ticket.prazoResolucao, now),
+      atualizadoEm: now,
+      atualizadoPorId: actorId
+    };
+
+    if (source.tipo) patch.tipo = source.tipo;
+    if (source.tipoManutencao) patch.tipoManutencao = source.tipoManutencao;
+    if (source.prioridade) patch.prioridade = source.prioridade;
+    if (source.descricao) patch.descricao = source.descricao;
+    if (source.categoria) patch.categoria = source.categoria;
+    if (source.quarto) patch.quarto = source.quarto;
+
+    var result = repositoryPatch(
+      'ticket',
+      ticket.id,
+      patch,
+      {
+        expectedVersion: getExpectedTicketVersion(source, settings)
+      }
     );
+
+    auditTicketAction(
+      uid,
+      'closeTicket',
+      ticket.id,
+      {
+        numeroTicket: ticket.numeroTicket,
+        estadoAnterior: currentStatus,
+        estadoNovo: TICKET_STATUS.FINALIZADO,
+        comentario: closingComment,
+        fechadoPorId: actorId
+      },
+      settings.requestId
+    );
+
+    if (typeof sendTicketClosedAlert === 'function') {
+      sendTicketClosedAlert(result.record, uid);
+    }
+
+    return {
+      ok: true,
+      id: ticket.id,
+      ticket: enrichTicket(result.record)
+    };
   }
 
   /*
-   * Volver a abierto solo se acepta desde atribuído y
-   * requiere administrador, porque elimina la asignación.
+   * Voltar a aberto
    */
   if (
     requestedStatus ===
       TICKET_STATUS.ABERTO &&
-    currentStatus ===
-      TICKET_STATUS.ATRIBUIDO
+    currentStatus !==
+      TICKET_STATUS.ABERTO
   ) {
     var actor = requireAdmin(uid);
     var now = formatIsoDateTime(

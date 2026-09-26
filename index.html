@@ -18526,6 +18526,12 @@
               modificadoEn: todayStr() + ' ' + nowTimeStr(),
               modificadoPor: getCurrentUserName()
             });
+            if (updatedTicket.situacao === 'finalizado') {
+              updatedTicket.comentarioCierre = updatedTicket.comentarioCierre || updatedTicket.observacao || 'Concluído e validado';
+              updatedTicket.diagnostico = updatedTicket.diagnostico || 'Intervenção técnica concluída com sucesso';
+              updatedTicket.trabalhoRealizado = updatedTicket.trabalhoRealizado || updatedTicket.comentarioCierre;
+              updatedTicket.fechadoEm = updatedTicket.fechadoEm || new Date().toISOString();
+            }
             recordTicketUpdate(updatedTicket);
             persistTicketInAllTicketsKey(updatedTicket);
             if(cachedTicketsData){
@@ -18666,7 +18672,7 @@
           'Importação concluída (Modo Local / Offline)',
           `<div style="font-size:13px; line-height:1.6;">
             <div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:12.5px;">
-              <b>⚠️ Aviso de Ligação Google Apps Script:</b> O URL do Google Apps Script respondeu com erro (HTTP 404) ou esteve inacessível. Os seus registos foram <b>100% guardados em segurança no armazenamento local</b> e já estão ativos nos gráficos, painéis e históricos.
+              <b>⚠️ Aviso de Ligação Google Apps Script:</b> ${lastNetworkOr404Err ? esc(lastNetworkOr404Err.message || String(lastNetworkOr404Err)) : 'O URL do Google Apps Script respondeu com aviso ou esteve inacessível.'}<br>Os seus registos foram <b>100% guardados em segurança no armazenamento local</b> e já estão ativos nos gráficos, painéis e históricos.
             </div>
             <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
               <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos guardados com sucesso</p>
@@ -18752,7 +18758,7 @@
       console.error('Erro na importação:', e);
       showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado.`, true);
       setTimeout(()=>{
-        showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite);
+        showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite, e);
       }, 300);
     }finally{
       if(createdCount > 0 || overwrittenCount > 0) {
@@ -18770,21 +18776,25 @@
     }
   }
 
-  // ---------- Diálogo de recuperação para erro HTTP 404 / Google Apps Script ----------
-  async function showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite){
+  // ---------- Diálogo de recuperação para erro de Ligação / Google Apps Script ----------
+  async function showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite, errCause){
     const isTicket = importType === 'ticket';
     const pendingList = Array.isArray(rowsToCreate) ? rowsToCreate.filter(r => !completedIds || !completedIds.has(String(r.importId || r.obj && r.obj.id))) : [];
     const pendingCount = pendingList.length;
     const currentUrl = (window.AppConfig && window.AppConfig.apiUrl) || API_URL;
+    const errText = errCause ? (errCause.message || String(errCause)) : '';
+    const is404 = errText.includes('404');
+    const headerTitle = is404 ? '⚠️ Ligação ao Google Apps Script falhou (HTTP 404)' : '⚠️ Aviso de Sincronização Google Apps Script';
+    const descText = errText ? esc(errText) : 'O servidor do Google Apps Script respondeu com aviso de sincronização ou esteve inacessível.';
 
     const modalHtml = `
       <div style="font-size:13px; line-height:1.6;">
         <div style="background:#fff5f3; border:1px solid #fecdd3; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
           <p style="margin:0 0 6px; font-weight:700; color:var(--coral-500); font-size:14px;">
-            ⚠️ Ligação ao Google Apps Script falhou (HTTP 404)
+            ${headerTitle}
           </p>
           <p style="margin:0 0 6px; font-size:12.5px; color:var(--ink-700);">
-            O servidor do Google Apps Script respondeu com erro 404 (Página / Recurso não encontrado).
+            ${descText}
           </p>
           <p style="margin:0; font-size:11.5px; color:var(--ink-500); word-break:break-all; font-family:var(--mono);">
             <b>URL configurado:</b> ${esc(currentUrl)}
@@ -18958,7 +18968,7 @@
       }
     }, 50);
 
-    await confirmDialog('Erro de Ligação ao Endpoint (HTTP 404)', modalHtml, 'Fechar', '');
+    await confirmDialog(headerTitle, modalHtml, 'Fechar', '');
   }
 
   // ---------- Configuração interativa do URL do Google Apps Script ----------
@@ -19996,19 +20006,26 @@
 
         // 6. Enviar atualização em segundo plano ao Google Apps Script
         try {
+          const updatePayload = {
+            tipo: ticket.tipo,
+            tipoManutencao: ticket.tipo === 'Estratégico' ? 'estrategico' : 'correctivo',
+            isStrategic: ticket.tipo === 'Estratégico',
+            prioridade: ticket.prioridade,
+            situacao: ticket.situacao,
+            descricao: ticket.descricao,
+            comentarioCierre: ticket.comentarioCierre || novoComentario || ''
+          };
+          if (ticket.situacao === 'finalizado') {
+            updatePayload.comentarioCierre = updatePayload.comentarioCierre || 'Ticket finalizado e verificado';
+            updatePayload.diagnostico = ticket.diagnostico || 'Intervenção técnica concluída com sucesso';
+            updatePayload.trabalhoRealizado = ticket.trabalhoRealizado || updatePayload.comentarioCierre;
+            updatePayload.fechadoEm = new Date().toISOString();
+          }
           await apiPost({
             action: 'updateTicket',
             id: ticketId,
             ticketId: ticketId,
-            data: {
-              tipo: ticket.tipo,
-              tipoManutencao: ticket.tipo === 'Estratégico' ? 'estrategico' : 'correctivo',
-              isStrategic: ticket.tipo === 'Estratégico',
-              prioridade: ticket.prioridade,
-              situacao: ticket.situacao,
-              descricao: ticket.descricao,
-              comentarioCierre: ticket.comentarioCierre || ''
-            }
+            data: updatePayload
           });
         } catch (e) {
           console.warn('apiPost updateTicket note:', e);

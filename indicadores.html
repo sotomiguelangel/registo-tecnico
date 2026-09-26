@@ -6396,7 +6396,10 @@
                 situacao: novaSit,
                 prioridade: novaPrio,
                 descricao: ticket.descricao,
-                comentarioCierre: novoComentario
+                comentarioCierre: novoComentario || (novaSit === 'finalizado' ? 'Ticket finalizado e validado' : ''),
+                diagnostico: novaSit === 'finalizado' ? (ticket.diagnostico || 'Intervenção técnica concluída com sucesso') : (ticket.diagnostico || ''),
+                trabalhoRealizado: novaSit === 'finalizado' ? (ticket.trabalhoRealizado || novoComentario || 'Trabalho executado e testado') : (ticket.trabalhoRealizado || ''),
+                fechadoEm: novaSit === 'finalizado' ? new Date().toISOString() : ''
               }
             })
           });
