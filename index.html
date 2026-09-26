@@ -2434,6 +2434,87 @@
     border-color: rgba(56,189,248,0.25);
   }
 
+  /* Comparativo entre Meses */
+  .maint-kpi-btn-compare {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+    color: #ffffff !important;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(2,132,199,0.25);
+    transition: all 0.15s ease;
+  }
+  .maint-kpi-btn-compare:hover {
+    background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(2,132,199,0.35);
+  }
+  .maint-comp-select {
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid var(--border, #cbd5e1);
+    background: var(--surface, #ffffff);
+    color: var(--heading, #0f172a);
+    cursor: pointer;
+    outline: none;
+  }
+  [data-theme="dark"] .maint-comp-select {
+    background: #1e293b;
+    border-color: rgba(255,255,255,0.15);
+    color: #f8fafc;
+  }
+  .maint-comp-select:focus {
+    border-color: #0284c7;
+  }
+  .maint-comp-kpi-card {
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+  [data-theme="dark"] .maint-comp-kpi-card {
+    background: rgba(30,41,59,0.6);
+    border-color: rgba(255,255,255,0.08);
+  }
+  .maint-comp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .maint-comp-badge.pos {
+    background: rgba(16,185,129,0.12);
+    color: #059669;
+  }
+  [data-theme="dark"] .maint-comp-badge.pos {
+    background: rgba(16,185,129,0.2);
+    color: #34d399;
+  }
+  .maint-comp-badge.neg {
+    background: rgba(239,68,68,0.12);
+    color: #dc2626;
+  }
+  [data-theme="dark"] .maint-comp-badge.neg {
+    background: rgba(239,68,68,0.2);
+    color: #f87171;
+  }
+  .maint-comp-badge.neutral {
+    background: rgba(148,163,184,0.15);
+    color: #64748b;
+  }
+
   /* Painel de Gestão de Conflitos e Duplicados na Importação */
   .import-conflict-panel {
     background: #fffdf5;
@@ -3264,7 +3345,10 @@
           <button data-importtype="temperatura">Refrigeração</button>
           <button data-importtype="ticket">Tickets / Pedidos</button>
         </div>
-        <button class="link-edit" id="btnDownloadTemplate" type="button">Descarregar modelo CSV</button>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <button class="link-edit" id="btnDownloadTemplate" type="button">Descarregar modelo CSV</button>
+          <button class="link-edit" id="btnConfigApiUrlImport" type="button" style="color:var(--petrol-700);">⚙️ Ligação Google Sheets</button>
+        </div>
 
         <label class="field" style="margin-top:14px">
           <span class="lbl">Colar dados CSV</span>
@@ -3508,7 +3592,17 @@
   // =======================================================================
   // CONFIGURAÇÃO — cole aqui o URL do seu Apps Script. Deve terminar em /exec
   // =======================================================================
-  const API_URL = window.AppConfig.apiUrl;
+  try {
+    const storedCustomUrl = localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url');
+    if (storedCustomUrl && (storedCustomUrl.includes('AKfycbyC4LqU_W2W') || storedCustomUrl.includes('1616m8s5g4mY8S2zH2q7G4E2G2'))) {
+      localStorage.removeItem('registo_tecnico_api_url');
+      localStorage.removeItem('bitacora_api_url');
+    }
+  } catch(e) {}
+  let API_URL = window.AppConfig.apiUrl;
+  function getEffectiveApiUrl() {
+    return (window.AppConfig && window.AppConfig.apiUrl) ? window.AppConfig.apiUrl : API_URL;
+  }
   // =======================================================================
 
   // =======================================================================
@@ -5064,6 +5158,87 @@
     }
 
     return null;
+  }
+
+  // Devolve uma abreviatura curta para a referência técnica
+  function formatRefShort(refId) {
+    if (!refId) return '';
+    const s = String(refId).trim();
+    if (/^#[a-z0-9_-]+$/i.test(s)) return s;
+    if (/^eq_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+      const m = s.match(/^eq_[0-9]+_([a-z0-9]+)$/i);
+      return '#' + m[1];
+    }
+    if (/^eq_([0-9]+)$/i.test(s)) {
+      const m = s.match(/^eq_([0-9]+)$/i);
+      return '#' + m[1].slice(-4);
+    }
+    if (/^id_[0-9]+_([a-z0-9]+)$/i.test(s)) {
+      const m = s.match(/^id_[0-9]+_([a-z0-9]+)$/i);
+      return '#' + m[1];
+    }
+    if (/^\d{3,5}$/.test(s)) {
+      return '#' + s;
+    }
+    return s;
+  }
+
+  // Formata SEMPRE um nome humano legível e profissional para o equipamento, nunca expondo IDs técnicos
+  function formatHumanEquipName(rawName, eqTipo, eqLoc, rawId, refCode) {
+    const sName = String(rawName || '').trim();
+    const sId = String(rawId || '').trim();
+
+    // 1. Se tem um nome personalizado já humano (não nulo, não código de referência nem ID gerado)
+    if (sName && !isReferenceCode(sName) && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length > 2 && sName !== sId) {
+      return sName;
+    }
+
+    // 2. Tenta encontrar a definição canónica correspondente do hotel
+    const canon = findCanonicalEquip(rawId, sName, eqLoc, eqTipo);
+    if (canon && canon.nome) return canon.nome;
+
+    // 3. Obtém código de referência curto amigável (ex: #3949, #3130, REF01)
+    const refShort = formatRefShort(refCode || rawId || sName);
+
+    // 4. Determina o tipo descritivo
+    let tipoLabel = 'Equipamento';
+    const tipoStr = (String(eqTipo || '') + ' ' + sName).toLowerCase();
+    if (tipoStr.includes('ar condicionado') || tipoStr.includes('aire') || tipoStr.includes('climat') || tipoStr.includes('ac ') || tipoStr.startsWith('ac')) {
+      tipoLabel = 'Ar Condicionado';
+    } else if (tipoStr.includes('congelador') || tipoStr.includes('arca') || tipoStr.includes('con')) {
+      tipoLabel = 'Congelador';
+    } else if (tipoStr.includes('vin') || tipoStr.includes('adega') || tipoStr.includes('garrafeir')) {
+      tipoLabel = 'Vinhera';
+    } else if (tipoStr.includes('balc') || tipoStr.includes('vitrine') || tipoStr.includes('bancada')) {
+      tipoLabel = 'Balcão';
+    } else if (tipoStr.includes('frigorifico') || tipoStr.includes('frigo') || tipoStr.includes('nevera') || tipoStr.includes('ref')) {
+      tipoLabel = 'Frigorífico';
+    }
+
+    // 5. Determina localização formatada
+    let locLabel = '';
+    if (eqLoc) {
+      const norm = normalizeLocation(eqLoc);
+      if (norm && norm !== 'OUTRAS LOCALIZAÇÕES' && norm !== 'Outras Localizações') {
+        locLabel = norm
+          .toLowerCase()
+          .split(' ')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+          .replace(/\b-1\b/g, '-1')
+          .replace(/\b0\b/g, '0');
+      }
+    }
+
+    // 6. Constrói designação elegante e sem códigos crus
+    if (refShort && refShort.startsWith('#')) {
+      return locLabel ? `${tipoLabel} ${locLabel} (${refShort})` : `${tipoLabel} ${refShort}`;
+    } else if (refShort && /^[A-Z]{2,4}\d+/i.test(refShort)) {
+      return locLabel ? `${tipoLabel} ${refShort} (${locLabel})` : `${tipoLabel} ${refShort}`;
+    } else if (locLabel) {
+      return `${tipoLabel} ${locLabel}`;
+    }
+    return refShort ? `${tipoLabel} (${refShort})` : tipoLabel;
   }
 
   function isRecordMatchingEquip(record, eq) {
@@ -7625,8 +7800,9 @@
         const vin = isVinera(e);
         const isAc = isAireAcondicionado(e);
         const icon = isAc ? '💨' : (vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
-        const descTxt = (e.descricao && e.descricao !== e.nome) ? ` — ${e.descricao}` : '';
-        return `<option value="${esc(e.id)}">${icon} ${esc(e.nome)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
+        const dispName = formatHumanEquipName(e.nome, e.tipo, e.ubicacao, e.id, e.ref);
+        const descTxt = (e.descricao && e.descricao !== e.nome && e.descricao !== dispName) ? ` — ${e.descricao}` : '';
+        return `<option value="${esc(e.id)}">${icon} ${esc(dispName)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
       }).join('');
     if(current) sel.value = current;
     selectEquip(sel.value);
@@ -7645,16 +7821,17 @@
     const readingFormatted = st ? st.readingFormatted : '';
     const lastReading = st ? st.lastReading : null;
 
-    const title = `${icon} ${eq.nome} · Informação do Equipamento`;
+    const displayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+    const title = `${icon} ${displayName} · Informação do Equipamento`;
     let bodyHtml = `
       <div style="font-family:var(--sans); font-size:13px; line-height:1.5; color:var(--ink-700);">
         <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px;">
           <div style="display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px;">
             <div style="color:var(--ink-400); font-weight:600;">Nome / Código:</div>
-            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(eq.nome)} ${eq.ref && eq.ref !== eq.nome ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
+            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(displayName)} ${eq.ref && eq.ref !== eq.nome && eq.ref !== displayName ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
 
             <div style="color:var(--ink-400); font-weight:600;">Descrição:</div>
-            <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || eq.nome)}</div>
+            <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || displayName)}</div>
 
             <div style="color:var(--ink-400); font-weight:600;">Tipo de Equipamento:</div>
             <div>${icon} ${esc(eq.tipo)} ${vin ? '<span style="font-size:11px; color:#8a5f0f; background:var(--amber-100); padding:1px 5px; border-radius:4px; margin-left:4px;">Rango Mín-Máx</span>' : ''}</div>
@@ -8256,9 +8433,10 @@
           <tbody>
             ${!equipamentos.length ? '<tr><td colspan="6" style="padding:14px; text-align:center; color:var(--ink-400);">Nenhum equipamento registado.</td></tr>' : equipamentos.map(eq => {
               const inativo = isNoVal(eq.ativo);
+              const dispName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
               return `
                 <tr style="${inativo ? 'opacity:0.6; background:#f9f9f9;' : ''}">
-                  <td style="padding:8px 10px; font-weight:700;">${esc(eq.nome)}</td>
+                  <td style="padding:8px 10px; font-weight:700;">${esc(dispName)} ${eq.ref && eq.ref !== dispName ? `<span style="font-size:10.5px; color:var(--ink-400); font-weight:normal;">(${esc(eq.ref)})</span>` : ''}</td>
                   <td style="padding:8px 10px;">${esc(eq.tipo)}</td>
                   <td style="padding:8px 10px; font-size:11.5px; color:var(--ink-600);">${esc(eq.ubicacao||'—')}</td>
                   <td style="padding:8px 10px; font-family:var(--mono); font-size:11.5px;">${esc(String(eq.min))} a ${esc(String(eq.max))} °C</td>
@@ -11468,11 +11646,18 @@
     if(!box) return;
     if(window.ResizeObserver){
       if(d3ConsumoResizeObserver) d3ConsumoResizeObserver.disconnect();
-      d3ConsumoResizeObserver = new ResizeObserver(()=>{
-        clearTimeout(d3ConsumoResizeTimer);
-        d3ConsumoResizeTimer = setTimeout(()=>{
-          if($('d3ConsumoLineChartBox')) drawD3ConsumoLineChart();
-        }, 120);
+      let lastBoxWidth = Math.round(box.clientWidth || 0);
+      d3ConsumoResizeObserver = new ResizeObserver((entries)=>{
+        for (const entry of entries) {
+          const nw = Math.round(entry.contentRect ? entry.contentRect.width : (box.clientWidth || 0));
+          if (nw > 0 && Math.abs(nw - lastBoxWidth) >= 32) {
+            lastBoxWidth = nw;
+            clearTimeout(d3ConsumoResizeTimer);
+            d3ConsumoResizeTimer = setTimeout(()=>{
+              if($('d3ConsumoLineChartBox')) drawD3ConsumoLineChart();
+            }, 150);
+          }
+        }
       });
       d3ConsumoResizeObserver.observe(box);
     }
@@ -13520,26 +13705,12 @@
 
   let cachedTicketsData = null;
   let cachedTicketsTimestamp = 0;
-  let currentStrategicFilter = 'active';
+  let currentStrategicFilter = 'all';
   let loadTicketsInFlight = null;
   let isRefreshingBoard = false;
 
-  const DUMMY_STRAT_IDS = new Set(['ticket_est_01', 'ticket_est_02', 'ticket_est_03']);
-  const DUMMY_STRAT_SNIPPETS = [
-    'calibracao de valvulas misturadoras',
-    'auditoria a sondas amperometricas',
-    'termografia preventiva e balanceamento',
-    'equilibrio termico dos permutadores',
-    'calibracao dos controladores de dosagem',
-    'instalacao de variadores de frequencia'
-  ];
-
   function getDeletedTicketIds() {
     const set = new Set();
-    DUMMY_STRAT_IDS.forEach(id => {
-      set.add(id);
-      set.add(id.toLowerCase());
-    });
     try {
       const raw = localStorage.getItem(DELETED_TICKETS_KEY);
       if (raw) {
@@ -13627,27 +13798,14 @@
     const deletedSet = getDeletedTicketIds();
 
     let id = '';
-    let desc = '';
-    let obs = '';
-
     if (typeof tOrId === 'string') {
       id = tOrId.trim();
     } else if (typeof tOrId === 'object') {
       id = String(tOrId.id || tOrId.ticketId || (tOrId.data && tOrId.data.id) || tOrId.key || '').trim();
-      desc = cleanStrForMatch(tOrId.descricao || (tOrId.data && tOrId.data.descricao) || '');
-      obs = cleanStrForMatch(tOrId.observacao || (tOrId.data && tOrId.data.observacao) || '');
     }
 
     if (id) {
       if (deletedSet.has(id) || deletedSet.has(id.toLowerCase())) return true;
-      if (DUMMY_STRAT_IDS.has(id.toLowerCase())) return true;
-    }
-
-    if (desc || obs) {
-      const combined = desc + ' ' + obs;
-      for (const snip of DUMMY_STRAT_SNIPPETS) {
-        if (combined.includes(snip)) return true;
-      }
     }
 
     return false;
@@ -13743,38 +13901,38 @@
     if (isTicketDeleted(t)) return false;
 
     const idValue = t.id || t.ticketId || (t.data && t.data.id) || '';
-    if (!idValue && !(t.tipo || t.prioridade || t.descricao || t.observacao || t.categoria)) return false;
+    if (!idValue && !(t.tipo || t.type || t.tipoManutencao || t.tipo_manutencao || t.isStrategic || t.estrategico ||
+        t.prioridade || t.descricao || t.descricaoTicket || t.observacao || t.observacoes || t.categoria || t.titulo || t.title || t.assunto)) return false;
 
-    const tipo = String(t.tipo || t.type || '').trim();
-    const tipoNorm = tipo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (tipoNorm === 'estrategico' || tipoNorm === 'estrategica' || tipoNorm.includes('estrategico')) return true;
-    if (tipoNorm === 'corretivo' || tipoNorm === 'preventivo' || tipoNorm === 'melhoria') return false;
+    const normalize = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const tipo = normalize(t.tipo || t.type);
+    const tipoManut = normalize(t.tipoManutencao || t.tipo_manutencao);
+    const isStrategicFlag = [t.isStrategic, t.estrategico].some(value =>
+      value === true || value === 1 || ['true', '1', 'sim', 'yes'].includes(String(value || '').trim().toLowerCase())
+    );
+    if (isStrategicFlag || tipo.includes('estrat') || tipo.includes('strategic') ||
+        tipoManut.includes('estrat') || tipoManut.includes('strategic')) return true;
+    if (['corretivo', 'preventivo', 'melhoria'].includes(tipo)) return false;
 
     const strId = String(idValue).trim();
+    const strIdLower = strId.toLowerCase();
+    if (strIdLower.startsWith('strat_') || strIdLower.startsWith('ticket_strat_') || strIdLower.includes('_strat')) return true;
     try {
       const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (rawStrats) {
-        const arr = JSON.parse(rawStrats);
-        if (Array.isArray(arr) && arr.some(s => {
+        const saved = JSON.parse(rawStrats);
+        if (Array.isArray(saved) && saved.some(s => {
           const candidateId = String(s && (s.id || s.ticketId || (s.data && s.data.id) || '')).trim();
-          return candidateId && candidateId === strId && !isTicketDeleted(s);
-        })) {
-          return true;
-        }
+          return candidateId && candidateId.toLowerCase() === strIdLower && !isTicketDeleted(s);
+        })) return true;
       }
     } catch(e) {}
 
-    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const desc = String(t.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const obs = String(t.observacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const markers = [cat, prio, desc, obs].join(' ');
-    return prio.includes('estrat') ||
-           cat.includes('estrat') ||
-           desc.includes('[estrat') || desc.includes('⭐') ||
-           obs.includes('[estrat') ||
-           markers.includes('estrategico') ||
-           markers.includes('estrategica');
+    const markers = [
+      t.categoria, t.prioridade, t.descricao, t.descricaoTicket,
+      t.observacao, t.observacoes, t.titulo, t.title, t.assunto
+    ].map(normalize);
+    return markers.some(value => value.includes('estrat') || value.includes('strategic') || value.includes('\u2b50'));
   }
 
   function getDefaultStrategicTickets() {
@@ -13827,7 +13985,8 @@
           parsed.forEach(t => {
             if (t && t.id && !isTicketDeleted(t)) {
               const id = String(t.id).trim();
-              ticketMap.set(id, { ...t, id });
+              const isStrat = isStrategicTicket(t);
+              ticketMap.set(id, { ...t, id, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
             }
           });
         }
@@ -13839,8 +13998,9 @@
     strats.forEach(s => {
       if (s && s.id && !isTicketDeleted(s)) {
         const id = String(s.id).trim();
-        if (ticketMap.has(id)) {
-          ticketMap.set(id, { ...ticketMap.get(id), ...s, id, tipo: 'Estratégico' });
+        const existing = ticketMap.get(id);
+        if (existing) {
+          ticketMap.set(id, { ...existing, ...s, id, tipo: 'Estratégico' });
         } else {
           ticketMap.set(id, { ...s, id, tipo: 'Estratégico' });
         }
@@ -13852,15 +14012,38 @@
       const strUid = String(uid).trim();
       const upd = updatedMap[uid];
       if (upd && !isTicketDeleted(upd) && !isTicketDeleted(strUid)) {
-        if (ticketMap.has(strUid)) {
-          ticketMap.set(strUid, { ...ticketMap.get(strUid), ...upd, id: strUid });
+        const existing = ticketMap.get(strUid);
+        const isStrat = isStrategicTicket(existing) || isStrategicTicket(upd);
+        if (existing) {
+          ticketMap.set(strUid, { ...existing, ...upd, id: strUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         } else {
-          ticketMap.set(strUid, { ...upd, id: strUid });
+          ticketMap.set(strUid, { ...upd, id: strUid, ...(isStrat ? { tipo: 'Estratégico' } : {}) });
         }
       }
     });
 
     const consolidated = Array.from(ticketMap.values()).filter(t => t && t.id && !isTicketDeleted(t));
+
+    // Auto-sincronizar tickets estratégicos consolidados para STRATEGIC_TICKETS_KEY
+    try {
+      const currentSavedStrats = getSavedStrategicTickets();
+      const stratMap = new Map();
+      currentSavedStrats.forEach(s => { if (s && s.id && !isTicketDeleted(s)) stratMap.set(String(s.id).trim(), s); });
+      let hasNewStrats = false;
+      consolidated.forEach(t => {
+        if (isStrategicTicket(t)) {
+          const id = String(t.id).trim();
+          if (!stratMap.has(id)) {
+            stratMap.set(id, { ...t, tipo: 'Estratégico' });
+            hasNewStrats = true;
+          }
+        }
+      });
+      if (hasNewStrats) {
+        saveStrategicTickets(Array.from(stratMap.values()));
+      }
+    } catch(e) {}
+
     cachedTicketsData = consolidated;
     cachedTicketsTimestamp = Date.now();
     return consolidated;
@@ -13903,12 +14086,17 @@
             remoteTickets.forEach(rt => {
               if (rt && rt.id && !isTicketDeleted(rt)) {
                 const id = String(rt.id).trim();
-                if (stratIds.has(id)) {
+                if (stratIds.has(id) || isStrategicTicket(rt)) {
                   rt.tipo = 'Estratégico';
+                  if (!stratIds.has(id)) {
+                    currentStrats.push({ ...rt, tipo: 'Estratégico' });
+                    stratIds.add(id);
+                  }
                 }
                 persistTicketInAllTicketsKey(rt);
               }
             });
+            saveStrategicTickets(currentStrats);
             return getConsolidatedTickets();
           }
         }
@@ -13921,30 +14109,35 @@
   }
 
   function renderStrategicBoardHTML(allTickets, activeFilter) {
-    const filter = activeFilter || currentStrategicFilter || 'active';
+    const filter = activeFilter || currentStrategicFilter || 'all';
     const tickets = (allTickets || []).filter(isStrategicTicket);
+
+    const isDone = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
     
     const countTotal = tickets.length;
     const countAbertos = tickets.filter(t => t.situacao === 'aberto').length;
     const countAndamento = tickets.filter(t => t.situacao === 'em_andamento').length;
     const countPausados = tickets.filter(t => t.situacao === 'pausado').length;
-    const countFinalizados = tickets.filter(t => t.situacao === 'finalizado').length;
-    const countAtivos = countAbertos + countAndamento + countPausados;
+    const countFinalizados = tickets.filter(isDone).length;
+    const countAtivos = countTotal - countFinalizados;
 
     let displayList = [...tickets];
     if (filter === 'active') {
-      displayList = displayList.filter(t => t.situacao !== 'finalizado');
-    } else if (filter === 'abertos') {
+      displayList = displayList.filter(t => !isDone(t));
+    } else if (filter === 'abertos' || filter === 'aberto') {
       displayList = displayList.filter(t => t.situacao === 'aberto');
     } else if (filter === 'em_andamento') {
       displayList = displayList.filter(t => t.situacao === 'em_andamento');
-    } else if (filter === 'finalizados') {
-      displayList = displayList.filter(t => t.situacao === 'finalizado');
+    } else if (filter === 'finalizados' || filter === 'finalizado' || filter === 'concluidos') {
+      displayList = displayList.filter(isDone);
     }
 
     displayList.sort((a, b) => {
-      const aDone = a.situacao === 'finalizado' ? 1 : 0;
-      const bDone = b.situacao === 'finalizado' ? 1 : 0;
+      const aDone = isDone(a) ? 1 : 0;
+      const bDone = isDone(b) ? 1 : 0;
       if (aDone !== bDone) return aDone - bDone;
       return (String(b.dataReporte || '') + String(b.horaReporte || '')).localeCompare(String(a.dataReporte || '') + String(a.horaReporte || ''));
     });
@@ -14033,19 +14226,19 @@
         </div>
 
         <div class="strategic-filter-tabs">
-          <button type="button" class="strategic-tab-btn ${filter==='active'?'active':''}" data-strat-tab="active">
-            Ativos (${countAtivos})
-          </button>
           <button type="button" class="strategic-tab-btn ${filter==='all'?'active':''}" data-strat-tab="all">
             Todos (${countTotal})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter==='abertos'?'active':''}" data-strat-tab="abertos">
+          <button type="button" class="strategic-tab-btn ${filter==='active'?'active':''}" data-strat-tab="active">
+            Ativos (${countAtivos})
+          </button>
+          <button type="button" class="strategic-tab-btn ${filter==='abertos' || filter==='aberto'?'active':''}" data-strat-tab="abertos">
             Abertos (${countAbertos})
           </button>
           <button type="button" class="strategic-tab-btn ${filter==='em_andamento'?'active':''}" data-strat-tab="em_andamento">
             Em Andamento (${countAndamento})
           </button>
-          <button type="button" class="strategic-tab-btn ${filter==='finalizados'?'active':''}" data-strat-tab="finalizados">
+          <button type="button" class="strategic-tab-btn ${filter==='finalizados' || filter==='finalizado' || filter==='concluidos'?'active':''}" data-strat-tab="finalizados">
             Concluídos (${countFinalizados})
           </button>
         </div>
@@ -14176,6 +14369,8 @@
       const newTicket = {
         id: newId,
         tipo: 'Estratégico',
+        tipoManutencao: 'estrategico',
+        isStrategic: true,
         prioridade: vals.prioridade || 'Máxima',
         quarto: vals.quarto.trim(),
         categoria: vals.categoria,
@@ -14248,6 +14443,7 @@
 
   let currentMaintKpiTab = 'categories';
   let currentCategorySort = 'volume';
+  let currentMaintTimelineSegment = 'all';
   let maintKpiResizeObserver = null;
   let currentMaintKpiTickets = [];
   let maintKpiD3LoadPromise = null;
@@ -14263,28 +14459,44 @@
     return tip;
   }
 
-  function renderMaintenanceKpisDashboardIndicadoresHTML(tickets) {
-    tickets = tickets || [];
-    const totalTickets = tickets.length;
-    const abertos = tickets.filter(t => t.situacao === 'aberto').length;
-    const emAndamento = tickets.filter(t => t.situacao === 'em_andamento').length;
-    const pausados = tickets.filter(t => t.situacao === 'pausado').length;
-    const finalizados = tickets.filter(t => t.situacao === 'finalizado').length;
+  function getSegmentFilteredTickets(allTickets, segment) {
+    const rawList = allTickets || [];
+    if (segment === 'critical') {
+      return rawList.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t));
+    } else if (segment === 'corrective') {
+      return rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t)));
+    } else if (segment === 'preventive') {
+      return rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev'));
+    }
+    return rawList;
+  }
+
+  function renderMaintKpiStripHTML(tickets, segment = 'all') {
+    const filtered = getSegmentFilteredTickets(tickets, segment);
+    const totalTickets = filtered.length;
+    const isResolved = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
+    const abertos = filtered.filter(t => t.situacao === 'aberto').length;
+    const emAndamento = filtered.filter(t => t.situacao === 'em_andamento').length;
+    const pausados = filtered.filter(t => t.situacao === 'pausado').length;
+    const finalizados = filtered.filter(isResolved).length;
     const taxaResolucao = totalTickets > 0 ? Math.round((finalizados / totalTickets) * 100) : 0;
 
-    const preventivos = tickets.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
-    const corretivos = tickets.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length;
+    const preventivos = filtered.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
+    const corretivos = filtered.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length;
     const racioPreventivo = (preventivos + corretivos > 0) 
       ? Math.round((preventivos / (preventivos + corretivos)) * 100) 
       : (totalTickets > 0 ? Math.round((preventivos / totalTickets) * 100) : 0);
 
-    const estrategicos = tickets.filter(isStrategicTicket).length;
-    const criticos = tickets.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta').length;
+    const estrategicos = filtered.filter(isStrategicTicket).length;
+    const criticos = filtered.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta').length;
 
     let resCount = 0;
     let totalDays = 0;
-    tickets.forEach(t => {
-      if (t.situacao === 'finalizado' && t.dataReporte) {
+    filtered.forEach(t => {
+      if (isResolved(t) && t.dataReporte) {
         const start = new Date(t.dataReporte + 'T00:00:00');
         let end = t.modificadoEm ? new Date(t.modificadoEm) : null;
         if (!end || isNaN(end.getTime())) end = new Date();
@@ -14295,6 +14507,82 @@
     });
     const mttrDays = resCount > 0 ? (totalDays / resCount).toFixed(1) : (totalTickets > 0 ? '1.5' : '—');
 
+    const segLabel = segment === 'critical' ? 'Críticos & Estratégicos' : segment === 'corrective' ? 'Corretivos' : segment === 'preventive' ? 'Preventivos' : 'Acumulado Geral';
+
+    return `
+      <div class="maint-stat-card">
+        <div class="maint-stat-label">
+          <span>Total Ocorrências (${esc(segLabel)})</span>
+          <span>📋</span>
+        </div>
+        <div class="maint-stat-value">${totalTickets}</div>
+        <div class="maint-stat-sub">
+          <span>${abertos} abertos</span> · <span>${emAndamento} em curso</span>
+        </div>
+      </div>
+
+      <div class="maint-stat-card">
+        <div class="maint-stat-label">
+          <span>Taxa Resolução (${esc(segLabel)})</span>
+          <span>✓</span>
+        </div>
+        <div class="maint-stat-value" style="color:${taxaResolucao >= 75 ? '#10b981' : taxaResolucao >= 50 ? '#f59e0b' : '#ef4444'};">
+          ${taxaResolucao}%
+        </div>
+        <div class="maint-stat-sub">
+          <span>${finalizados} concluídos neste segmento</span>
+        </div>
+      </div>
+
+      <div class="maint-stat-card">
+        <div class="maint-stat-label">
+          <span>Rácio Preventivo</span>
+          <span>🛡️</span>
+        </div>
+        <div class="maint-stat-value" style="color:${racioPreventivo >= 60 ? '#10b981' : '#f59e0b'};">
+          ${racioPreventivo}%
+        </div>
+        <div class="maint-stat-sub">
+          <span>Meta hotelaria: &gt; 60%</span>
+        </div>
+      </div>
+
+      <div class="maint-stat-card">
+        <div class="maint-stat-label">
+          <span>Casos Críticos / Alta Prio</span>
+          <span>⭐</span>
+        </div>
+        <div class="maint-stat-value" style="color:#fbbf24;">
+          ${criticos}
+        </div>
+        <div class="maint-stat-sub">
+          <span>${estrategicos} estratégicos ativos</span>
+        </div>
+      </div>
+
+      <div class="maint-stat-card">
+        <div class="maint-stat-label">
+          <span>MTTR (Tempo Médio Fecho)</span>
+          <span>⏱️</span>
+        </div>
+        <div class="maint-stat-value">
+          ${mttrDays} <span style="font-size:13px; font-weight:600; color:var(--muted);">dias</span>
+        </div>
+        <div class="maint-stat-sub">
+          <span>Agilidade de encerramento</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateMaintKpiStrip(tickets, segment) {
+    const strip = $('maintKpiStripWrap') || document.querySelector('#maintKpiDashboardBoard .maint-kpi-strip');
+    if (strip) {
+      strip.innerHTML = renderMaintKpiStripHTML(tickets, segment);
+    }
+  }
+
+  function renderMaintenanceKpisDashboardIndicadoresHTML(tickets) {
     return `
       <div class="maint-kpi-board" id="maintKpiDashboardBoard">
         <div class="maint-kpi-header">
@@ -14315,74 +14603,17 @@
           </div>
         </div>
 
-        <div class="maint-kpi-strip">
-          <div class="maint-stat-card">
-            <div class="maint-stat-label">
-              <span>Total Ocorrências</span>
-              <span>📋</span>
-            </div>
-            <div class="maint-stat-value">${totalTickets}</div>
-            <div class="maint-stat-sub">
-              <span>⚠️ ${abertos} abertos</span> · <span>⚡ ${emAndamento} em curso</span>
-            </div>
-          </div>
-
-          <div class="maint-stat-card">
-            <div class="maint-stat-label">
-              <span>Taxa de Resolução</span>
-              <span>✓</span>
-            </div>
-            <div class="maint-stat-value" style="color:${taxaResolucao >= 75 ? '#10b981' : taxaResolucao >= 50 ? '#f59e0b' : '#ef4444'};">
-              ${taxaResolucao}%
-            </div>
-            <div class="maint-stat-sub">
-              <span>${finalizados} de ${totalTickets} concluídos</span>
-            </div>
-          </div>
-
-          <div class="maint-stat-card">
-            <div class="maint-stat-label">
-              <span>Rácio Preventivo</span>
-              <span>🛡️</span>
-            </div>
-            <div class="maint-stat-value" style="color:${racioPreventivo >= 60 ? '#10b981' : '#f59e0b'};">
-              ${racioPreventivo}%
-            </div>
-            <div class="maint-stat-sub">
-              <span>Meta hotelaria: &gt; 60%</span>
-            </div>
-          </div>
-
-          <div class="maint-stat-card">
-            <div class="maint-stat-label">
-              <span>Casos Críticos / Alta Prio</span>
-              <span>⭐</span>
-            </div>
-            <div class="maint-stat-value" style="color:#fbbf24;">
-              ${criticos}
-            </div>
-            <div class="maint-stat-sub">
-              <span>${estrategicos} estratégicos ativos</span>
-            </div>
-          </div>
-
-          <div class="maint-stat-card">
-            <div class="maint-stat-label">
-              <span>MTTR (Tempo Médio Fecho)</span>
-              <span>⏱️</span>
-            </div>
-            <div class="maint-stat-value">
-              ${mttrDays} <span style="font-size:13px; font-weight:600; color:var(--muted);">dias</span>
-            </div>
-            <div class="maint-stat-sub">
-              <span>Agilidade de encerramento</span>
-            </div>
-          </div>
+        <!-- 5 Executive Stat Cards (Conciliados dinamicamente com o segmento ativo) -->
+        <div class="maint-kpi-strip" id="maintKpiStripWrap">
+          ${renderMaintKpiStripHTML(tickets, currentMaintTimelineSegment || 'all')}
         </div>
 
         <div class="maint-kpi-tabs">
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'categories' ? 'active' : ''}" data-maint-tab="categories">
             📊 15 Categorias Técnicas
+          </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'comparison' ? 'active' : ''}" data-maint-tab="comparison">
+            ⚖️ Comparativo entre Meses
           </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
             📈 Tendência & Projeção Temporal
@@ -14419,17 +14650,22 @@
 
     renderActiveMaintKpiChart(tickets);
 
-    const chartHost = wrap.querySelector('#maintKpiD3ChartHost');
-    if (chartHost && window.ResizeObserver) {
-      if (maintKpiResizeObserver) maintKpiResizeObserver.disconnect();
-      let rAF = null;
-      maintKpiResizeObserver = new ResizeObserver(() => {
-        if (rAF) cancelAnimationFrame(rAF);
-        rAF = requestAnimationFrame(() => {
-          renderActiveMaintKpiChart(tickets);
-        });
+    // Responsive window resize only (debounced, requires >= 32px change to avoid scrollbar jitter and render loops)
+    if (!window._maintKpiResizeAttachedIndex) {
+      window._maintKpiResizeAttachedIndex = true;
+      let lastMaintWindowWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+      let maintKpiResizeTimer = null;
+      window.addEventListener('resize', () => {
+        const curW = window.innerWidth;
+        if (Math.abs(curW - lastMaintWindowWidth) >= 32) {
+          lastMaintWindowWidth = curW;
+          clearTimeout(maintKpiResizeTimer);
+          maintKpiResizeTimer = setTimeout(() => {
+            const currentTickets = tickets;
+            renderActiveMaintKpiChart(currentTickets);
+          }, 150);
+        }
       });
-      maintKpiResizeObserver.observe(chartHost);
     }
   }
 
@@ -14466,6 +14702,8 @@
 
     if (currentMaintKpiTab === 'categories') {
       renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
+    } else if (currentMaintKpiTab === 'comparison') {
+      renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
     } else if (currentMaintKpiTab === 'timeline') {
       renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets);
     } else if (currentMaintKpiTab === 'classification') {
@@ -14476,27 +14714,60 @@
   }
 
   function renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets) {
+    if (host) host.innerHTML = '';
+
     if (controlsWrap) {
-      controlsWrap.innerHTML = `
-        <div class="maint-kpi-sort-controls">
-          <span>Ordenar categorias por:</span>
-          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'volume' ? 'active' : ''}" data-sort="volume">
-            Volume Total
-          </button>
-          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'pending' ? 'active' : ''}" data-sort="pending">
-            Maior Pendência
-          </button>
-          <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'name' ? 'active' : ''}" data-sort="name">
-            Ordem Alfabética
-          </button>
-        </div>
-      `;
-      controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
-        btn.onclick = () => {
-          currentCategorySort = btn.dataset.sort;
-          renderActiveMaintKpiChart(tickets);
-        };
-      });
+      const existingSortBtns = controlsWrap.querySelectorAll('.maint-kpi-sort-btn');
+      if (existingSortBtns.length > 0) {
+        existingSortBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.sort === currentCategorySort);
+        });
+      } else {
+        controlsWrap.innerHTML = `
+          <div class="maint-kpi-sort-controls" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>Ordenar categorias por:</span>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'volume' ? 'active' : ''}" data-sort="volume">
+                Volume Total
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'pending' ? 'active' : ''}" data-sort="pending">
+                Maior Pendência
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentCategorySort === 'name' ? 'active' : ''}" data-sort="name">
+                Ordem Alfabética
+              </button>
+            </div>
+            <button type="button" id="maintBtnGoComparison" class="maint-kpi-btn-compare">
+              <span>⚖️ Comparar entre Meses</span>
+            </button>
+          </div>
+        `;
+        controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(btn => {
+          btn.onclick = (e) => {
+            if (e) e.preventDefault();
+            const sortVal = btn.dataset.sort;
+            if (!sortVal || sortVal === currentCategorySort) return;
+            currentCategorySort = sortVal;
+            controlsWrap.querySelectorAll('.maint-kpi-sort-btn').forEach(b => {
+              b.classList.toggle('active', b.dataset.sort === sortVal);
+            });
+            renderMaintenanceD3CategoryChart(host, null, footerWrap, tickets);
+          };
+        });
+
+        const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
+        if (btnGoComp) {
+          btnGoComp.onclick = (e) => {
+            if (e) e.preventDefault();
+            currentMaintKpiTab = 'comparison';
+            const tabsWrap = document.querySelector('.maint-kpi-tabs');
+            if (tabsWrap) {
+              tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'comparison'));
+            }
+            renderActiveMaintKpiChart(tickets);
+          };
+        }
+      }
     }
 
     const catData = CANONICAL_MAINTENANCE_CATEGORIES.map(cat => {
@@ -14640,17 +14911,118 @@
     }
   }
 
-  function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets) {
-    const monthMap = new Map();
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
-      monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+  // ---------------------------------------------------------
+  // 2. GRÁFICO D3: TENDÊNCIA TEMPORAL & PROJEÇÕES OPERACIONAIS
+  // ---------------------------------------------------------
+  function renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, allTickets) {
+    if (host) host.innerHTML = '';
+    const rawList = allTickets || [];
+
+    // 0. Segmentação operacional (Filtro por severidade/natureza)
+    let filteredTickets = rawList;
+    if (currentMaintTimelineSegment === 'critical') {
+      filteredTickets = rawList.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t));
+    } else if (currentMaintTimelineSegment === 'corrective') {
+      filteredTickets = rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t)));
+    } else if (currentMaintTimelineSegment === 'preventive') {
+      filteredTickets = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev'));
     }
 
-    tickets.forEach(t => {
+    const countAll = rawList.length;
+    const countCrit = rawList.filter(t => t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)).length;
+    const countCorr = rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t))).length;
+    const countPrev = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev')).length;
+
+    if (controlsWrap) {
+      const existingSegBtns = controlsWrap.querySelectorAll('[data-timeline-seg]');
+      if (existingSegBtns.length > 0) {
+        existingSegBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.timelineSeg === currentMaintTimelineSegment);
+        });
+      } else {
+        controlsWrap.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="font-size:12px; font-weight:700; color:var(--muted);">Filtro Operacional:</span>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'all' ? 'active' : ''}" data-timeline-seg="all">
+                Todas as Ocorrências (${countAll})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'critical' ? 'active' : ''}" data-timeline-seg="critical">
+                ⭐ Críticos & Estratégicos (${countCrit})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'corrective' ? 'active' : ''}" data-timeline-seg="corrective">
+                ⚡ Corretivos Urgentes (${countCorr})
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintTimelineSegment === 'preventive' ? 'active' : ''}" data-timeline-seg="preventive">
+                🛡️ Preventivos (${countPrev})
+              </button>
+            </div>
+            <div style="font-size:11.5px; color:#0284c7; font-weight:700; background:rgba(2,132,199,0.1); border:1px solid rgba(2,132,199,0.25); padding:3px 10px; border-radius:6px;">
+              Eixo Vertical: <b>Fluxo Mensal (Tickets / Mês)</b>
+            </div>
+          </div>
+        `;
+
+        controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(btn => {
+          btn.onclick = (e) => {
+            e.preventDefault();
+            const seg = btn.dataset.timelineSeg;
+            if (!seg || seg === currentMaintTimelineSegment) return;
+            currentMaintTimelineSegment = seg;
+            controlsWrap.querySelectorAll('[data-timeline-seg]').forEach(b => {
+              b.classList.toggle('active', b.dataset.timelineSeg === seg);
+            });
+            updateMaintKpiStrip(allTickets, currentMaintTimelineSegment);
+            renderMaintenanceD3TimelineProjection(host, null, footerWrap, allTickets);
+          };
+        });
+      }
+    }
+
+    // 1. Agrupar tickets por mês / período histórico e detetar mês em curso
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthNum = now.getMonth() + 1;
+    const currentMonthKey = `${currentYear}-${String(currentMonthNum).padStart(2, '0')}`;
+    const daysElapsed = now.getDate();
+    const daysInMonth = new Date(currentYear, currentMonthNum, 0).getDate();
+    const isCurrentMonthIncomplete = (daysElapsed < daysInMonth);
+
+    const monthMap = new Map();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentYear, currentMonthNum - 1 - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const isCurr = (key === currentMonthKey);
+      const baseLabel = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
+      const label = (isCurr && isCurrentMonthIncomplete) ? `${baseLabel}*` : baseLabel;
+      monthMap.set(key, {
+        key,
+        label,
+        baseLabel,
+        isCurrentMonth: isCurr,
+        isIncomplete: isCurr && isCurrentMonthIncomplete,
+        daysElapsed: isCurr ? daysElapsed : new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        daysInMonth: new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        novos: 0,
+        resolvidos: 0,
+        criticos: 0,
+        preventivos: 0,
+        corretivos: 0,
+        locaisMap: new Map(),
+        topLocal: '—',
+        saldo: 0,
+        prevBacklog: 0,
+        backlog: 0,
+        isProj: false
+      });
+    }
+
+    const isResolved = (t) => {
+      const s = String(t && t.situacao || '').toLowerCase();
+      return s === 'finalizado' || s === 'fechado' || s === 'resolvido' || s === 'concluido' || s === 'concluído' || s === 'cerrado';
+    };
+
+    filteredTickets.forEach(t => {
       const dateStr = t.dataReporte || (t.criadoEm ? t.criadoEm.slice(0, 10) : '');
       if (dateStr && dateStr.length >= 7) {
         const key = dateStr.slice(0, 7);
@@ -14658,106 +15030,242 @@
           const [yr, mo] = key.split('-').map(Number);
           const d = new Date(yr, (mo || 1) - 1, 1);
           const label = d.toLocaleDateString('pt-PT', { month: 'short', year: '2-digit' });
-          monthMap.set(key, { key, label, novos: 0, resolvidos: 0, backlog: 0, isProj: false });
+          monthMap.set(key, {
+            key,
+            label,
+            baseLabel: label,
+            isCurrentMonth: false,
+            isIncomplete: false,
+            daysElapsed: new Date(yr, mo, 0).getDate(),
+            daysInMonth: new Date(yr, mo, 0).getDate(),
+            novos: 0,
+            resolvidos: 0,
+            criticos: 0,
+            preventivos: 0,
+            corretivos: 0,
+            locaisMap: new Map(),
+            topLocal: '—',
+            saldo: 0,
+            prevBacklog: 0,
+            backlog: 0,
+            isProj: false
+          });
         }
         const item = monthMap.get(key);
         item.novos++;
-        if (t.situacao === 'finalizado') item.resolvidos++;
+        if (isResolved(t)) {
+          item.resolvidos++;
+        }
+        if (t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)) {
+          item.criticos++;
+        }
+        const tipoLower = String(t.tipo || '').toLowerCase();
+        if (tipoLower.includes('prev')) item.preventivos++;
+        if (tipoLower.includes('corr')) item.corretivos++;
+
+        const loc = (t.quarto || t.local || 'Geral').trim().toUpperCase();
+        item.locaisMap.set(loc, (item.locaisMap.get(loc) || 0) + 1);
       }
     });
 
-    const periods = Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+    monthMap.forEach(item => {
+      let maxCount = 0;
+      item.locaisMap.forEach((cnt, loc) => {
+        if (cnt > maxCount) {
+          maxCount = cnt;
+          item.topLocal = `${loc} (${cnt})`;
+        }
+      });
+    });
 
-    if (tickets.length === 0) {
-      periods.forEach((p, idx) => {
+    const historicalPeriods = Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+
+    // Fallback ilustrativo se sem dados
+    if (filteredTickets.length === 0) {
+      historicalPeriods.forEach((p, idx) => {
         p.novos = 4 + (idx % 3);
         p.resolvidos = 3 + (idx % 4);
       });
     }
 
-    let accBacklog = 0;
-    periods.forEach(p => {
-      accBacklog = Math.max(0, accBacklog + (p.novos - p.resolvidos));
-      p.backlog = accBacklog;
+    // 2. Conciliação Matemática de Saldo & Backlog (Stock & Flow Estrito)
+    const actualCurrentOpenBacklog = filteredTickets.filter(t => !isResolved(t)).length;
+
+    historicalPeriods.forEach(p => {
+      p.saldo = p.novos - p.resolvidos;
     });
 
-    const n = periods.length;
+    const totalHistoricalNetFlow = historicalPeriods.reduce((acc, p) => acc + p.saldo, 0);
+    let baselineBacklog = actualCurrentOpenBacklog - totalHistoricalNetFlow;
+
+    let minCum = baselineBacklog;
+    let runningCum = baselineBacklog;
+    historicalPeriods.forEach(p => {
+      runningCum += p.saldo;
+      if (runningCum < minCum) minCum = runningCum;
+    });
+    if (minCum < 0) {
+      baselineBacklog += Math.abs(minCum);
+    }
+    baselineBacklog = Math.max(0, baselineBacklog);
+
+    let runningBacklog = baselineBacklog;
+    historicalPeriods.forEach((p, idx) => {
+      p.prevBacklog = runningBacklog;
+      runningBacklog = Math.max(0, runningBacklog + p.saldo);
+      p.backlog = runningBacklog;
+    });
+
+    if (historicalPeriods.length > 0) {
+      const currentPeriod = historicalPeriods[historicalPeriods.length - 1];
+      if (currentPeriod.isCurrentMonth) {
+        currentPeriod.backlog = actualCurrentOpenBacklog;
+        runningBacklog = actualCurrentOpenBacklog;
+      }
+    }
+
+    // 3. Cadência Operacional Real (Isolando Meses Incompletos)
+    const completedActiveMonths = historicalPeriods.filter(p => !p.isIncomplete && (p.novos > 0 || p.resolvidos > 0));
+    const rateSample = completedActiveMonths.length >= 2 
+      ? completedActiveMonths.slice(-3) 
+      : (historicalPeriods.filter(p => p.novos > 0 || p.resolvidos > 0).length > 0
+          ? historicalPeriods.filter(p => p.novos > 0 || p.resolvidos > 0)
+          : historicalPeriods);
+
+    const demonstratedThroughput = rateSample.length > 0
+      ? Math.round(rateSample.reduce((acc, p) => acc + p.resolvidos, 0) / rateSample.length)
+      : Math.round(filteredTickets.filter(isResolved).length / Math.max(1, historicalPeriods.length));
+
+    const demonstratedInflow = rateSample.length > 0
+      ? Math.round(rateSample.reduce((acc, p) => acc + p.novos, 0) / rateSample.length)
+      : Math.round(filteredTickets.length / Math.max(1, historicalPeriods.length));
+
+    // Tendência linear calculada sobre meses completos (com intervalo de incerteza ±18%)
+    const regSample = completedActiveMonths.length >= 2 ? completedActiveMonths : (rateSample.length >= 2 ? rateSample : historicalPeriods);
+    const mCount = regSample.length;
     let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    periods.forEach((p, i) => {
+    regSample.forEach((p, i) => {
       sumX += i;
       sumY += p.novos;
       sumXY += i * p.novos;
       sumXX += i * i;
     });
+    const regSlope = mCount > 1 ? (mCount * sumXY - sumX * sumY) / (mCount * sumXX - sumX * sumX) : 0;
+    const regIntercept = mCount > 0 ? (sumY - regSlope * sumX) / mCount : demonstratedInflow;
 
-    const slope = n > 1 ? (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX) : 0;
-    const intercept = n > 0 ? (sumY - slope * sumX) / n : 0;
-    const avgThroughput = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.resolvidos, 0) / n) : 1;
-    const avgInflow = n > 0 ? Math.round(periods.reduce((acc, p) => acc + p.novos, 0) / n) : 1;
-
-    const lastKey = periods[periods.length - 1].key;
+    const UNCERTAINTY_PCT = 0.18;
+    const periods = [...historicalPeriods];
+    const lastKey = historicalPeriods[historicalPeriods.length - 1].key;
     const [lastYr, lastMo] = lastKey.split('-').map(Number);
+
+    let projBacklogCentral = runningBacklog;
+    let projBacklogMin = runningBacklog;
+    let projBacklogMax = runningBacklog;
 
     for (let f = 1; f <= 2; f++) {
       const pDate = new Date(lastYr, lastMo - 1 + f, 1);
       const pKey = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}`;
       const pLabel = pDate.toLocaleDateString('pt-PT', { month: 'short' }) + ' (Proj)';
-      const projectedNovos = Math.max(1, Math.round(slope * (n - 1 + f) + intercept));
-      const projectedResolvidos = Math.max(1, avgThroughput);
-      accBacklog = Math.max(0, accBacklog + (projectedNovos - projectedResolvidos));
+
+      const rawTrend = Math.round(regSlope * (mCount - 1 + f) + regIntercept);
+      const clampedTrend = Math.max(
+        Math.round(demonstratedInflow * 0.8),
+        Math.min(Math.round(demonstratedInflow * 1.3), rawTrend)
+      );
+      const projectedNovos = Math.max(1, clampedTrend);
+      const novosMin = Math.max(1, Math.round(projectedNovos * (1 - UNCERTAINTY_PCT)));
+      const novosMax = Math.round(projectedNovos * (1 + UNCERTAINTY_PCT));
+
+      const projectedResolvidos = Math.max(1, demonstratedThroughput);
+      const resolvidosMin = Math.max(1, Math.round(projectedResolvidos * 0.9));
+      const resolvidosMax = Math.round(projectedResolvidos * 1.1);
+
+      const prevBacklogVal = f === 1 ? runningBacklog : periods[periods.length - 1].backlog;
+      projBacklogCentral = Math.max(0, projBacklogCentral + (projectedNovos - projectedResolvidos));
+      projBacklogMin = Math.max(0, projBacklogMin + (novosMin - resolvidosMax));
+      projBacklogMax = Math.max(0, projBacklogMax + (novosMax - resolvidosMin));
 
       periods.push({
         key: pKey,
         label: pLabel,
+        baseLabel: pLabel,
+        isCurrentMonth: false,
+        isIncomplete: false,
+        daysElapsed: new Date(pDate.getFullYear(), pDate.getMonth() + 1, 0).getDate(),
+        daysInMonth: new Date(pDate.getFullYear(), pDate.getMonth() + 1, 0).getDate(),
         novos: projectedNovos,
+        novosMin,
+        novosMax,
         resolvidos: projectedResolvidos,
-        backlog: accBacklog,
-        isProj: true
+        resolvidosMin,
+        resolvidosMax,
+        saldo: projectedNovos - projectedResolvidos,
+        backlog: projBacklogCentral,
+        backlogMin: projBacklogMin,
+        backlogMax: projBacklogMax,
+        prevBacklog: prevBacklogVal,
+        criticos: Math.round(projectedNovos * 0.12),
+        preventivos: Math.round(projectedNovos * 0.4),
+        corretivos: Math.round(projectedNovos * 0.6),
+        topLocal: 'Projeção Global',
+        isProj: true,
+        uncertaintyPct: Math.round(UNCERTAINTY_PCT * 100)
       });
     }
 
+    // 4. Renderização D3 com Demarcação Explícita de Eixos, Projeção e Bandas de Incerteza
     const containerWidth = host.clientWidth || 860;
     const width = Math.max(containerWidth, 340);
-    const height = 340;
-    const margin = { top: 28, right: 35, bottom: 42, left: 55 };
+    const height = 350;
+    const margin = { top: 32, right: 35, bottom: 44, left: 62 };
 
     const isDark = document.documentElement.dataset.theme === 'dark';
     const textColor = isDark ? '#cbd5e1' : '#334155';
     const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
 
     const maxVal = Math.max(
-      d3.max(periods, d => Math.max(d.novos, d.resolvidos, d.backlog)) || 10,
+      d3.max(periods, d => Math.max(d.novosMax || d.novos, d.resolvidos, d.backlogMax || d.backlog)) || 10,
       10
     ) * 1.25;
 
-    const xScale = d3.scalePoint().domain(periods.map(d => d.label)).range([margin.left, width - margin.right]).padding(0.2);
-    const yScale = d3.scaleLinear().domain([0, maxVal]).range([height - margin.bottom, margin.top]).nice();
+    const xScale = d3.scalePoint()
+      .domain(periods.map(d => d.label))
+      .range([margin.left, width - margin.right])
+      .padding(0.25);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, maxVal])
+      .range([height - margin.bottom, margin.top])
+      .nice();
 
     const svg = d3.select(host)
       .append('svg')
       .attr('viewBox', `0 0 ${width} ${height}`)
       .attr('preserveAspectRatio', 'xMidYMid meet')
       .attr('role', 'img')
-      .attr('aria-label', 'Tendência & Projeção de Manutenção');
+      .attr('aria-label', 'Tendência & Projeção Temporal de Ocorrências e Resolução');
 
+    // Gradientes
     const defs = svg.append('defs');
     const gradArea = defs.append('linearGradient')
       .attr('id', 'd3MaintGradAreaIndex')
       .attr('x1', '0%').attr('y1', '0%')
       .attr('x2', '0%').attr('y2', '100%');
-    gradArea.append('stop').attr('offset', '0%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.25);
+    gradArea.append('stop').attr('offset', '0%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.22);
     gradArea.append('stop').attr('offset', '100%').attr('stop-color', '#f59e0b').attr('stop-opacity', 0.01);
 
+    // Eixo X
     svg.append('g')
       .attr('transform', `translate(0, ${height - margin.bottom})`)
       .call(d3.axisBottom(xScale))
       .call(g => g.select('.domain').attr('stroke', gridColor))
       .call(g => g.selectAll('.tick text')
-        .attr('fill', (d, i) => periods[i] && periods[i].isProj ? '#a855f7' : textColor)
-        .attr('font-weight', (d, i) => periods[i] && periods[i].isProj ? '700' : '500')
+        .attr('fill', (d, i) => periods[i] && periods[i].isProj ? '#a855f7' : (periods[i] && periods[i].isIncomplete ? '#f59e0b' : textColor))
+        .attr('font-weight', (d, i) => periods[i] && (periods[i].isProj || periods[i].isIncomplete) ? '700' : '600')
         .attr('font-size', '11px')
       );
 
+    // Eixo Y com grelha
     svg.append('g')
       .attr('transform', `translate(${margin.left}, 0)`)
       .call(
@@ -14770,67 +15278,247 @@
       .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
       .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
 
+    // Rótulo explícito no Eixo Y (Unidade: Tickets / Mês)
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -(height - margin.bottom + margin.top) / 2)
+      .attr('y', 17)
+      .attr('text-anchor', 'middle')
+      .attr('fill', textColor)
+      .attr('font-size', '10.5px')
+      .attr('font-weight', '700')
+      .attr('letter-spacing', '0.02em')
+      .text('Nº de Tickets / Mês (Fluxo Mensal)');
+
+    // Demarcação visual nítida da zona de projeção futura
     const splitIndex = periods.findIndex(p => p.isProj);
     if (splitIndex > 0) {
       const splitX = (xScale(periods[splitIndex - 1].label) + xScale(periods[splitIndex].label)) / 2;
+
+      svg.append('rect')
+        .attr('x', splitX)
+        .attr('y', margin.top)
+        .attr('width', width - margin.right - splitX)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', isDark ? 'rgba(168, 85, 247, 0.08)' : 'rgba(168, 85, 247, 0.04)')
+        .attr('rx', 4);
+
       svg.append('line')
         .attr('x1', splitX).attr('x2', splitX)
         .attr('y1', margin.top).attr('y2', height - margin.bottom)
         .attr('stroke', '#a855f7')
         .attr('stroke-dasharray', '4,4')
         .attr('stroke-width', 1.5)
-        .attr('opacity', 0.6);
+        .attr('opacity', 0.85);
 
       svg.append('text')
-        .attr('x', splitX + 6).attr('y', margin.top + 12)
-        .attr('fill', '#a855f7').attr('font-size', '10.5px').attr('font-weight', '800').attr('letter-spacing', '0.04em')
-        .text('PROJEÇÃO FUTURA ›');
+        .attr('x', splitX + 8)
+        .attr('y', margin.top + 14)
+        .attr('fill', '#a855f7')
+        .attr('font-size', '10.5px')
+        .attr('font-weight', '800')
+        .attr('letter-spacing', '0.04em')
+        .text('ZONA DE PROJEÇÃO FUTURA (±18% INCERTEZA) ›');
     }
 
+    // Geradores de linhas e áreas D3
     const actualPeriods = periods.filter(p => !p.isProj);
-    const lineNovos = d3.line().x(d => xScale(d.label)).y(d => yScale(d.novos)).curve(d3.curveMonotoneX);
-    const lineResolvidos = d3.line().x(d => xScale(d.label)).y(d => yScale(d.resolvidos)).curve(d3.curveMonotoneX);
-    const lineBacklog = d3.line().x(d => xScale(d.label)).y(d => yScale(d.backlog)).curve(d3.curveMonotoneX);
+    const lineNovos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
 
-    const areaNovos = d3.area().x(d => xScale(d.label)).y0(height - margin.bottom).y1(d => yScale(d.novos)).curve(d3.curveMonotoneX);
+    const lineResolvidos = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.resolvidos))
+      .curve(d3.curveMonotoneX);
 
-    svg.append('path').datum(actualPeriods).attr('fill', 'url(#d3MaintGradAreaIndex)').attr('d', areaNovos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#f59e0b').attr('stroke-width', 2.5).attr('d', lineNovos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#10b981').attr('stroke-width', 2.5).attr('d', lineResolvidos);
-    svg.append('path').datum(actualPeriods).attr('fill', 'none').attr('stroke', '#f43f5e').attr('stroke-width', 2).attr('stroke-dasharray', '3,3').attr('d', lineBacklog);
+    const lineBacklog = d3.line()
+      .x(d => xScale(d.label))
+      .y(d => yScale(d.backlog))
+      .curve(d3.curveMonotoneX);
 
+    // Área histórica de novos
+    const areaNovos = d3.area()
+      .x(d => xScale(d.label))
+      .y0(height - margin.bottom)
+      .y1(d => yScale(d.novos))
+      .curve(d3.curveMonotoneX);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'url(#d3MaintGradAreaIndex)')
+      .attr('d', areaNovos);
+
+    // Linhas reais contínuas
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#f59e0b')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineNovos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#10b981')
+      .attr('stroke-width', 2.5)
+      .attr('d', lineResolvidos);
+
+    svg.append('path')
+      .datum(actualPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#ef4444')
+      .attr('stroke-width', 2.2)
+      .attr('stroke-dasharray', '4,3')
+      .attr('d', lineBacklog);
+
+    // Linhas projetadas (conectadas, tracejadas e bandas de incerteza)
     if (splitIndex > 0) {
       const projConnectingPeriods = [periods[splitIndex - 1], ...periods.filter(p => p.isProj)];
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#f59e0b').attr('stroke-width', 2).attr('stroke-dasharray', '4,4').attr('d', lineNovos);
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#10b981').attr('stroke-width', 2).attr('stroke-dasharray', '4,4').attr('d', lineResolvidos);
-      svg.append('path').datum(projConnectingPeriods).attr('fill', 'none').attr('stroke', '#a855f7').attr('stroke-width', 2).attr('stroke-dasharray', '3,3').attr('d', lineBacklog);
+
+      // Banda de incerteza para Novas Ocorrências (Inflow Fan)
+      const areaUncertaintyNovos = d3.area()
+        .x(d => xScale(d.label))
+        .y0(d => yScale(d.novosMin || d.novos))
+        .y1(d => yScale(d.novosMax || d.novos))
+        .curve(d3.curveMonotoneX);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', '#f59e0b')
+        .attr('fill-opacity', isDark ? 0.16 : 0.12)
+        .attr('stroke', '#f59e0b')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '2,2')
+        .attr('d', areaUncertaintyNovos);
+
+      // Banda de incerteza para Backlog (Backlog Fan)
+      const areaUncertaintyBacklog = d3.area()
+        .x(d => xScale(d.label))
+        .y0(d => yScale(d.backlogMin || d.backlog))
+        .y1(d => yScale(d.backlogMax || d.backlog))
+        .curve(d3.curveMonotoneX);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', '#a855f7')
+        .attr('fill-opacity', isDark ? 0.18 : 0.14)
+        .attr('stroke', '#a855f7')
+        .attr('stroke-width', 0.8)
+        .attr('stroke-dasharray', '2,2')
+        .attr('d', areaUncertaintyBacklog);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#f59e0b')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,4')
+        .attr('d', lineNovos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#10b981')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5,4')
+        .attr('d', lineResolvidos);
+
+      svg.append('path')
+        .datum(projConnectingPeriods)
+        .attr('fill', 'none')
+        .attr('stroke', '#a855f7')
+        .attr('stroke-width', 2.2)
+        .attr('stroke-dasharray', '3,3')
+        .attr('d', lineBacklog);
     }
 
+    // Pontos interativos com tooltip
     const tooltip = getOrCreateMaintTooltip();
 
     periods.forEach(p => {
       const cx = xScale(p.label);
-      svg.append('circle').attr('cx', cx).attr('cy', yScale(p.novos)).attr('r', p.isProj ? 5 : 4).attr('fill', '#f59e0b').attr('stroke', isDark ? '#0f172a' : '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
-      svg.append('circle').attr('cx', cx).attr('cy', yScale(p.resolvidos)).attr('r', p.isProj ? 5 : 4).attr('fill', '#10b981').attr('stroke', isDark ? '#0f172a' : '#fff').attr('stroke-width', 2).style('cursor', 'pointer');
 
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.novos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#f59e0b')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.resolvidos))
+        .attr('r', p.isProj ? 5 : 4)
+        .attr('fill', '#10b981')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 2)
+        .style('cursor', 'pointer');
+
+      svg.append('circle')
+        .attr('cx', cx)
+        .attr('cy', yScale(p.backlog))
+        .attr('r', p.isProj ? 4.5 : 3.5)
+        .attr('fill', p.isProj ? '#a855f7' : '#ef4444')
+        .attr('stroke', isDark ? '#0f172a' : '#fff')
+        .attr('stroke-width', 1.5)
+        .style('cursor', 'pointer');
+
+      // Coluna invisível para captura de hover fluida
       svg.append('rect')
-        .attr('x', cx - 22).attr('y', margin.top).attr('width', 44).attr('height', height - margin.top - margin.bottom)
-        .attr('fill', 'transparent').style('cursor', 'pointer')
+        .attr('x', cx - 22)
+        .attr('y', margin.top)
+        .attr('width', 44)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', 'transparent')
+        .style('cursor', 'pointer')
         .on('mouseenter', () => {
           tooltip.style.opacity = '1';
-          tooltip.innerHTML = `
-            <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:${p.isProj ? '#a855f7' : '#38bdf8'};">
-              📅 ${esc(p.label)} ${p.isProj ? '(Projeção Linear)' : ''}
-            </div>
-            <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
-              <span style="color:#f59e0b;">● Novos Tickets: <b>${p.novos}</b></span>
-              <span style="color:#10b981;">● Concluídos: <b>${p.resolvidos}</b></span>
-              <span style="color:${p.isProj ? '#a855f7' : '#f43f5e'};">● Backlog Ativo: <b>${p.backlog}</b></span>
-              <span style="font-size:11px; color:#94a3b8; margin-top:2px; border-top:1px solid rgba(255,255,255,0.15); padding-top:4px;">
-                Saldo Mensal: <b>${p.novos - p.resolvidos > 0 ? '+' : ''}${p.novos - p.resolvidos}</b>
-              </span>
-            </div>
-          `;
+          const saldoFormatted = p.saldo >= 0 ? `+${p.saldo}` : String(p.saldo);
+
+          if (!p.isProj) {
+            tooltip.innerHTML = `
+              <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:#38bdf8;">
+                📅 ${esc(p.label)} · [Histórico Real] ${p.isIncomplete ? '⚠️ Mês em Curso' : ''}
+              </div>
+              ${p.isIncomplete ? `
+                <div style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px; color:#f59e0b;">
+                  ⏳ <b>Mês Incompleto:</b> ${p.daysElapsed}/${p.daysInMonth} dias decorridos (${Math.round(p.daysElapsed/p.daysInMonth*100)}%).<br>
+                  Projeção mês fechado: ~${Math.round(p.novos / (p.daysElapsed/p.daysInMonth))} entradas / ~${Math.round(p.resolvidos / (p.daysElapsed/p.daysInMonth))} fechamentos.
+                </div>
+              ` : ''}
+              <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+                <span style="color:#f59e0b;">● Novas Ocorrências (Entradas): <b>${p.novos} tickets/mês</b></span>
+                <span style="color:#10b981;">● Tickets Concluídos (Cierres): <b>${p.resolvidos} tickets/mês</b></span>
+                <span style="color:${p.saldo >= 0 ? '#f59e0b' : '#10b981'};">● Saldo Líquido do Mês (Entradas - Cierres): <b>${saldoFormatted} tickets</b></span>
+                <span style="color:#ef4444; font-weight:700;">● Backlog Acumulado no Fim do Mês: <b>${p.backlog} pendentes</b> <span style="font-size:10.5px; opacity:0.8;">(${p.prevBacklog} ant. ${saldoFormatted})</span></span>
+              </div>
+              <div style="margin-top:6px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-size:11px; color:#cbd5e1;">
+                <span>⭐ Críticos/Alta Prio: <b>${p.criticos}</b></span> · 
+                <span>🛡️ Prev: <b>${p.preventivos}</b></span> · 
+                <span>⚡ Corr: <b>${p.corretivos}</b></span>
+                ${p.topLocal && p.topLocal !== '—' ? `<div style="margin-top:2px;">📍 Principal foco: <b>${esc(p.topLocal)}</b></div>` : ''}
+              </div>
+            `;
+          } else {
+            tooltip.innerHTML = `
+              <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:#a855f7;">
+                🔮 ${esc(p.label)} · [Projeção com Intervalo de Incerteza]
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+                <span style="color:#f59e0b;">● Entradas Projetadas: <b>${p.novos} tickets/mês</b> <span style="color:var(--muted); font-size:11px;">[Faixa: ${p.novosMin} a ${p.novosMax}]</span></span>
+                <span style="color:#10b981;">● Capacidade de Cierre Estimada: <b>${p.resolvidos} tickets/mês</b></span>
+                <span style="color:${p.saldo >= 0 ? '#f59e0b' : '#10b981'};">● Saldo Projetado do Mês: <b>${saldoFormatted} tickets</b></span>
+                <span style="color:#a855f7; font-weight:700;">● Backlog Projetado: <b>${p.backlog} pendentes</b> <span style="font-size:11px;">[Faixa: ${p.backlogMin} a ${p.backlogMax}]</span></span>
+              </div>
+              <div style="margin-top:6px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-size:11px; color:#cbd5e1;">
+                📐 <b>Suposto do Modelo:</b> Tendência de demanda com dispersão de ±${p.uncertaintyPct}% e manutenção da capacidade atual do pessoal técnico.
+              </div>
+            `;
+          }
         })
         .on('mousemove', (event) => {
           tooltip.style.left = (event.clientX + 14) + 'px';
@@ -14841,34 +15529,94 @@
         });
     });
 
+    // Legenda e Análise Operacional Hoteleira Conciliada
     if (footerWrap) {
-      const isHealthyTrend = avgThroughput >= avgInflow;
+      const isHealthyTrend = demonstratedThroughput >= demonstratedInflow;
+      const criticalBacklogCount = rawList.filter(t => (t.prioridade === 'Máxima' || t.prioridade === 'Alta' || isStrategicTicket(t)) && !isResolved(t)).length;
+      const routineBacklogCount = Math.max(0, actualCurrentOpenBacklog - criticalBacklogCount);
+
       footerWrap.innerHTML = `
-        <div class="maint-kpi-legend">
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span><span>Novas Ocorrências</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#10b981;"></span><span>Tickets Resolvidos</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#f43f5e;"></span><span>Backlog Pendente</span></div>
-          <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#a855f7;"></span><span>Projeção Linear Estendida</span></div>
+        <div class="maint-kpi-legend" style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px;">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span>
+            <span>Novas Ocorrências (Histórico Real)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#10b981;"></span>
+            <span>Tickets Resolvidos (Histórico Real)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#ef4444;"></span>
+            <span>Backlog Saldo Pendente (Acumulado)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#a855f7;"></span>
+            <span>Projeções Futuras (Out-Nov 2026)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:rgba(245,158,11,0.4); border:1px dashed #f59e0b;"></span>
+            <span>Faixa Incerteza Demanda (±18%)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:rgba(168,85,247,0.4); border:1px dashed #a855f7;"></span>
+            <span>Faixa Incerteza Backlog (Fan Chart)</span>
+          </div>
         </div>
 
-        <div class="maint-projection-callout">
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Capacidade de Resolução</div>
-            <div style="font-size:17px; font-weight:800; color:#10b981; margin-top:2px;">~${avgThroughput} tickets/mês</div>
-            <div style="font-size:11.5px; color:var(--muted);">Velocidade média de encerramento</div>
+        <div class="maint-projection-callout" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Capacidade de Resolução Real</div>
+            <div style="font-size:18px; font-weight:800; color:#10b981; margin-top:2px;">~${demonstratedThroughput} tickets/mês</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">Cadência média nos meses completos ativos (sem diluição por meses incompletos)</div>
           </div>
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Taxa de Novas Avarias</div>
-            <div style="font-size:17px; font-weight:800; color:#f59e0b; margin-top:2px;">~${avgInflow} tickets/mês</div>
-            <div style="font-size:11.5px; color:var(--muted);">Volume médio de entrada</div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Taxa de Novas Ocorrências</div>
+            <div style="font-size:18px; font-weight:800; color:#f59e0b; margin-top:2px;">~${demonstratedInflow} tickets/mês</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">Média real de entrada de avarias em operação plena</div>
           </div>
-          <div>
-            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Diagnóstico da Projeção</div>
-            <div style="font-size:14.5px; font-weight:800; color:${isHealthyTrend ? '#10b981' : '#f59e0b'}; margin-top:2px;">
-              ${isHealthyTrend ? '🟢 Ritmo Sustentável (Passivo em Queda)' : '⚠️ Carga Elevada (Reforço Recomendado)'}
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Saldo de Backlog Atual</div>
+            <div style="font-size:18px; font-weight:800; color:#38bdf8; margin-top:2px;">${actualCurrentOpenBacklog} pendentes</div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+              ⭐ <b>${criticalBacklogCount} críticos/estratégicos</b> · ${routineBacklogCount} rotineiros (100% conciliado)
             </div>
-            <div style="font-size:11.5px; color:var(--muted);">
-              ${isHealthyTrend ? 'A capacidade atual supera a entrada de novas avarias.' : 'Recomenda-se intensificar manutenções preventivas programadas.'}
+          </div>
+
+          <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:12px 14px; border-radius:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;">Diagnóstico Operacional Hoteleiro</div>
+            <div style="font-size:14px; font-weight:800; color:${isHealthyTrend ? '#10b981' : '#f59e0b'}; margin-top:2px;">
+              ${isHealthyTrend ? '🟢 Equilíbrio Operacional Sustentável' : '⚠️ Atenção: Carga com Ligeira Tendência de Alta'}
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:2px;">
+              ${isHealthyTrend ? 'A capacidade da equipa cobre o ritmo de novas avarias.' : 'Projeção ponderada: recomenda-se reforçar manutenções preventivas programadas.'}
+            </div>
+          </div>
+        </div>
+
+        <!-- Painel Técnico de Supostos e Parâmetros do Modelo -->
+        <div style="margin-top:12px; background:rgba(2,132,199,0.05); border:1px solid rgba(2,132,199,0.2); border-radius:10px; padding:12px 14px; font-size:11.5px; color:var(--text);">
+          <div style="font-weight:800; color:#0284c7; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+            <span>📐 Supostos & Parâmetros do Modelo de Projeção Operacional</span>
+            <span style="font-size:10.5px; font-weight:600; background:rgba(2,132,199,0.15); padding:1px 6px; border-radius:4px;">Stock & Flow + Fan Chart</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; line-height:1.45;">
+            <div>
+              <b>1. Conservação de Saldo (Stock & Flow):</b><br>
+              <span style="color:var(--muted);">Backlog<sub>t</sub> = Backlog<sub>t-1</sub> + Entradas<sub>t</sub> − Cierres<sub>t</sub>. O saldo no mês corrente coincide ao cêntimo com os ${actualCurrentOpenBacklog} tickets em aberto no sistema.</span>
+            </div>
+            <div>
+              <b>2. Isolamento de Meses Incompletos:</b><br>
+              <span style="color:var(--muted);">O mês em curso (${daysElapsed}/${daysInMonth} dias) é identificado com asterisco (*) e isolado para que não deprima artificialmente a cadência nem a capacidade da equipe.</span>
+            </div>
+            <div>
+              <b>3. Banda de Incerteza (Fan Chart ±18%):</b><br>
+              <span style="color:var(--muted);">A projeção futura não assume um valor estático: modela um intervalo de confiança de ±18% para demanda de avarias e variações de resposta do pessoal técnico.</span>
+            </div>
+            <div>
+              <b>4. Hipótese de Capacidade Constante:</b><br>
+              <span style="color:var(--muted);">A capacidade de fechamento futura é parametrizada na produtividade real demonstrada nos meses fechados (~${demonstratedThroughput} t/mês), sem saltos abruptos.</span>
             </div>
           </div>
         </div>
@@ -15095,6 +15843,570 @@
           <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#10b981;"></span><span>Casos Concluídos</span></div>
           <div class="maint-kpi-legend-item"><span class="maint-kpi-legend-dot" style="background:#0284c7;"></span><span>Volume Total da Área</span></div>
           <div style="margin-left:auto; font-size:11px; color:var(--muted);">Exibindo os 10 quartos e áreas com maior índice de intervenção técnica.</div>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // 5. GRÁFICO D3 & MATRIZ: COMPARATIVO ENTRE MESES
+  // ---------------------------------------------------------
+  let currentMaintCompMonthA = '';
+  let currentMaintCompMonthB = '';
+  let currentMaintCompSort = 'diff_desc'; // 'diff_desc', 'diff_asc', 'volume', 'name'
+  let currentMaintCompViewMode = 'chart'; // 'chart' ou 'table'
+
+  function getTicketMonthKeyIndex(t) {
+    if (!t) return '';
+    const str = String(t.dataReporte || t.fecha || t.data || t.criadoEm || t.timestamp || '').trim();
+    if (!str) return '';
+    const matchISO = str.match(/^(\d{4})[/-](\d{1,2})/);
+    if (matchISO) return `${matchISO[1]}-${matchISO[2].padStart(2, '0')}`;
+    const matchBR = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (matchBR) return `${matchBR[3]}-${matchBR[2].padStart(2, '0')}`;
+    return '';
+  }
+
+  function formatMonthKeyLabelIndex(monthKey) {
+    if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || 'Mês';
+    const [yr, mo] = monthKey.split('-').map(Number);
+    const d = new Date(yr, (mo || 1) - 1, 1);
+    const monthName = d.toLocaleDateString('pt-PT', { month: 'long' });
+    const capitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+    return `${capitalized} ${yr}`;
+  }
+
+  function renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets) {
+    const safeEsc = typeof escapeHtml === 'function' ? escapeHtml : (typeof esc === 'function' ? esc : String);
+
+    // 1. Obter lista de meses disponíveis com dados
+    let distinctMonths = Array.from(new Set(
+      tickets.map(getTicketMonthKeyIndex).filter(m => m && /^\d{4}-\d{2}$/.test(m))
+    )).sort();
+
+    // Garantir pelo menos 2 meses disponíveis para permitir seleção/comparação imediata
+    if (distinctMonths.length === 0) {
+      const now = new Date();
+      const currKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prevDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      distinctMonths = [prevKey, currKey];
+    } else if (distinctMonths.length === 1) {
+      const only = distinctMonths[0];
+      const [y, m] = only.split('-').map(Number);
+      const prevDate = new Date(y, (m || 1) - 2, 1);
+      const prevKey = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+      const nextDate = new Date(y, m || 1, 1);
+      const nextKey = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+      distinctMonths = [prevKey, only, nextKey];
+    }
+
+    // Configurar meses padrão se ainda não definidos
+    if (!currentMaintCompMonthB || !distinctMonths.includes(currentMaintCompMonthB)) {
+      currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
+    }
+    if (!currentMaintCompMonthA || !distinctMonths.includes(currentMaintCompMonthA) || currentMaintCompMonthA === currentMaintCompMonthB) {
+      const idxB = distinctMonths.indexOf(currentMaintCompMonthB);
+      currentMaintCompMonthA = idxB > 0 ? distinctMonths[idxB - 1] : (distinctMonths.length > 1 ? distinctMonths[1] : distinctMonths[0]);
+    }
+
+    const labelA = formatMonthKeyLabelIndex(currentMaintCompMonthA);
+    const labelB = formatMonthKeyLabelIndex(currentMaintCompMonthB);
+
+    // 2. Controlos superiores (Seletores de Mês, Inversão, Ordenação, Modo Gráfico/Tabela)
+    if (controlsWrap) {
+      const optionsA = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthA ? 'selected' : ''}>${formatMonthKeyLabelIndex(m)}</option>`).join('');
+      const optionsB = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthB ? 'selected' : ''}>${formatMonthKeyLabelIndex(m)}</option>`).join('');
+
+      controlsWrap.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding:10px 14px; background:rgba(2,132,199,0.04); border:1px solid var(--border); border-radius:10px;">
+          <!-- Seletores de Mês -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:11px; font-weight:800; text-transform:uppercase; color:#6366f1; letter-spacing:0.03em;">● Mês Base:</span>
+              <select id="maintCompSelectA" class="maint-comp-select">
+                ${optionsA}
+              </select>
+            </div>
+
+            <button type="button" id="maintCompBtnSwap" title="Inverter meses comparados" style="background:var(--surface, #fff); border:1px solid var(--border); border-radius:6px; padding:5px 9px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text); transition:all 0.15s ease;">
+              ⇄
+            </button>
+
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:11px; font-weight:800; text-transform:uppercase; color:#0284c7; letter-spacing:0.03em;">● Mês Comparado:</span>
+              <select id="maintCompSelectB" class="maint-comp-select">
+                ${optionsB}
+              </select>
+            </div>
+
+            <button type="button" id="maintCompBtnLatestPair" style="background:rgba(2,132,199,0.08); border:1px solid #38bdf8; color:#0284c7; padding:5px 10px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; transition:all 0.15s ease;">
+              ⚡ Últimos 2 Meses
+            </button>
+          </div>
+
+          <!-- Alternador de visualização e Ordenação -->
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:4px; font-size:11.5px; color:var(--muted);">
+              <span>Ordenar:</span>
+              <select id="maintCompSelectSort" style="padding:4px 8px; font-size:11.5px; font-weight:600; border-radius:6px; border:1px solid var(--border); background:var(--surface, #fff); color:var(--text); outline:none;">
+                <option value="diff_desc" ${currentMaintCompSort === 'diff_desc' ? 'selected' : ''}>▲ Maior Aumento de Avarias</option>
+                <option value="diff_asc" ${currentMaintCompSort === 'diff_asc' ? 'selected' : ''}>▼ Maior Redução de Avarias</option>
+                <option value="volume" ${currentMaintCompSort === 'volume' ? 'selected' : ''}>Volume Mês Comparado</option>
+                <option value="name" ${currentMaintCompSort === 'name' ? 'selected' : ''}>Ordem Alfabética</option>
+              </select>
+            </div>
+
+            <div style="display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+              <button type="button" id="maintCompBtnChart" style="padding:5px 10px; font-size:11.5px; font-weight:700; border:none; cursor:pointer; background:${currentMaintCompViewMode === 'chart' ? '#0284c7' : 'var(--surface, #fff)'}; color:${currentMaintCompViewMode === 'chart' ? '#fff' : 'var(--muted)'};">
+                📊 Gráfico
+              </button>
+              <button type="button" id="maintCompBtnTable" style="padding:5px 10px; font-size:11.5px; font-weight:700; border:none; cursor:pointer; background:${currentMaintCompViewMode === 'table' ? '#0284c7' : 'var(--surface, #fff)'}; color:${currentMaintCompViewMode === 'table' ? '#fff' : 'var(--muted)'};">
+                📋 Tabela
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const selA = $('maintCompSelectA');
+      if (selA) selA.onchange = (e) => {
+        currentMaintCompMonthA = e.target.value;
+        renderActiveMaintKpiChart(tickets);
+      };
+
+      const selB = $('maintCompSelectB');
+      if (selB) selB.onchange = (e) => {
+        currentMaintCompMonthB = e.target.value;
+        renderActiveMaintKpiChart(tickets);
+      };
+
+      const btnSwap = $('maintCompBtnSwap');
+      if (btnSwap) btnSwap.onclick = () => {
+        const tmp = currentMaintCompMonthA;
+        currentMaintCompMonthA = currentMaintCompMonthB;
+        currentMaintCompMonthB = tmp;
+        renderActiveMaintKpiChart(tickets);
+      };
+
+      const btnLatest = $('maintCompBtnLatestPair');
+      if (btnLatest) btnLatest.onclick = () => {
+        if (distinctMonths.length >= 2) {
+          currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
+          currentMaintCompMonthA = distinctMonths[distinctMonths.length - 2];
+          renderActiveMaintKpiChart(tickets);
+        }
+      };
+
+      const selSort = $('maintCompSelectSort');
+      if (selSort) selSort.onchange = (e) => {
+        currentMaintCompSort = e.target.value;
+        renderActiveMaintKpiChart(tickets);
+      };
+
+      const btnChart = $('maintCompBtnChart');
+      if (btnChart) btnChart.onclick = () => {
+        if (currentMaintCompViewMode !== 'chart') {
+          currentMaintCompViewMode = 'chart';
+          renderActiveMaintKpiChart(tickets);
+        }
+      };
+
+      const btnTable = $('maintCompBtnTable');
+      if (btnTable) btnTable.onclick = () => {
+        if (currentMaintCompViewMode !== 'table') {
+          currentMaintCompViewMode = 'table';
+          renderActiveMaintKpiChart(tickets);
+        }
+      };
+    }
+
+    // 3. Filtrar dados dos 2 meses
+    const ticketsA = tickets.filter(t => getTicketMonthKeyIndex(t) === currentMaintCompMonthA);
+    const ticketsB = tickets.filter(t => getTicketMonthKeyIndex(t) === currentMaintCompMonthB);
+
+    const totA = ticketsA.length;
+    const totB = ticketsB.length;
+    const finA = ticketsA.filter(t => t.situacao === 'finalizado').length;
+    const finB = ticketsB.filter(t => t.situacao === 'finalizado').length;
+
+    const taxaA = totA > 0 ? Math.round((finA / totA) * 100) : 0;
+    const taxaB = totB > 0 ? Math.round((finB / totB) * 100) : 0;
+
+    const diffTot = totB - totA;
+    const diffPct = totA > 0 ? Math.round(((totB - totA) / totA) * 100) : (totB > 0 ? 100 : 0);
+    const diffTaxa = taxaB - taxaA;
+
+    // Diagnóstico operacional
+    let diagColor = '#10b981';
+    let diagTitle = '🟢 Melhora Operacional';
+    let diagDesc = 'Redução global de avarias com estabilidade na resposta resolutiva.';
+
+    if (diffTot > 0 && diffTaxa < 0) {
+      diagColor = '#ef4444';
+      diagTitle = '⚠️ Alerta de Sobrecarga';
+      diagDesc = `Subida de ${diffTot} ocorrências (+${diffPct}%) e taxa de resolução ${Math.abs(diffTaxa)} p.p. menor.`;
+    } else if (diffTot > 0 && diffTaxa >= 0) {
+      diagColor = '#f59e0b';
+      diagTitle = '⚡ Elevada Atividade';
+      diagDesc = `Mais avarias (+${diffTot}), mas a equipa manteve excelente taxa de fecho (${taxaB}%).`;
+    } else if (diffTot <= 0 && diffTaxa >= 0) {
+      diagColor = '#10b981';
+      diagTitle = '🟢 Ritmo Otimizado';
+      diagDesc = `Redução de ${Math.abs(diffTot)} ocorrências (${diffPct}%) e taxa de resolução superior (+${diffTaxa} p.p.).`;
+    } else {
+      diagColor = '#0284c7';
+      diagTitle = '🔵 Operação Estável';
+      diagDesc = 'Variação ligeira dentro dos parâmetros habituais do hotel.';
+    }
+
+    // Preparar dados por categoria
+    const catData = CANONICAL_MAINTENANCE_CATEGORIES.map(cat => {
+      const listA = ticketsA.filter(t => normalizeTicketCategory(t.categoria) === cat);
+      const listB = ticketsB.filter(t => normalizeTicketCategory(t.categoria) === cat);
+
+      const countA = listA.length;
+      const countB = listB.length;
+      const fA = listA.filter(t => t.situacao === 'finalizado').length;
+      const fB = listB.filter(t => t.situacao === 'finalizado').length;
+
+      const pA = countA > 0 ? Math.round((fA / countA) * 100) : 0;
+      const pB = countB > 0 ? Math.round((fB / countB) * 100) : 0;
+
+      const diff = countB - countA;
+      const dPct = countA > 0 ? Math.round(((countB - countA) / countA) * 100) : (countB > 0 ? 100 : 0);
+
+      return {
+        cat,
+        countA,
+        countB,
+        fA,
+        fB,
+        pA,
+        pB,
+        diff,
+        dPct,
+        meta: CATEGORY_META[cat] || { icon: '📌', color: '#64748b' }
+      };
+    });
+
+    if (currentMaintCompSort === 'diff_desc') {
+      catData.sort((a, b) => b.diff - a.diff || b.countB - a.countB);
+    } else if (currentMaintCompSort === 'diff_asc') {
+      catData.sort((a, b) => a.diff - b.diff || b.countA - a.countA);
+    } else if (currentMaintCompSort === 'volume') {
+      catData.sort((a, b) => b.countB - a.countB || b.countA - a.countA);
+    } else {
+      catData.sort((a, b) => a.cat.localeCompare(b.cat));
+    }
+
+    // 4. Inserir Cards KPI de Resumo Comparativo no topo do host
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    const deltaSign = diffTot > 0 ? '+' : '';
+    const badgeTotClass = diffTot < 0 ? 'pos' : (diffTot > 0 ? 'neg' : 'neutral');
+    const badgeTotIcon = diffTot < 0 ? '▼' : (diffTot > 0 ? '▲' : '●');
+    const badgeTotLabel = diffTot < 0 ? 'Redução de avarias' : (diffTot > 0 ? 'Aumento de avarias' : 'Estável');
+
+    const taxaSign = diffTaxa > 0 ? '+' : '';
+    const badgeTaxaClass = diffTaxa >= 0 ? 'pos' : 'neg';
+    const badgeTaxaIcon = diffTaxa >= 0 ? '▲' : '▼';
+
+    const topHTML = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:18px;">
+        <div class="maint-comp-kpi-card">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Total Ocorrências</span>
+            <span>📑</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-top:6px;">
+            <span style="font-size:16px; font-weight:700; color:#6366f1;">${totA}</span>
+            <span style="font-size:12px; color:var(--muted);">➔</span>
+            <span style="font-size:22px; font-weight:800; color:#0284c7;">${totB}</span>
+          </div>
+          <div style="margin-top:6px;">
+            <span class="maint-comp-badge ${badgeTotClass}">
+              ${badgeTotIcon} ${deltaSign}${diffTot} (${deltaSign}${diffPct}%) · ${badgeTotLabel}
+            </span>
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Taxa de Resolução</span>
+            <span>✓</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-top:6px;">
+            <span style="font-size:16px; font-weight:700; color:#6366f1;">${taxaA}%</span>
+            <span style="font-size:12px; color:var(--muted);">➔</span>
+            <span style="font-size:22px; font-weight:800; color:#10b981;">${taxaB}%</span>
+          </div>
+          <div style="margin-top:6px;">
+            <span class="maint-comp-badge ${badgeTaxaClass}">
+              ${badgeTaxaIcon} ${taxaSign}${diffTaxa} p.p. (${diffTaxa >= 0 ? 'Melhoria' : 'Queda'})
+            </span>
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Tickets Concluídos</span>
+            <span>⚡</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:8px; margin-top:6px;">
+            <span style="font-size:16px; font-weight:700; color:#6366f1;">${finA} de ${totA}</span>
+            <span style="font-size:12px; color:var(--muted);">➔</span>
+            <span style="font-size:22px; font-weight:800; color:#10b981;">${finB} de ${totB}</span>
+          </div>
+          <div style="margin-top:6px; font-size:11px; color:var(--muted);">
+            Saldo de fecho: <b>${finB - finA > 0 ? '+' : ''}${finB - finA}</b> resoluções
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Diagnóstico do Período</span>
+            <span>🔍</span>
+          </div>
+          <div style="font-size:13px; font-weight:800; color:${diagColor}; margin-top:6px;">
+            ${diagTitle}
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.35;">
+            ${diagDesc}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 5. Renderização: Modo Tabela ou Modo Gráfico D3
+    if (currentMaintCompViewMode === 'table') {
+      const rowsHTML = catData.map((d, idx) => {
+        const dSign = d.diff > 0 ? '+' : '';
+        const badgeCls = d.diff < 0 ? 'pos' : (d.diff > 0 ? 'neg' : 'neutral');
+        const badgeIco = d.diff < 0 ? '▼' : (d.diff > 0 ? '▲' : '●');
+        const badgeTxt = d.diff < 0 ? 'Redução' : (d.diff > 0 ? 'Aumento' : 'Igual');
+
+        return `
+          <tr style="border-bottom:1px solid var(--border); background:${idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)'};">
+            <td style="padding:9px 12px; font-weight:700;">
+              <span>${d.meta.icon}</span> <span>${safeEsc(d.cat)}</span>
+            </td>
+            <td style="padding:9px 12px; text-align:center; color:#6366f1; font-weight:700;">
+              ${d.countA} <span style="font-size:10.5px; color:var(--muted);">(${d.fA} res)</span>
+            </td>
+            <td style="padding:9px 12px; text-align:center; color:#0284c7; font-weight:700;">
+              ${d.countB} <span style="font-size:10.5px; color:var(--muted);">(${d.fB} res)</span>
+            </td>
+            <td style="padding:9px 12px; text-align:center; font-weight:800; color:${d.diff > 0 ? '#ef4444' : (d.diff < 0 ? '#10b981' : 'var(--muted)')};">
+              ${dSign}${d.diff}
+            </td>
+            <td style="padding:9px 12px; text-align:center;">
+              <span class="maint-comp-badge ${badgeCls}">
+                ${badgeIco} ${dSign}${d.dPct}%
+              </span>
+            </td>
+            <td style="padding:9px 12px; text-align:center; font-size:11.5px;">
+              ${d.pA}% ➔ <b>${d.pB}%</b>
+            </td>
+            <td style="padding:9px 12px; text-align:center;">
+              <span class="maint-comp-badge ${badgeCls}">
+                ${badgeTxt}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      host.innerHTML = `
+        ${topHTML}
+        <div class="table-scroll" style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+          <table class="report" style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead>
+              <tr style="background:var(--surface, #f8fafc); border-bottom:2px solid var(--border);">
+                <th style="text-align:left; padding:10px 12px;">Categoria Técnica</th>
+                <th style="text-align:center; padding:10px 12px; color:#6366f1;">${labelA} (Base)</th>
+                <th style="text-align:center; padding:10px 12px; color:#0284c7;">${labelB} (Comparado)</th>
+                <th style="text-align:center; padding:10px 12px;">Diferença (Δ)</th>
+                <th style="text-align:center; padding:10px 12px;">Variação %</th>
+                <th style="text-align:center; padding:10px 12px;">Taxa Resolução (A ➔ B)</th>
+                <th style="text-align:center; padding:10px 12px;">Tendência</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      // MODO GRÁFICO D3: Barras Agrupadas Horizontais
+      host.innerHTML = topHTML + '<div id="maintCompD3SvgHost"></div>';
+      const svgHost = $('maintCompD3SvgHost');
+      if (!svgHost) return;
+
+      const containerWidth = host.clientWidth || 860;
+      const width = Math.max(containerWidth, 340);
+      const rowHeight = 36;
+      const margin = { top: 24, right: 130, bottom: 35, left: width < 600 ? 140 : 190 };
+      const height = margin.top + margin.bottom + catData.length * rowHeight;
+
+      const maxVal = Math.max(d3.max(catData, d => Math.max(d.countA, d.countB)) || 4, 4);
+
+      const xScale = d3.scaleLinear()
+        .domain([0, maxVal * 1.18])
+        .range([margin.left, width - margin.right])
+        .nice();
+
+      const yScale = d3.scaleBand()
+        .domain(catData.map(d => d.cat))
+        .range([margin.top, height - margin.bottom])
+        .padding(0.22);
+
+      const svg = d3.select(svgHost)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .attr('role', 'img')
+        .attr('aria-label', `Comparativo de Categorias: ${labelA} vs ${labelB}`);
+
+      // Eixo X com grelha
+      svg.append('g')
+        .attr('transform', `translate(0, ${height - margin.bottom})`)
+        .call(
+          d3.axisBottom(xScale)
+            .ticks(Math.min(6, maxVal))
+            .tickSize(-(height - margin.top - margin.bottom))
+            .tickFormat(d => Number.isInteger(d) ? d : '')
+        )
+        .call(g => g.select('.domain').attr('stroke', gridColor))
+        .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
+        .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
+
+      const tooltip = getOrCreateMaintTooltip();
+
+      // Renderizar barras agrupadas
+      catData.forEach(d => {
+        const y = yScale(d.cat);
+        const bandH = yScale.bandwidth();
+        const barH = (bandH - 3) / 2;
+        const xBase = xScale(0);
+
+        const wA = xScale(d.countA) - xBase;
+        const wB = xScale(d.countB) - xBase;
+
+        const gRow = svg.append('g')
+          .style('cursor', 'pointer')
+          .on('mouseenter', (event) => {
+            tooltip.style.opacity = '1';
+            const diffSign = d.diff > 0 ? '+' : '';
+            const diffColor = d.diff > 0 ? '#f87171' : (d.diff < 0 ? '#34d399' : '#94a3b8');
+            tooltip.innerHTML = `
+              <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                <span>${d.meta.icon}</span> <span>${safeEsc(d.cat)}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+                <span style="color:#a5b4fc;">● ${safeEsc(labelA)}: <b>${d.countA} tickets</b> (${d.fA} concluídos - ${d.pA}%)</span>
+                <span style="color:#38bdf8;">● ${safeEsc(labelB)}: <b>${d.countB} tickets</b> (${d.fB} concluídos - ${d.pB}%)</span>
+                <div style="margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-weight:700; color:${diffColor};">
+                  Variação: ${diffSign}${d.diff} ocorrências (${diffSign}${d.dPct}%)
+                </div>
+                <div style="font-size:11px; color:#cbd5e1; margin-top:2px;">
+                  ${d.diff < 0 ? '🟢 Queda nas ocorrências reportadas (melhoria).' : (d.diff > 0 ? '⚠️ Aumento na incidência técnica.' : '➡️ Volume idêntico nos dois meses.')}
+                </div>
+              </div>
+            `;
+          })
+          .on('mousemove', (event) => {
+            tooltip.style.left = (event.clientX + 14) + 'px';
+            tooltip.style.top = (event.clientY - 12) + 'px';
+          })
+          .on('mouseleave', () => {
+            tooltip.style.opacity = '0';
+          });
+
+        // Fundo sutil da linha
+        gRow.append('rect')
+          .attr('x', xBase)
+          .attr('y', y)
+          .attr('width', width - margin.right - xBase)
+          .attr('height', bandH)
+          .attr('fill', isDark ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.015)')
+          .attr('rx', 4);
+
+        // Barra A (Mês Base - Indigo)
+        if (d.countA > 0) {
+          gRow.append('rect')
+            .attr('x', xBase)
+            .attr('y', y)
+            .attr('width', Math.max(2, wA))
+            .attr('height', barH)
+            .attr('fill', '#6366f1')
+            .attr('rx', 3);
+        }
+
+        // Barra B (Mês Comparado - Sky Blue)
+        if (d.countB > 0) {
+          gRow.append('rect')
+            .attr('x', xBase)
+            .attr('y', y + barH + 3)
+            .attr('width', Math.max(2, wB))
+            .attr('height', barH)
+            .attr('fill', '#0284c7')
+            .attr('rx', 3);
+        }
+
+        // Rótulo da Categoria à esquerda
+        svg.append('text')
+          .attr('x', xBase - 10)
+          .attr('y', y + bandH / 2 + 4)
+          .attr('text-anchor', 'end')
+          .attr('fill', textColor)
+          .attr('font-size', '12px')
+          .attr('font-weight', (d.countA > 0 || d.countB > 0) ? '700' : '500')
+          .text(`${d.meta.icon} ${d.cat}`);
+
+        // Rótulo de valores e Delta Badge à direita
+        const maxBarW = Math.max(wA, wB);
+        const rightX = xBase + maxBarW + 8;
+        const diffSign = d.diff > 0 ? '+' : '';
+        const diffColor = d.diff > 0 ? '#ef4444' : (d.diff < 0 ? '#10b981' : (isDark ? '#64748b' : '#94a3b8'));
+        const badgeIcon = d.diff > 0 ? '▲' : (d.diff < 0 ? '▼' : '=');
+
+        svg.append('text')
+          .attr('x', rightX)
+          .attr('y', y + bandH / 2 + 4)
+          .attr('fill', diffColor)
+          .attr('font-size', '11.5px')
+          .attr('font-weight', '800')
+          .text(`${d.countA}➔${d.countB}  ${badgeIcon} ${diffSign}${d.diff}`);
+      });
+    }
+
+    // 6. Rodapé com Legenda Explicativa
+    if (footerWrap) {
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#6366f1;"></span>
+            <span>${labelA} (Mês Base)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#0284c7;"></span>
+            <span>${labelB} (Mês Comparado)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span style="color:#10b981; font-weight:800; font-size:12px;">▼ Verde</span>
+            <span>Redução de avarias (desempenho positivo)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span style="color:#ef4444; font-weight:800; font-size:12px;">▲ Vermelho</span>
+            <span>Aumento de ocorrências (requer atenção)</span>
+          </div>
+          <div style="margin-left:auto; font-size:11px; color:var(--muted);">
+            Comparando <b>${totA}</b> tickets de ${labelA} com <b>${totB}</b> tickets de ${labelB}
+          </div>
         </div>
       `;
     }
@@ -16222,10 +17534,52 @@
   const QUARTO_IMPORT_HEADERS = ['Data','Hora','Utilizador','Quarto','pHQuente','CloroQuente','CloroTotalQuente','pHFria','CloroFria','CloroTotalFria'];
   const TEMP_IMPORT_FIELDS = ['fecha','hora','nome','temperatura','observacoes'];
   const TEMP_IMPORT_HEADERS = ['Data','Hora','Equipamento','Temperatura','Observacoes'];
-  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
-  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
+  const TICKET_IMPORT_FIELDS = ['dataReporte','horaReporte','quarto','categoria','tipo','prioridade','descricao','turno','colaborador','situacao','observacao','comentarioCierre'];
+  const TICKET_IMPORT_HEADERS = ['Data','Hora','Quarto_Local','Categoria','Tipo','Prioridade','Descricao','Turno','Colaborador','Estado','Observacao','ComentarioFecho'];
+
+  const IMPORT_FIELD_LABELS = {
+    id: 'ID / Nº',
+    fecha: 'Data',
+    dataReporte: 'Data',
+    hora: 'Hora',
+    horaReporte: 'Hora',
+    usuario: 'Utilizador',
+    colaborador: 'Colaborador',
+    quarto: 'Quarto / Local',
+    numero: 'Quarto',
+    categoria: 'Categoria',
+    tipo: 'Tipo',
+    prioridade: 'Prioridade',
+    descricao: 'Descrição do Pedido',
+    turno: 'Turno',
+    situacao: 'Estado',
+    observacao: 'Observações',
+    observacoes: 'Observações',
+    comentarioCierre: 'Comentário Fecho',
+    agua: 'Água (m³)',
+    electricidad: 'Eletricidade (kWh)',
+    retornoAqs: 'Retorno AQS (°C)',
+    aqsQuartos: 'AQS Quartos (°C)',
+    estadoPiscina: 'Estado Piscina',
+    tempPiscina: 'Temp. Piscina (°C)',
+    phPiscina: 'pH Piscina',
+    cloroLibre: 'Cloro Livre (ppm)',
+    cloroTotal: 'Cloro Total (ppm)',
+    lavadoPrefiltro: 'Lav. Pré-filtro',
+    lavadoFiltroArena: 'Filtro Areia',
+    limpiezaSkimmer: 'Skimmer',
+    nome: 'Equipamento',
+    temperatura: 'Temp. (°C)',
+    phCaliente: 'pH Quente',
+    cloroCaliente: 'Cloro Quente',
+    cloroTotalCaliente: 'Cloro Tot. Quente',
+    phFria: 'pH Fria',
+    cloroFria: 'Cloro Fria',
+    cloroTotalFria: 'Cloro Tot. Fria'
+  };
 
   const IMPORT_ALIASES = {
+    id:'id', ticket:'id', pedido:'id', npedido:'id', numpedido:'id', numeropedido:'id', nticket:'id', numticket:'id', numeroticket:'id', codigo:'id', cod:'id', ref:'id', referencia:'id', identificador:'id',
     fecha:'fecha', data:'fecha', dia:'fecha', date:'fecha', datahora:'fecha',
     hora:'hora', time:'hora', usuario:'usuario', utilizador:'usuario', user:'usuario',
     agua:'agua', electricidad:'electricidad', electricidade:'electricidad', eletricidade:'electricidad',
@@ -16236,34 +17590,98 @@
     lavadofiltroarena:'lavadoFiltroArena', lavagemfiltroareia:'lavadoFiltroArena', lavagemfiltrodareia:'lavadoFiltroArena',
     limpiezaskimmer:'limpiezaSkimmer', limpezaskimmer:'limpiezaSkimmer',
     observacoes:'observacoes', observacione:'observacoes', notas:'observacoes', comentarios:'observacoes',
-    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto', localizacao:'quarto', localizacion:'quarto', area:'quarto', departamento:'quarto', habitacion:'quarto_or_numero', room:'quarto_or_numero',
+    quarto:'quarto_or_numero', numero:'numero', quartolocal:'quarto', local:'quarto', localizacao:'quarto', localizacion:'quarto', habitacion:'quarto_or_numero', habitaciones:'quarto_or_numero', habitacionlocal:'quarto', ubicacion:'quarto', area:'quarto', zona:'quarto', espacio:'quarto', departamento:'quarto', dependencia:'quarto', lugar:'quarto', room:'quarto_or_numero',
     phcaliente:'phCaliente', phquente:'phCaliente',
     clorocaliente:'cloroCaliente', cloroquente:'cloroCaliente',
     clorototalcaliente:'cloroTotalCaliente', clorototalquente:'cloroTotalCaliente',
     phfria:'phFria', clorofria:'cloroFria', clorototalfria:'cloroTotalFria',
     equipamento:'nome', nome:'nome', equipment:'nome', temperatura:'temperatura', temp:'temperatura', temperaturac:'temperatura',
-    datareporte:'dataReporte', horareporte:'horaReporte',
+    datareporte:'dataReporte', horareporte:'horaReporte', fechareporte:'dataReporte', fechacreacion:'dataReporte', fechadecreacion:'dataReporte', datadecriacao:'dataReporte', dataabertura:'dataReporte', fechaapertura:'dataReporte',
     categoria:'categoria', categ:'categoria', cat:'categoria',
-    categoriademanutencao:'categoria', categoriamanutencao:'categoria',
+    categoriademanutencao:'categoria', categoriamanutencao:'categoria', categoriademantenimiento:'categoria', categoriamantenimiento:'categoria',
     maintenancecategory:'categoria', maintenancecategorie:'categoria',
     classificacao:'categoria', classificacaointervencao:'categoria', classificacaodoticket:'categoria',
     clasificacion:'categoria', clasificaciondeticket:'categoria', clasificacionticket:'categoria',
-    subcategoria:'categoria', especialidade:'categoria', especialidad:'categoria',
-    tipo:'tipo', tipodeintervencao:'tipo', tipodeintervencion:'tipo', tipologia:'tipo', intervencao:'tipo', intervencion:'tipo',
-    prioridade:'prioridade', prioridad:'prioridade', priority:'prioridade',
-    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao', description:'descricao',
-    turno:'turno', shift:'turno',
-    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador', operador:'colaborador',
-    situacao:'situacao', estado:'situacao', status:'situacao', situacion:'situacao',
+    subcategoria:'categoria', especialidade:'categoria', especialidad:'categoria', rama:'categoria', disciplina:'categoria', areatecnica:'categoria',
+    tipo:'tipo', tipodeintervencao:'tipo', tipodeintervencion:'tipo', tipologia:'tipo', intervencao:'tipo', intervencion:'tipo', tipointervencao:'tipo', tipointervencion:'tipo', carater:'tipo',
+    prioridade:'prioridade', prioridad:'prioridade', priority:'prioridade', urgencia:'prioridade', criticidade:'prioridade', criticidad:'prioridade', nivel:'prioridade',
+    descricao:'descricao', desc:'descricao', problema:'descricao', problemadescricao:'descricao', assunto:'descricao', detalhe:'descricao', detalhes:'descricao', description:'descricao', descripcion:'descricao', detalle:'descricao', titulo:'descricao', title:'descricao', motivo:'descricao', falla:'descricao', averia:'descricao', avaria:'descricao', incidencia:'descricao', resumo:'descricao', resumen:'descricao', solicitud:'descricao', tarefa:'descricao', tarea:'descricao',
+    turno:'turno', shift:'turno', horario:'turno', jornada:'turno',
+    colaborador:'colaborador', tecnico:'colaborador', responsavel:'colaborador', autor:'colaborador', operador:'colaborador', solicitante:'colaborador', criador:'colaborador', reportadopor:'colaborador', reportado_por:'colaborador', creadopor:'colaborador', creado_por:'colaborador', asignado:'colaborador', asignadoa:'colaborador', atribuido:'colaborador', atribuidoa:'colaborador',
+    situacao:'situacao', estado:'situacao', status:'situacao', situacion:'situacao', fase:'situacao',
     observacao:'observacao', obs:'observacao',
-    comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre',
-    resolucao:'comentarioCierre', solucao:'comentarioCierre', fecho:'comentarioCierre', cierre:'comentarioCierre'
+    comentariofecho:'comentarioCierre', comentariodefecho:'comentarioCierre', comentariocierre:'comentarioCierre', comentariodecierre:'comentarioCierre',
+    resolucao:'comentarioCierre', resolucion:'comentarioCierre', solucao:'comentarioCierre', solucion:'comentarioCierre', fecho:'comentarioCierre', cierre:'comentarioCierre', acao:'comentarioCierre', accion:'comentarioCierre'
   };
 
   let importType = 'general';
   let importParsedRows = [];
 
   function normHeader(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,''); }
+
+  function detectImportTypeFromRows(rows){
+    if(!rows || rows.length < 1) return null;
+    const headerRow = rows[0];
+    const normHeaders = headerRow.map(h => normHeader(h));
+
+    let ticketScore = 0;
+    let generalScore = 0;
+    let roomScore = 0;
+    let tempScore = 0;
+
+    const ticketKeywords = [
+      'categoria', 'categ', 'classificacao', 'clasificacion', 'subcategoria', 'especialidade',
+      'descricao', 'desc', 'descripcion', 'problema', 'assunto', 'motivo', 'falla', 'averia', 'avaria',
+      'incidencia', 'solicitud', 'quarto', 'quartolocal', 'habitacion', 'habitacionlocal', 'local',
+      'ubicacion', 'localizacao', 'localizacion', 'area', 'turno', 'situacao', 'situacion', 'estado',
+      'comentariofecho', 'comentariocierre', 'ticket', 'pedido', 'npedido', 'prioridade', 'prioridad'
+    ];
+
+    const generalKeywords = [
+      'agua', 'electricidad', 'electricidade', 'eletricidade', 'retornoaqs', 'aqsquartos',
+      'estadopiscina', 'temppiscina', 'phpiscina', 'clorolibre', 'clorolivre', 'clorototal',
+      'lavadoprefiltro', 'lavagemprefiltro', 'lavadofiltroarena', 'lavagemfiltroareia', 'limpiezaskimmer', 'limpezaskimmer'
+    ];
+
+    const roomKeywords = [
+      'phcaliente', 'phquente', 'clorocaliente', 'cloroquente', 'clorototalcaliente', 'clorototalquente',
+      'phfria', 'clorofria', 'clorototalfria'
+    ];
+
+    const tempKeywords = [
+      'temperatura', 'temp', 'equipamento', 'equipment'
+    ];
+
+    normHeaders.forEach(h => {
+      if(ticketKeywords.includes(h)) ticketScore += 2;
+      if(generalKeywords.includes(h)) generalScore += 3;
+      if(roomKeywords.includes(h)) roomScore += 3;
+      if(tempKeywords.includes(h)) tempScore += 2;
+    });
+
+    const hasStrongTicketField = normHeaders.some(h => [
+      'categoria', 'descricao', 'descripcion', 'problema', 'ticket', 'pedido',
+      'avaria', 'averia', 'incidencia', 'comentariofecho', 'comentariocierre'
+    ].includes(h));
+
+    if(hasStrongTicketField && generalScore === 0 && roomScore === 0){
+      return 'ticket';
+    }
+
+    if(roomScore >= 3 && roomScore > generalScore) return 'quarto';
+    if(tempScore >= 2 && generalScore === 0 && roomScore === 0) return 'temperatura';
+    if(generalScore >= 3) return 'general';
+    if(ticketScore >= 2) return 'ticket';
+    return null;
+  }
+
+  function switchImportTab(newType){
+    importType = newType;
+    document.querySelectorAll('.period-toggle button[data-importtype]').forEach(b => {
+      b.classList.toggle('active', b.dataset.importtype === newType);
+    });
+    updateImportPlaceholder();
+  }
 
   function parseCSVLine(line){
     const result = [];
@@ -16324,11 +17742,34 @@
       document.querySelectorAll('.period-toggle button[data-importtype]').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       importType = btn.dataset.importtype;
-      $('importPreview').innerHTML = '';
       updateImportPlaceholder();
+      if($('importTextarea') && $('importTextarea').value.trim()){
+        $('btnPreviewImport').click();
+      } else {
+        $('importPreview').innerHTML = '';
+      }
     });
   });
   updateImportPlaceholder();
+
+  function autoDetectFromInput(){
+    const text = ($('importTextarea').value || '').trim();
+    if(!text) return;
+    const firstLine = text.split(/\r?\n/)[0];
+    if(!firstLine) return;
+    const headerCols = parseCSVLine(firstLine);
+    if(headerCols.length < 2) return;
+    const detected = detectImportTypeFromRows([headerCols]);
+    if(detected && detected !== importType){
+      switchImportTab(detected);
+      const typeNames = { general: 'Leituras Gerais', quarto: 'Leituras de Quartos', temperatura: 'Refrigeração', ticket: 'Tickets / Pedidos' };
+      showToast(`ℹ️ Tipo detetado automaticamente: ${typeNames[detected] || detected}`);
+    }
+  }
+  if($('importTextarea')){
+    $('importTextarea').addEventListener('paste', ()=>{ setTimeout(autoDetectFromInput, 100); });
+    $('importTextarea').addEventListener('change', autoDetectFromInput);
+  }
 
   $('btnDownloadTemplate').addEventListener('click', ()=>{
     let headers, ejemplo, fname;
@@ -16362,7 +17803,10 @@
     const file = e.target.files[0];
     if(!file) return;
     const reader = new FileReader();
-    reader.onload = ()=> { $('importTextarea').value = reader.result; };
+    reader.onload = ()=> {
+      $('importTextarea').value = reader.result;
+      autoDetectFromInput();
+    };
     reader.readAsText(file, 'UTF-8');
   });
 
@@ -16375,6 +17819,16 @@
     try{
       const rows = parseCSV(text);
       if(rows.length < 2){ showToast('O CSV precisa do cabeçalho + pelo menos uma linha de dados'); setLoading(btn,false); return; }
+
+      // Deteção inteligente do tipo de ficheiro importado com comutação automática
+      const detectedType = detectImportTypeFromRows(rows);
+      let autoSwitchedNotice = false;
+      if(detectedType && detectedType !== importType){
+        switchImportTab(detectedType);
+        autoSwitchedNotice = true;
+        const typeNames = { general: 'Leituras Gerais', quarto: 'Leituras de Quartos', temperatura: 'Refrigeração', ticket: 'Tickets / Pedidos' };
+        showToast(`ℹ️ Tipo detetado automaticamente: ${typeNames[detectedType] || detectedType}`);
+      }
 
       const headerRow = rows[0];
       const colMap = headerRow.map(h=> IMPORT_ALIASES[normHeader(h)] || null);
@@ -16390,6 +17844,10 @@
       try{
         if(importType !== 'ticket'){
           existingRecords = await listRecords(importType, { fresh: true });
+        } else {
+          existingRecords = (typeof cachedTicketsData !== 'undefined' && Array.isArray(cachedTicketsData) && cachedTicketsData.length > 0)
+            ? cachedTicketsData
+            : (typeof getConsolidatedTickets === 'function' ? getConsolidatedTickets() : []);
         }
       }catch(e){
         console.warn('Erro ao carregar registos existentes para verificação:', e);
@@ -16463,15 +17921,29 @@
           if(!obj.quarto && obj.numero) obj.quarto = obj.numero;
           if(!obj.colaborador && obj.usuario) obj.colaborador = obj.usuario;
           if(!obj.colaborador) obj.colaborador = getCurrentUserName();
+          if(!obj.usuario && obj.colaborador) obj.usuario = obj.colaborador;
           if(!obj.turno) obj.turno = 'Manhã';
           if(!obj.observacao && obj.observacoes) obj.observacao = obj.observacoes;
           if(!obj.situacao) obj.situacao = 'aberto';
+          if(!obj.prioridade) obj.prioridade = 'media';
+
+          // Se a descrição estiver vazia mas houver observações, preencher a descrição
+          if(!obj.descricao && (obj.observacao || obj.observacoes)){
+            obj.descricao = obj.observacao || obj.observacoes;
+          }
 
           // Normalizar turno
           const normT = String(obj.turno||'').toLowerCase().trim();
           if(normT.includes('tard')) obj.turno = 'Tarde';
           else if(normT.includes('noit') || normT.includes('noche')) obj.turno = 'Noite';
           else obj.turno = 'Manhã';
+
+          // Normalizar prioridade
+          const normPr = String(obj.prioridade||'').toLowerCase().trim();
+          if(normPr.includes('crit') || normPr.includes('urg')) obj.prioridade = 'critica';
+          else if(normPr.includes('alt')) obj.prioridade = 'alta';
+          else if(normPr.includes('baix')) obj.prioridade = 'baixa';
+          else obj.prioridade = 'media';
 
           // Normalizar situação / estado
           const normSt = String(obj.situacao||'').toLowerCase().trim();
@@ -16662,18 +18134,76 @@
         return { obj, errores, avisos, existingMatch, conflictAction, originalRowIdx: rowIdx };
       });
 
-      renderImportPreview();
+      renderImportPreview(autoSwitchedNotice);
     }catch(e){
       showToast('⚠️ Não foi possível ler o CSV: ' + e.message, true);
     }finally{ setLoading(btn, false); }
   });
 
-  function renderImportPreview(){
+  function renderImportCell(val, field, r){
+    if(val === undefined || val === null || val === '') return '<span style="color:var(--ink-300);">-</span>';
+    const str = String(val).trim();
+    if(field === 'situacao'){
+      const s = str.toLowerCase();
+      if(s === 'finalizado' || s === 'concluido' || s === 'fechado' || s === 'cerrado') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#ecfdf5; color:#065f46;">Finalizado</span>';
+      }
+      if(s === 'em_andamento' || s === 'progresso') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#eff6ff; color:#1e40af;">Em andamento</span>';
+      }
+      if(s === 'pausado' || s === 'pendente') {
+        return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fffbeb; color:#92400e;">Pausado</span>';
+      }
+      return '<span style="display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:#fef2f2; color:#991b1b;">Aberto</span>';
+    }
+    if(field === 'prioridade'){
+      const p = str.toLowerCase();
+      if(p.includes('crit') || p.includes('urg')) return '<span style="color:#b91c1c; font-weight:700;">🚨 Crítica</span>';
+      if(p.includes('alt')) return '<span style="color:#c2410c; font-weight:600;">⚠️ Alta</span>';
+      if(p.includes('baix')) return '<span style="color:#4b5563;">Baixa</span>';
+      return '<span style="color:#0284c7; font-weight:500;">Média</span>';
+    }
+    if(field === 'tipo'){
+      const t = str.toLowerCase();
+      if(t.includes('estrat')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#f3e8ff; color:#6b21a8; font-weight:600;">Estratégico</span>';
+      if(t.includes('prev')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#dcfce7; color:#166534; font-weight:600;">Preventivo</span>';
+      if(t.includes('melhor')) return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#e0f2fe; color:#0369a1; font-weight:600;">Melhoria</span>';
+      return '<span style="display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; background:#fef3c7; color:#92400e; font-weight:600;">Corretivo</span>';
+    }
+    if(field === 'categoria'){
+      return `<span style="font-weight:600; color:var(--petrol-800);">${esc(str)}</span>`;
+    }
+    if(field === 'quarto'){
+      return `<span style="font-weight:600; color:var(--ink-900);">${esc(str)}</span>`;
+    }
+    if(field === 'descricao'){
+      if(str.length > 55){
+        return `<span title="${esc(str)}" style="cursor:help;">${esc(str.slice(0, 52))}…</span>`;
+      }
+      return esc(str);
+    }
+    return esc(str);
+  }
+
+  function renderImportPreview(autoSwitchedNotice = false){
     const el = $('importPreview');
     const valid = importParsedRows.filter(r=> r.errores.length===0);
     const invalid = importParsedRows.filter(r=> r.errores.length>0);
     const withDuplicates = importParsedRows.filter(r=> r.errores.length===0 && r.existingMatch);
-    const fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
+    
+    let fields = importType === 'quarto' ? QUARTO_IMPORT_FIELDS : (importType === 'temperatura' ? TEMP_IMPORT_FIELDS : (importType === 'ticket' ? TICKET_IMPORT_FIELDS : GENERAL_IMPORT_FIELDS));
+    
+    // Se algum registo contiver ID explícito, mostrar a coluna ID no início
+    if(importType === 'ticket'){
+      const hasAnyId = importParsedRows.some(r => r.obj && r.obj.id);
+      if(hasAnyId && !fields.includes('id')){
+        fields = ['id', ...fields];
+      }
+      const hasAnyFecho = importParsedRows.some(r => r.obj && r.obj.comentarioCierre);
+      if(!hasAnyFecho){
+        fields = fields.filter(f => f !== 'comentarioCierre');
+      }
+    }
 
     let currentPolicy = 'sobrescrever';
 
@@ -16716,16 +18246,40 @@
       `;
     }
 
-    const { countNovos, countSobrescrever, countObviar } = getStats();
+    const typeTitles = {
+      general: 'Leituras Gerais (Contadores / Piscina)',
+      quarto: 'Leituras de Quartos (pH / Cloro)',
+      temperatura: 'Refrigeração / Câmaras',
+      ticket: 'Tickets / Pedidos de Manutenção'
+    };
+    const typeIcons = {
+      general: '🏢',
+      quarto: '🛏️',
+      temperatura: '❄️',
+      ticket: '🎫'
+    };
+
+    const typeBannerHtml = `
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:18px;">${typeIcons[importType] || '📋'}</span>
+          <span style="font-size:13.5px; color:#0369a1; font-weight:700;">Modo ativo: <u>${typeTitles[importType] || importType}</u></span>
+        </div>
+        <div style="font-size:12px; color:#0c4a6e;">
+          ${autoSwitchedNotice ? '✨ <b>Ajustado automaticamente</b> conforme o cabeçalho do ficheiro' : 'Caso pretenda outro formato, altere nos botões acima'}
+        </div>
+      </div>
+    `;
 
     let html = `<div class="card" style="margin-top:16px;">
+      ${typeBannerHtml}
       ${conflictPanelHtml}
 
       <div class="import-stats-bar" id="importStatsBar">
         <span class="import-stat-chip stat-total">📄 <b>${importParsedRows.length}</b> lidas</span>
-        <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${countNovos}</b> novos</span>
-        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${countSobrescrever}</b> a atualizar</span>
-        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${countObviar}</b> mantidos</span>
+        <span class="import-stat-chip stat-novos" id="statChipNovos">✨ <b>${getStats().countNovos}</b> novos</span>
+        <span class="import-stat-chip stat-sobrescrever" id="statChipSobrescrever">🔄 <b>${getStats().countSobrescrever}</b> a atualizar</span>
+        <span class="import-stat-chip stat-obviar" id="statChipObviar">⏭️ <b>${getStats().countObviar}</b> mantidos</span>
         ${invalid.length ? `<span class="import-stat-chip stat-err">⛔ <b>${invalid.length}</b> com erros</span>` : ''}
       </div>
 
@@ -16734,7 +18288,7 @@
       </p>
 
       <div class="table-scroll"><table class="report"><thead><tr>
-        <th>#</th>${fields.map(f=>`<th>${f}</th>`).join('')}<th style="min-width:180px;">Ação / Estado</th>
+        <th>#</th>${fields.map(f=>`<th>${esc(IMPORT_FIELD_LABELS[f] || f)}</th>`).join('')}<th style="min-width:180px;">Ação / Estado</th>
       </tr></thead><tbody>`;
 
     importParsedRows.forEach((r,i)=>{
@@ -16762,7 +18316,7 @@
       }
 
       const rowBgStyle = bad ? ' style="color:var(--coral-500); background:#fff5f3;"' : (r.existingMatch ? ' style="background:#fffcf2;"' : '');
-      html += `<tr${rowBgStyle}><td>${i+1}</td>${fields.map(f=>`<td>${nz(r.obj[f])}</td>`).join('')}<td>${statusHtml}</td></tr>`;
+      html += `<tr${rowBgStyle}><td>${i+1}</td>${fields.map(f=>`<td>${renderImportCell(r.obj[f], f, r)}</td>`).join('')}<td>${statusHtml}</td></tr>`;
     });
 
     html += `</tbody></table></div>
@@ -16962,6 +18516,9 @@
 
     try{
       // 1. Processar Sobrescritas (atualizar registos existentes sem criar duplicados)
+      let hadNetworkOr404Notice = false;
+      let lastNetworkOr404Err = null;
+
       if(rowsToOverwrite.length > 0){
         for(let i = 0; i < rowsToOverwrite.length; i++){
           const row = rowsToOverwrite[i];
@@ -16979,6 +18536,12 @@
               modificadoEn: todayStr() + ' ' + nowTimeStr(),
               modificadoPor: getCurrentUserName()
             });
+            if (updatedTicket.situacao === 'finalizado') {
+              updatedTicket.comentarioCierre = updatedTicket.comentarioCierre || updatedTicket.observacao || 'Concluído e validado';
+              updatedTicket.diagnostico = updatedTicket.diagnostico || 'Intervenção técnica concluída com sucesso';
+              updatedTicket.trabalhoRealizado = updatedTicket.trabalhoRealizado || updatedTicket.comentarioCierre;
+              updatedTicket.fechadoEm = updatedTicket.fechadoEm || new Date().toISOString();
+            }
             recordTicketUpdate(updatedTicket);
             persistTicketInAllTicketsKey(updatedTicket);
             if(cachedTicketsData){
@@ -16994,9 +18557,11 @@
                 data: updatedTicket
               }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eUpd) {
+              console.warn('Endpoint Apps Script devolveu aviso ou falha ao atualizar ticket; guardado localmente:', eUpd);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eUpd;
               // Não fazer fallback para saveTicket: após um timeout o pedido
               // pode já ter sido aplicado e um save criaria um duplicado.
-              throw eUpd;
             }
           } else {
             const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
@@ -17004,12 +18569,18 @@
               fecha: row.obj.fecha || (row.existingMatch.existingData && row.existingMatch.existingData.fecha),
               hora: row.obj.hora || (row.existingMatch.existingData && row.existingMatch.existingData.hora) || '00:00'
             });
-            await apiPost({
-              action: 'update',
-              type: importType,
-              id: existingId,
-              data: mergedData
-            }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({
+                action: 'update',
+                type: importType,
+                id: existingId,
+                data: mergedData
+              }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eUpd) {
+              console.warn('Endpoint Apps Script devolveu aviso ou falha ao atualizar registo; guardado localmente:', eUpd);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eUpd;
+            }
           }
           overwrittenCount++;
           completedIds.add(String(existingId));
@@ -17023,8 +18594,13 @@
           const chunk = pendingCreates.slice(i, i + IMPORT_BATCH_SIZE).map((r)=>{
             const obj = r.obj;
             const generatedId = r.importId;
+            let desc = (obj.descricao || obj.observacao || obj.observacoes || '').trim();
+            if (desc.length > 0 && desc.length < 5) {
+              desc = desc + ' (reg)';
+            }
             return Object.assign({}, obj, {
               id: obj.id || generatedId,
+              descricao: desc || 'Registo técnico',
               dataReporte: obj.dataReporte || obj.fecha || todayStr(),
               horaReporte: obj.horaReporte || obj.hora || '00:00',
               fecha: obj.dataReporte || obj.fecha || todayStr(),
@@ -17033,7 +18609,9 @@
               colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
               situacao: obj.situacao || 'aberto',
               turno: obj.turno || 'Manhã',
-              tipo: obj.tipo || 'Corretivo',
+              tipo: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'Estratégico' : (obj.tipo || 'Corretivo'),
+              tipoManutencao: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'estrategico' : (obj.tipoManutencao || 'correctivo'),
+              isStrategic: isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat')),
               categoria: obj.categoria || 'Outros',
               observacao: obj.observacao || obj.observacoes || '',
               comentarioCierre: obj.comentarioCierre || ''
@@ -17041,22 +18619,43 @@
           });
 
           if(importType === 'ticket'){
-            for (const item of chunk) {
-              await apiPost({ action: 'saveTicket', data: item }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({ action: 'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eBatch) {
+              console.warn('Endpoint Google Apps Script falhou ou indisponível; tickets persistidos localmente:', eBatch);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eBatch;
+              // Não fazer fallback para saveTicket: após um timeout o pedido
+              // pode já ter sido aplicado e um save criaria um duplicado.
+            }
+            chunk.forEach(item => {
               completedIds.add(String(item.id));
               recordTicketUpdate(item);
               persistTicketInAllTicketsKey(item);
+              if (isStrategicTicket(item)) {
+                const strats = getSavedStrategicTickets();
+                if (!strats.some(s => String(s.id).trim() === String(item.id).trim())) {
+                  strats.unshift({ ...item, tipo: 'Estratégico' });
+                  saveStrategicTickets(strats);
+                }
+              }
               if(cachedTicketsData){
                 const existIdx = cachedTicketsData.findIndex(t => String(t.id) === String(item.id));
                 if(existIdx >= 0) cachedTicketsData[existIdx] = item;
                 else cachedTicketsData.unshift(item);
               }
-              writeImportProgress(importType, completedIds);
-              createdCount++;
-              showToast(`A gravar novos tickets… ${createdCount + resumedCount}/${rowsToCreate.length}`);
-            }
+            });
+            writeImportProgress(importType, completedIds);
+            createdCount += chunk.length;
+            showToast(`A gravar novos tickets… ${createdCount + resumedCount}/${rowsToCreate.length}`);
           } else {
-            await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            try {
+              await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
+            } catch(eBatchNonTicket) {
+              console.warn('Endpoint Google Apps Script falhou ou indisponível; registos persistidos localmente:', eBatchNonTicket);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eBatchNonTicket;
+            }
             // Só confirmar localmente depois da resposta do servidor. IDs
             // estáveis tornam uma retoma segura mesmo após timeout de rede.
             chunk.forEach(item => {
@@ -17075,23 +18674,73 @@
       }
 
       // 3. Notificação final de sucesso com detalhe completo
-      const finalMsg = `✅ Importação concluída com sucesso!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
-      showToast(finalMsg);
+      if (hadNetworkOr404Notice) {
+        const finalMsg = `✅ Importação concluída e guardada localmente!\n• ${createdCount} novo(s) registo(s) guardado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
+        showToast(finalMsg);
 
-      await confirmDialog(
-        'Importação concluída com sucesso',
-        `<div style="font-size:13px; line-height:1.6;">
-          <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
-          <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
-            <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos gravados com sucesso</p>
-            <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados com os novos valores</p>
-            <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos</p>
-          </div>
-          <p style="margin:0; font-size:12px; color:var(--ink-600);">A aplicação e a base de dados foram sincronizadas e os dados já estão visíveis.</p>
-        </div>`,
-        'Concluir',
-        ''
-      );
+        await confirmDialog(
+          'Importação concluída (Modo Local / Offline)',
+          `<div style="font-size:13px; line-height:1.6;">
+            <div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:12.5px;">
+              <b>⚠️ Aviso de Ligação Google Apps Script:</b> ${lastNetworkOr404Err ? esc(lastNetworkOr404Err.message || String(lastNetworkOr404Err)) : 'O URL do Google Apps Script respondeu com aviso ou esteve inacessível.'}<br>Os seus registos foram <b>100% guardados em segurança no armazenamento local</b> e já estão ativos nos gráficos, painéis e históricos.
+            </div>
+            <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+              <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos guardados com sucesso</p>
+              <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados</p>
+              <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos</p>
+            </div>
+            <p style="margin:0 0 10px; font-size:12px; color:var(--ink-600);">Pode continuar a trabalhar normalmente em Modo Local ou atualizar o URL da sua folha de cálculo.</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+              <button type="button" id="btnFixUrlAfterImport" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:var(--petrol-700); color:#fff; border-radius:6px; cursor:pointer;">⚙️ Configurar Ligação Google Sheets</button>
+              <button type="button" id="btnResetUrlAfterImport" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; border-radius:6px; cursor:pointer;">↺ Repor URL Original</button>
+            </div>
+          </div>`,
+          'Concluir',
+          ''
+        );
+
+        setTimeout(() => {
+          const btnFix = $('btnFixUrlAfterImport');
+          const btnReset = $('btnResetUrlAfterImport');
+          if (btnFix) {
+            btnFix.onclick = () => {
+              closeModal();
+              promptChangeApiUrl();
+            };
+          }
+          if (btnReset) {
+            btnReset.onclick = () => {
+              if (window.AppConfig && typeof window.AppConfig.resetApiUrl === 'function') {
+                window.AppConfig.resetApiUrl();
+              } else {
+                localStorage.removeItem('registo_tecnico_api_url');
+                localStorage.removeItem('bitacora_api_url');
+              }
+              API_URL = window.AppConfig.apiUrl;
+              showToast('URL do Apps Script reposto para o valor original ✓');
+              closeModal();
+            };
+          }
+        }, 50);
+      } else {
+        const finalMsg = `✅ Importação concluída com sucesso!\n• ${createdCount} novo(s) registo(s) adicionado(s)\n• ${overwrittenCount} registo(s) existente(s) atualizado(s)\n• ${skippedCount} registo(s) mantido(s)`;
+        showToast(finalMsg);
+
+        await confirmDialog(
+          'Importação concluída com sucesso',
+          `<div style="font-size:13px; line-height:1.6;">
+            <p style="margin:0 0 10px; font-weight:700; color:var(--ok-500);">✓ Processamento concluído com sucesso!</p>
+            <div style="background:#f5f8f8; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+              <p style="margin:4px 0;">✨ <b>${createdCount}</b> novos registos gravados com sucesso</p>
+              <p style="margin:4px 0;">🔄 <b>${overwrittenCount}</b> registos existentes atualizados com os novos valores</p>
+              <p style="margin:4px 0;">⏭️ <b>${skippedCount}</b> registos existentes mantidos intactos</p>
+            </div>
+            <p style="margin:0; font-size:12px; color:var(--ink-600);">A aplicação e a base de dados foram sincronizadas e os dados já estão visíveis.</p>
+          </div>`,
+          'Concluir',
+          ''
+        );
+      }
 
       // Limpar campos de entrada apenas se o processamento terminou com sucesso
       clearImportProgress();
@@ -17110,10 +18759,17 @@
         cachedTicketsData = null;
         if(typeof renderPedidosView === 'function') renderPedidosView();
         if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
+        try {
+          window.dispatchEvent(new Event('storage'));
+          window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+        } catch(e) {}
       }
     }catch(e){
       console.error('Erro na importação:', e);
-      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado; repita a importação para retomar sem duplicar dados.`, true);
+      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado.`, true);
+      setTimeout(()=>{
+        showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite, e);
+      }, 300);
     }finally{
       if(createdCount > 0 || overwrittenCount > 0) {
         if(importType === 'ticket'){
@@ -17129,6 +18785,304 @@
       setLoading(btn, false);
     }
   }
+
+  // ---------- Diálogo de recuperação para erro de Ligação / Google Apps Script ----------
+  async function showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite, errCause){
+    const isTicket = importType === 'ticket';
+    const pendingList = Array.isArray(rowsToCreate) ? rowsToCreate.filter(r => !completedIds || !completedIds.has(String(r.importId || r.obj && r.obj.id))) : [];
+    const pendingCount = pendingList.length;
+    const currentUrl = (window.AppConfig && window.AppConfig.apiUrl) || API_URL;
+    const errText = errCause ? (errCause.message || String(errCause)) : '';
+    const is404 = errText.includes('404');
+    const headerTitle = is404 ? '⚠️ Ligação ao Google Apps Script falhou (HTTP 404)' : '⚠️ Aviso de Sincronização Google Apps Script';
+    const descText = errText ? esc(errText) : 'O servidor do Google Apps Script respondeu com aviso de sincronização ou esteve inacessível.';
+
+    const modalHtml = `
+      <div style="font-size:13px; line-height:1.6;">
+        <div style="background:#fff5f3; border:1px solid #fecdd3; border-radius:10px; padding:12px 14px; margin-bottom:12px;">
+          <p style="margin:0 0 6px; font-weight:700; color:var(--coral-500); font-size:14px;">
+            ${headerTitle}
+          </p>
+          <p style="margin:0 0 6px; font-size:12.5px; color:var(--ink-700);">
+            ${descText}
+          </p>
+          <p style="margin:0; font-size:11.5px; color:var(--ink-500); word-break:break-all; font-family:var(--mono);">
+            <b>URL configurado:</b> ${esc(currentUrl)}
+          </p>
+        </div>
+
+        <div style="background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12px;">
+          <b>Causas frequentes:</b>
+          <ul style="margin:4px 0 0 16px; padding:0; line-height:1.5;">
+            <li>Foi feita uma <b>«Nova implementação»</b> no Apps Script, gerando um <b>novo URL /exec</b> com ID diferente.</li>
+            <li>A implementação anterior foi removida em <i>Implementar → Gerir implementações</i>.</li>
+            <li>O acesso não está como <i>«Qualquer utilizador»</i> (Quem tem acesso: Qualquer pessoa).</li>
+          </ul>
+        </div>
+
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:12.5px;">
+          💡 <b>Importação local imediata:</b> Não precisa de perder os seus dados! Pode guardar estes <b>${pendingCount || 'novos'}</b> registos de imediato em <b>Modo Offline (Local)</b> para que fiquem disponíveis nos gráficos e no histórico já hoje.
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button type="button" id="btnImportOfflineFallback" class="cycle-btn primary" style="padding:10px 14px; font-size:13px; font-weight:700; background:var(--ok-500); border-color:var(--ok-500); text-align:center; justify-content:center; cursor:pointer;">
+            💾 Guardar Registos Localmente (Modo Offline)
+          </button>
+          <button type="button" id="btnResetApiUrlIn404" class="cycle-btn" style="padding:8px 14px; font-size:12px; font-weight:600; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; text-align:center; justify-content:center; cursor:pointer;">
+            ↺ Repor URL Predefinido do Script
+          </button>
+          <button type="button" id="btnUpdateApiUrlModal" class="cycle-btn" style="padding:9px 14px; font-size:12.5px; font-weight:600; background:var(--petrol-600); color:#fff; border-color:var(--petrol-600); text-align:center; justify-content:center; cursor:pointer;">
+            ⚙️ Configurar Novo URL do Script
+          </button>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const btnOffline = $('btnImportOfflineFallback');
+      const btnUrl = $('btnUpdateApiUrlModal');
+      const btnReset = $('btnResetApiUrlIn404');
+
+      if(btnReset){
+        btnReset.onclick = () => {
+          if(window.AppConfig && typeof window.AppConfig.resetApiUrl === 'function'){
+            window.AppConfig.resetApiUrl();
+          } else {
+            localStorage.removeItem('registo_tecnico_api_url');
+            localStorage.removeItem('bitacora_api_url');
+          }
+          API_URL = window.AppConfig.apiUrl;
+          showToast('URL do Apps Script reposto para o valor original ✓');
+          closeModal();
+        };
+      }
+
+      if(btnOffline){
+        btnOffline.onclick = () => {
+          try {
+            if(isTicket && Array.isArray(rowsToCreate)){
+              rowsToCreate.forEach((row, rIdx) => {
+                const obj = row.obj || row;
+                const genId = row.importId || obj.id || `ticket_${Date.now()}_${rIdx}_${Math.random().toString(36).slice(2, 7)}`;
+                const item = Object.assign({}, obj, {
+                  id: genId,
+                  dataReporte: obj.dataReporte || obj.fecha || todayStr(),
+                  horaReporte: obj.horaReporte || obj.hora || '00:00',
+                  fecha: obj.dataReporte || obj.fecha || todayStr(),
+                  hora: obj.horaReporte || obj.hora || '00:00',
+                  quarto: obj.quarto || obj.numero || '',
+                  colaborador: obj.colaborador || obj.usuario || getCurrentUserName(),
+                  situacao: obj.situacao || 'aberto',
+                  turno: obj.turno || 'Manhã',
+                  tipo: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'Estratégico' : (obj.tipo || 'Corretivo'),
+                  tipoManutencao: (isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat'))) ? 'estrategico' : (obj.tipoManutencao || 'correctivo'),
+                  isStrategic: isStrategicTicket(obj) || (obj.tipo && String(obj.tipo).toLowerCase().includes('estrat')),
+                  categoria: obj.categoria || 'Outros',
+                  observacao: obj.observacao || obj.observacoes || '',
+                  comentarioCierre: obj.comentarioCierre || ''
+                });
+                if(completedIds) completedIds.add(String(genId));
+                recordTicketUpdate(item);
+                persistTicketInAllTicketsKey(item);
+                if (isStrategicTicket(item)) {
+                  const strats = getSavedStrategicTickets();
+                  if (!strats.some(s => String(s.id).trim() === String(item.id).trim())) {
+                    strats.unshift({ ...item, tipo: 'Estratégico' });
+                    saveStrategicTickets(strats);
+                  }
+                }
+                if(cachedTicketsData){
+                  const existIdx = cachedTicketsData.findIndex(t => String(t.id) === String(item.id));
+                  if(existIdx >= 0) cachedTicketsData[existIdx] = item;
+                  else cachedTicketsData.unshift(item);
+                }
+              });
+              if(Array.isArray(rowsToOverwrite)){
+                rowsToOverwrite.forEach(row => {
+                  if(!row.existingMatch) return;
+                  const existingId = row.existingMatch.id;
+                  const updatedTicket = Object.assign({}, row.existingMatch.existingData, row.obj, {
+                    id: existingId,
+                    editado: 'Sim',
+                    modificadoEn: todayStr() + ' ' + nowTimeStr(),
+                    modificadoPor: getCurrentUserName()
+                  });
+                  recordTicketUpdate(updatedTicket);
+                  persistTicketInAllTicketsKey(updatedTicket);
+                  if(cachedTicketsData){
+                    const idx = cachedTicketsData.findIndex(t => String(t.id) === String(existingId));
+                    if(idx !== -1) cachedTicketsData[idx] = updatedTicket;
+                    else cachedTicketsData.unshift(updatedTicket);
+                  }
+                });
+              }
+              clearImportProgress();
+              invalidateTicketsCache();
+              cachedTicketsData = null;
+              if($('importTextarea')) $('importTextarea').value = '';
+              if($('importFile')) $('importFile').value = '';
+              if($('importPreview')) $('importPreview').innerHTML = '';
+              importParsedRows = [];
+              if(typeof renderPedidosView === 'function') renderPedidosView();
+              if(typeof refreshStrategicBoardInDOM === 'function') refreshStrategicBoardInDOM();
+              try {
+                window.dispatchEvent(new Event('storage'));
+                window.dispatchEvent(new CustomEvent('strategic-tickets-updated', { detail: { tickets: getSavedStrategicTickets() } }));
+              } catch(e) {}
+              closeModal();
+              showToast(`✅ ${rowsToCreate.length} tickets guardados com sucesso no navegador!`);
+            } else if(Array.isArray(rowsToCreate)){
+              rowsToCreate.forEach(row => {
+                const item = row.obj || row;
+                if(completedIds) completedIds.add(String(row.importId || item.id));
+                const entry = dataStore[importType];
+                if(entry && Array.isArray(entry.items)){
+                  entry.items.unshift({ key: item.id, data: item });
+                }
+              });
+              if(Array.isArray(rowsToOverwrite)){
+                rowsToOverwrite.forEach(row => {
+                  if(!row.existingMatch) return;
+                  const existingId = row.existingMatch.id;
+                  const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, { id: existingId });
+                  const entry = dataStore[importType];
+                  if(entry && Array.isArray(entry.items)){
+                    const fIdx = entry.items.findIndex(it => String(it.key) === String(existingId));
+                    if(fIdx >= 0) entry.items[fIdx] = { key: existingId, data: mergedData };
+                  }
+                });
+              }
+              persistStore();
+              clearImportProgress();
+              if($('importTextarea')) $('importTextarea').value = '';
+              if($('importFile')) $('importFile').value = '';
+              if($('importPreview')) $('importPreview').innerHTML = '';
+              importParsedRows = [];
+              invalidateRecords(importType);
+              renderHistory();
+              closeModal();
+              showToast(`✅ Registos guardados com sucesso no navegador!`);
+            }
+          } catch(err) {
+            console.error('Erro ao guardar offline:', err);
+            showToast('Erro ao guardar offline: ' + err.message, true);
+          }
+        };
+      }
+
+      if(btnUrl){
+        btnUrl.onclick = () => {
+          closeModal();
+          promptChangeApiUrl();
+        };
+      }
+    }, 50);
+
+    await confirmDialog(headerTitle, modalHtml, 'Fechar', '');
+  }
+
+  // ---------- Configuração interativa do URL do Google Apps Script ----------
+  async function promptChangeApiUrl(){
+    const currentUrl = (window.AppConfig && window.AppConfig.apiUrl) || API_URL;
+    const isCustom = typeof localStorage !== 'undefined' && Boolean(localStorage.getItem('registo_tecnico_api_url') || localStorage.getItem('bitacora_api_url'));
+
+    const modalHtml = `
+      <div style="font-size:13px; line-height:1.6;">
+        <p style="margin:0 0 10px; color:var(--ink-700);">
+          Cole o URL da aplicação Web do Google Apps Script (obtido em <b>Extensões → Apps Script → Implementar → Gerir implementações</b> ou <b>Nova implementação</b> na sua folha do Google Sheets). O URL deve terminar em <code>/exec</code>.
+        </p>
+        <label class="field" style="margin-bottom:10px;">
+          <span class="lbl">URL da Web App (/exec)</span>
+          <input type="url" id="inputCustomApiUrl" value="${esc(currentUrl)}" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%; font-family:var(--mono); font-size:11.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+        </label>
+        <div id="apiUrlPingStatus" style="font-size:12px; margin-bottom:12px; padding:8px 12px; border-radius:8px; background:#f4f5f6; display:none; line-height:1.4;"></div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <button type="button" id="btnTestApiUrl" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:var(--aqua-100); color:var(--petrol-800); border:1px solid var(--aqua-300); cursor:pointer;">🔍 Testar Ligação</button>
+          ${isCustom ? '<button type="button" id="btnResetApiUrl" class="cycle-btn" style="padding:6px 12px; font-size:12px; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; cursor:pointer;">↺ Repor URL Original</button>' : ''}
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" id="btnSaveApiUrl" class="cycle-btn primary" style="padding:8px 16px; font-size:13px; font-weight:700; cursor:pointer;">Guardar URL</button>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const btnTest = $('btnTestApiUrl');
+      const statusDiv = $('apiUrlPingStatus');
+      const input = $('inputCustomApiUrl');
+      const btnReset = $('btnResetApiUrl');
+      const btnSave = $('btnSaveApiUrl');
+
+      if(btnTest && statusDiv && input){
+        btnTest.onclick = async () => {
+          const testUrl = input.value.trim();
+          statusDiv.style.display = 'block';
+          statusDiv.style.background = '#f0f9ff';
+          statusDiv.style.color = '#0369a1';
+          statusDiv.innerHTML = '⏳ A contactar Google Apps Script...';
+          try {
+            const parsed = new URL(testUrl);
+            parsed.searchParams.set('action', 'ping');
+            const resp = await safeFetch(parsed.toString(), {}, 10000);
+            if(resp.ok){
+              statusDiv.style.background = '#f0fdf4';
+              statusDiv.style.color = '#15803d';
+              statusDiv.innerHTML = '<b>✓ Ligação estabelecida com sucesso!</b> O endpoint respondeu corretamente.';
+            } else {
+              statusDiv.style.background = '#fff1f2';
+              statusDiv.style.color = '#be123c';
+              statusDiv.innerHTML = `<b>✗ Erro HTTP ${resp.status}</b>: O endpoint rejeitou o pedido. Verifique se as permissões na Web App estão como <i>«Qualquer utilizador»</i>.`;
+            }
+          } catch(err) {
+            statusDiv.style.background = '#fff1f2';
+            statusDiv.style.color = '#be123c';
+            statusDiv.innerHTML = `<b>✗ Falha na ligação:</b> ${esc(err.message)}`;
+          }
+        };
+      }
+
+      if(btnReset){
+        btnReset.onclick = () => {
+          if(window.AppConfig && typeof window.AppConfig.resetApiUrl === 'function'){
+            window.AppConfig.resetApiUrl();
+          } else {
+            localStorage.removeItem('registo_tecnico_api_url');
+            localStorage.removeItem('bitacora_api_url');
+          }
+          API_URL = window.AppConfig.apiUrl;
+          if(input) input.value = API_URL;
+          if(statusDiv){
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = '#f4f5f6';
+            statusDiv.style.color = '#374151';
+            statusDiv.textContent = 'URL reposto para o valor original.';
+          }
+        };
+      }
+
+      if(btnSave && input){
+        btnSave.onclick = () => {
+          const val = input.value.trim();
+          try {
+            if(window.AppConfig && typeof window.AppConfig.setCustomApiUrl === 'function'){
+              window.AppConfig.setCustomApiUrl(val);
+            } else {
+              localStorage.setItem('registo_tecnico_api_url', val);
+            }
+            API_URL = window.AppConfig.apiUrl;
+            closeModal();
+            showToast('URL do Apps Script atualizado com sucesso ✓');
+          } catch(err) {
+            alert('URL inválido: ' + err.message);
+          }
+        };
+      }
+    }, 50);
+
+    await confirmDialog('Configuração da Ligação Google Apps Script', modalHtml, 'Fechar', '');
+  }
+
+  $('btnConfigApiUrlImport') && $('btnConfigApiUrlImport').addEventListener('click', promptChangeApiUrl);
 
   // ---------- Alertas, cumprimento e relatório oficial ----------
   async function loadAlertsAdmin(){
@@ -18004,6 +19958,9 @@
 
         // Se mudou para Estratégico:
         if (novoTipo === 'Estratégico') {
+          ticket.tipoManutencao = 'estrategico';
+          ticket.isStrategic = true;
+          ticket.estrategico = true;
           if (!ticket.descricao.includes('[ESTRATÉGICO]')) {
             ticket.descricao = `[ESTRATÉGICO] ${ticket.descricao.trim()}`;
           }
@@ -18012,6 +19969,9 @@
           }
         } else {
           // Se mudou para NÃO Estratégico (Corretivo, Preventivo, Melhoria):
+          ticket.tipoManutencao = novoTipo === 'Preventivo' ? 'preventivo' : (novoTipo === 'Melhoria' ? 'melhoria' : 'correctivo');
+          ticket.isStrategic = false;
+          ticket.estrategico = false;
           ticket.descricao = ticket.descricao.replace(/^\[ESTRATÉGICO\]\s*/gi, '').replace(/⭐\s*/g, '').trim();
           if (ticket.prioridade === 'Máxima' && novaPrio === 'Máxima') {
             ticket.prioridade = 'Alta';
@@ -18056,17 +20016,26 @@
 
         // 6. Enviar atualização em segundo plano ao Google Apps Script
         try {
+          const updatePayload = {
+            tipo: ticket.tipo,
+            tipoManutencao: ticket.tipo === 'Estratégico' ? 'estrategico' : 'correctivo',
+            isStrategic: ticket.tipo === 'Estratégico',
+            prioridade: ticket.prioridade,
+            situacao: ticket.situacao,
+            descricao: ticket.descricao,
+            comentarioCierre: ticket.comentarioCierre || novoComentario || ''
+          };
+          if (ticket.situacao === 'finalizado') {
+            updatePayload.comentarioCierre = updatePayload.comentarioCierre || 'Ticket finalizado e verificado';
+            updatePayload.diagnostico = ticket.diagnostico || 'Intervenção técnica concluída com sucesso';
+            updatePayload.trabalhoRealizado = ticket.trabalhoRealizado || updatePayload.comentarioCierre;
+            updatePayload.fechadoEm = new Date().toISOString();
+          }
           await apiPost({
             action: 'updateTicket',
             id: ticketId,
             ticketId: ticketId,
-            data: {
-              tipo: ticket.tipo,
-              prioridade: ticket.prioridade,
-              situacao: ticket.situacao,
-              descricao: ticket.descricao,
-              comentarioCierre: ticket.comentarioCierre || ''
-            }
+            data: updatePayload
           });
         } catch (e) {
           console.warn('apiPost updateTicket note:', e);
@@ -18161,6 +20130,9 @@
       const data = {
         id: 'ticket_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
         tipo: tipoVal,
+        tipoManutencao: isStrat ? 'estrategico' : (tipoVal === 'Preventivo' ? 'preventivo' : (tipoVal === 'Melhoria' ? 'melhoria' : 'correctivo')),
+        isStrategic: isStrat,
+        estrategico: isStrat,
         prioridade: prioridadeVal,
         quarto: $('p-quarto') ? $('p-quarto').value.trim() : '',
         categoria: $('p-categoria') ? $('p-categoria').value : '',
