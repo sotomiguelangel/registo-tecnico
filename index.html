@@ -13739,34 +13739,42 @@
   }
 
   function isStrategicTicket(t) {
-    if (!t || !t.id) return false;
+    if (!t) return false;
     if (isTicketDeleted(t)) return false;
-    const strId = String(t.id).trim();
 
-    // Verificar tipo explícito
-    const tipo = String(t.tipo || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico') return true;
-    if (tipo === 'corretivo' || tipo === 'preventivo' || tipo === 'melhoria') return false;
+    const idValue = t.id || t.ticketId || (t.data && t.data.id) || '';
+    if (!idValue && !(t.tipo || t.prioridade || t.descricao || t.observacao || t.categoria)) return false;
 
-    // Verificar se existe em STRATEGIC_TICKETS_KEY
+    const tipo = String(t.tipo || t.type || '').trim();
+    const tipoNorm = tipo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (tipoNorm === 'estrategico' || tipoNorm === 'estrategica' || tipoNorm.includes('estrategico')) return true;
+    if (tipoNorm === 'corretivo' || tipoNorm === 'preventivo' || tipoNorm === 'melhoria') return false;
+
+    const strId = String(idValue).trim();
     try {
       const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (rawStrats) {
         const arr = JSON.parse(rawStrats);
-        if (Array.isArray(arr) && arr.some(s => s && String(s.id).trim() === strId && !isTicketDeleted(s))) {
+        if (Array.isArray(arr) && arr.some(s => {
+          const candidateId = String(s && (s.id || s.ticketId || (s.data && s.data.id) || '')).trim();
+          return candidateId && candidateId === strId && !isTicketDeleted(s);
+        })) {
           return true;
         }
       }
     } catch(e) {}
 
-    const cat = String(t.categoria || '').toLowerCase();
-    const prio = String(t.prioridade || '').toLowerCase();
-    const desc = String(t.descricao || '').toLowerCase();
-    const obs = String(t.observacao || '').toLowerCase();
+    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const desc = String(t.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const obs = String(t.observacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const markers = [cat, prio, desc, obs].join(' ');
     return prio.includes('estrat') ||
            cat.includes('estrat') ||
            desc.includes('[estrat') || desc.includes('⭐') ||
-           obs.includes('[estrat');
+           obs.includes('[estrat') ||
+           markers.includes('estrategico') ||
+           markers.includes('estrategica');
   }
 
   function getDefaultStrategicTickets() {
@@ -14241,6 +14249,8 @@
   let currentMaintKpiTab = 'categories';
   let currentCategorySort = 'volume';
   let maintKpiResizeObserver = null;
+  let currentMaintKpiTickets = [];
+  let maintKpiD3LoadPromise = null;
 
   function getOrCreateMaintTooltip() {
     let tip = document.getElementById('maintKpiTooltip');
@@ -14424,6 +14434,7 @@
   }
 
   function renderActiveMaintKpiChart(tickets) {
+    if (Array.isArray(tickets)) currentMaintKpiTickets = tickets;
     const host = $('maintKpiD3ChartHost');
     const controlsWrap = $('maintKpiControlsWrap');
     const footerWrap = $('maintKpiFooterInfoWrap');
@@ -14435,6 +14446,21 @@
 
     if (typeof d3 === 'undefined') {
       host.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">A carregar motor D3.js...</div>';
+      if (!maintKpiD3LoadPromise) {
+        maintKpiD3LoadPromise = ensureD3()
+          .then(() => {
+            maintKpiD3LoadPromise = null;
+            renderActiveMaintKpiChart(currentMaintKpiTickets);
+          })
+          .catch(error => {
+            maintKpiD3LoadPromise = null;
+            const currentHost = $('maintKpiD3ChartHost');
+            if (currentHost) {
+              currentHost.textContent = 'Não foi possível carregar o motor dos gráficos. Verifique a ligação e tente novamente.';
+            }
+            console.error('Falha ao carregar D3 para os KPIs de manutenção:', error);
+          });
+      }
       return;
     }
 

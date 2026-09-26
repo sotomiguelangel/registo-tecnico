@@ -359,10 +359,29 @@
   <script src="js/runtime-config.js"></script>
   <script src="js/maintenance-categories.js"></script>
   <script>
-    if (typeof window.d3 === 'undefined') {
-      var d3Script = document.createElement('script');
-      d3Script.src = 'https://d3js.org/d3.v7.min.js';
-      document.head.appendChild(d3Script);
+    let d3LoadPromise = null;
+    function ensureD3() {
+      if (typeof window.d3 !== 'undefined') return Promise.resolve(window.d3);
+      if (d3LoadPromise) return d3LoadPromise;
+
+      d3LoadPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://d3js.org/d3.v7.min.js';
+        script.onload = () => {
+          if (typeof window.d3 === 'undefined') {
+            reject(new Error('A biblioteca D3 foi carregada sem disponibilizar a API.'));
+            return;
+          }
+          resolve(window.d3);
+        };
+        script.onerror = () => reject(new Error('Não foi possível carregar a biblioteca gráfica D3.'));
+        document.head.appendChild(script);
+      }).catch(error => {
+        d3LoadPromise = null;
+        throw error;
+      });
+
+      return d3LoadPromise;
     }
   </script>
 
@@ -5571,35 +5590,41 @@
   }
 
   function isStrategicTicket(t) {
-    if (!t || !t.id) return false;
+    if (!t) return false;
     if (isTicketDeletedIndicadores(t)) return false;
 
-    // 1. Tipo explícito Estratégico
-    const tipo = String(t.tipo || '').trim().toLowerCase();
-    if (tipo === 'estratégico' || tipo === 'estrategico') return true;
+    const idValue = t.id || t.ticketId || (t.data && t.data.id) || '';
+    if (!idValue && !(t.tipo || t.prioridade || t.descricao || t.observacao || t.categoria)) return false;
 
-    // 2. Presente no repositório de tickets estratégicos salvos
-    const strId = String(t.id).trim();
+    const tipo = String(t.tipo || t.type || '').trim();
+    const tipoNorm = tipo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (tipoNorm === 'estrategico' || tipoNorm === 'estrategica' || tipoNorm.includes('estrategico')) return true;
+
+    const strId = String(idValue).trim();
     try {
       const raw = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.some(s => s && String(s.id).trim() === strId && !isTicketDeletedIndicadores(s))) {
+        if (Array.isArray(parsed) && parsed.some(s => {
+          const candidateId = String(s && (s.id || s.ticketId || (s.data && s.data.id) || '')).trim();
+          return candidateId && candidateId === strId && !isTicketDeletedIndicadores(s);
+        })) {
           return true;
         }
       }
     } catch(e) {}
 
-    // 3. Marcadores no texto, prioridade ou categoria
-    const desc = String(t.descricao || '').toLowerCase();
-    const obs = String(t.observacao || '').toLowerCase();
-    const prio = String(t.prioridade || '').toLowerCase();
-    const cat = String(t.categoria || '').toLowerCase();
+    const desc = String(t.descricao || t.descricaoTicket || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const obs = String(t.observacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const markers = [desc, obs, prio, cat].join(' ');
 
     if (desc.includes('[estrat') || desc.includes('⭐') || desc.includes('[estrategico]')) return true;
     if (obs.includes('[estrat') || obs.includes('[estrategico]')) return true;
     if (prio.includes('estrat')) return true;
     if (cat.includes('estrat')) return true;
+    if (markers.includes('estrategico') || markers.includes('estrategica')) return true;
 
     return false;
   }
@@ -6460,6 +6485,8 @@
   let currentMaintKpiTab = 'categories';
   let currentCategorySort = 'volume';
   let maintKpiResizeObserver = null;
+  let currentMaintKpiTickets = [];
+  let maintKpiD3LoadPromise = null;
 
   function getOrCreateMaintTooltip() {
     let tip = document.getElementById('maintKpiTooltip');
@@ -6657,6 +6684,7 @@
   }
 
   function renderActiveMaintKpiChart(tickets) {
+    if (Array.isArray(tickets)) currentMaintKpiTickets = tickets;
     const host = $('maintKpiD3ChartHost');
     const controlsWrap = $('maintKpiControlsWrap');
     const footerWrap = $('maintKpiFooterInfoWrap');
@@ -6669,6 +6697,21 @@
 
     if (typeof d3 === 'undefined') {
       host.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">A carregar motor D3.js...</div>';
+      if (!maintKpiD3LoadPromise) {
+        maintKpiD3LoadPromise = ensureD3()
+          .then(() => {
+            maintKpiD3LoadPromise = null;
+            renderActiveMaintKpiChart(currentMaintKpiTickets);
+          })
+          .catch(error => {
+            maintKpiD3LoadPromise = null;
+            const currentHost = $('maintKpiD3ChartHost');
+            if (currentHost) {
+              currentHost.textContent = 'Não foi possível carregar o motor dos gráficos. Verifique a ligação e tente novamente.';
+            }
+            console.error('Falha ao carregar D3 para os KPIs de manutenção:', error);
+          });
+      }
       return;
     }
 

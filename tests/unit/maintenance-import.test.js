@@ -93,4 +93,13 @@ describe('Maintenance category import compatibility', () => {
         assert.doesNotMatch(indexHtml, /Hidráulica/);
         assert.match(indexHtml, /categoria: obj\.categoria \|\| 'Outros'/);
     });
+
+    test('renders maintenance charts after D3 loads in both pages', () => {
+        for (const source of [indexHtml, indicadoresHtml]) {
+            assert.match(source, /function renderActiveMaintKpiChart\(tickets\)/);
+            assert.match(source, /maintKpiD3LoadPromise = ensureD3\(\)/);
+            assert.match(source, /renderActiveMaintKpiChart\(currentMaintKpiTickets\)/);
+            assert.match(source, /Não foi possível carregar o motor dos gráficos/);
+        }
+    });
 });
