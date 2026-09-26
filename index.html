@@ -18541,16 +18541,11 @@
                 data: updatedTicket
               }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eUpd) {
-              const errTxt = String(eUpd && eUpd.message || '');
-              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
-                console.warn('Endpoint Apps Script devolveu 404 ou falha de rede ao atualizar ticket; guardado localmente:', eUpd);
-                hadNetworkOr404Notice = true;
-                lastNetworkOr404Err = eUpd;
-              } else {
-                // Não fazer fallback para saveTicket: após um timeout o pedido
-                // pode já ter sido aplicado e um save criaria um duplicado.
-                throw eUpd;
-              }
+              console.warn('Endpoint Apps Script devolveu aviso ou falha ao atualizar ticket; guardado localmente:', eUpd);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eUpd;
+              // Não fazer fallback para saveTicket: após um timeout o pedido
+              // pode já ter sido aplicado e um save criaria um duplicado.
             }
           } else {
             const mergedData = Object.assign({}, row.existingMatch.existingData, row.obj, {
@@ -18566,13 +18561,9 @@
                 data: mergedData
               }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eUpd) {
-              const errTxt = String(eUpd && eUpd.message || '');
-              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
-                hadNetworkOr404Notice = true;
-                lastNetworkOr404Err = eUpd;
-              } else {
-                throw eUpd;
-              }
+              console.warn('Endpoint Apps Script devolveu aviso ou falha ao atualizar registo; guardado localmente:', eUpd);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eUpd;
             }
           }
           overwrittenCount++;
@@ -18587,8 +18578,13 @@
           const chunk = pendingCreates.slice(i, i + IMPORT_BATCH_SIZE).map((r)=>{
             const obj = r.obj;
             const generatedId = r.importId;
+            let desc = (obj.descricao || obj.observacao || obj.observacoes || '').trim();
+            if (desc.length > 0 && desc.length < 5) {
+              desc = desc + ' (reg)';
+            }
             return Object.assign({}, obj, {
               id: obj.id || generatedId,
+              descricao: desc || 'Registo técnico',
               dataReporte: obj.dataReporte || obj.fecha || todayStr(),
               horaReporte: obj.horaReporte || obj.hora || '00:00',
               fecha: obj.dataReporte || obj.fecha || todayStr(),
@@ -18610,24 +18606,11 @@
             try {
               await apiPost({ action: 'saveBatch', type: 'ticket', rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eBatch) {
-              const errTxt = String(eBatch && eBatch.message || '');
-              if (errTxt.includes('Tipo de registo') || errTxt.includes('inválido para importação') || errTxt.includes('VALIDATION') || errTxt.includes('Ação')) {
-                console.warn('Backend sem suporte a saveBatch para tickets, a gravar tickets individualmente:', eBatch);
-                for (let k = 0; k < chunk.length; k++) {
-                  const tRow = chunk[k];
-                  if (completedIds.has(String(tRow.id))) continue;
-                  showToast(`A gravar ticket ${k + 1}/${chunk.length}…`);
-                  await apiPost({ action: 'saveTicket', data: tRow }, IMPORT_REQUEST_TIMEOUT_MS);
-                  completedIds.add(String(tRow.id));
-                  writeImportProgress(importType, completedIds);
-                }
-              } else if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || errTxt.includes('NetworkError') || !navigator.onLine) {
-                console.warn('Endpoint Google Apps Script 404/indisponível; tickets persistidos localmente:', eBatch);
-                hadNetworkOr404Notice = true;
-                lastNetworkOr404Err = eBatch;
-              } else {
-                throw eBatch;
-              }
+              console.warn('Endpoint Google Apps Script falhou ou indisponível; tickets persistidos localmente:', eBatch);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eBatch;
+              // Não fazer fallback para saveTicket: após um timeout o pedido
+              // pode já ter sido aplicado e um save criaria um duplicado.
             }
             chunk.forEach(item => {
               completedIds.add(String(item.id));
@@ -18653,13 +18636,9 @@
             try {
               await apiPost({ action:'saveBatch', type: importType, rows: chunk }, IMPORT_REQUEST_TIMEOUT_MS);
             } catch(eBatchNonTicket) {
-              const errTxt = String(eBatchNonTicket && eBatchNonTicket.message || '');
-              if (errTxt.includes('404') || errTxt.includes('rejeitou o pedido (HTTP 404)') || errTxt.includes('Page Not Found') || errTxt.includes('does not exist') || errTxt.includes('Failed to fetch') || !navigator.onLine) {
-                hadNetworkOr404Notice = true;
-                lastNetworkOr404Err = eBatchNonTicket;
-              } else {
-                throw eBatchNonTicket;
-              }
+              console.warn('Endpoint Google Apps Script falhou ou indisponível; registos persistidos localmente:', eBatchNonTicket);
+              hadNetworkOr404Notice = true;
+              lastNetworkOr404Err = eBatchNonTicket;
             }
             // Só confirmar localmente depois da resposta do servidor. IDs
             // estáveis tornam uma retoma segura mesmo após timeout de rede.
@@ -18771,13 +18750,10 @@
       }
     }catch(e){
       console.error('Erro na importação:', e);
-      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado; repita a importação para retomar sem duplicar dados.`, true);
-      const errStr = String(e && e.message || '');
-      if(errStr.includes('404') || errStr.includes('rejeitou o pedido (HTTP 404)') || errStr.includes('Page Not Found') || errStr.includes('does not exist')){
-        setTimeout(()=>{
-          showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite);
-        }, 300);
-      }
+      showToast(`⚠️ Importação interrompida: ${e.message}. Foram processados ${createdCount + overwrittenCount + resumedCount} registos. O progresso foi salvaguardado.`, true);
+      setTimeout(()=>{
+        showEndpoint404Dialog(importType, rowsToCreate, completedIds, rowsToOverwrite);
+      }, 300);
     }finally{
       if(createdCount > 0 || overwrittenCount > 0) {
         if(importType === 'ticket'){

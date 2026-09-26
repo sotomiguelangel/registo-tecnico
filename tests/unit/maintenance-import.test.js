@@ -93,4 +93,10 @@ describe('Maintenance category import compatibility', () => {
         assert.doesNotMatch(indexHtml, /Hidráulica/);
         assert.match(indexHtml, /categoria: obj\.categoria \|\| 'Outros'/);
     });
+
+    test('persists tickets locally and avoids halting import on remote errors', () => {
+        assert.match(indexHtml, /persistTicketInAllTicketsKey\(item\)/);
+        assert.match(indexHtml, /hadNetworkOr404Notice = true/);
+        assert.match(indexHtml, /Endpoint Google Apps Script falhou ou indisponível; tickets persistidos localmente/);
+    });
 });
