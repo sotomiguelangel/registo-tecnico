@@ -13897,50 +13897,42 @@
   }
 
   function isStrategicTicket(t) {
-    if (!t || !t.id) return false;
+    if (!t) return false;
     if (isTicketDeleted(t)) return false;
-    const strId = String(t.id).trim();
 
-    // 1. Flags booleanas explícitas ou equivalentes
-    if (t.isStrategic === true || t.isStrategic === 'true' || t.isStrategic === 1 || t.isStrategic === '1' || t.isStrategic === 'Sim' || t.isStrategic === 'sim') return true;
-    if (t.estrategico === true || t.estrategico === 'true' || t.estrategico === 1 || t.estrategico === '1' || t.estrategico === 'Sim' || t.estrategico === 'sim') return true;
+    const idValue = t.id || t.ticketId || (t.data && t.data.id) || '';
+    if (!idValue && !(t.tipo || t.type || t.tipoManutencao || t.tipo_manutencao || t.isStrategic || t.estrategico ||
+        t.prioridade || t.descricao || t.descricaoTicket || t.observacao || t.observacoes || t.categoria || t.titulo || t.title || t.assunto)) return false;
 
-    // 2. Tipo explícito ou tipoManutencao (tolerante a maiúsculas/minúsculas e acentos)
-    const tipo = String(t.tipo || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const tipoManut = String(t.tipoManutencao || t.tipo_manutencao || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (tipo.includes('estrat') || tipo.includes('strategic')) return true;
-    if (tipoManut.includes('estrat') || tipoManut.includes('strategic')) return true;
+    const normalize = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const tipo = normalize(t.tipo || t.type);
+    const tipoManut = normalize(t.tipoManutencao || t.tipo_manutencao);
+    const isStrategicFlag = [t.isStrategic, t.estrategico].some(value =>
+      value === true || value === 1 || ['true', '1', 'sim', 'yes'].includes(String(value || '').trim().toLowerCase())
+    );
+    if (isStrategicFlag || tipo.includes('estrat') || tipo.includes('strategic') ||
+        tipoManut.includes('estrat') || tipoManut.includes('strategic')) return true;
+    if (['corretivo', 'preventivo', 'melhoria'].includes(tipo)) return false;
 
-    // 3. ID gerado pelo fluxo de tickets estratégicos ou salvo no repositório de estratégicos
+    const strId = String(idValue).trim();
     const strIdLower = strId.toLowerCase();
     if (strIdLower.startsWith('strat_') || strIdLower.startsWith('ticket_strat_') || strIdLower.includes('_strat')) return true;
     try {
       const rawStrats = localStorage.getItem(STRATEGIC_TICKETS_KEY);
       if (rawStrats) {
-        const arr = JSON.parse(rawStrats);
-        if (Array.isArray(arr) && arr.some(s => s && String(s.id).trim().toLowerCase() === strIdLower && !isTicketDeleted(s))) {
-          return true;
-        }
+        const saved = JSON.parse(rawStrats);
+        if (Array.isArray(saved) && saved.some(s => {
+          const candidateId = String(s && (s.id || s.ticketId || (s.data && s.data.id) || '')).trim();
+          return candidateId && candidateId.toLowerCase() === strIdLower && !isTicketDeleted(s);
+        })) return true;
       }
     } catch(e) {}
 
-    // 4. Marcadores no texto, prioridade ou categoria (amplo e flexível em PT/ES)
-    const desc = String(t.descricao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const obs = String(t.observacao || t.observacoes || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const prio = String(t.prioridade || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const cat = String(t.categoria || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const titulo = String(t.titulo || t.title || t.assunto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    if (desc.includes('estrat') || desc.includes('⭐') || desc.includes('strategic')) return true;
-    if (obs.includes('estrat') || obs.includes('⭐') || obs.includes('strategic')) return true;
-    if (titulo.includes('estrat') || titulo.includes('⭐') || titulo.includes('strategic')) return true;
-    if (prio.includes('estrat') || prio.includes('⭐')) return true;
-    if (prio.includes('max') || prio.includes('crit')) {
-      if (t.isStrategic || !tipo || tipo.includes('estrat') || desc.length > 0) return true;
-    }
-    if (cat.includes('estrat') || cat.includes('strategic')) return true;
-
-    return false;
+    const markers = [
+      t.categoria, t.prioridade, t.descricao, t.descricaoTicket,
+      t.observacao, t.observacoes, t.titulo, t.title, t.assunto
+    ].map(normalize);
+    return markers.some(value => value.includes('estrat') || value.includes('strategic') || value.includes('\u2b50'));
   }
 
   function getDefaultStrategicTickets() {
@@ -14453,6 +14445,8 @@
   let currentCategorySort = 'volume';
   let currentMaintTimelineSegment = 'all';
   let maintKpiResizeObserver = null;
+  let currentMaintKpiTickets = [];
+  let maintKpiD3LoadPromise = null;
 
   function getOrCreateMaintTooltip() {
     let tip = document.getElementById('maintKpiTooltip');
@@ -14676,6 +14670,7 @@
   }
 
   function renderActiveMaintKpiChart(tickets) {
+    if (Array.isArray(tickets)) currentMaintKpiTickets = tickets;
     const host = $('maintKpiD3ChartHost');
     const controlsWrap = $('maintKpiControlsWrap');
     const footerWrap = $('maintKpiFooterInfoWrap');
@@ -14687,6 +14682,21 @@
 
     if (typeof d3 === 'undefined') {
       host.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">A carregar motor D3.js...</div>';
+      if (!maintKpiD3LoadPromise) {
+        maintKpiD3LoadPromise = ensureD3()
+          .then(() => {
+            maintKpiD3LoadPromise = null;
+            renderActiveMaintKpiChart(currentMaintKpiTickets);
+          })
+          .catch(error => {
+            maintKpiD3LoadPromise = null;
+            const currentHost = $('maintKpiD3ChartHost');
+            if (currentHost) {
+              currentHost.textContent = 'Não foi possível carregar o motor dos gráficos. Verifique a ligação e tente novamente.';
+            }
+            console.error('Falha ao carregar D3 para os KPIs de manutenção:', error);
+          });
+      }
       return;
     }
 

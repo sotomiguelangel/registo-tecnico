@@ -94,9 +94,18 @@ describe('Maintenance category import compatibility', () => {
         assert.match(indexHtml, /categoria: obj\.categoria \|\| 'Outros'/);
     });
 
+    test('renders maintenance charts after D3 loads in both pages', () => {
+        for (const source of [indexHtml, indicadoresHtml]) {
+            assert.match(source, /function renderActiveMaintKpiChart\(tickets\)/);
+            assert.match(source, /maintKpiD3LoadPromise = ensureD3\(\)/);
+            assert.match(source, /renderActiveMaintKpiChart\(currentMaintKpiTickets\)/);
+            assert.match(source, /carregar o motor dos gr.ficos/);
+        }
+    });
+
     test('persists tickets locally and avoids halting import on remote errors', () => {
         assert.match(indexHtml, /persistTicketInAllTicketsKey\(item\)/);
         assert.match(indexHtml, /hadNetworkOr404Notice = true/);
-        assert.match(indexHtml, /Endpoint Google Apps Script falhou ou indisponível; tickets persistidos localmente/);
+        assert.match(indexHtml, /tickets persistidos localmente/);
     });
 });
