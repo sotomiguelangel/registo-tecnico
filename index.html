@@ -906,6 +906,33 @@
     color: #b45309;
     border-color: #fde68a;
   }
+  .equip-name-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1.5px 7px;
+    border-radius: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .ref-badge {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: var(--ink-600);
+    font-family: var(--mono, monospace);
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
   .equip-val-pill {
     display: inline-flex;
     align-items: center;
@@ -4729,6 +4756,28 @@
         cachedDashboardData = savedDash;
         cachedDashboardTimestamp = 0;
       }
+      // Resgatar leituras pendentes da fila de sincronização para visualização imediata
+      const rawQueue = localStorage.getItem(SYNC_QUEUE_KEY);
+      if(rawQueue){
+        const qItems = JSON.parse(rawQueue);
+        if(Array.isArray(qItems)){
+          qItems.forEach(item => {
+            if(!item || !item.type || !dataStore[item.type]) return;
+            if((item.action === 'save' || item.action === 'update') && item.payload && item.payload.data){
+              const recData = item.payload.data;
+              const recId = String(recData.id || item.recordId);
+              const entry = dataStore[item.type];
+              if(!entry.items) entry.items = [];
+              const idx = entry.items.findIndex(it => (it.key === recId || (it.data && it.data.id === recId)));
+              if(idx >= 0){
+                entry.items[idx] = { key: recId, data: Object.assign({}, entry.items[idx].data || {}, recData) };
+              } else {
+                entry.items.push({ key: recId, data: recData });
+              }
+            }
+          });
+        }
+      }
     }catch(e){}
   }
   restoreStore();
@@ -4749,8 +4798,11 @@
     // Incorporar registos do servidor
     if(Array.isArray(serverRecordsRaw)){
       serverRecordsRaw.forEach(d => {
-        if(d && d.id) {
-          itemsMap.set(String(d.id), { key: d.id, data: d });
+        if(!d) return;
+        const id = d.id || d.ID || (d.data && d.data.id) || d.key || ('id_' + (d.fecha || '') + '_' + (d.hora || '') + '_' + (d.equipamentoId || Math.random().toString(36).slice(2,7)));
+        if(id) {
+          const recData = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? d.data : d;
+          itemsMap.set(String(id), { key: String(id), data: recData });
         }
       });
     }
@@ -5183,13 +5235,27 @@
     return s;
   }
 
+  // Devolve sempre o nome real oficial do equipamento para a etiqueta e interface
+  function getEquipRealName(eq) {
+    if (!eq) return 'Equipamento';
+    const sName = String(eq.nome || '').trim();
+    if (sName && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName)) {
+      return sName;
+    }
+    const sRef = String(eq.ref || eq.refShort || '').trim();
+    if (sRef && !/^(eq|id|sq)_[0-9]+/i.test(sRef)) {
+      return sRef;
+    }
+    return formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+  }
+
   // Formata SEMPRE um nome humano legível e profissional para o equipamento, nunca expondo IDs técnicos
   function formatHumanEquipName(rawName, eqTipo, eqLoc, rawId, refCode) {
     const sName = String(rawName || '').trim();
     const sId = String(rawId || '').trim();
 
-    // 1. Se tem um nome personalizado já humano (não nulo, não código de referência nem ID gerado)
-    if (sName && !isReferenceCode(sName) && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length > 2 && sName !== sId) {
+    // 1. Se tem um nome personalizado já humano (não nulo nem ID de sistema gerado)
+    if (sName && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length >= 2 && sName !== sId) {
       return sName;
     }
 
@@ -5243,7 +5309,12 @@
 
   function isRecordMatchingEquip(record, eq) {
     if (!record || !eq) return false;
-    const d = record.data ? record.data : record;
+    let d = record.data ? record.data : record;
+    if (typeof d === 'string') {
+      try { d = JSON.parse(d); } catch(e){}
+    }
+    if (!d || typeof d !== 'object') return false;
+
     const candidates = [
       d.equipamentoId,
       d.equipoId,
@@ -5251,34 +5322,84 @@
       d.equipo,
       d.nome,
       d.ref,
-      d.id
+      d.codigo,
+      d.codigoEquipamento,
+      d.EquipamentoID,
+      d.Equipamento,
+      d.Equipo,
+      d.Nome,
+      d.Nombre,
+      d.Ref,
+      d.Codigo,
+      d.equipmentId,
+      d.equipment_id,
+      d.equipo_id,
+      d.machineId,
+      d.idEquipamento
     ].filter(Boolean).map(s => String(s).trim());
+
+    const recId = String(d.id || record.key || '').trim();
+    if (recId && !/^(id|temp)_[0-9]+/i.test(recId)) {
+      candidates.push(recId);
+    }
+    if (recId && String(eq.id).trim() === recId) return true;
 
     if (!candidates.length) return false;
 
     const eqIdUpper = String(eq.id || '').toUpperCase();
     const eqRefUpper = String(eq.ref || '').toUpperCase();
-
-    // 1. Resolução canónica unificada para cruzamento de registos
-    for (const cand of candidates) {
-      const canon = findCanonicalEquip(cand, cand, d.ubicacao || d.ubicacion, d.tipo);
-      if (canon && (String(canon.id).toUpperCase() === eqIdUpper || String(canon.ref).toUpperCase() === eqRefUpper)) {
-        return true;
-      }
-    }
-
     const eqIdClean = cleanStrForMatch(eq.id);
     const eqRefClean = cleanStrForMatch(eq.ref);
+    const eqRefShortClean = cleanStrForMatch(eq.refShort);
     const eqNomeClean = cleanStrForMatch(eq.nome);
+    const eqRealNameClean = cleanStrForMatch(getEquipRealName(eq));
     const eqDescClean = cleanStrForMatch(eq.descricao);
     const eqAliasesClean = Array.isArray(eq.aliases) ? eq.aliases.map(cleanStrForMatch) : [];
+    const eqCanonCode = extractCanonicalCode(eq.id) || extractCanonicalCode(eq.ref) || extractCanonicalCode(eq.nome);
 
     for (const cand of candidates) {
       const candClean = cleanStrForMatch(cand);
       if (!candClean) continue;
-      if (candClean === eqIdClean || candClean === eqRefClean || candClean === eqNomeClean) return true;
+      const candUpper = cand.toUpperCase();
+
+      // Correspondência direta exata por ID ou Ref (case-insensitive)
+      if (candUpper === eqIdUpper || (eqRefUpper && candUpper === eqRefUpper)) return true;
+
+      // 1. Correspondência direta por ID, Ref, Nome real, Descrição ou Aliases
+      if (candClean === eqIdClean || candClean === eqRefClean || (eqRefShortClean && candClean === eqRefShortClean) || candClean === eqNomeClean || candClean === eqRealNameClean) return true;
       if (eqDescClean && candClean === eqDescClean) return true;
       if (eqAliasesClean.includes(candClean)) return true;
+
+      // 2. Correspondência por código técnico canónico (ex: REF01, AC06, CON02)
+      const candCanonCode = extractCanonicalCode(cand);
+      if (candCanonCode) {
+        if (eqCanonCode && candCanonCode === eqCanonCode) return true;
+        if (candCanonCode === eqIdUpper || candCanonCode === eqRefUpper) return true;
+      }
+
+      // 3. Correspondência de substring significativa (>= 3 chars) com validação de contexto
+      if (candClean.length >= 3) {
+        if (eqNomeClean && (candClean === eqNomeClean || eqNomeClean.includes(candClean) || candClean.includes(eqNomeClean))) {
+          const candLoc = normalizeLocation(d.ubicacao || d.ubicacion);
+          const eqLoc = normalizeLocation(eq.ubicacao);
+          if (!candLoc || !eqLoc || candLoc === eqLoc || candLoc === 'Outras Localizações' || eqLoc === 'Outras Localizações') {
+            return true;
+          }
+        }
+        if (eqRealNameClean && (candClean === eqRealNameClean || eqRealNameClean.includes(candClean) || candClean.includes(eqRealNameClean))) return true;
+        if (eqRefClean && (candClean === eqRefClean || eqRefClean.includes(candClean) || candClean.includes(eqRefClean))) return true;
+      }
+
+      // 4. Resolução por objeto canónico
+      const canon = findCanonicalEquip(cand, cand, d.ubicacao || d.ubicacion, d.tipo);
+      if (canon) {
+        const canonId = String(canon.id).toUpperCase();
+        const canonRef = String(canon.ref || '').toUpperCase();
+        if (canonId === eqIdUpper || canonId === eqRefUpper || canonRef === eqIdUpper || canonRef === eqRefUpper) {
+          return true;
+        }
+        if (cleanStrForMatch(canon.nome) === eqNomeClean || cleanStrForMatch(canon.nome) === eqRealNameClean) return true;
+      }
     }
     return false;
   }
@@ -5290,6 +5411,15 @@
     }
     const s = String(value).trim();
     if (!s) return '';
+
+    // Timestamp numérico em milissegundos ou segundos
+    if (/^\d{10,13}$/.test(s)) {
+      const num = Number(s.length === 10 ? s + '000' : s);
+      const dt = new Date(num);
+      if (!isNaN(dt.getTime())) {
+        return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+      }
+    }
 
     // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD
     let match = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:$|T|\s)/);
@@ -5339,7 +5469,9 @@
       const normLoc = normalizeLocation(eq.ubicacao || (canonical ? canonical.ubicacao : 'Outras Localizações'));
       const existing = equipMap.get(targetKey);
 
-      const safeName = canonical ? canonical.nome : ((eq.nome && !isReferenceCode(eq.nome)) ? eq.nome : targetId);
+      const safeName = (eq.nome && !/^(eq|id|sq)_[0-9]+/i.test(eq.nome) && !/^[0-9a-f-]{12,}$/i.test(eq.nome))
+        ? eq.nome
+        : (canonical ? canonical.nome : targetId);
       const safeDesc = canonical ? canonical.descricao : (eq.descricao || safeName);
 
       if(!existing){
@@ -5357,17 +5489,17 @@
           aliases: canonical && Array.isArray(canonical.aliases) ? canonical.aliases : (eq.aliases || [])
         }));
       } else {
-        // Já existe: atualiza atributos preservando integridade
+        // Já existe: atualiza atributos preservando integridade e o nome real
         if(canonical){
-          if(!existing.nome || isReferenceCode(existing.nome) || existing.nome === existing.id){
+          if(!existing.nome || /^(eq|id|sq)_[0-9]+/i.test(existing.nome) || existing.nome === existing.id){
             existing.nome = canonical.nome;
           }
-          if(!existing.descricao || isReferenceCode(existing.descricao)){
+          if(!existing.descricao || /^(eq|id|sq)_[0-9]+/i.test(existing.descricao)){
             existing.descricao = canonical.descricao;
           }
         }
-        if(isHighPriority){
-          if(eq.nome && !isReferenceCode(eq.nome) && !canonical) existing.nome = eq.nome;
+        if(isHighPriority || (eq.nome && !/^(eq|id|sq)_[0-9]+/i.test(eq.nome))){
+          if(eq.nome && !/^(eq|id|sq)_[0-9]+/i.test(eq.nome)) existing.nome = eq.nome;
           if(eq.tipo) existing.tipo = eq.tipo;
           if(eq.ubicacao) existing.ubicacao = normLoc;
           if(eq.min !== undefined) existing.min = eq.min;
@@ -5464,14 +5596,14 @@
       }
     } catch(e){}
 
-    // 8. Sanitização final de nomes e referências contra códigos crus
+    // 8. Sanitização final de referências sem apagar nomes reais dos equipamentos
     equipMap.forEach(eq => {
       const canon = findCanonicalEquip(eq.id, eq.nome, eq.ubicacao, eq.tipo);
       if (canon) {
-        if (!eq.nome || isReferenceCode(eq.nome) || eq.nome === eq.id || eq.nome === eq.ref) {
+        if (!eq.nome || /^(eq|id|sq)_[0-9]+/i.test(eq.nome) || /^[0-9a-f-]{12,}$/i.test(eq.nome) || eq.nome === eq.id) {
           eq.nome = canon.nome;
         }
-        if (!eq.descricao || isReferenceCode(eq.descricao)) {
+        if (!eq.descricao || /^(eq|id|sq)_[0-9]+/i.test(eq.descricao)) {
           eq.descricao = canon.descricao;
         }
         if (!eq.ubicacao || eq.ubicacao === 'Outras Localizações') {
@@ -7694,20 +7826,22 @@
       const vin = !isAC && isVinera(eq);
       const isFreeze = !isAC && (String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca'));
       const icon = isAC ? '💨' : (vin ? '🍷' : (isFreeze ? '❄️' : '🧊'));
-      $('tempSelName').textContent = `${icon} ${eq.nome} (${eq.tipo})${eq.ubicacao ? ' · ' + eq.ubicacao : ''}`;
+      const realName = getEquipRealName(eq);
+      const refBadge = eq.ref && eq.ref !== realName ? ` [Ref: ${eq.ref}]` : '';
+      $('tempSelName').innerHTML = `${icon} <span class="equip-name-tag" style="font-size:12px; margin-right:6px;">🏷️ <b>${esc(realName)}</b></span>${esc(refBadge)} (${esc(eq.tipo)})${eq.ubicacao ? ' · ' + esc(eq.ubicacao) : ''}`;
       $('tempSelRange').textContent = `— intervalo de referência: ${eq.min} a ${eq.max} °C`;
 
       if(isAC){
         if(singleRow) singleRow.style.display = '';
         if(rangeRow) rangeRow.style.display = 'none';
-        $('tempSignHint').innerHTML = `💨 <b>${esc(eq.nome)}</b> (Ar Condicionado): registe a temperatura ambiente (intervalo regulamentar de referência: <b>${esc(eq.min || 16)} a ${esc(eq.max || 28)} °C</b>).`;
+        $('tempSignHint').innerHTML = `💨 <span class="equip-name-tag" style="font-size:11px;">🏷️ <b>${esc(realName)}</b></span> (Ar Condicionado): registe a temperatura ambiente (intervalo regulamentar de referência: <b>${esc(eq.min || 16)} a ${esc(eq.max || 28)} °C</b>).`;
         $('t-temperatura').min = 10;
         $('t-temperatura').max = 45;
         $('t-temperatura').placeholder = 'Ex.: 22.0';
       } else if(vin){
         if(singleRow) singleRow.style.display = 'none';
         if(rangeRow) rangeRow.style.display = '';
-        $('tempSignHint').innerHTML = `🍷 <b>${esc(eq.nome)}</b> (Vinheira / Vinera): registe o intervalo medido (<b>Temp. Mínima</b> e <b>Temp. Máxima</b>). O intervalo de referência admissível é <b>${esc(eq.min)} a ${esc(eq.max)} °C</b>.`;
+        $('tempSignHint').innerHTML = `🍷 <span class="equip-name-tag" style="font-size:11px;">🏷️ <b>${esc(realName)}</b></span> (Vinheira / Vinera): registe o intervalo medido (<b>Temp. Mínima</b> e <b>Temp. Máxima</b>). O intervalo de referência admissível é <b>${esc(eq.min)} a ${esc(eq.max)} °C</b>.`;
         if($('t-temp-min')) { $('t-temp-min').min = -10; $('t-temp-min').max = 40; $('t-temp-min').placeholder = `Ex.: ${eq.min || '8.0'}`; }
         if($('t-temp-max')) { $('t-temp-max').min = -10; $('t-temp-max').max = 40; $('t-temp-max').placeholder = `Ex.: ${eq.max || '14.0'}`; }
       } else {
@@ -7715,8 +7849,8 @@
         if(rangeRow) rangeRow.style.display = 'none';
         const neg = isFreeze;
         $('tempSignHint').innerHTML = neg
-          ? `❄️ Congelador: registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`
-          : `🧊 ${esc(eq.tipo)}: registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`;
+          ? `❄️ <span class="equip-name-tag" style="font-size:11px;">🏷️ <b>${esc(realName)}</b></span> (Congelador): registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`
+          : `🧊 <span class="equip-name-tag" style="font-size:11px;">🏷️ <b>${esc(realName)}</b></span> (${esc(eq.tipo)}): registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`;
         $('t-temperatura').min = neg ? -60 : 0;
         $('t-temperatura').max = neg ? -0.1 : 60;
         $('t-temperatura').placeholder = neg ? 'Ex.: -18.0' : 'Ex.: 4.0';
@@ -7800,9 +7934,10 @@
         const vin = isVinera(e);
         const isAc = isAireAcondicionado(e);
         const icon = isAc ? '💨' : (vin ? '🍷' : (String(e.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
-        const dispName = formatHumanEquipName(e.nome, e.tipo, e.ubicacao, e.id, e.ref);
-        const descTxt = (e.descricao && e.descricao !== e.nome && e.descricao !== dispName) ? ` — ${e.descricao}` : '';
-        return `<option value="${esc(e.id)}">${icon} ${esc(dispName)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
+        const realName = getEquipRealName(e);
+        const refTxt = e.ref && e.ref !== realName ? ` [Ref: ${e.ref}]` : '';
+        const descTxt = (e.descricao && e.descricao !== e.nome && e.descricao !== realName) ? ` — ${e.descricao}` : '';
+        return `<option value="${esc(e.id)}">${icon} 🏷️ ${esc(realName)}${esc(refTxt)}${esc(descTxt)} · ${esc(e.tipo)}${e.ubicacao?` (${esc(e.ubicacao)})`:''} [${esc(String(e.min))} a ${esc(String(e.max))} °C${vin?' · Rango':''}]</option>`;
       }).join('');
     if(current) sel.value = current;
     selectEquip(sel.value);
@@ -7821,14 +7956,18 @@
     const readingFormatted = st ? st.readingFormatted : '';
     const lastReading = st ? st.lastReading : null;
 
-    const displayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
-    const title = `${icon} ${displayName} · Informação do Equipamento`;
+    const realEquipName = getEquipRealName(eq);
+    const displayName = realEquipName;
+    const title = `${icon} 🏷️ ${realEquipName} · Informação do Equipamento`;
     let bodyHtml = `
       <div style="font-family:var(--sans); font-size:13px; line-height:1.5; color:var(--ink-700);">
         <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:12px; margin-bottom:12px;">
           <div style="display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px;">
-            <div style="color:var(--ink-400); font-weight:600;">Nome / Código:</div>
-            <div style="font-weight:800; font-family:var(--mono); color:var(--petrol-900); font-size:14px;">${esc(displayName)} ${eq.ref && eq.ref !== eq.nome && eq.ref !== displayName ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal;">(Ref: ${esc(eq.ref)})</span>` : ''}</div>
+            <div style="color:var(--ink-400); font-weight:600;">Etiqueta Oficial:</div>
+            <div>
+              <span class="equip-name-tag" style="font-size:12.5px; padding:3px 9px;">🏷️ <b>${esc(realEquipName)}</b></span>
+              ${eq.ref && eq.ref !== realEquipName ? `<span style="font-size:11px; color:var(--ink-400); font-weight:normal; margin-left:6px;">(Ref: ${esc(eq.ref)})</span>` : ''}
+            </div>
 
             <div style="color:var(--ink-400); font-weight:600;">Descrição:</div>
             <div style="font-weight:700; color:var(--ink-800);">${esc(eq.descricao || displayName)}</div>
@@ -7906,7 +8045,11 @@
       } else if(!isViewer() && !isDone){
         $('t-equipamento').value = eq.id;
         selectEquip(eq.id);
-        if(wr && wr.desde) $('t-fecha').value = wr.desde;
+        if(selectedTempWeekOffset === 0){
+          $('t-fecha').value = todayStr();
+        } else if(wr && wr.desde){
+          $('t-fecha').value = wr.desde;
+        }
         if(isVinera(eq) && $('t-temp-min')){
           $('t-temp-min').focus();
           $('t-temp-min').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -7914,7 +8057,7 @@
           $('t-temperatura').focus();
           $('t-temperatura').scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        showToast(`Equipamento ${eq.nome} selecionado para medição`);
+        showToast(`Equipamento ${getEquipRealName(eq)} selecionado para medição`);
       }
     }
   }
@@ -7928,7 +8071,8 @@
     const parsed = parseTempReading(d.temperatura, equip);
     const isBad = parsed.isBad || String(d.dentroIntervalo) === 'Não';
 
-    const title = `${icon} ${equip.nome} · Leitura Semanal (${wr ? wr.desde + ' a ' + wr.hasta : d.fecha})`;
+    const realEquipName = getEquipRealName(equip);
+    const title = `${icon} 🏷️ ${realEquipName} · Leitura Semanal (${wr ? wr.desde + ' a ' + wr.hasta : d.fecha})`;
     const htmlBody = `
       <div style="font-family:var(--mono); font-size:11.5px; color:var(--ink-400); margin-bottom:12px;">
         📅 Registado em <b>${esc(d.fecha || '—')}</b> às <b>${esc(d.hora || '—')}</b> por 👤 <b>${esc(d.usuario || 'Técnico')}</b>
@@ -7936,8 +8080,12 @@
       <div style="background:var(--paper); padding:12px; border-radius:12px; border:1px solid var(--line); margin-bottom:14px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
           <div>
-            <div style="font-weight:700; font-size:13px; color:var(--petrol-900);">${esc(equip.nome)} · ${esc(equip.tipo)}</div>
-            ${equip.descricao && equip.descricao !== equip.nome ? `<div style="font-size:12px; color:var(--ink-700);">${esc(equip.descricao)}</div>` : ''}
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span class="equip-name-tag" style="font-size:12px;">🏷️ <b>${esc(realEquipName)}</b></span>
+              <span style="font-weight:700; font-size:13px; color:var(--petrol-900);">${esc(equip.tipo)}</span>
+              ${equip.ref && equip.ref !== realEquipName ? `<span class="ref-badge">Ref: ${esc(equip.ref)}</span>` : ''}
+            </div>
+            ${equip.descricao && equip.descricao !== equip.nome && equip.descricao !== realEquipName ? `<div style="font-size:12px; color:var(--ink-700); margin-top:2px;">${esc(equip.descricao)}</div>` : ''}
             <div style="font-size:11px; color:var(--ink-400); font-family:var(--mono); margin-top:2px;">📍 ${esc(equip.ubicacao || 'Sem localização')}</div>
           </div>
           <span class="week-pill ${isBad ? 'bad' : 'ok'}" style="font-size:11px;">
@@ -7992,8 +8140,12 @@
 
       const allTempRecords = await listRecords('temperatura');
       const weekRecords = allTempRecords.filter(r => {
-        const d = r && r.data ? r.data : (r || {});
-        const rawDate = d.fecha || d.date || r.date || r.fecha;
+        let d = r && r.data ? r.data : r;
+        if(typeof d === 'string'){
+          try { d = JSON.parse(d); } catch(e){}
+        }
+        if(!d || typeof d !== 'object') return false;
+        const rawDate = d.fecha || d.date || r.date || r.fecha || d.Fecha || d.Date || d.Data || d.data || d.marcaTiempo || d.criadoEm || d.timestamp || d.time;
         const normDate = normalizeDate(rawDate);
         return normDate && normDate >= wr.desde && normDate <= wr.hasta;
       });
@@ -8018,13 +8170,16 @@
         if(hasReading){
           medidosCount++;
           lastReading = eqReadings.sort((a,b)=> {
-            const da = (a.data.fecha || '') + (a.data.hora || '');
-            const db = (b.data.fecha || '') + (b.data.hora || '');
+            const daObj = (a && a.data) ? a.data : (a || {});
+            const dbObj = (b && b.data) ? b.data : (b || {});
+            const da = String(daObj.fecha || a.date || '') + String(daObj.hora || a.time || '');
+            const db = String(dbObj.fecha || b.date || '') + String(dbObj.hora || b.time || '');
             return db.localeCompare(da);
           })[0];
-          const parsed = parseTempReading(lastReading.data.temperatura, eq);
+          const lastData = (lastReading && lastReading.data) ? lastReading.data : (lastReading || {});
+          const parsed = parseTempReading(lastData.temperatura, eq);
           readingFormatted = parsed.formatted;
-          if(parsed.isBad || String(lastReading.data.dentroIntervalo) === 'Não'){
+          if(parsed.isBad || String(lastData.dentroIntervalo) === 'Não' || lastData.dentroIntervalo === false){
             isBad = true;
             alertasCount++;
           }
@@ -8064,21 +8219,28 @@
           const isBad = st.isBad;
           const formatted = st.readingFormatted;
 
+          const realEquipName = getEquipRealName(eq);
           const chipDisplayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
           return `
-            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : 'zero'}" data-equipchip="${esc(eq.id)}" title="Clique para ver descrição completa e detalhes de ${esc(chipDisplayName)}">
+            <button type="button" class="equip-chip ${isDone ? (isBad ? 'bad' : 'done') : 'zero'}" data-equipchip="${esc(eq.id)}" title="Clique para ver descrição completa e detalhes de ${esc(realEquipName)}">
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:13px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(chipDisplayName)}</span>
+                  <span style="font-weight:800; font-size:13px; color:var(--petrol-900); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🏷️ ${esc(realEquipName)}</span>
                   <span class="dot"></span>
                 </div>
-                <div style="font-size:11px; color:var(--ink-500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;" title="${esc(eq.descricao || chipDisplayName)}">
-                  ${esc(eq.descricao || chipDisplayName)}
-                </div>
+                ${(eq.descricao && eq.descricao !== realEquipName && eq.descricao !== eq.nome) ? `
+                <div style="font-size:11px; color:var(--ink-500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px;" title="${esc(eq.descricao)}">
+                  ${esc(eq.descricao)}
+                </div>` : ''}
                 <div style="display:flex; align-items:center; gap:4px; margin:4px 0 2px; flex-wrap:wrap;">
+                  <span class="equip-name-tag" title="Nome oficial na etiqueta">
+                    🏷️ <b>${esc(realEquipName)}</b>
+                  </span>
                   <span class="equip-type-tag ${tagClass}">
                     ${icon} ${esc(eq.tipo)}
                   </span>
+                  ${eq.ref && eq.ref !== realEquipName ? `<span class="ref-badge" title="Referência técnica">Ref: ${esc(eq.ref)}</span>` : ''}
+                  ${vin ? '<span class="equip-type-tag wine" style="font-size:9px;">Rango Mín-Máx</span>' : ''}
                 </div>
                 <div style="margin-top:2px;">
                   <span class="equip-range-pill" title="Intervalo regulamentar de temperatura">
@@ -8115,19 +8277,23 @@
         const st = equipStateMap.get(String(eq.id)) || {};
         const hasReading = st.hasReading;
         const lastReading = st.lastReading;
+        const lastData = (lastReading && lastReading.data) ? lastReading.data : (lastReading || {});
         const isBad = st.isBad;
         const readingFormatted = st.readingFormatted;
         const vin = isVinera(eq);
         const icon = vin ? '🍷' : (String(eq.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊');
 
+        const realEquipName = getEquipRealName(eq);
         const cardDisplayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
         return `
           <div class="week-card" style="display:flex; flex-direction:column; gap:6px; padding:12px 14px; background:var(--paper); border:1px solid var(--line); border-radius:12px; margin-bottom:10px;">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
               <div style="min-width:0; flex:1;">
                 <div class="wn" style="font-weight:700; font-size:13.5px; color:var(--petrol-900); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                  <span>${icon} ${esc(cardDisplayName)}</span>
-                  ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== cardDisplayName ? `<span style="font-weight:500; font-size:12px; color:var(--ink-600);">(${esc(eq.descricao)})</span>` : ''}
+                  <span>${icon} 🏷️ ${esc(realEquipName)}</span>
+                  <span class="equip-name-tag" style="font-size:9.5px;">🏷️ ${esc(realEquipName)}</span>
+                  ${eq.ref && eq.ref !== realEquipName ? `<span class="ref-badge">Ref: ${esc(eq.ref)}</span>` : ''}
+                  ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== realEquipName ? `<span style="font-weight:500; font-size:12px; color:var(--ink-600);">(${esc(eq.descricao)})</span>` : ''}
                   <span style="font-weight:600; color:var(--ice-500); font-size:11px; background:var(--ice-100); padding:1px 6px; border-radius:4px;">${esc(eq.tipo)}</span>
                   ${vin ? '<span style="font-weight:600; color:#8a5f0f; font-size:10.5px; background:var(--amber-100); padding:1px 6px; border-radius:4px;">Rango Mín-Máx</span>' : ''}
                 </div>
@@ -8143,12 +8309,12 @@
             ${hasReading ? `
               <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; background:#fff; padding:7px 10px; border-radius:8px; border:1px solid var(--line); font-size:11.5px; margin-top:2px;">
                 <div style="font-family:var(--mono); color:var(--ink-600); line-height:1.4;">
-                  📅 <b>${esc(lastReading.data.fecha)}</b> ${esc(lastReading.data.hora)} · 👤 ${esc(lastReading.data.usuario || '—')} · <b>${esc(readingFormatted)}</b>
+                  📅 <b>${esc(lastData.fecha || lastReading.date || '—')}</b> ${esc(lastData.hora || lastReading.time || '')} · 👤 ${esc(lastData.usuario || lastData.tecnico || '—')} · <b>${esc(readingFormatted)}</b>
                   ${isBad ? ' · <span style="color:var(--coral-500); font-weight:700;">⚠️ Fora do intervalo!</span>' : ''}
-                  ${lastReading.data.observacoes ? `<br><span style="color:#8a5f0f;">📝 ${esc(lastReading.data.observacoes)}</span>` : ''}
-                  ${(lastReading.data.modificadoPor || lastReading.data.editado === 'Sim') ? `<br><span style="color:var(--ink-400); font-size:10px;">✏️ Editado por ${esc(lastReading.data.modificadoPor || '—')}</span>` : ''}
+                  ${lastData.observacoes ? `<br><span style="color:#8a5f0f;">📝 ${esc(lastData.observacoes)}</span>` : ''}
+                  ${(lastData.modificadoPor || lastData.editado === 'Sim') ? `<br><span style="color:var(--ink-400); font-size:10px;">✏️ Editado por ${esc(lastData.modificadoPor || '—')}</span>` : ''}
                 </div>
-                <button type="button" class="cycle-btn" data-edittempreg="${esc(lastReading.data.id)}" style="padding:4px 9px; font-size:11px; font-weight:700; color:#1f5f96; background:#e8f2fa; border:1px solid #c2dcf0;">✏️ Modificar leitura</button>
+                <button type="button" class="cycle-btn" data-edittempreg="${esc(lastData.id || lastReading.key)}" style="padding:4px 9px; font-size:11px; font-weight:700; color:#1f5f96; background:#e8f2fa; border:1px solid #c2dcf0;">✏️ Modificar leitura</button>
               </div>
             ` : `
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:2px;">
@@ -8239,7 +8405,11 @@
           const eqId = btn.dataset.medireq;
           $('t-equipamento').value = eqId;
           selectEquip(eqId);
-          $('t-fecha').value = wr.desde;
+          if(selectedTempWeekOffset === 0){
+            $('t-fecha').value = todayStr();
+          } else if(wr && wr.desde){
+            $('t-fecha').value = wr.desde;
+          }
           const eq = selectedEquip();
           if(isVinera(eq) && $('t-temp-min')){
             $('t-temp-min').focus();
@@ -8316,8 +8486,12 @@
       for(let w = 0; w < 16; w++){
         const wr = getWeekRangeOffset(w);
         const inWeek = allTemp.filter(r => {
-          const d = r && r.data ? r.data : (r || {});
-          const rawDate = d.fecha || d.date || r.date || r.fecha;
+          let d = r && r.data ? r.data : r;
+          if(typeof d === 'string'){
+            try { d = JSON.parse(d); } catch(e){}
+          }
+          if(!d || typeof d !== 'object') return false;
+          const rawDate = d.fecha || d.date || r.date || r.fecha || d.Fecha || d.Date || d.Data || d.data || d.marcaTiempo || d.criadoEm || d.timestamp;
           const normDate = normalizeDate(rawDate);
           return normDate && normDate >= wr.desde && normDate <= wr.hasta;
         });
@@ -8433,10 +8607,14 @@
           <tbody>
             ${!equipamentos.length ? '<tr><td colspan="6" style="padding:14px; text-align:center; color:var(--ink-400);">Nenhum equipamento registado.</td></tr>' : equipamentos.map(eq => {
               const inativo = isNoVal(eq.ativo);
-              const dispName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+              const realName = getEquipRealName(eq);
               return `
                 <tr style="${inativo ? 'opacity:0.6; background:#f9f9f9;' : ''}">
-                  <td style="padding:8px 10px; font-weight:700;">${esc(dispName)} ${eq.ref && eq.ref !== dispName ? `<span style="font-size:10.5px; color:var(--ink-400); font-weight:normal;">(${esc(eq.ref)})</span>` : ''}</td>
+                  <td style="padding:8px 10px; font-weight:700;">
+                    <span class="equip-name-tag" style="font-size:11.5px;">🏷️ <b>${esc(realName)}</b></span>
+                    ${eq.ref && eq.ref !== realName ? `<span class="ref-badge" style="margin-left:4px;">Ref: ${esc(eq.ref)}</span>` : ''}
+                    ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== realName ? `<div style="font-size:11px; color:var(--ink-600); font-weight:normal; margin-top:2px;">${esc(eq.descricao)}</div>` : ''}
+                  </td>
                   <td style="padding:8px 10px;">${esc(eq.tipo)}</td>
                   <td style="padding:8px 10px; font-size:11.5px; color:var(--ink-600);">${esc(eq.ubicacao||'—')}</td>
                   <td style="padding:8px 10px; font-family:var(--mono); font-size:11.5px;">${esc(String(eq.min))} a ${esc(String(eq.max))} °C</td>

@@ -1402,6 +1402,25 @@
     background: rgba(255, 255, 255, 0.06);
     color: var(--muted);
   }
+  .equip-name-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1.5px 7px;
+    border-radius: 4px;
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  :root[data-theme="dark"] .equip-name-tag {
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
+    border-color: rgba(56, 189, 248, 0.4);
+  }
   .ref-badge {
     display: inline-block;
     font-size: 9.5px;
@@ -4331,6 +4350,15 @@
       const s = String(value).trim();
       if (!s) return '';
 
+      // Timestamp numérico em milissegundos ou segundos
+      if (/^\d{10,13}$/.test(s)) {
+        const num = Number(s.length === 10 ? s + '000' : s);
+        const dt = new Date(num);
+        if (!isNaN(dt.getTime())) {
+          return dayKey(dt);
+        }
+      }
+
       // 1. ISO format: YYYY-MM-DD or YYYY/MM/DD
       let match = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:$|T|\s)/);
       if (match) {
@@ -4403,7 +4431,8 @@
         data.cloroTotalFria = data.cloroTotalFria ?? data.cloroTotalFrio;
       }
 
-      const parsedDate = normalizeDate(data.fecha || data.date || record.date || record.fecha);
+      const rawDate = data.fecha || data.date || record.date || record.fecha || data.Fecha || data.Date || data.Data || data.data || data.marcaTiempo || data.criadoEm || data.timestamp || data.time;
+      const parsedDate = normalizeDate(rawDate);
 
       return {
         type,
@@ -9831,13 +9860,27 @@
       return null;
     }
 
+    // Devolve sempre o nome real oficial do equipamento para a etiqueta e interface
+    function getEquipRealName(eq) {
+      if (!eq) return 'Equipamento';
+      const sName = String(eq.nome || '').trim();
+      if (sName && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName)) {
+        return sName;
+      }
+      const sRef = String(eq.ref || eq.refShort || '').trim();
+      if (sRef && !/^(eq|id|sq)_[0-9]+/i.test(sRef)) {
+        return sRef;
+      }
+      return formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+    }
+
     // Formata SEMPRE um nome humano legível e profissional para o equipamento, nunca expondo IDs técnicos
     function formatHumanEquipName(rawName, eqTipo, eqLoc, rawId, refCode) {
       const sName = String(rawName || '').trim();
       const sId = String(rawId || '').trim();
 
-      // 1. Se tem um nome personalizado já humano (não nulo, não código de referência nem ID gerado)
-      if (sName && !isReferenceCode(sName) && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length > 2 && sName !== sId) {
+      // 1. Se tem um nome personalizado já humano (não nulo nem ID gerado)
+      if (sName && !/^(eq|id|sq)_[0-9]+/i.test(sName) && !/^[0-9a-f-]{12,}$/i.test(sName) && sName.length >= 2 && sName !== sId) {
         return sName;
       }
 
@@ -9968,7 +10011,12 @@
 
     function isRecordMatchingEquip(record, eq) {
       if (!record || !eq) return false;
-      const d = record.data ? record.data : record;
+      let d = record.data ? record.data : record;
+      if (typeof d === 'string') {
+        try { d = JSON.parse(d); } catch(e){}
+      }
+      if (!d || typeof d !== 'object') return false;
+
       const candidates = [
         d.equipamentoId,
         d.equipoId,
@@ -9976,26 +10024,84 @@
         d.equipo,
         d.nome,
         d.ref,
-        d.id
+        d.codigo,
+        d.codigoEquipamento,
+        d.EquipamentoID,
+        d.Equipamento,
+        d.Equipo,
+        d.Nome,
+        d.Nombre,
+        d.Ref,
+        d.Codigo,
+        d.equipmentId,
+        d.equipment_id,
+        d.equipo_id,
+        d.machineId,
+        d.idEquipamento
       ].filter(Boolean).map(s => String(s).trim());
+
+      const recId = String(d.id || record.key || '').trim();
+      if (recId && !/^(id|temp)_[0-9]+/i.test(recId)) {
+        candidates.push(recId);
+      }
+      if (recId && String(eq.id).trim() === recId) return true;
 
       if (!candidates.length) return false;
 
+      const eqIdUpper = String(eq.id || '').toUpperCase();
+      const eqRefUpper = String(eq.ref || '').toUpperCase();
       const eqIdClean = cleanStrForMatch(eq.id);
       const eqRefClean = cleanStrForMatch(eq.ref);
+      const eqRefShortClean = cleanStrForMatch(eq.refShort);
       const eqNomeClean = cleanStrForMatch(eq.nome);
+      const eqRealNameClean = cleanStrForMatch(getEquipRealName(eq));
       const eqDescClean = cleanStrForMatch(eq.descricao);
       const eqAliasesClean = Array.isArray(eq.aliases) ? eq.aliases.map(cleanStrForMatch) : [];
+      const eqCanonCode = extractCanonicalCode(eq.id) || extractCanonicalCode(eq.ref) || extractCanonicalCode(eq.nome);
 
       for (const cand of candidates) {
         const candClean = cleanStrForMatch(cand);
         if (!candClean) continue;
-        if (candClean === eqIdClean || candClean === eqRefClean || candClean === eqNomeClean) return true;
+        const candUpper = cand.toUpperCase();
+
+        // Correspondência direta exata por ID ou Ref (case-insensitive)
+        if (candUpper === eqIdUpper || (eqRefUpper && candUpper === eqRefUpper)) return true;
+
+        // 1. Correspondência direta por ID, Ref, Nome real, Descrição ou Aliases
+        if (candClean === eqIdClean || candClean === eqRefClean || (eqRefShortClean && candClean === eqRefShortClean) || candClean === eqNomeClean || candClean === eqRealNameClean) return true;
         if (eqDescClean && candClean === eqDescClean) return true;
         if (eqAliasesClean.includes(candClean)) return true;
 
-        const canon = findCanonicalEquip(cand, null, d.ubicacao || d.ubicacion, d.tipo);
-        if (canon && (String(canon.id).toUpperCase() === String(eq.id).toUpperCase() || String(canon.ref || '').toUpperCase() === String(eq.id).toUpperCase())) return true;
+        // 2. Correspondência por código técnico canónico (ex: REF01, AC06, CON02)
+        const candCanonCode = extractCanonicalCode(cand);
+        if (candCanonCode) {
+          if (eqCanonCode && candCanonCode === eqCanonCode) return true;
+          if (candCanonCode === eqIdUpper || candCanonCode === eqRefUpper) return true;
+        }
+
+        // 3. Correspondência de substring significativa (>= 3 chars) com validação de contexto
+        if (candClean.length >= 3) {
+          if (eqNomeClean && (candClean === eqNomeClean || eqNomeClean.includes(candClean) || candClean.includes(eqNomeClean))) {
+            const candLoc = normalizeLocation(d.ubicacao || d.ubicacion);
+            const eqLoc = normalizeLocation(eq.ubicacao);
+            if (!candLoc || !eqLoc || candLoc === eqLoc || candLoc === 'Outras Localizações' || eqLoc === 'Outras Localizações') {
+              return true;
+            }
+          }
+          if (eqRealNameClean && (candClean === eqRealNameClean || eqRealNameClean.includes(candClean) || candClean.includes(eqRealNameClean))) return true;
+          if (eqRefClean && (candClean === eqRefClean || eqRefClean.includes(candClean) || candClean.includes(eqRefClean))) return true;
+        }
+
+        // 4. Resolução por objeto canónico
+        const canon = findCanonicalEquip(cand, cand, d.ubicacao || d.ubicacion, d.tipo);
+        if (canon) {
+          const canonId = String(canon.id).toUpperCase();
+          const canonRef = String(canon.ref || '').toUpperCase();
+          if (canonId === eqIdUpper || canonId === eqRefUpper || canonRef === eqIdUpper || canonRef === eqRefUpper) {
+            return true;
+          }
+          if (cleanStrForMatch(canon.nome) === eqNomeClean || cleanStrForMatch(canon.nome) === eqRealNameClean) return true;
+        }
       }
       return false;
     }
@@ -10013,11 +10119,19 @@
 
     function equipmentName(record) {
       const d = record && record.data ? record.data : (record || {});
-      const rawId = String(d.equipamentoId || d.equipoId || d.id || '').trim();
       const rawName = String(d.nome || d.equipo || d.equipamento || '').trim();
-      const rawLoc = String(d.ubicacao || d.ubicacion || '').trim();
-      const rawTipo = String(d.tipo || '').trim();
-      return formatHumanEquipName(rawName, rawTipo, rawLoc, rawId, d.ref);
+      const rawRef = String(d.ref || d.equipamentoId || d.equipoId || '').trim();
+      const equips = getHotelEquipamentos();
+      const matched = equips.find(e => isRecordMatchingEquip(record, e));
+      if (matched) {
+        const realN = getEquipRealName(matched);
+        return '🏷️ ' + realN + (matched.ref && matched.ref !== realN ? ` (${matched.ref})` : '');
+      }
+      if (rawName && !/^(eq|id|sq)_[0-9]+/i.test(rawName) && !/^[0-9a-f-]{12,}$/i.test(rawName)) {
+        return '🏷️ ' + rawName + (rawRef && rawRef !== rawName ? ` (${rawRef})` : '');
+      }
+      const humanName = formatHumanEquipName(rawName, d.tipo, d.ubicacao, d.id, d.ref);
+      return '🏷️ ' + humanName;
     }
 
     function declaredState(value) {
@@ -10618,8 +10732,9 @@
             chip.setAttribute('data-eqid', eq.id);
             chip.setAttribute('role', 'button');
             chip.setAttribute('tabindex', '0');
-            const displayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
-            chip.title = `${displayName}: ${eq.tipo} [${eq.min} a ${eq.max} ºC] — Clique para histórico detalhado`;
+            const realEquipName = getEquipRealName(eq);
+            const displayName = realEquipName;
+            chip.title = `${realEquipName}: ${eq.tipo} [${eq.min} a ${eq.max} ºC] — Clique para histórico detalhado`;
 
             let valPillHtml = '';
             if (s.hasReading) {
@@ -10635,15 +10750,18 @@
             chip.innerHTML = `
               <div>
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
-                  <span style="font-weight:800; font-size:12.5px; color:var(--text); line-height:1.2;">${esc(displayName)}</span>
+                  <span style="font-weight:800; font-size:12.5px; color:var(--text); line-height:1.2;">🏷️ ${esc(realEquipName)}</span>
                   <span class="dot"></span>
                 </div>
-                ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== displayName ? `
+                ${eq.descricao && eq.descricao !== eq.nome && eq.descricao !== realEquipName ? `
                   <div style="font-size:10px; color:var(--muted); margin:2px 0 3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${esc(eq.descricao)}">
                     ${esc(eq.descricao)}
                   </div>
                 ` : ''}
                 <div style="display:flex; align-items:center; gap:4px; margin:4px 0 3px; flex-wrap:wrap;">
+                  <span class="equip-name-tag" title="Nome oficial na etiqueta do equipamento">
+                    🏷️ <b>${esc(realEquipName)}</b>
+                  </span>
                   <span class="equip-type-tag ${cat.cls}">
                     ${cat.label}
                   </span>
@@ -10717,13 +10835,15 @@
           const techStr = s.lastRec ? String(s.lastRec.data?.tecnico || s.lastRec.data?.usuario || '—') : '—';
           const notesStr = s.lastRec && s.lastRec.data?.observaciones ? String(s.lastRec.data.observaciones) : '';
 
-          const cardDisplayName = formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref);
+          const realEquipName = getEquipRealName(eq);
+          const cardDisplayName = realEquipName;
           card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
               <div>
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                   <span style="font-size:1.15rem;">${icon}</span>
-                  <span style="font-weight:800; font-size:1.05rem; color:var(--text);">${esc(cardDisplayName)}</span>
+                  <span style="font-weight:800; font-size:1.05rem; color:var(--text);">🏷️ ${esc(realEquipName)}</span>
+                  <span class="equip-name-tag" title="Nome oficial na etiqueta do equipamento">🏷️ <b>${esc(realEquipName)}</b></span>
                   <span style="font-size:11px; color:var(--muted); background:var(--subtle); padding:2px 6px; border-radius:4px; font-weight:600;">
                     ${esc(eq.tipo)}
                   </span>
@@ -10881,7 +11001,8 @@
           <div>
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <span style="font-size:1.3rem;">${icon}</span>
-              <h2 style="margin:0; font-size:1.15rem; color:var(--text);">${esc(formatHumanEquipName(eq.nome, eq.tipo, eq.ubicacao, eq.id, eq.ref))} · ${esc(eq.tipo)}</h2>
+              <span class="equip-name-tag" style="font-size:12.5px; padding:3px 9px;">🏷️ <b>${esc(getEquipRealName(eq))}</b></span>
+              <h2 style="margin:0; font-size:1.15rem; color:var(--text);">${esc(getEquipRealName(eq))} · ${esc(eq.tipo)}</h2>
               ${eq.refShort || eq.ref ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.ref || eq.id)}">Ref: ${esc(eq.refShort || eq.ref)}</span>` : ''}
               <button type="button" class="cycle-btn" id="btnModalRenameEquip" style="font-size:11px; padding:3px 8px; font-weight:700;">✏️ Alterar Nome</button>
             </div>
@@ -11097,7 +11218,8 @@
               <div style="display:flex; align-items:center; gap:8px; min-width:180px; flex:1;">
                 <span style="font-size:1.2rem;">${icon}</span>
                 <div>
-                  <div style="font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px;">
+                  <span class="equip-name-tag" style="font-size:11px; margin-bottom:2px;">🏷️ <b>${esc(getEquipRealName(eq))}</b></span>
+                  <div style="font-size:11px; color:var(--muted); display:flex; align-items:center; gap:5px; margin-top:2px;">
                     <span>${esc(eq.tipo)}</span>
                     ${eq.refShort ? `<span class="ref-badge" title="Referência técnica: ${esc(eq.id)}">Ref: ${esc(eq.refShort)}</span>` : ''}
                   </div>
