@@ -532,6 +532,7 @@
 <script src="/node_modules/d3/dist/d3.min.js"></script>
 <script src="js/runtime-config.js"></script>
 <script src="js/maintenance-categories.js"></script>
+<script src="js/maintenance-workload.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -14618,6 +14619,9 @@
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
             📈 Tendência & Projeção Temporal
           </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'workload' ? 'active' : ''}" data-maint-tab="workload">
+            🧰 Carga Mensal & Projeção
+          </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'classification' ? 'active' : ''}" data-maint-tab="classification">
             🎯 Classificação & Matriz Operacional
           </button>
@@ -14661,7 +14665,7 @@
           lastMaintWindowWidth = curW;
           clearTimeout(maintKpiResizeTimer);
           maintKpiResizeTimer = setTimeout(() => {
-            const currentTickets = tickets;
+            const currentTickets = currentMaintKpiTickets;
             renderActiveMaintKpiChart(currentTickets);
           }, 150);
         }
@@ -14671,6 +14675,7 @@
 
   function renderActiveMaintKpiChart(tickets) {
     if (Array.isArray(tickets)) currentMaintKpiTickets = tickets;
+    else tickets = currentMaintKpiTickets;
     const host = $('maintKpiD3ChartHost');
     const controlsWrap = $('maintKpiControlsWrap');
     const footerWrap = $('maintKpiFooterInfoWrap');
@@ -14700,16 +14705,23 @@
       return;
     }
 
-    if (currentMaintKpiTab === 'categories') {
-      renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
-    } else if (currentMaintKpiTab === 'comparison') {
-      renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
-    } else if (currentMaintKpiTab === 'timeline') {
-      renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets);
-    } else if (currentMaintKpiTab === 'classification') {
-      renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets);
-    } else if (currentMaintKpiTab === 'locations') {
-      renderMaintenanceD3TopLocations(host, controlsWrap, footerWrap, tickets);
+    try {
+      if (currentMaintKpiTab === 'categories') {
+        renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'comparison') {
+        renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'timeline') {
+        renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'workload') {
+        renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'classification') {
+        renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'locations') {
+        renderMaintenanceD3TopLocations(host, controlsWrap, footerWrap, tickets);
+      }
+    } catch (error) {
+      host.textContent = 'Não foi possível renderizar este gráfico: ' + (error && error.message ? error.message : String(error));
+      console.error('Falha ao renderizar o gráfico de manutenção:', error);
     }
   }
 
@@ -14758,13 +14770,17 @@
         const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
         if (btnGoComp) {
           btnGoComp.onclick = (e) => {
-            if (e) e.preventDefault();
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
             currentMaintKpiTab = 'comparison';
-            const tabsWrap = document.querySelector('.maint-kpi-tabs');
+            const board = controlsWrap.closest('.maint-kpi-board');
+            const tabsWrap = board ? board.querySelector('.maint-kpi-tabs') : null;
             if (tabsWrap) {
               tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'comparison'));
             }
-            renderActiveMaintKpiChart(tickets);
+            renderActiveMaintKpiChart(currentMaintKpiTickets);
           };
         }
       }
@@ -15624,6 +15640,10 @@
     }
   }
 
+  function renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets) {
+    return MaintenanceWorkload.renderMonthlyWorkloadChart({ host, controlsWrap, footerWrap, tickets, d3 });
+  }
+
   function renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets) {
     const isDark = document.documentElement.dataset.theme === 'dark';
     const textColor = isDark ? '#cbd5e1' : '#334155';
@@ -15969,19 +15989,19 @@
         </div>
       `;
 
-      const selA = $('maintCompSelectA');
+      const selA = controlsWrap.querySelector('#maintCompSelectA');
       if (selA) selA.onchange = (e) => {
         currentMaintCompMonthA = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const selB = $('maintCompSelectB');
+      const selB = controlsWrap.querySelector('#maintCompSelectB');
       if (selB) selB.onchange = (e) => {
         currentMaintCompMonthB = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnSwap = $('maintCompBtnSwap');
+      const btnSwap = controlsWrap.querySelector('#maintCompBtnSwap');
       if (btnSwap) btnSwap.onclick = () => {
         const tmp = currentMaintCompMonthA;
         currentMaintCompMonthA = currentMaintCompMonthB;
@@ -15989,7 +16009,7 @@
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnLatest = $('maintCompBtnLatestPair');
+      const btnLatest = controlsWrap.querySelector('#maintCompBtnLatestPair');
       if (btnLatest) btnLatest.onclick = () => {
         if (distinctMonths.length >= 2) {
           currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
@@ -15998,13 +16018,13 @@
         }
       };
 
-      const selSort = $('maintCompSelectSort');
+      const selSort = controlsWrap.querySelector('#maintCompSelectSort');
       if (selSort) selSort.onchange = (e) => {
         currentMaintCompSort = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnChart = $('maintCompBtnChart');
+      const btnChart = controlsWrap.querySelector('#maintCompBtnChart');
       if (btnChart) btnChart.onclick = () => {
         if (currentMaintCompViewMode !== 'chart') {
           currentMaintCompViewMode = 'chart';
@@ -16012,7 +16032,7 @@
         }
       };
 
-      const btnTable = $('maintCompBtnTable');
+      const btnTable = controlsWrap.querySelector('#maintCompBtnTable');
       if (btnTable) btnTable.onclick = () => {
         if (currentMaintCompViewMode !== 'table') {
           currentMaintCompViewMode = 'table';
@@ -16243,7 +16263,7 @@
     } else {
       // MODO GRÁFICO D3: Barras Agrupadas Horizontais
       host.innerHTML = topHTML + '<div id="maintCompD3SvgHost"></div>';
-      const svgHost = $('maintCompD3SvgHost');
+      const svgHost = host.querySelector('#maintCompD3SvgHost');
       if (!svgHost) return;
 
       const containerWidth = host.clientWidth || 860;
