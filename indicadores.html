@@ -9116,11 +9116,6 @@
   // ---------------------------------------------------------
   // 5. GRÁFICO D3 & MATRIZ: COMPARATIVO ENTRE MESES
   // ---------------------------------------------------------
-  let currentMaintCompMonthA = '';
-  let currentMaintCompMonthB = '';
-  let currentMaintCompSort = 'diff_desc'; // 'diff_desc', 'diff_asc', 'volume', 'name'
-  let currentMaintCompViewMode = 'chart'; // 'chart' ou 'table'
-
   function getTicketMonthKeyIndicadores(t) {
     if (!t) return '';
     const str = String(t.dataReporte || t.fecha || t.data || t.criadoEm || t.timestamp || '').trim();
