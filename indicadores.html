@@ -358,7 +358,6 @@
   <script src="/node_modules/d3/dist/d3.min.js"></script>
   <script src="js/runtime-config.js"></script>
   <script src="js/maintenance-categories.js"></script>
-  <script src="js/maintenance-workload.js"></script>
   <script>
     let d3LoadPromise = null;
     function ensureD3() {
@@ -3420,7 +3419,7 @@
   .maint-kpi-tooltip {
     position: fixed;
     z-index: 10000;
-    pointer-events: none;
+    pointer-events: none !important;
     background: rgba(15,23,42,0.95);
     color: #f8fafc;
     border: 1px solid rgba(255,255,255,0.15);
@@ -3432,7 +3431,9 @@
     backdrop-filter: blur(8px);
     opacity: 0;
     transition: opacity 0.12s ease;
-    max-width: 280px;
+    max-width: 320px;
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .maint-kpi-sort-controls {
@@ -6652,9 +6653,59 @@
     return MaintenanceCategories.canonicalize(cat, options);
   }
 
-  let currentMaintKpiTab = 'categories';
+  const PT_MAINT_MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+  function getTicketMonthKeyIndicadores(t) {
+    if (!t) return '';
+    const raw = String(t.dataReporte || t.fecha || t.data || t.criadoEm || t.timestamp || '').trim();
+    if (!raw) return '';
+    // YYYY-MM or YYYY/MM
+    let m = raw.match(/^(\d{4})[/-](\d{1,2})/);
+    if (m) {
+      const yr = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10);
+      if (yr >= 2000 && yr <= 2100 && mo >= 1 && mo <= 12) {
+        return `${yr}-${String(mo).padStart(2, '0')}`;
+      }
+    }
+    // DD-MM-YYYY or DD/MM/YYYY
+    m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (m) {
+      const yr = parseInt(m[3], 10);
+      const mo = parseInt(m[2], 10);
+      if (yr >= 2000 && yr <= 2100 && mo >= 1 && mo <= 12) {
+        return `${yr}-${String(mo).padStart(2, '0')}`;
+      }
+    }
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) {
+      const yr = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      if (yr >= 2000 && yr <= 2100) {
+        return `${yr}-${String(mo).padStart(2, '0')}`;
+      }
+    }
+    return '';
+  }
+
+  function formatMonthKeyLabelIndicadores(monthKey) {
+    if (!monthKey || !/^\d{4}-\d{2}$/.test(monthKey)) return monthKey || '—';
+    const [yr, mo] = monthKey.split('-').map(Number);
+    const mName = PT_MAINT_MONTH_NAMES[(mo || 1) - 1] || 'Mês';
+    return `${mName} ${String(yr).slice(-2)}`;
+  }
+
+  let currentMaintKpiTab = 'workload'; // Iniciar diretamente na nova secção de Volume de Pedidos & Cargas
   let currentCategorySort = 'volume';
   let currentMaintTimelineSegment = 'all';
+  let currentMaintWorkloadHorizon = '6'; // '6' (6 meses + 3 proj) ou '12' (12 meses + 3 proj) ou 'all'
+  let currentMaintWorkloadType = 'all'; // 'all', 'Corretivo', 'Preventivo', 'Estratégico'
+  let currentMaintWorkloadSimCapacity = 0; // 0 = auto-calculado
+  let currentMaintWorkloadUnit = 'pedidos'; // 'pedidos' ou 'horas'
+  let currentMaintCompMonthA = '';
+  let currentMaintCompMonthB = '';
+  let currentMaintCompSort = 'diff_desc'; // 'diff_desc', 'diff_asc', 'volume', 'name'
+  let currentMaintCompViewMode = 'chart'; // 'chart' ou 'table'
   let maintKpiResizeObserver = null;
   let currentMaintKpiTickets = [];
   let maintKpiD3LoadPromise = null;
@@ -6668,6 +6719,34 @@
       document.body.appendChild(tip);
     }
     return tip;
+  }
+
+  function showMaintTooltipSafely(tooltip, event, htmlContent) {
+    if (!tooltip) return;
+    if (htmlContent) {
+      tooltip.innerHTML = htmlContent;
+    }
+    tooltip.style.opacity = '1';
+    if (!event) return;
+    const tipW = 310;
+    const tipH = 220;
+    const pad = 14;
+    let posX = event.clientX + pad;
+    let posY = event.clientY - 12;
+    if (typeof window !== 'undefined') {
+      if (posX + tipW > window.innerWidth - 10) {
+        posX = Math.max(10, event.clientX - tipW - pad);
+      }
+      if (posY + tipH > window.innerHeight - 10) {
+        posY = Math.max(10, window.innerHeight - tipH - 10);
+      }
+    }
+    tooltip.style.left = posX + 'px';
+    tooltip.style.top = posY + 'px';
+  }
+
+  function hideMaintTooltipSafely(tooltip) {
+    if (tooltip) tooltip.style.opacity = '0';
   }
 
   function updateMaintenanceKpisDashboardIndicadores() {
@@ -6834,14 +6913,14 @@
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'categories' ? 'active' : ''}" data-maint-tab="categories">
             📊 15 Categorias Técnicas
           </button>
+          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'workload' ? 'active' : ''}" data-maint-tab="workload">
+            📦 Volume de Pedidos & Cargas
+          </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'comparison' ? 'active' : ''}" data-maint-tab="comparison">
             ⚖️ Comparativo entre Meses
           </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'timeline' ? 'active' : ''}" data-maint-tab="timeline">
             📈 Tendência & Projeção Temporal
-          </button>
-          <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'workload' ? 'active' : ''}" data-maint-tab="workload">
-            🧰 Carga Mensal & Projeção
           </button>
           <button type="button" class="maint-kpi-tab-btn ${currentMaintKpiTab === 'classification' ? 'active' : ''}" data-maint-tab="classification">
             🎯 Classificação & Matriz Operacional
@@ -6866,10 +6945,12 @@
     // Tab switching
     wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(btn => {
       btn.onclick = (e) => {
-        e.preventDefault();
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         const tab = btn.dataset.maintTab;
         if (!tab || tab === currentMaintKpiTab) return;
         currentMaintKpiTab = tab;
+        const tip = document.getElementById('maintKpiTooltip');
+        if (tip) tip.style.opacity = '0';
         wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === tab));
         renderActiveMaintKpiChart(tickets);
       };
@@ -6899,7 +6980,6 @@
 
   function renderActiveMaintKpiChart(tickets) {
     if (Array.isArray(tickets)) currentMaintKpiTickets = tickets;
-    else tickets = currentMaintKpiTickets;
     const host = $('maintKpiD3ChartHost');
     const controlsWrap = $('maintKpiControlsWrap');
     const footerWrap = $('maintKpiFooterInfoWrap');
@@ -6909,6 +6989,9 @@
     host.innerHTML = '';
     if (controlsWrap) controlsWrap.innerHTML = '';
     if (footerWrap) footerWrap.innerHTML = '';
+
+    const tip = document.getElementById('maintKpiTooltip');
+    if (tip) tip.style.opacity = '0';
 
     if (typeof d3 === 'undefined') {
       host.innerHTML = '<div style="padding:40px; text-align:center; color:#94a3b8;">A carregar motor D3.js...</div>';
@@ -6933,20 +7016,41 @@
     try {
       if (currentMaintKpiTab === 'categories') {
         renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
+      } else if (currentMaintKpiTab === 'workload') {
+        renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'comparison') {
         renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'timeline') {
         renderMaintenanceD3TimelineProjection(host, controlsWrap, footerWrap, tickets);
-      } else if (currentMaintKpiTab === 'workload') {
-        renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'classification') {
         renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'locations') {
         renderMaintenanceD3TopLocations(host, controlsWrap, footerWrap, tickets);
+      } else {
+        renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
       }
-    } catch (error) {
-      host.textContent = 'Não foi possível renderizar este gráfico: ' + (error && error.message ? error.message : String(error));
-      console.error('Falha ao renderizar o gráfico de manutenção:', error);
+    } catch (err) {
+      console.error('Erro na renderização do gráfico de manutenção:', err);
+      host.innerHTML = `
+        <div style="padding:28px 16px; text-align:center; background:rgba(2,132,199,0.05); border:1px solid rgba(2,132,199,0.25); border-radius:10px; margin:16px 0;">
+          <div style="font-size:15px; font-weight:800; color:#0284c7; margin-bottom:6px;">📦 Vista de Volume & Cargas de Trabalho</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Os dados foram atualizados e estabilizados. Clique abaixo para abrir o gráfico de cargas.</div>
+          <button type="button" id="maintBtnRecoverChart" style="background:#0284c7; color:#fff; font-weight:700; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">
+            🔄 Abrir Volume de Pedidos & Cargas
+          </button>
+        </div>
+      `;
+      const recBtn = host.querySelector('#maintBtnRecoverChart');
+      if (recBtn) {
+        recBtn.onclick = () => {
+          currentMaintKpiTab = 'workload';
+          const tabsWrap = document.querySelector('.maint-kpi-tabs');
+          if (tabsWrap) {
+            tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'workload'));
+          }
+          renderActiveMaintKpiChart(tickets);
+        };
+      }
     }
   }
 
@@ -6999,17 +7103,13 @@
         const btnGoComp = controlsWrap.querySelector('#maintBtnGoComparison');
         if (btnGoComp) {
           btnGoComp.onclick = (e) => {
-            if (e) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
+            if (e) e.preventDefault();
             currentMaintKpiTab = 'comparison';
-            const board = controlsWrap.closest('.maint-kpi-board');
-            const tabsWrap = board ? board.querySelector('.maint-kpi-tabs') : null;
+            const tabsWrap = document.querySelector('.maint-kpi-tabs');
             if (tabsWrap) {
               tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'comparison'));
             }
-            renderActiveMaintKpiChart(currentMaintKpiTickets);
+            renderActiveMaintKpiChart(tickets);
           };
         }
       }
@@ -7119,11 +7219,10 @@
           `;
         })
         .on('mousemove', (event) => {
-          tooltip.style.left = (event.clientX + 14) + 'px';
-          tooltip.style.top = (event.clientY - 12) + 'px';
+          showMaintTooltipSafely(tooltip, event);
         })
         .on('mouseleave', () => {
-          tooltip.style.opacity = '0';
+          hideMaintTooltipSafely(tooltip);
         });
 
       // Fundo sutil da barra
@@ -7220,6 +7319,718 @@
           </div>
           <div style="margin-left:auto; font-size:11px; color:var(--muted);">
             Total: <b>${tickets.length}</b> tickets mapeados nas 15 categorias
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // ---------------------------------------------------------
+  // SECÇÃO DEDICADA: VOLUME DE PEDIDOS POR MÊS & PROJEÇÃO DE CARGAS
+  // ---------------------------------------------------------
+  function renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets) {
+    if (host) host.innerHTML = '';
+    const safeEsc = typeof escapeHtml === 'function' ? escapeHtml : (typeof esc === 'function' ? esc : String);
+    const rawList = Array.isArray(tickets) ? tickets : [];
+
+    // 1. Filtragem por tipologia de pedidos
+    let filtered = rawList;
+    if (currentMaintWorkloadType === 'Corretivo') {
+      filtered = rawList.filter(t => (t.tipo || '').toLowerCase().includes('corr') || (!t.tipo && !isStrategicTicket(t)));
+    } else if (currentMaintWorkloadType === 'Preventivo') {
+      filtered = rawList.filter(t => (t.tipo || '').toLowerCase().includes('prev'));
+    } else if (currentMaintWorkloadType === 'Estratégico') {
+      filtered = rawList.filter(isStrategicTicket);
+    }
+
+    const getMonthKeyLocal = (t) => {
+      if (!t) return '';
+      const s = String(t.dataReporte || t.fecha || t.data || t.criadoEm || t.timestamp || '').trim();
+      if (/^\d{4}-\d{2}/.test(s)) return s.slice(0, 7);
+      const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+      if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}`;
+      const dt = new Date(s);
+      return !isNaN(dt.getTime()) ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}` : '';
+    };
+
+    const formatMonthKeyLocal = (key) => {
+      if (!key || !/^\d{4}-\d{2}$/.test(key)) return key || '—';
+      const [y, m] = key.split('-').map(Number);
+      const names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return `${names[(m || 1) - 1]} ${String(y).slice(-2)}`;
+    };
+
+    // 2. Controlos superiores da secção de carga
+    if (controlsWrap) {
+      controlsWrap.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; padding:10px 14px; background:rgba(2,132,199,0.04); border:1px solid var(--border); border-radius:10px;">
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:11.5px; font-weight:800; text-transform:uppercase; color:#0284c7; letter-spacing:0.03em;">📦 Histórico & Projeção:</span>
+            <div style="display:flex; border:1px solid var(--border); border-radius:6px; overflow:hidden;">
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintWorkloadHorizon === '6' ? 'active' : ''}" data-workload-horizon="6" style="padding:5px 10px; font-size:11.5px; font-weight:700; border:none; cursor:pointer;">
+                6 Meses (+3 Proj)
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintWorkloadHorizon === '12' ? 'active' : ''}" data-workload-horizon="12" style="padding:5px 10px; font-size:11.5px; font-weight:700; border:none; cursor:pointer;">
+                12 Meses (+3 Proj)
+              </button>
+              <button type="button" class="maint-kpi-sort-btn ${currentMaintWorkloadHorizon === 'all' ? 'active' : ''}" data-workload-horizon="all" style="padding:5px 10px; font-size:11.5px; font-weight:700; border:none; cursor:pointer;">
+                Histórico Completo
+              </button>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:11.5px; font-weight:800; text-transform:uppercase; color:var(--muted); letter-spacing:0.03em;">Filtro de Natureza:</span>
+            <select id="maintWorkloadTypeSelect" style="padding:4px 8px; font-size:11.5px; font-weight:600; border-radius:6px; border:1px solid var(--border); background:var(--surface, #fff); color:var(--text); outline:none;">
+              <option value="all" ${currentMaintWorkloadType === 'all' ? 'selected' : ''}>Todos os Tipos (${rawList.length})</option>
+              <option value="Corretivo" ${currentMaintWorkloadType === 'Corretivo' ? 'selected' : ''}>⚡ Apenas Corretivos</option>
+              <option value="Preventivo" ${currentMaintWorkloadType === 'Preventivo' ? 'selected' : ''}>🛡️ Apenas Preventivos</option>
+              <option value="Estratégico" ${currentMaintWorkloadType === 'Estratégico' ? 'selected' : ''}>⭐ Apenas Estratégicos</option>
+            </select>
+            
+            <button type="button" id="maintWorkloadCapReset" title="Recalcular capacidade ideal automaticamente" style="background:var(--surface, #fff); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:11px; font-weight:700; color:var(--text); cursor:pointer;">
+              🔄 Auto Capacidade
+            </button>
+          </div>
+        </div>
+      `;
+
+      controlsWrap.querySelectorAll('[data-workload-horizon]').forEach(btn => {
+        btn.onclick = (e) => {
+          if (e) e.preventDefault();
+          const horiz = btn.dataset.workloadHorizon;
+          if (!horiz || horiz === currentMaintWorkloadHorizon) return;
+          currentMaintWorkloadHorizon = horiz;
+          controlsWrap.querySelectorAll('[data-workload-horizon]').forEach(b => b.classList.toggle('active', b.dataset.workloadHorizon === horiz));
+          renderMaintenanceD3WorkloadVolume(host, null, footerWrap, tickets);
+        };
+      });
+
+      const selType = controlsWrap.querySelector('#maintWorkloadTypeSelect');
+      if (selType) {
+        selType.onchange = (e) => {
+          currentMaintWorkloadType = e.target.value;
+          renderMaintenanceD3WorkloadVolume(host, null, footerWrap, tickets);
+        };
+      }
+
+      const btnResetCap = controlsWrap.querySelector('#maintWorkloadCapReset');
+      if (btnResetCap) {
+        btnResetCap.onclick = (e) => {
+          if (e) e.preventDefault();
+          currentMaintWorkloadSimCapacity = 0;
+          renderMaintenanceD3WorkloadVolume(host, null, footerWrap, tickets);
+        };
+      }
+    }
+
+    // 3. Determinar horizonte cronológico e agrupar
+    const now = new Date();
+    const currY = now.getFullYear();
+    const currM = now.getMonth() + 1;
+    const currMonthKey = `${currY}-${String(currM).padStart(2, '0')}`;
+    const daysInCurrMonth = new Date(currY, currM, 0).getDate();
+    const daysElapsed = Math.min(daysInCurrMonth, Math.max(1, now.getDate()));
+    const fracElapsed = daysElapsed / daysInCurrMonth;
+
+    const validMonthKeys = filtered.map(getMonthKeyLocal).filter(k => /^\d{4}-\d{2}$/.test(k)).sort();
+    const latestDataMonthKey = validMonthKeys.length > 0 ? validMonthKeys[validMonthKeys.length - 1] : currMonthKey;
+    const baseMonthKey = latestDataMonthKey > currMonthKey ? latestDataMonthKey : currMonthKey;
+    const [baseY, baseM] = baseMonthKey.split('-').map(Number);
+
+    let histMonthCount = 6;
+    if (currentMaintWorkloadHorizon === '12') histMonthCount = 12;
+    else if (currentMaintWorkloadHorizon === 'all') {
+      const earliestKey = validMonthKeys.length > 0 ? validMonthKeys[0] : currMonthKey;
+      const [eY, eM] = earliestKey.split('-').map(Number);
+      const spanMonths = Math.max(6, Math.min(24, (baseY - eY) * 12 + (baseM - eM) + 1));
+      histMonthCount = spanMonths;
+    }
+
+    const monthMap = new Map();
+    for (let i = histMonthCount - 1; i >= 0; i--) {
+      const d = new Date(baseY, baseM - 1 - i, 1);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const isCur = (k === currMonthKey);
+      const isInc = isCur && (daysElapsed < daysInCurrMonth);
+      const baseLbl = formatMonthKeyLocal(k);
+      const lbl = isInc ? `${baseLbl}*` : baseLbl;
+      monthMap.set(k, {
+        key: k,
+        label: lbl,
+        baseLabel: baseLbl,
+        isCurrent: isCur,
+        isIncomplete: isInc,
+        daysElapsed: isCur ? daysElapsed : new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        daysInMonth: new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
+        tot: 0,
+        fin: 0,
+        ab: 0,
+        corr: 0,
+        prev: 0,
+        strat: 0,
+        isProj: false
+      });
+    }
+
+    filtered.forEach(t => {
+      const k = getMonthKeyLocal(t);
+      if (k && monthMap.has(k)) {
+        const item = monthMap.get(k);
+        item.tot++;
+        const sit = String(t.situacao || '').toLowerCase();
+        if (sit === 'finalizado' || sit === 'fechado' || sit === 'resolvido' || sit === 'concluido' || sit === 'concluído') {
+          item.fin++;
+        } else {
+          item.ab++;
+        }
+        const tipoL = String(t.tipo || '').toLowerCase();
+        if (tipoL.includes('corr')) item.corr++;
+        if (tipoL.includes('prev')) item.prev++;
+        if (isStrategicTicket(t)) item.strat++;
+      }
+    });
+
+    const historicalPeriods = Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
+    historicalPeriods.forEach(p => {
+      p.dailyRate = p.daysElapsed > 0 ? (p.tot / p.daysElapsed) : 0;
+      p.projectedFullMonth = p.isIncomplete ? Math.round(p.tot / Math.max(0.05, fracElapsed)) : p.tot;
+    });
+
+    // 4. Calcular Throughput e Limiar de Capacidade da Equipa
+    const completedMonths = historicalPeriods.filter(p => !p.isIncomplete && p.tot > 0);
+    const avgHistoricalVolume = historicalPeriods.length > 0 
+      ? Math.round(historicalPeriods.reduce((acc, p) => acc + (p.isIncomplete ? p.projectedFullMonth : p.tot), 0) / historicalPeriods.length)
+      : Math.round(filtered.length / Math.max(1, historicalPeriods.length));
+
+    const avgHistoricalClosed = completedMonths.length > 0
+      ? Math.round(completedMonths.reduce((acc, p) => acc + p.fin, 0) / completedMonths.length)
+      : (filtered.length > 0 ? Math.round(filtered.filter(t => String(t.situacao||'').toLowerCase() === 'finalizado').length / Math.max(1, historicalPeriods.length)) : 15);
+
+    const capacityThreshold = currentMaintWorkloadSimCapacity > 0
+      ? currentMaintWorkloadSimCapacity
+      : Math.max(avgHistoricalClosed, Math.round(avgHistoricalVolume * 1.08), 8);
+
+    // 5. Motor de Projeção para os Próximos 3 Meses (+1, +2, +3)
+    const regSample = historicalPeriods.map(p => p.isIncomplete ? p.projectedFullMonth : p.tot);
+    const n = regSample.length;
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += i;
+      sumY += regSample[i];
+      sumXY += i * regSample[i];
+      sumXX += i * i;
+    }
+    const denom = (n * sumXX - sumX * sumX) || 1;
+    let slope = (n * sumXY - sumX * sumY) / denom;
+    const maxSlope = Math.max(2, avgHistoricalVolume * 0.25);
+    slope = Math.max(-maxSlope, Math.min(maxSlope, slope));
+    const intercept = (sumY - slope * sumX) / (n || 1);
+
+    const projectedPeriods = [];
+    for (let k = 1; k <= 3; k++) {
+      const dProj = new Date(baseY, baseM - 1 + k, 1);
+      const keyProj = `${dProj.getFullYear()}-${String(dProj.getMonth() + 1).padStart(2, '0')}`;
+      const baseLbl = formatMonthKeyLocal(keyProj);
+      const rawEst = intercept + slope * (n - 1 + k);
+      const estTot = Math.max(1, Math.round(rawEst));
+      const uncFactor = 0.14 + k * 0.05;
+      const totMin = Math.max(1, Math.round(estTot * (1 - uncFactor)));
+      const totMax = Math.round(estTot * (1 + uncFactor));
+
+      projectedPeriods.push({
+        key: keyProj,
+        label: `🔮 ${baseLbl}`,
+        baseLabel: baseLbl,
+        isCurrent: false,
+        isIncomplete: false,
+        daysElapsed: new Date(dProj.getFullYear(), dProj.getMonth() + 1, 0).getDate(),
+        daysInMonth: new Date(dProj.getFullYear(), dProj.getMonth() + 1, 0).getDate(),
+        tot: estTot,
+        totMin: totMin,
+        totMax: totMax,
+        fin: Math.min(estTot, capacityThreshold),
+        ab: Math.max(0, estTot - capacityThreshold),
+        corr: Math.round(estTot * 0.65),
+        prev: Math.round(estTot * 0.35),
+        strat: Math.round(estTot * 0.1),
+        dailyRate: estTot / 30,
+        projectedFullMonth: estTot,
+        isProj: true
+      });
+    }
+
+    const allPeriods = [...historicalPeriods, ...projectedPeriods];
+
+    allPeriods.forEach(p => {
+      const effVol = p.isProj ? p.tot : (p.isIncomplete ? p.projectedFullMonth : p.tot);
+      const ratio = effVol / capacityThreshold;
+      p.saturationRatio = ratio;
+      p.saturationPct = Math.round(ratio * 100);
+
+      if (ratio > 1.05) {
+        p.workloadStatus = 'overload';
+        p.statusLabel = '🔴 Sobrecarga';
+        p.statusColor = '#f43f5e';
+      } else if (ratio >= 0.85) {
+        p.workloadStatus = 'high';
+        p.statusLabel = '🟡 Carga Elevada';
+        p.statusColor = '#f59e0b';
+      } else if (ratio >= 0.50) {
+        p.workloadStatus = 'normal';
+        p.statusLabel = '🟢 Equilibrada';
+        p.statusColor = '#0284c7';
+      } else {
+        p.workloadStatus = 'low';
+        p.statusLabel = '🔵 Folga Operacional';
+        p.statusColor = '#06b6d4';
+      }
+    });
+
+    // 6. Cards KPI de Carga de Trabalho
+    const maxHistPeriod = historicalPeriods.reduce((max, p) => (p.tot > max.tot ? p : max), historicalPeriods[0] || { tot: 0, label: '—' });
+    const nextProjPeriod = projectedPeriods[0] || { tot: 0, label: '—', statusLabel: '—', saturationPct: 0 };
+    const overloadFutureCount = projectedPeriods.filter(p => p.workloadStatus === 'overload' || p.workloadStatus === 'high').length;
+
+    const topHtml = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:18px;">
+        <div class="maint-comp-kpi-card" style="border-left:4px solid #0284c7;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Volume Médio Mensal</span>
+            <span>📊</span>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:var(--text); margin-top:6px;">
+            ${avgHistoricalVolume} <span style="font-size:12px; color:var(--muted); font-weight:600;">pedidos/mês</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+            Amostra de ${historicalPeriods.length} meses analisados
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card" style="border-left:4px solid #f59e0b;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Pico Histórico de Carga</span>
+            <span>⚡</span>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:#f59e0b; margin-top:6px;">
+            ${maxHistPeriod.tot} <span style="font-size:12px; color:var(--muted); font-weight:600;">pedidos</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+            Registo máximo em <b>${safeEsc(maxHistPeriod.baseLabel || maxHistPeriod.label)}</b>
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card" style="border-left:4px solid #8b5cf6;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Projeção Próximo Mês</span>
+            <span>🔮</span>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:#8b5cf6; margin-top:6px;">
+            ~${nextProjPeriod.tot} <span style="font-size:12px; color:var(--muted); font-weight:600;">[${nextProjPeriod.totMin} - ${nextProjPeriod.totMax}]</span>
+          </div>
+          <div style="font-size:11px; margin-top:4px;">
+            Estado de Carga: <b>${nextProjPeriod.statusLabel}</b>
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card" style="border-left:4px solid #10b981;">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Capacidade da Equipa</span>
+            <span>🛡️</span>
+          </div>
+          <div style="font-size:22px; font-weight:800; color:#10b981; margin-top:6px;">
+            ${capacityThreshold} <span style="font-size:12px; color:var(--muted); font-weight:600;">pedidos/mês</span>
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+            Throughput médio de resolução: <b>${avgHistoricalClosed}</b>/mês
+          </div>
+        </div>
+
+        <div class="maint-comp-kpi-card" style="border-left:4px solid ${overloadFutureCount > 0 ? '#f43f5e' : '#10b981'};">
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--muted); display:flex; justify-content:space-between;">
+            <span>Previsão de Cargas</span>
+            <span>🚦</span>
+          </div>
+          <div style="font-size:15px; font-weight:800; color:${overloadFutureCount > 0 ? '#f43f5e' : '#10b981'}; margin-top:8px;">
+            ${overloadFutureCount > 0 ? `⚠️ ${overloadFutureCount} meses em alta/sobrecarga` : '🟢 Capacidade suficiente para demanda'}
+          </div>
+          <div style="font-size:11px; color:var(--muted); margin-top:4px;">
+            Ocupação estimada: <b>${nextProjPeriod.saturationPct}%</b> da capacidade
+          </div>
+        </div>
+      </div>
+    `;
+
+    // 7. Renderização D3 do Gráfico Combinado
+    host.innerHTML = topHtml + '<div id="maintWorkloadD3Host" style="overflow-x:hidden; width:100%;"></div>';
+    const svgContainer = host.querySelector('#maintWorkloadD3Host');
+    if (!svgContainer) return;
+
+    const containerWidth = host.clientWidth || 880;
+    const width = Math.max(containerWidth, 360);
+    const height = 360;
+    const margin = { top: 35, right: 35, bottom: 45, left: 45 };
+
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    const textColor = isDark ? '#cbd5e1' : '#334155';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+
+    const maxVal = Math.max(
+      d3.max(allPeriods, d => d.isProj ? d.totMax : (d.isIncomplete ? d.projectedFullMonth : d.tot)) || 10,
+      capacityThreshold,
+      10
+    );
+
+    const xScale = d3.scaleBand()
+      .domain(allPeriods.map(d => d.key))
+      .range([margin.left, width - margin.right])
+      .padding(0.32);
+
+    const yScale = d3.scaleLinear()
+      .domain([0, maxVal * 1.25])
+      .range([height - margin.bottom, margin.top])
+      .nice();
+
+    const svg = d3.select(svgContainer)
+      .append('svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('role', 'img')
+      .attr('aria-label', 'Volume Mensal de Pedidos e Projeção de Cargas de Trabalho');
+
+    const defs = svg.append('defs');
+
+    defs.append('pattern')
+      .attr('id', 'workloadHatchProj')
+      .attr('width', 8)
+      .attr('height', 8)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .attr('patternTransform', 'rotate(45)')
+      .append('line')
+      .attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 8)
+      .attr('stroke', isDark ? 'rgba(168,85,247,0.35)' : 'rgba(139,92,246,0.3)')
+      .attr('stroke-width', 3);
+
+    // Eixo Y
+    svg.append('g')
+      .attr('transform', `translate(${margin.left}, 0)`)
+      .call(
+        d3.axisLeft(yScale)
+          .ticks(5)
+          .tickSize(-(width - margin.left - margin.right))
+          .tickFormat(d => Number.isInteger(d) ? d : '')
+      )
+      .call(g => g.select('.domain').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick line').attr('stroke', gridColor).attr('stroke-dasharray', '2,2'))
+      .call(g => g.selectAll('.tick text').attr('fill', textColor).attr('font-size', '11px'));
+
+    // Eixo X
+    svg.append('g')
+      .attr('transform', `translate(0, ${height - margin.bottom})`)
+      .call(
+        d3.axisBottom(xScale)
+          .tickFormat(k => {
+            const p = allPeriods.find(x => x.key === k);
+            return p ? p.label : k;
+          })
+      )
+      .call(g => g.select('.domain').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick line').attr('stroke', gridColor))
+      .call(g => g.selectAll('.tick text')
+        .attr('fill', (k) => {
+          const p = allPeriods.find(x => x.key === k);
+          return p && p.isProj ? '#a855f7' : textColor;
+        })
+        .attr('font-size', '11px')
+        .attr('font-weight', (k) => {
+          const p = allPeriods.find(x => x.key === k);
+          return p && (p.isProj || p.isCurrent) ? '700' : '500';
+        })
+      );
+
+    // Linha de Limiar de Capacidade Técnica
+    const capY = yScale(capacityThreshold);
+    svg.append('line')
+      .attr('x1', margin.left)
+      .attr('x2', width - margin.right)
+      .attr('y1', capY)
+      .attr('y2', capY)
+      .attr('stroke', '#ef4444')
+      .attr('stroke-width', 1.8)
+      .attr('stroke-dasharray', '5,4')
+      .attr('opacity', 0.85);
+
+    svg.append('text')
+      .attr('x', width - margin.right)
+      .attr('y', capY - 6)
+      .attr('text-anchor', 'end')
+      .attr('fill', '#ef4444')
+      .attr('font-size', '10.5px')
+      .attr('font-weight', '800')
+      .text(`⚡ Capacidade Equipa: ${capacityThreshold} tickets/mês`);
+
+    // Banda de Incerteza para Meses Projetados
+    const splitIndex = historicalPeriods.length;
+    if (splitIndex > 0 && projectedPeriods.length > 0) {
+      const lastHist = historicalPeriods[splitIndex - 1];
+      const connectingPeriods = [
+        {
+          key: lastHist.key,
+          tot: lastHist.isIncomplete ? lastHist.projectedFullMonth : lastHist.tot,
+          totMin: lastHist.isIncomplete ? lastHist.projectedFullMonth : lastHist.tot,
+          totMax: lastHist.isIncomplete ? lastHist.projectedFullMonth : lastHist.tot
+        },
+        ...projectedPeriods
+      ];
+
+      const areaUncertainty = d3.area()
+        .x(d => xScale(d.key) + xScale.bandwidth() / 2)
+        .y0(d => yScale(d.totMin))
+        .y1(d => yScale(d.totMax))
+        .curve(d3.curveMonotoneX);
+
+      svg.append('path')
+        .datum(connectingPeriods)
+        .attr('fill', '#a855f7')
+        .attr('fill-opacity', isDark ? 0.14 : 0.10)
+        .attr('stroke', '#a855f7')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+        .attr('d', areaUncertainty);
+    }
+
+    const tooltip = getOrCreateMaintTooltip();
+
+    // Renderizar Barras por Período
+    allPeriods.forEach(p => {
+      const x = xScale(p.key);
+      const bandW = xScale.bandwidth();
+      const effVol = p.isProj ? p.tot : p.tot;
+      const barY = yScale(effVol);
+      const barH = (height - margin.bottom) - barY;
+
+      const gBar = svg.append('g').style('cursor', 'pointer');
+
+      const setupTooltip = (elem) => {
+        elem.on('mouseenter', (event) => {
+          const vsPrev = (() => {
+            const idx = allPeriods.findIndex(x => x.key === p.key);
+            if (idx <= 0) return '—';
+            const prev = allPeriods[idx - 1];
+            const pTot = prev.isProj ? prev.tot : (prev.isIncomplete ? prev.projectedFullMonth : prev.tot);
+            const cTot = p.isProj ? p.tot : (p.isIncomplete ? p.projectedFullMonth : p.tot);
+            const diff = cTot - pTot;
+            const diffPct = pTot > 0 ? Math.round((diff / pTot) * 100) : 0;
+            const sgn = diff > 0 ? '+' : '';
+            return `${sgn}${diff} pedidos (${sgn}${diffPct}%)`;
+          })();
+
+          const tooltipHtml = `
+            <div style="font-weight:800; font-size:13px; margin-bottom:6px; color:${p.isProj ? '#c084fc' : '#38bdf8'}; display:flex; align-items:center; justify-content:space-between;">
+              <span>${safeEsc(p.label)}</span>
+              <span style="font-size:11px; padding:2px 6px; border-radius:4px; background:${p.statusColor}22; color:${p.statusColor}; font-weight:700;">
+                ${p.statusLabel}
+              </span>
+            </div>
+            ${p.isIncomplete ? `
+              <div style="background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px; color:#f59e0b;">
+                ⏳ <b>Mês em curso:</b> ${p.daysElapsed}/${p.daysInMonth} dias decorridos.<br>
+                Ritmo atual: <b>${p.dailyRate.toFixed(1)} pedidos/dia</b> ➔ Projeção mês fechado: <b>~${p.projectedFullMonth} pedidos</b>.
+              </div>
+            ` : ''}
+            <div style="display:flex; flex-direction:column; gap:4px; font-size:12px;">
+              <span>● Volume ${p.isProj ? 'Projetado' : 'Registado'}: <b>${p.tot} pedidos</b> ${p.isProj ? `<span style="font-size:11px; color:var(--muted);">[Faixa: ${p.totMin} a ${p.totMax}]</span>` : ''}</span>
+              <span>● Comparação com Mês Anterior: <b>${vsPrev}</b></span>
+              <span>● Utilização da Capacidade: <b>${p.saturationPct}%</b> (${p.tot} de ${capacityThreshold} tickets)</span>
+              ${!p.isProj ? `
+                <div style="margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-size:11px; color:#cbd5e1;">
+                  <span>✓ Concluídos: <b>${p.fin}</b></span> · 
+                  <span>⚡ Corretivos: <b>${p.corr}</b></span> · 
+                  <span>🛡️ Preventivos: <b>${p.prev}</b></span>
+                </div>
+              ` : `
+                <div style="margin-top:4px; padding-top:4px; border-top:1px solid rgba(255,255,255,0.15); font-size:11px; color:#cbd5e1;">
+                  🔮 Estimativa baseada no histórico recente e ritmo de abertura de tickets.
+                </div>
+              `}
+            </div>
+          `;
+          showMaintTooltipSafely(tooltip, event, tooltipHtml);
+        })
+        .on('mousemove', (event) => {
+          showMaintTooltipSafely(tooltip, event);
+        })
+        .on('mouseleave', () => {
+          hideMaintTooltipSafely(tooltip);
+        });
+      };
+
+      if (!p.isProj) {
+        gBar.append('rect')
+          .attr('x', x)
+          .attr('y', barY)
+          .attr('width', bandW)
+          .attr('height', Math.max(2, barH))
+          .attr('fill', p.statusColor)
+          .attr('rx', 4);
+
+        if (p.isIncomplete && p.projectedFullMonth > p.tot) {
+          const projY = yScale(p.projectedFullMonth);
+          const projH = barY - projY;
+          gBar.append('rect')
+            .attr('x', x)
+            .attr('y', projY)
+            .attr('width', bandW)
+            .attr('height', Math.max(2, projH))
+            .attr('fill', 'url(#workloadHatchProj)')
+            .attr('stroke', p.statusColor)
+            .attr('stroke-dasharray', '2,2')
+            .attr('stroke-width', 1)
+            .attr('rx', 4);
+
+          gBar.append('text')
+            .attr('x', x + bandW / 2)
+            .attr('y', projY - 4)
+            .attr('text-anchor', 'middle')
+            .attr('fill', p.statusColor)
+            .attr('font-size', '10px')
+            .attr('font-weight', '700')
+            .text(`~${p.projectedFullMonth}`);
+        }
+
+        gBar.append('text')
+          .attr('x', x + bandW / 2)
+          .attr('y', barY - 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', textColor)
+          .attr('font-size', '11px')
+          .attr('font-weight', '700')
+          .text(p.tot);
+
+      } else {
+        gBar.append('rect')
+          .attr('x', x)
+          .attr('y', barY)
+          .attr('width', bandW)
+          .attr('height', Math.max(2, barH))
+          .attr('fill', 'url(#workloadHatchProj)')
+          .attr('stroke', '#a855f7')
+          .attr('stroke-width', 1.8)
+          .attr('stroke-dasharray', '4,3')
+          .attr('rx', 4);
+
+        const whiskerX = x + bandW / 2;
+        const whiskerYMin = yScale(p.totMin);
+        const whiskerYMax = yScale(p.totMax);
+
+        gBar.append('line')
+          .attr('x1', whiskerX).attr('x2', whiskerX)
+          .attr('y1', whiskerYMin).attr('y2', whiskerYMax)
+          .attr('stroke', '#a855f7')
+          .attr('stroke-width', 1.2)
+          .attr('stroke-dasharray', '2,2');
+
+        gBar.append('line')
+          .attr('x1', whiskerX - 4).attr('x2', whiskerX + 4)
+          .attr('y1', whiskerYMax).attr('y2', whiskerYMax)
+          .attr('stroke', '#a855f7')
+          .attr('stroke-width', 1.5);
+
+        gBar.append('line')
+          .attr('x1', whiskerX - 4).attr('x2', whiskerX + 4)
+          .attr('y1', whiskerYMin).attr('y2', whiskerYMin)
+          .attr('stroke', '#a855f7')
+          .attr('stroke-width', 1.5);
+
+        gBar.append('text')
+          .attr('x', x + bandW / 2)
+          .attr('y', whiskerYMax - 4)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#a855f7')
+          .attr('font-size', '11px')
+          .attr('font-weight', '800')
+          .text(`~${p.tot}`);
+      }
+
+      const hitRect = gBar.append('rect')
+        .attr('x', x - 4)
+        .attr('y', margin.top)
+        .attr('width', bandW + 8)
+        .attr('height', height - margin.top - margin.bottom)
+        .attr('fill', 'transparent');
+
+      setupTooltip(hitRect);
+    });
+
+    // Curva de Linha de Tendência Fluida conectando Histórico e Projeção
+    const histLine = d3.line()
+      .x(d => xScale(d.key) + xScale.bandwidth() / 2)
+      .y(d => yScale(d.isIncomplete ? d.projectedFullMonth : d.tot))
+      .curve(d3.curveMonotoneX);
+
+    svg.append('path')
+      .datum(historicalPeriods)
+      .attr('fill', 'none')
+      .attr('stroke', '#0284c7')
+      .attr('stroke-width', 2.2)
+      .attr('d', histLine);
+
+    if (splitIndex > 0 && projectedPeriods.length > 0) {
+      const lastH = historicalPeriods[splitIndex - 1];
+      const projLineData = [
+        { key: lastH.key, tot: lastH.isIncomplete ? lastH.projectedFullMonth : lastH.tot },
+        ...projectedPeriods
+      ];
+
+      const projLine = d3.line()
+        .x(d => xScale(d.key) + xScale.bandwidth() / 2)
+        .y(d => yScale(d.tot))
+        .curve(d3.curveMonotoneX);
+
+      svg.append('path')
+        .datum(projLineData)
+        .attr('fill', 'none')
+        .attr('stroke', '#c084fc')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4,4')
+        .attr('d', projLine);
+    }
+
+    // 8. Rodapé com Legenda & Diagnóstico
+    if (footerWrap) {
+      footerWrap.innerHTML = `
+        <div class="maint-kpi-legend" style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px;">
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#0284c7;"></span>
+            <span>Histórico Real (Volume Normal)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f59e0b;"></span>
+            <span>Carga Elevada (≥85% Capacidade)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#f43f5e;"></span>
+            <span>Sobrecarga Operacional (>100%)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span class="maint-kpi-legend-dot" style="background:#a855f7;"></span>
+            <span>Projeção Futura (+3 Meses)</span>
+          </div>
+          <div class="maint-kpi-legend-item">
+            <span style="color:#ef4444; font-weight:800; font-size:12px;">- - -</span>
+            <span>Limiar de Capacidade Sustentável</span>
+          </div>
+        </div>
+
+        <div style="background:rgba(2,132,199,0.04); border:1px solid var(--border); border-radius:8px; padding:12px 14px; font-size:12px; line-height:1.5;">
+          <div style="font-weight:800; color:var(--heading); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+            <span>💡 Diagnóstico Operacional & Planeamento de Cargas:</span>
+          </div>
+          <div>
+            ${overloadFutureCount > 0 
+              ? `A projeção matemática indica <b>${overloadFutureCount} mês(es) com risco de pico ou sobrecarga</b> em relação à capacidade atual da equipa (${capacityThreshold} tickets/mês). Recomenda-se antecipar manutenções preventivas nos períodos de menor afluência ou reforçar a disponibilidade técnica.`
+              : `A capacidade técnica atual (${capacityThreshold} tickets/mês) cobre adequadamente a demanda projetada para os próximos meses (~${nextProjPeriod.tot} tickets no próximo mês). A equipa dispõe de margem saudável para focar em rondas preventivas e melhorias operacionais.`
+            }
           </div>
         </div>
       `;
@@ -7837,11 +8648,10 @@
           }
         })
         .on('mousemove', (event) => {
-          tooltip.style.left = (event.clientX + 14) + 'px';
-          tooltip.style.top = (event.clientY - 12) + 'px';
+          showMaintTooltipSafely(tooltip, event);
         })
         .on('mouseleave', () => {
-          tooltip.style.opacity = '0';
+          hideMaintTooltipSafely(tooltip);
         });
     });
 
@@ -7943,10 +8753,6 @@
   // ---------------------------------------------------------
   // 3. GRÁFICO D3: CLASSIFICAÇÃO & MATRIZ OPERACIONAL
   // ---------------------------------------------------------
-  function renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets) {
-    return MaintenanceWorkload.renderMonthlyWorkloadChart({ host, controlsWrap, footerWrap, tickets, d3 });
-  }
-
   function renderMaintenanceD3Classification(host, controlsWrap, footerWrap, tickets) {
     const isDark = document.documentElement.dataset.theme === 'dark';
     const textColor = isDark ? '#cbd5e1' : '#334155';
@@ -8013,12 +8819,11 @@
         tooltip.innerHTML = `<strong>${escapeHtml(d.data.label)}:</strong> ${d.data.val} tickets (${pct}%)`;
       })
       .on('mousemove', (event) => {
-        tooltip.style.left = (event.clientX + 14) + 'px';
-        tooltip.style.top = (event.clientY - 12) + 'px';
+        showMaintTooltipSafely(tooltip, event);
       })
       .on('mouseleave', function() {
         d3.select(this).transition().duration(150).attr('d', arc);
-        tooltip.style.opacity = '0';
+        hideMaintTooltipSafely(tooltip);
       });
 
     // Texto no centro do Donut
@@ -8209,11 +9014,10 @@
           `;
         })
         .on('mousemove', (event) => {
-          tooltip.style.left = (event.clientX + 14) + 'px';
-          tooltip.style.top = (event.clientY - 12) + 'px';
+          showMaintTooltipSafely(tooltip, event);
         })
         .on('mouseleave', () => {
-          tooltip.style.opacity = '0';
+          hideMaintTooltipSafely(tooltip);
         });
 
       // Fundo
@@ -8406,19 +9210,19 @@
       `;
 
       // Event listeners dos controlos
-      const selA = controlsWrap.querySelector('#maintCompSelectA');
+      const selA = $('maintCompSelectA');
       if (selA) selA.onchange = (e) => {
         currentMaintCompMonthA = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const selB = controlsWrap.querySelector('#maintCompSelectB');
+      const selB = $('maintCompSelectB');
       if (selB) selB.onchange = (e) => {
         currentMaintCompMonthB = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnSwap = controlsWrap.querySelector('#maintCompBtnSwap');
+      const btnSwap = $('maintCompBtnSwap');
       if (btnSwap) btnSwap.onclick = () => {
         const tmp = currentMaintCompMonthA;
         currentMaintCompMonthA = currentMaintCompMonthB;
@@ -8426,7 +9230,7 @@
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnLatest = controlsWrap.querySelector('#maintCompBtnLatestPair');
+      const btnLatest = $('maintCompBtnLatestPair');
       if (btnLatest) btnLatest.onclick = () => {
         if (distinctMonths.length >= 2) {
           currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
@@ -8435,13 +9239,13 @@
         }
       };
 
-      const selSort = controlsWrap.querySelector('#maintCompSelectSort');
+      const selSort = $('maintCompSelectSort');
       if (selSort) selSort.onchange = (e) => {
         currentMaintCompSort = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
-      const btnChart = controlsWrap.querySelector('#maintCompBtnChart');
+      const btnChart = $('maintCompBtnChart');
       if (btnChart) btnChart.onclick = () => {
         if (currentMaintCompViewMode !== 'chart') {
           currentMaintCompViewMode = 'chart';
@@ -8449,7 +9253,7 @@
         }
       };
 
-      const btnTable = controlsWrap.querySelector('#maintCompBtnTable');
+      const btnTable = $('maintCompBtnTable');
       if (btnTable) btnTable.onclick = () => {
         if (currentMaintCompViewMode !== 'table') {
           currentMaintCompViewMode = 'table';
@@ -8680,7 +9484,7 @@
     } else {
       // MODO GRÁFICO D3: Barras Agrupadas Horizontais
       host.innerHTML = topHTML + '<div id="maintCompD3SvgHost"></div>';
-      const svgHost = host.querySelector('#maintCompD3SvgHost');
+      const svgHost = $('maintCompD3SvgHost');
       if (!svgHost) return;
 
       const containerWidth = host.clientWidth || 860;
@@ -8756,11 +9560,10 @@
             `;
           })
           .on('mousemove', (event) => {
-            tooltip.style.left = (event.clientX + 14) + 'px';
-            tooltip.style.top = (event.clientY - 12) + 'px';
+            showMaintTooltipSafely(tooltip, event);
           })
           .on('mouseleave', () => {
-            tooltip.style.opacity = '0';
+            hideMaintTooltipSafely(tooltip);
           });
 
         // Fundo sutil da linha
