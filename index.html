@@ -532,6 +532,7 @@
 <script src="/node_modules/d3/dist/d3.min.js"></script>
 <script src="js/runtime-config.js"></script>
 <script src="js/maintenance-categories.js"></script>
+<script src="js/maintenance-workload.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -609,6 +610,15 @@
     font-weight:600; color:var(--ink-400); border-radius:10px; cursor:pointer; transition:.15s ease; white-space:nowrap;
   }
   nav.tabs button.active{ background:var(--petrol-900); color:#fff; }
+  /* Anti-shake and stability guarantees across all buttons and interactive elements */
+  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover, .btn-new-strategic:hover, .maint-kpi-btn-compare:hover {
+    transform: none !important;
+  }
   nav.tabs a.tab-link-kpi{
     display:inline-flex; align-items:center; justify-content:center; text-decoration:none;
     padding:9px 12px; font-family:var(--sans); font-size:12px; font-weight:700;
@@ -832,7 +842,6 @@
   }
   .equip-chip:hover{
     border-color: #0284c7;
-    transform: translateY(-2px);
     box-shadow: 0 5px 14px rgba(2, 132, 199, 0.14);
   }
   .equip-chip.done{
@@ -1241,7 +1250,7 @@
   }
   .btn-new-strategic:hover {
     background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(217, 119, 6, 0.45);
   }
   .strategic-filter-tabs {
     display: flex;
@@ -1825,7 +1834,6 @@
   .author-badge:hover{
     border-color:var(--aqua-500);
     box-shadow:0 3px 10px rgba(14,51,65,0.08);
-    transform:translateY(-1px);
   }
   .author-badge .author-shield{
     font-size:13.5px; line-height:1; display:inline-flex; align-items:center; justify-content:center;
@@ -1856,8 +1864,8 @@
     font-weight:600; color:var(--petrol-800); letter-spacing:.02em;
     cursor:pointer; font-family:var(--mono); font-size:11px; transition:.15s ease;
   }
-  .app-version-badge:hover{ border-color:var(--aqua-500); transform:translateY(-1px); box-shadow:0 3px 8px rgba(10,37,48,.08); }
-  .app-version-badge:active{ transform:translateY(0); }
+  .app-version-badge:hover{ border-color:var(--aqua-500); box-shadow:0 3px 8px rgba(10,37,48,.08); }
+  .app-version-badge:active{ border-color:var(--aqua-600); }
   .app-version-badge .v-dot{
     width:7px; height:7px; border-radius:50%; background:var(--ok-500); display:inline-block;
     transition:background .2s ease;
@@ -2249,8 +2257,8 @@
     border-color: rgba(255,255,255,0.08);
   }
   .maint-stat-card:hover {
-    transform: translateY(-2px);
     border-color: rgba(2,132,199,0.4);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
   }
 
   .maint-stat-label {
@@ -2479,7 +2487,6 @@
   }
   .maint-kpi-btn-compare:hover {
     background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-    transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(2,132,199,0.35);
   }
   .maint-comp-select {
@@ -14924,10 +14931,12 @@
     if (!wrap) return;
     wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(btn => {
       btn.onclick = (e) => {
-        e.preventDefault();
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         const tab = btn.dataset.maintTab;
         if (!tab || tab === currentMaintKpiTab) return;
         currentMaintKpiTab = tab;
+        const tip = document.getElementById('maintKpiTooltip');
+        if (tip) tip.style.opacity = '0';
         wrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === tab));
         renderActiveMaintKpiChart(tickets);
       };
@@ -15000,6 +15009,9 @@
         renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'workload') {
         renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
+        if (typeof renderMaintenanceD3WorkloadProjection === 'function' && false) {
+          renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets);
+        }
       } else if (currentMaintKpiTab === 'comparison') {
         renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'timeline') {
@@ -15016,7 +15028,7 @@
       host.innerHTML = `
         <div style="padding:28px 16px; text-align:center; background:rgba(2,132,199,0.05); border:1px solid rgba(2,132,199,0.25); border-radius:10px; margin:16px 0;">
           <div style="font-size:15px; font-weight:800; color:#0284c7; margin-bottom:6px;">📊 Vista de Indicadores de Manutenção</div>
-          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Ocorreu uma instabilidade pontual na renderização gráfica. Clique abaixo para restabelecer a vista padrão.</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Não foi possível renderizar este gráfico. Clique abaixo para restabelecer a vista padrão.</div>
           <button type="button" id="maintBtnRecoverChartIndex" style="background:#0284c7; color:#fff; font-weight:700; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">
             🔄 Repor Gráfico de Categorias
           </button>
@@ -15024,7 +15036,8 @@
       `;
       const recBtn = host.querySelector('#maintBtnRecoverChartIndex');
       if (recBtn) {
-        recBtn.onclick = () => {
+        recBtn.onclick = (e) => {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
           currentMaintKpiTab = 'categories';
           const tabsWrap = document.querySelector('.maint-kpi-tabs');
           if (tabsWrap) {
@@ -15034,6 +15047,24 @@
         };
       }
     }
+  }
+
+  function renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets) {
+    if (typeof MaintenanceWorkload !== 'undefined' && MaintenanceWorkload && typeof MaintenanceWorkload.renderMonthlyWorkloadChart === 'function') {
+      try {
+        return MaintenanceWorkload.renderMonthlyWorkloadChart({
+          host,
+          controlsWrap,
+          footerWrap,
+          tickets,
+          d3: window.d3,
+          now: new Date()
+        });
+      } catch (e) {
+        console.warn('MaintenanceWorkload standalone projection note:', e);
+      }
+    }
+    return renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
   }
 
   function renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets) {
@@ -16983,6 +17014,7 @@
 
     // 2. Controlos superiores (Seletores de Mês, Inversão, Ordenação, Modo Gráfico/Tabela)
     if (controlsWrap) {
+      const board = controlsWrap.closest('.maint-kpi-board');
       const optionsA = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthA ? 'selected' : ''}>${formatMonthKeyLabelIndex(m)}</option>`).join('');
       const optionsB = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthB ? 'selected' : ''}>${formatMonthKeyLabelIndex(m)}</option>`).join('');
 
@@ -17039,18 +17071,21 @@
 
       const selA = $('maintCompSelectA');
       if (selA) selA.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompMonthA = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const selB = $('maintCompSelectB');
       if (selB) selB.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompMonthB = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const btnSwap = $('maintCompBtnSwap');
-      if (btnSwap) btnSwap.onclick = () => {
+      if (btnSwap) btnSwap.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         const tmp = currentMaintCompMonthA;
         currentMaintCompMonthA = currentMaintCompMonthB;
         currentMaintCompMonthB = tmp;
@@ -17058,7 +17093,8 @@
       };
 
       const btnLatest = $('maintCompBtnLatestPair');
-      if (btnLatest) btnLatest.onclick = () => {
+      if (btnLatest) btnLatest.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (distinctMonths.length >= 2) {
           currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
           currentMaintCompMonthA = distinctMonths[distinctMonths.length - 2];
@@ -17068,12 +17104,14 @@
 
       const selSort = $('maintCompSelectSort');
       if (selSort) selSort.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompSort = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const btnChart = $('maintCompBtnChart');
-      if (btnChart) btnChart.onclick = () => {
+      if (btnChart) btnChart.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (currentMaintCompViewMode !== 'chart') {
           currentMaintCompViewMode = 'chart';
           renderActiveMaintKpiChart(tickets);
@@ -17081,7 +17119,8 @@
       };
 
       const btnTable = $('maintCompBtnTable');
-      if (btnTable) btnTable.onclick = () => {
+      if (btnTable) btnTable.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (currentMaintCompViewMode !== 'table') {
           currentMaintCompViewMode = 'table';
           renderActiveMaintKpiChart(tickets);

@@ -358,6 +358,7 @@
   <script src="/node_modules/d3/dist/d3.min.js"></script>
   <script src="js/runtime-config.js"></script>
   <script src="js/maintenance-categories.js"></script>
+  <script src="js/maintenance-workload.js"></script>
   <script>
     let d3LoadPromise = null;
     function ensureD3() {
@@ -466,6 +467,15 @@
     text-decoration:none;
   }
   button:hover,a.button:hover { border-color:var(--accent); }
+  /* Anti-shake and stability guarantees across all buttons and interactive elements */
+  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+  }
+  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover {
+    transform: none !important;
+  }
   button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible {
     outline:3px solid var(--accent);
     outline-offset:2px;
@@ -524,7 +534,6 @@
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
   .card.card-kpi:hover {
-    transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
   }
   :root[data-theme="dark"] .card.card-kpi:hover {
@@ -1075,7 +1084,6 @@
   }
   .room-chip:hover {
     border-color: #0284c7;
-    transform: translateY(-2px);
     box-shadow: 0 5px 14px rgba(2, 132, 199, 0.15);
   }
   .room-chip.done {
@@ -1164,7 +1172,6 @@
   }
   .equip-chip:hover {
     border-color: #0284c7;
-    transform: translateY(-2px);
     box-shadow: 0 5px 14px rgba(2, 132, 199, 0.15);
   }
   .equip-chip.done {
@@ -1933,7 +1940,6 @@
   }
   .btn-new-strategic:hover {
     background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    transform: translateY(-1px);
     box-shadow: 0 6px 16px rgba(217, 119, 6, 0.45);
     color: #ffffff;
   }
@@ -1983,7 +1989,6 @@
   .strategic-ticket-card:hover {
     border-color: #f59e0b;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), 0 0 12px rgba(245, 158, 11, 0.18);
-    transform: translateY(-2px);
   }
   .strategic-ticket-card.status-aberto {
     border-left: 4px solid #ef4444;
@@ -3158,7 +3163,6 @@
   .author-badge:hover {
     border-color: var(--accent);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transform: translateY(-1px);
   }
   .author-badge .author-shield {
     font-size: 13.5px;
@@ -3299,8 +3303,8 @@
     border-color: rgba(255,255,255,0.08);
   }
   .maint-stat-card:hover {
-    transform: translateY(-2px);
     border-color: rgba(2,132,199,0.4);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
   }
 
   .maint-stat-label {
@@ -3532,7 +3536,6 @@
   }
   .maint-kpi-btn-compare:hover {
     background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
-    transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(2,132,199,0.35);
   }
   .maint-comp-select {
@@ -7018,6 +7021,9 @@
         renderMaintenanceD3CategoryChart(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'workload') {
         renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
+        if (typeof renderMaintenanceD3WorkloadProjection === 'function' && false) {
+          renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets);
+        }
       } else if (currentMaintKpiTab === 'comparison') {
         renderMaintenanceD3Comparison(host, controlsWrap, footerWrap, tickets);
       } else if (currentMaintKpiTab === 'timeline') {
@@ -7033,25 +7039,44 @@
       console.error('Erro na renderização do gráfico de manutenção:', err);
       host.innerHTML = `
         <div style="padding:28px 16px; text-align:center; background:rgba(2,132,199,0.05); border:1px solid rgba(2,132,199,0.25); border-radius:10px; margin:16px 0;">
-          <div style="font-size:15px; font-weight:800; color:#0284c7; margin-bottom:6px;">📦 Vista de Volume & Cargas de Trabalho</div>
-          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Os dados foram atualizados e estabilizados. Clique abaixo para abrir o gráfico de cargas.</div>
+          <div style="font-size:15px; font-weight:800; color:#0284c7; margin-bottom:6px;">📊 Vista de Indicadores de Manutenção</div>
+          <div style="font-size:12px; color:var(--muted); margin-bottom:14px;">Não foi possível renderizar este gráfico. Clique abaixo para restabelecer a vista padrão.</div>
           <button type="button" id="maintBtnRecoverChart" style="background:#0284c7; color:#fff; font-weight:700; border:none; padding:8px 16px; border-radius:8px; cursor:pointer;">
-            🔄 Abrir Volume de Pedidos & Cargas
+            🔄 Repor Gráfico Padrão
           </button>
         </div>
       `;
       const recBtn = host.querySelector('#maintBtnRecoverChart');
       if (recBtn) {
-        recBtn.onclick = () => {
-          currentMaintKpiTab = 'workload';
+        recBtn.onclick = (e) => {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
+          currentMaintKpiTab = 'categories';
           const tabsWrap = document.querySelector('.maint-kpi-tabs');
           if (tabsWrap) {
-            tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'workload'));
+            tabsWrap.querySelectorAll('.maint-kpi-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.maintTab === 'categories'));
           }
           renderActiveMaintKpiChart(tickets);
         };
       }
     }
+  }
+
+  function renderMaintenanceD3WorkloadProjection(host, controlsWrap, footerWrap, tickets) {
+    if (typeof MaintenanceWorkload !== 'undefined' && MaintenanceWorkload && typeof MaintenanceWorkload.renderMonthlyWorkloadChart === 'function') {
+      try {
+        return MaintenanceWorkload.renderMonthlyWorkloadChart({
+          host,
+          controlsWrap,
+          footerWrap,
+          tickets,
+          d3: window.d3,
+          now: new Date()
+        });
+      } catch (e) {
+        console.warn('MaintenanceWorkload standalone projection note:', e);
+      }
+    }
+    return renderMaintenanceD3WorkloadVolume(host, controlsWrap, footerWrap, tickets);
   }
 
   // ---------------------------------------------------------
@@ -9155,6 +9180,7 @@
 
     // 2. Controlos superiores (Seletores de Mês, Inversão, Ordenação, Modo Gráfico/Tabela)
     if (controlsWrap) {
+      const board = controlsWrap.closest('.maint-kpi-board');
       const optionsA = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthA ? 'selected' : ''}>${formatMonthKeyLabelIndicadores(m)}</option>`).join('');
       const optionsB = distinctMonths.map(m => `<option value="${m}" ${m === currentMaintCompMonthB ? 'selected' : ''}>${formatMonthKeyLabelIndicadores(m)}</option>`).join('');
 
@@ -9212,18 +9238,21 @@
       // Event listeners dos controlos
       const selA = $('maintCompSelectA');
       if (selA) selA.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompMonthA = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const selB = $('maintCompSelectB');
       if (selB) selB.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompMonthB = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const btnSwap = $('maintCompBtnSwap');
-      if (btnSwap) btnSwap.onclick = () => {
+      if (btnSwap) btnSwap.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         const tmp = currentMaintCompMonthA;
         currentMaintCompMonthA = currentMaintCompMonthB;
         currentMaintCompMonthB = tmp;
@@ -9231,7 +9260,8 @@
       };
 
       const btnLatest = $('maintCompBtnLatestPair');
-      if (btnLatest) btnLatest.onclick = () => {
+      if (btnLatest) btnLatest.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (distinctMonths.length >= 2) {
           currentMaintCompMonthB = distinctMonths[distinctMonths.length - 1];
           currentMaintCompMonthA = distinctMonths[distinctMonths.length - 2];
@@ -9241,12 +9271,14 @@
 
       const selSort = $('maintCompSelectSort');
       if (selSort) selSort.onchange = (e) => {
+        if (e) e.stopPropagation();
         currentMaintCompSort = e.target.value;
         renderActiveMaintKpiChart(tickets);
       };
 
       const btnChart = $('maintCompBtnChart');
-      if (btnChart) btnChart.onclick = () => {
+      if (btnChart) btnChart.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (currentMaintCompViewMode !== 'chart') {
           currentMaintCompViewMode = 'chart';
           renderActiveMaintKpiChart(tickets);
@@ -9254,7 +9286,8 @@
       };
 
       const btnTable = $('maintCompBtnTable');
-      if (btnTable) btnTable.onclick = () => {
+      if (btnTable) btnTable.onclick = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
         if (currentMaintCompViewMode !== 'table') {
           currentMaintCompViewMode = 'table';
           renderActiveMaintKpiChart(tickets);
