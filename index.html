@@ -610,13 +610,15 @@
     font-weight:600; color:var(--ink-400); border-radius:10px; cursor:pointer; transition:.15s ease; white-space:nowrap;
   }
   nav.tabs button.active{ background:var(--petrol-900); color:#fff; }
-  /* Anti-shake and stability guarantees across all buttons and interactive elements */
-  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare {
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    transform: translateZ(0);
+  /* Anti-shake and layout stability guarantees across all buttons and interactive elements */
+  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare, nav.tabs button {
+    transform: none !important;
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease !important;
   }
-  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover, .btn-new-strategic:hover, .maint-kpi-btn-compare:hover {
+  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover, .btn-new-strategic:hover, .maint-kpi-btn-compare:hover, nav.tabs button:hover,
+  button:active, .btn:active, .tab-btn:active, .maint-kpi-tab-btn:active, .maint-kpi-sort-btn:active, .strategic-tab-btn:active, .cycle-btn:active, .chip:active, .room-chip:active, .equip-chip:active, .btn-strat-action:active, .maint-stat-card:active, .card-kpi:active, .btn-new-strategic:active, .maint-kpi-btn-compare:active, nav.tabs button:active {
     transform: none !important;
   }
   nav.tabs a.tab-link-kpi{
@@ -1594,8 +1596,8 @@
   .heatmap-nav button{ background:var(--aqua-100); border:none; color:var(--petrol-700); font-weight:700; font-size:11.5px; padding:3px 8px; border-radius:6px; cursor:pointer; }
   .heatmap-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
   .heatmap-dow{ font-family:var(--mono); font-size:8.5px; color:var(--ink-400); text-align:center; text-transform:uppercase; font-weight:700; padding-bottom:2px; }
-  .heatmap-cell{ height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:9.5px; font-weight:700; transition:transform 0.1s; }
-  .heatmap-cell:hover:not(.hc-empty){ transform:scale(1.05); }
+  .heatmap-cell{ height:34px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:9.5px; font-weight:700; transition:box-shadow 0.15s ease; position:relative; }
+  .heatmap-cell:hover:not(.hc-empty){ box-shadow: 0 0 0 2px var(--petrol-700); z-index: 2; }
   .heatmap-cell.hc-empty{ background:transparent; }
   .heatmap-cell.hc-none{ background:#eef2f1; color:var(--ink-400); }
   .heatmap-cell.hc-ok{ background:var(--ok-500); color:#fff; }
@@ -14673,7 +14675,14 @@
   // MÓDULO DE MANUTENÇÃO · PAINEL D3 DE KPIS & PROJEÇÕES
   // =========================================================
 
-  const CANONICAL_MAINTENANCE_CATEGORIES = MaintenanceCategories.CANONICAL;
+  const CANONICAL_MAINTENANCE_CATEGORIES = (typeof MaintenanceCategories !== 'undefined' && MaintenanceCategories && MaintenanceCategories.CANONICAL)
+    ? MaintenanceCategories.CANONICAL
+    : [
+        'Canalização', 'Portas/Fechaduras', 'Acabamentos/Decoração', 'Climatização',
+        'Casa de Banho', 'Outros', 'Elétrico', 'Cortinados', 'Cozinha/Equipamento',
+        'Amenities/Acessórios', 'Mobiliário', 'Pintura Preventiva', 'Limpeza/Manutenção Geral',
+        'Equipamento', 'Minibar'
+      ];
 
   const CATEGORY_META = {
     'Canalização': { icon: '💧', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)', border: 'rgba(2, 132, 199, 0.3)' },
@@ -14694,7 +14703,10 @@
   };
 
   function canonicalizeMaintenanceCategory(cat, options) {
-    return MaintenanceCategories.canonicalize(cat, options);
+    if (typeof MaintenanceCategories !== 'undefined' && MaintenanceCategories && typeof MaintenanceCategories.canonicalize === 'function') {
+      return MaintenanceCategories.canonicalize(cat, options);
+    }
+    return cat || 'Outros';
   }
 
   const normalizeTicketCategory = canonicalizeMaintenanceCategory;

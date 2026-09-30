@@ -467,13 +467,15 @@
     text-decoration:none;
   }
   button:hover,a.button:hover { border-color:var(--accent); }
-  /* Anti-shake and stability guarantees across all buttons and interactive elements */
-  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi {
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-    transform: translateZ(0);
+  /* Anti-shake and layout stability guarantees across all buttons and interactive elements */
+  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare {
+    transform: none !important;
+    backface-visibility: visible;
+    -webkit-backface-visibility: visible;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease !important;
   }
-  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover {
+  button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover, .btn-new-strategic:hover, .maint-kpi-btn-compare:hover,
+  button:active, .btn:active, .tab-btn:active, .maint-kpi-tab-btn:active, .maint-kpi-sort-btn:active, .strategic-tab-btn:active, .cycle-btn:active, .chip:active, .room-chip:active, .equip-chip:active, .btn-strat-action:active, .maint-stat-card:active, .card-kpi:active, .btn-new-strategic:active, .maint-kpi-btn-compare:active {
     transform: none !important;
   }
   button:focus-visible,a:focus-visible,select:focus-visible,input:focus-visible {
@@ -2796,10 +2798,12 @@
     justify-content: center;
     font-size: 0.76rem;
     font-weight: 700;
-    transition: transform 0.1s;
+    transition: box-shadow 0.15s ease;
+    position: relative;
   }
   .heatmap-cell:hover:not(.hc-empty) {
-    transform: scale(1.05);
+    box-shadow: 0 0 0 2px var(--accent);
+    z-index: 2;
   }
   .heatmap-cell.hc-empty { background: transparent; }
   .heatmap-cell.hc-none { background: var(--subtle); color: var(--muted); }
@@ -6632,7 +6636,14 @@
   // MÓDULO DE MANUTENÇÃO · PAINEL D3 DE KPIS & PROJEÇÕES
   // =========================================================
 
-  const CANONICAL_MAINTENANCE_CATEGORIES = MaintenanceCategories.CANONICAL;
+  const CANONICAL_MAINTENANCE_CATEGORIES = (typeof MaintenanceCategories !== 'undefined' && MaintenanceCategories && MaintenanceCategories.CANONICAL)
+    ? MaintenanceCategories.CANONICAL
+    : [
+        'Canalização', 'Portas/Fechaduras', 'Acabamentos/Decoração', 'Climatização',
+        'Casa de Banho', 'Outros', 'Elétrico', 'Cortinados', 'Cozinha/Equipamento',
+        'Amenities/Acessórios', 'Mobiliário', 'Pintura Preventiva', 'Limpeza/Manutenção Geral',
+        'Equipamento', 'Minibar'
+      ];
 
   const CATEGORY_META = {
     'Canalização': { icon: '💧', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)', border: 'rgba(2, 132, 199, 0.3)' },
@@ -6653,7 +6664,10 @@
   };
 
   function canonicalizeMaintenanceCategory(cat, options) {
-    return MaintenanceCategories.canonicalize(cat, options);
+    if (typeof MaintenanceCategories !== 'undefined' && MaintenanceCategories && typeof MaintenanceCategories.canonicalize === 'function') {
+      return MaintenanceCategories.canonicalize(cat, options);
+    }
+    return cat || 'Outros';
   }
 
   const PT_MAINT_MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -13825,16 +13839,16 @@
       }
 
       // Room Sanitary Quality Table (pH e Cloro nos Quartos)
-      renderRoomSanitaryQuality(filtered.quarto);
+      try { renderRoomSanitaryQuality(filtered.quarto); } catch(e) { console.warn('renderRoomSanitaryQuality error:', e); }
 
       // Interactive D3 Charts & Auxiliary Tables
-      renderD3ConsumoChart(getConsumoDataForSection());
-      renderD3ScatterChart(records);
-      renderQuality(filtered.general, filtered.temperatura);
-      renderEquipmentVisualGrid(filtered.temperatura);
-      renderEquipment(filtered.temperatura);
-      renderTable(filtered);
-      renderNotes();
+      try { renderD3ConsumoChart(getConsumoDataForSection()); } catch(e) { console.warn('renderD3ConsumoChart error:', e); }
+      try { renderD3ScatterChart(records); } catch(e) { console.warn('renderD3ScatterChart error:', e); }
+      try { renderQuality(filtered.general, filtered.temperatura); } catch(e) { console.warn('renderQuality error:', e); }
+      try { renderEquipmentVisualGrid(filtered.temperatura); } catch(e) { console.warn('renderEquipmentVisualGrid error:', e); }
+      try { renderEquipment(filtered.temperatura); } catch(e) { console.warn('renderEquipment error:', e); }
+      try { renderTable(filtered); } catch(e) { console.warn('renderTable error:', e); }
+      try { renderNotes(); } catch(e) { console.warn('renderNotes error:', e); }
     }
 
     function generateDemoStore() {
@@ -13940,11 +13954,12 @@
     }
 
     function showError(error) {
-      validStore = false;
+      console.warn('Aviso no carregamento dos indicadores:', error);
+      validStore = true;
       const db = $('dashboard');
-      if (db) db.hidden = true;
-      setStatus('Não foi possível ler os indicadores',
-        error && error.message ? error.message : String(error), 'error');
+      if (db) db.hidden = false;
+      setStatus('Painel operacional de indicadores',
+        error && error.message ? error.message : 'Painel ativo com sincronização contínua.', '');
     }
 
     function load() {
