@@ -1742,6 +1742,60 @@
   }
   .api-warning.show{ display:block; }
 
+  .sync-mobile-banner {
+    display: none;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-bottom: 2px solid var(--amber-500, #f59e0b);
+    color: #fff;
+    padding: 10px 16px;
+    z-index: 99;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .sync-mobile-banner-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .sync-mobile-banner-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .sync-mobile-banner-text {
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+  .sync-mobile-banner-text strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fef08a;
+  }
+  .sync-mobile-banner-text p {
+    margin: 2px 0 0 0;
+    font-size: 11.5px;
+    color: #cbd5e1;
+    line-height: 1.3;
+  }
+  .btn-sync-mobile-action {
+    background: #0284c7;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+  .btn-sync-mobile-action:hover {
+    background: #0369a1;
+  }
+
   .fullscreen-overlay{
     display:none; position:fixed; inset:0; background:var(--petrol-950); z-index:200;
     align-items:center; justify-content:center; padding:24px; overflow-y:auto;
@@ -2749,6 +2803,17 @@
   </div>
 
   <div class="api-warning" id="apiWarning">⚠️ Não foi possível ligar ao Google Sheets. Verifique a sua ligação — os seus registos podem não ficar guardados.</div>
+
+  <div class="sync-mobile-banner" id="syncMobileBanner" style="display:none;" role="alert">
+    <div class="sync-mobile-banner-content">
+      <span class="sync-mobile-banner-icon">🔄</span>
+      <div class="sync-mobile-banner-text">
+        <strong id="syncMobileBannerTitle">Registos pendentes de sincronização</strong>
+        <p id="syncMobileBannerDesc">Os dados de hoje estão guardados no seu telemóvel.</p>
+      </div>
+      <button type="button" id="btnSyncMobileAction" class="btn-sync-mobile-action">Sincronizar Agora</button>
+    </div>
+  </div>
 
   <header class="top">
     <div class="brand-row">
@@ -4246,7 +4311,7 @@
     });
   }
 
-  async function apiPost(body, timeoutMs = 15000){
+  async function apiPost(body, timeoutMs = 35000){
     return withRetry(async ()=>{
       const payload = Object.assign({}, body);
       const action = typeof payload.action === 'string' ? payload.action.trim() : '';
@@ -4264,7 +4329,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload)
-      }, timeoutMs || 15000);
+      }, timeoutMs || 35000);
       const text = await res.text();
       if(!res.ok) throw new Error(`O endpoint rejeitou o pedido (HTTP ${res.status}). ${text.slice(0,160).replace(/\s+/g,' ')}`);
       const contentType = res.headers && res.headers.get('content-type');
@@ -4281,7 +4346,7 @@
         if(json.code === 'AUTH'){
           err.auth = true;
           const currentTk = getToken();
-          if(currentTk && !currentTk.startsWith('offline_')){
+          if(currentTk && !currentTk.startsWith('offline_') && !payload._silentAuth){
             forceRelogin(json.error || 'Sessão expirada.');
           }
         }
@@ -4595,6 +4660,108 @@
   let isSyncingQueue = false;
   let syncTimer = null;
 
+  async function attemptSilentReauth(){
+    try{
+      const user = currentUser || recallUser();
+      if(!user) return false;
+      const username = user.usuario || user.nombre || user.nome;
+      if(!username) return false;
+      let vault = {};
+      try{ vault = JSON.parse(localStorage.getItem('bitacora_auth_vault') || '{}'); }catch(e){}
+      const entry = vault[String(username).trim().toLowerCase()];
+      if(!entry || !entry.pin) return false;
+
+      const requestUrl = new URL(API_URL);
+      requestUrl.searchParams.set('action', 'login');
+      const payload = {
+        action: 'login',
+        usuario: username,
+        pin: entry.pin,
+        _silentAuth: true,
+        appVersion: typeof APP_VERSION !== 'undefined' ? APP_VERSION : '3.3.0'
+      };
+      const res = await safeFetch(requestUrl.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }, 35000);
+      if(!res.ok) return false;
+      const text = await res.text();
+      let json = null;
+      try{ json = JSON.parse(text); }catch(e){}
+      if(json && json.ok && json.token){
+        setToken(json.token);
+        try{
+          localStorage.setItem('sessionToken', json.token);
+          localStorage.setItem('bitacora_token', json.token);
+          localStorage.setItem('bitacora_session_token', json.token);
+        }catch(e){}
+        console.log('Reautenticação silenciosa bem-sucedida para o utilizador:', username);
+        return true;
+      }
+    }catch(e){
+      console.warn('Tentativa de reautenticação silenciosa falhada:', e);
+    }
+    return false;
+  }
+
+  function showSyncPendingAuthAlert(){
+    const banner = $('syncMobileBanner');
+    const title = $('syncMobileBannerTitle');
+    const desc = $('syncMobileBannerDesc');
+    const btn = $('btnSyncMobileAction');
+    if(banner){
+      banner.style.display = 'block';
+      if(title) title.textContent = `Atenção: ${syncQueue.length} registo(s) aguardam validação de PIN`;
+      if(desc) desc.textContent = 'Os dados carregados no telemóvel estão salvaguardados mas requerem revalidação para envio à folha Google Sheets.';
+      if(btn){
+        btn.textContent = 'Introduzir PIN e Sincronizar';
+        btn.onclick = () => {
+          if(typeof promptForPinUnlock === 'function'){
+            promptForPinUnlock();
+          } else if($('btnLockScreen')){
+            $('lockScreen').classList.add('show');
+          }
+        };
+      }
+    }
+  }
+
+  function updateSyncMobileBanner(){
+    const banner = $('syncMobileBanner');
+    const title = $('syncMobileBannerTitle');
+    const desc = $('syncMobileBannerDesc');
+    const btn = $('btnSyncMobileAction');
+    if(!banner) return;
+
+    const count = syncQueue.length;
+    if(count === 0){
+      banner.style.display = 'none';
+      return;
+    }
+
+    banner.style.display = 'block';
+    if(isSyncingQueue){
+      if(title) title.textContent = `A sincronizar ${count} registo(s) com o Google Sheets…`;
+      if(desc) desc.textContent = 'A enviar os dados carregados no telemóvel em segundo plano.';
+      if(btn){
+        btn.textContent = 'A enviar…';
+        btn.disabled = true;
+      }
+    } else {
+      if(title) title.textContent = `${count} registo(s) de hoje por sincronizar no telemóvel`;
+      if(desc) desc.textContent = 'Os registos estão guardados localmente neste dispositivo móvel.';
+      if(btn){
+        btn.textContent = 'Sincronizar Agora';
+        btn.disabled = false;
+        btn.onclick = () => {
+          triggerSyncQueue(10);
+          showToast('A forçar sincronização imediata…');
+        };
+      }
+    }
+  }
+
   function loadSyncQueue(){
     try{
       const raw = localStorage.getItem(SYNC_QUEUE_KEY);
@@ -4610,6 +4777,7 @@
       localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(syncQueue));
     }catch(e){}
     updateSyncStatusUI();
+    updateSyncMobileBanner();
   }
 
   function enqueueSync(item){
@@ -4645,6 +4813,7 @@
       text.textContent = `${count} pendente${count>1?'s':''}`;
       chip.title = `${count} registo(s) guardado(s) localmente aguardando envio. Clique para tentar agora.`;
     }
+    updateSyncMobileBanner();
   }
 
   function triggerSyncQueue(delayMs = 200){
@@ -4666,13 +4835,22 @@
     updateSyncStatusUI();
 
     try{
+      // Se o token atual é offline ou ausente, tentar reautenticação silenciosa prévia
+      const currentTk = getToken();
+      if(!currentTk || currentTk.startsWith('offline_')){
+        await attemptSilentReauth();
+      }
+
       while(syncQueue.length > 0){
         const item = syncQueue[0];
         try{
-          await apiPost(item.payload);
+          await apiPost(item.payload, 35000);
           // Enviado com sucesso: remove da fila e persiste
           syncQueue.shift();
           persistSyncQueue();
+          try {
+            window.dispatchEvent(new Event('storage'));
+          } catch(e){}
         }catch(err){
           console.warn('Tentativa de sincronização falhada para item:', item, err);
           item.attempts = (item.attempts || 0) + 1;
@@ -4680,7 +4858,13 @@
           persistSyncQueue();
 
           if(err && err.auth){
-            break; // Parar se a sessão expirou
+            // Tentar recuperar token genuíno com o cofre de credenciais
+            const recovered = await attemptSilentReauth();
+            if(recovered){
+              continue; // Tentar de novo o envio imediato com o novo token
+            }
+            showSyncPendingAuthAlert();
+            break; // Parar até revalidação do PIN
           }
 
           // Agendar nova tentativa com backoff exponencial suave
@@ -4696,6 +4880,9 @@
   }
 
   loadSyncQueue();
+  updateSyncStatusUI();
+  // Disparar sincronização inicial de pendentes com pequeno delay
+  setTimeout(() => triggerSyncQueue(500), 500);
 
   // ---------- Cache local de registos e auditoria ----------
   const CACHE_TTL_MS = 60000;
@@ -4748,9 +4935,23 @@
         ['general', 'quarto', 'temperatura'].forEach(t => {
           if(s[t]){
             if(Array.isArray(s[t].items)){
+              s[t].items.forEach(it => {
+                if(it && it.data && it.data.fecha){
+                  const norm = normalizeDate(it.data.fecha);
+                  if(norm) it.data.fecha = norm;
+                }
+              });
               dataStore[t] = s[t];
             } else if(Array.isArray(s[t])){
-              dataStore[t] = { items: s[t], ts: Date.now() };
+              const items = s[t].map(it => {
+                const rec = (it && it.data) ? Object.assign({}, it.data) : Object.assign({}, it);
+                if(rec && rec.fecha){
+                  const norm = normalizeDate(rec.fecha);
+                  if(norm) rec.fecha = norm;
+                }
+                return { key: String(it?.key || rec.id || Math.random().toString(36).slice(2)), data: rec };
+              });
+              dataStore[t] = { items, ts: Date.now() };
             }
           }
         });
@@ -4773,7 +4974,11 @@
           qItems.forEach(item => {
             if(!item || !item.type || !dataStore[item.type]) return;
             if((item.action === 'save' || item.action === 'update') && item.payload && item.payload.data){
-              const recData = item.payload.data;
+              const recData = Object.assign({}, item.payload.data);
+              if(recData.fecha){
+                const norm = normalizeDate(recData.fecha);
+                if(norm) recData.fecha = norm;
+              }
               const recId = String(recData.id || item.recordId);
               const entry = dataStore[item.type];
               if(!entry.items) entry.items = [];
@@ -4810,7 +5015,11 @@
         if(!d) return;
         const id = d.id || d.ID || (d.data && d.data.id) || d.key || ('id_' + (d.fecha || '') + '_' + (d.hora || '') + '_' + (d.equipamentoId || Math.random().toString(36).slice(2,7)));
         if(id) {
-          const recData = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? d.data : d;
+          const recData = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? Object.assign({}, d.data) : Object.assign({}, d);
+          if(recData.fecha){
+            const norm = normalizeDate(recData.fecha);
+            if(norm) recData.fecha = norm;
+          }
           itemsMap.set(String(id), { key: String(id), data: recData });
         }
       });
@@ -4823,7 +5032,11 @@
     pendingDeletes.forEach(id => itemsMap.delete(id));
 
     syncQueue.filter(q => q.type === type && (q.action === 'save' || q.action === 'update') && q.payload && q.payload.data).forEach(q => {
-      const recData = q.payload.data;
+      const recData = Object.assign({}, q.payload.data);
+      if(recData.fecha){
+        const norm = normalizeDate(recData.fecha);
+        if(norm) recData.fecha = norm;
+      }
       const recId = String(recData.id || q.recordId);
       if(recId){
         const existing = itemsMap.get(recId);
@@ -4838,7 +5051,7 @@
   }
 
   async function listRecords(type, opts){
-    const forceFresh = opts && opts.fresh;
+    const forceFresh = opts === true || (opts && (opts.fresh === true || opts === true));
     const entry = dataStore[type];
     if(!entry) return [];
 
@@ -4881,6 +5094,12 @@
     const userWho = getCurrentUserName();
     if(!data.criadoPor) data.criadoPor = userWho;
     if(!data.criadoEm) data.criadoEm = todayStr() + ' ' + nowTimeStr();
+    if(data.fecha) {
+      const normF = normalizeDate(data.fecha);
+      if(normF) data.fecha = normF;
+    } else {
+      data.fecha = todayStr();
+    }
 
     // 1. Atualização otimista imediata na cache local (0 ms de espera)
     let entry = dataStore[type];
@@ -4931,6 +5150,10 @@
     data.modificadoPor = userWho;
     data.modificadoEn = todayStr() + ' ' + nowTimeStr();
     data.editado = 'Sim';
+    if(data.fecha){
+      const nf = normalizeDate(data.fecha);
+      if(nf) data.fecha = nf;
+    }
 
     // 1. Atualização otimista imediata na cache
     const entry = dataStore[type];
@@ -6229,7 +6452,9 @@
       $('chipQuarto').textContent = qu.length;
       $('chipTemp').textContent = tp.length;
       const t = todayStr();
-      const hoy = gen.filter(r=>r.data.fecha===t).length + qu.filter(r=>r.data.fecha===t).length + tp.filter(r=>r.data.fecha===t).length;
+      const hoy = gen.filter(r=> normalizeDate(r.data && r.data.fecha) === t).length +
+                  qu.filter(r=> normalizeDate(r.data && r.data.fecha) === t).length +
+                  tp.filter(r=> normalizeDate(r.data && r.data.fecha) === t).length;
       $('chipHoy').textContent = hoy;
     }catch(e){}
   }
@@ -6345,7 +6570,8 @@
 
     if(!editingGeneralId){
       const cached = (dataStore.general && dataStore.general.items) ? dataStore.general.items : [];
-      const existingToday = cached.filter(r => r.data && r.data.fecha === data.fecha);
+      const normTargetDate = normalizeDate(data.fecha) || data.fecha;
+      const existingToday = cached.filter(r => r.data && (normalizeDate(r.data.fecha) === normTargetDate || r.data.fecha === normTargetDate));
       if(existingToday.length){
         const ultima = existingToday.sort((a,b)=> (a.data.hora||'').localeCompare(b.data.hora||'')).slice(-1)[0];
         const horaStr = ultima.data && ultima.data.hora ? ultima.data.hora : '';
@@ -10397,9 +10623,12 @@
         return;
       }
       items.sort((a,b)=>{
-        const ta = new Date(`${a.data.fecha}T${a.data.hora||'00:00'}`).getTime();
-        const tb = new Date(`${b.data.fecha}T${b.data.hora||'00:00'}`).getTime();
-        return orden==='desc' ? tb-ta : ta-tb;
+        const fa = normalizeDate(a.data?.fecha || a.date) || '1970-01-01';
+        const fb = normalizeDate(b.data?.fecha || b.date) || '1970-01-01';
+        const ha = String(a.data?.hora || a.time || '00:00').slice(0, 5);
+        const hb = String(b.data?.hora || b.time || '00:00').slice(0, 5);
+        const cmp = (`${fa} ${ha}`).localeCompare(`${fb} ${hb}`);
+        return orden==='desc' ? -cmp : cmp;
       });
       lastHistorialItems = items;
       histVisibleCount = HIST_PAGE_SIZE;
@@ -10410,8 +10639,9 @@
         const currentSel = selectMes.value || 'all';
         const monthsSet = new Set();
         items.forEach(r => {
-          if(r.data && r.data.fecha && r.data.fecha.length >= 7){
-            monthsSet.add(r.data.fecha.slice(0, 7));
+          const normF = normalizeDate(r.data && r.data.fecha);
+          if(normF && normF.length >= 7){
+            monthsSet.add(normF.slice(0, 7));
           }
         });
         const currentMonthKey = todayStr().slice(0, 7);
@@ -10438,7 +10668,10 @@
     const chosenMonth = selectMes ? selectMes.value : 'all';
     let filteredItems = items;
     if(chosenMonth !== 'all'){
-      filteredItems = items.filter(it => it.data && it.data.fecha && it.data.fecha.startsWith(chosenMonth));
+      filteredItems = items.filter(it => {
+        const normF = normalizeDate(it.data && it.data.fecha);
+        return normF && normF.startsWith(chosenMonth);
+      });
     }
 
     // Closed month banner inside Histórico
@@ -10858,7 +11091,11 @@
   }
 
   function statsForRange(genWithDeltas, desde, hasta){
-    const inRange = genWithDeltas.filter(r=> !r.isBaseline && (r.date || r.data?.fecha) >= desde && (r.date || r.data?.fecha) <= hasta);
+    const inRange = genWithDeltas.filter(r=> {
+      if(r.isBaseline) return false;
+      const d = r.date || normalizeDate(r.data?.fecha) || r.data?.fecha;
+      return d && d >= desde && d <= hasta;
+    });
     const aguaReadingCount = inRange.filter(r=> extractFieldNumeric(r.data, WATER_FIELDS) !== null).length;
     const elecReadingCount = inRange.filter(r=> extractFieldNumeric(r.data, ENERGY_FIELDS) !== null).length;
 
@@ -13665,7 +13902,7 @@
     const isCurrentMonth = (desde <= todayStr() && hasta >= todayStr());
     const genWithDeltas = await buildGenWithDeltas(generalRaw);
     const inMonth = r => {
-      const f = r.data?.fecha || r.date;
+      const f = normalizeDate(r.data?.fecha || r.date || r.fecha);
       return f && f >= desde && f <= hasta;
     };
     const genMonth = genWithDeltas.filter(r => !r.isBaseline && inMonth(r));
@@ -13689,7 +13926,7 @@
     const tempMonth = tempRaw.filter(inMonth);
     const tempBadMonth = tempMonth.filter(isTempBad);
     const temp7 = isCurrentMonth
-      ? tempRaw.filter(r => (r.data?.fecha || r.date) >= fmt(new Date(Date.now() - 7 * 86400000)))
+      ? tempRaw.filter(r => (normalizeDate(r.data?.fecha || r.date || r.fecha) || '') >= fmt(new Date(Date.now() - 7 * 86400000)))
       : tempMonth;
     const tempBad7 = isCurrentMonth
       ? temp7.filter(isTempBad)
@@ -13703,7 +13940,7 @@
     // hasta el final del período seleccionado. De esta forma, al consultar
     // el mes anterior se obtiene el ciclo que estaba activo en ese momento.
     const quartosUntilPeriodEnd = quartosRaw.filter(r => {
-      const f = r.data?.fecha || r.data?.date || r.fecha || r.date;
+      const f = normalizeDate(r.data?.fecha || r.data?.date || r.fecha || r.date);
       return f && f <= hasta;
     });
 
@@ -14662,12 +14899,13 @@
       if (typeof renderPedidosView === 'function') renderPedidosView();
       showToast('⭐ Ticket Estratégico registado com sucesso ✓');
 
-      // 3. Sincronizar com o backend
-      try {
-        await apiPost({ action: 'saveTicket', data: newTicket });
-      } catch(e) {
-        console.warn('saveTicket remote sync note:', e);
-      }
+      // 3. Sincronizar com o backend de forma resiliente via fila local-first
+      enqueueSync({
+        action: 'saveTicket',
+        type: 'ticket',
+        recordId: newTicket.id,
+        payload: { action: 'saveTicket', data: newTicket }
+      });
     });
   }
 
@@ -20791,55 +21029,71 @@
   }
 
   // Interação e sincronização com o chip de sincronização
+  async function forceSyncAll(silent = false){
+    if(!silent) showToast('A forçar sincronização com o Google Sheets…');
+    triggerSyncQueue(10);
+    try {
+      const tk = getToken();
+      if(!tk || tk.startsWith('offline_')){
+        await attemptSilentReauth();
+      }
+      await Promise.all([
+        listRecords('general', { fresh: true }).catch(()=>{}),
+        listRecords('quarto', { fresh: true }).catch(()=>{}),
+        listRecords('temperatura', { fresh: true }).catch(()=>{}),
+        loadEquipamentos(true).catch(()=>{})
+      ]);
+      invalidateMemo();
+      if(typeof refreshChips === 'function') refreshChips();
+      if(currentView === 'ejecutivo') renderEjecutivo(null, null, { force: true, silent: true });
+      else if(currentView === 'dashboard') renderDashboard(true, { silent: true });
+      else if(currentView === 'temperatura') renderTempView();
+      else if(currentView === 'quarto') renderRoomGrid();
+      else if(currentView === 'historial') renderHistorial(true).catch(()=>{});
+      else if(currentView === 'pedidos') renderPedidosView();
+      if(!silent) showToast('Sincronização completa com a folha Google Sheets ✓');
+    } catch(e) {
+      if(!silent) showToast('Fila de envio disparada. Dados locais sincronizados.');
+    }
+  }
+
   const syncChipEl = $('chipSyncStatus');
   if(syncChipEl){
-    syncChipEl.addEventListener('click', async ()=>{
-      showToast('A forçar sincronização com o Google Sheets…');
-      triggerSyncQueue(10);
-      try {
-        await Promise.all([
-          listRecords('general', true).catch(()=>{}),
-          listRecords('quarto', true).catch(()=>{}),
-          listRecords('temperatura', true).catch(()=>{}),
-          loadEquipamentos(true).catch(()=>{})
-        ]);
-        invalidateMemo();
-        if(typeof refreshChips === 'function') refreshChips();
-        if(currentView === 'ejecutivo') renderEjecutivo(true);
-        else if(currentView === 'dashboard') renderDashboard(true);
-        else if(currentView === 'temperatura') renderTempView();
-        else if(currentView === 'quarto') renderQuartoView();
-        showToast('Sincronização completa com a folha Google Sheets ✓');
-      } catch(e) {
-        showToast('Fila de envio disparada. Dados locais sincronizados.');
-      }
-    });
+    syncChipEl.addEventListener('click', () => forceSyncAll(false));
     syncChipEl.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        syncChipEl.click();
+        forceSyncAll(false);
       }
     });
   }
 
   window.addEventListener('online', ()=>{
     showToast('Ligação de rede detetada · a sincronizar dados…');
+    triggerSyncQueue(50);
+    forceSyncAll(true);
+  });
+
+  // Revalidação em segundo plano ao regressar à app (telemóvel ou ecrã alternado)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      triggerSyncQueue(50);
+      forceSyncAll(true);
+    }
+  });
+
+  window.addEventListener('focus', () => {
+    triggerSyncQueue(50);
+    forceSyncAll(true);
+    checkVersionThrottled(false).catch(()=>{});
+  });
+
+  // Polling automático suave em segundo plano para refletir novos dados inseridos a partir do telemóvel
+  setInterval(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
     triggerSyncQueue(100);
-  });
-
-  // Eventos de Versão e Atualizações
-  $('btnOpenVersionModal') && $('btnOpenVersionModal').addEventListener('click', openVersionModal);
-  document.querySelectorAll('[data-openversion="1"]').forEach(btn => {
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); openVersionModal(); });
-  });
-  if($('btnUpdateNow')) $('btnUpdateNow').onclick = () => forceAppUpdate();
-  if($('btnUpdateDismiss')) $('btnUpdateDismiss').onclick = () => {
-    const ub = $('updateBanner');
-    if(ub) ub.classList.remove('show');
-  };
-
-  window.addEventListener('focus', () => checkVersionThrottled(false).catch(()=>{}));
-  setInterval(() => checkVersionThrottled(false).catch(()=>{}), 10 * 60 * 1000);
+    forceSyncAll(true);
+  }, 45000);
 
   // =========================================================
   // MÓDULO DE TICKETS DE MANUTENÇÃO
@@ -21311,9 +21565,14 @@
       } catch(e) {}
 
       try {
-        await apiPost({ action: 'saveTicket', data: data });
+        enqueueSync({
+          action: 'saveTicket',
+          type: 'ticket',
+          recordId: data.id,
+          payload: { action: 'saveTicket', data: data }
+        });
       } catch (e) {
-        console.warn('apiPost saveTicket network note:', e);
+        console.warn('enqueueSync saveTicket note:', e);
       } finally {
         setLoading(btn, false);
       }

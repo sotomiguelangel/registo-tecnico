@@ -4460,6 +4460,9 @@
 
       const rawDate = data.fecha || data.date || record.date || record.fecha || data.Fecha || data.Date || data.Data || data.data || data.marcaTiempo || data.criadoEm || data.timestamp || data.time;
       const parsedDate = normalizeDate(rawDate);
+      if (parsedDate) {
+        data.fecha = parsedDate;
+      }
 
       return {
         type,
