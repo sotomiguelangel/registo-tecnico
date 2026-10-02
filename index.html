@@ -2806,12 +2806,15 @@
 
   <div class="sync-mobile-banner" id="syncMobileBanner" style="display:none;" role="alert">
     <div class="sync-mobile-banner-content">
-      <span class="sync-mobile-banner-icon">🔄</span>
+      <span class="sync-mobile-banner-icon" id="syncMobileBannerIcon">🔄</span>
       <div class="sync-mobile-banner-text">
         <strong id="syncMobileBannerTitle">Registos pendentes de sincronização</strong>
         <p id="syncMobileBannerDesc">Os dados de hoje estão guardados no seu telemóvel.</p>
       </div>
-      <button type="button" id="btnSyncMobileAction" class="btn-sync-mobile-action">Sincronizar Agora</button>
+      <div class="sync-mobile-banner-actions" style="display:flex; flex-direction:column; gap:6px; align-items:stretch;">
+        <button type="button" id="btnSyncMobileAction" class="btn-sync-mobile-action">Sincronizar Agora</button>
+        <button type="button" id="btnSyncMobileSecondary" class="btn-sync-mobile-action secondary" style="display:none; background:rgba(0,0,0,0.06); color:inherit; font-size:11px; padding:4px 8px; border:1px solid currentColor;">Sincronizar Restantes</button>
+      </div>
     </div>
   </div>
 
@@ -2845,6 +2848,9 @@
           <span id="syncText" style="font-weight:700; color:#fff;">Sincronizado ✓</span>
         </div>
         <span style="font-size:9.5px; color:rgba(255,255,255,.65); margin-top:2px;">Google Sheets</span>
+      </div>
+      <div class="status-chip sync-fault-chip" id="chipSyncFault" style="display:none; background:#fee2e2; border-color:#fecdd3; color:#991b1b; cursor:pointer;" role="button" tabindex="0" title="Clique para diagnosticar e corrigir registos com erro de equipamento">
+        <b id="countSyncFault">0</b>aviso equip. ⚠️
       </div>
     </div>
   </header>
@@ -4343,6 +4349,8 @@
       }
       if(!json.ok){
         const err = new Error(json.error || 'Erro do servidor');
+        err.code = json.code;
+        err.details = json.details;
         if(json.code === 'AUTH'){
           err.auth = true;
           const currentTk = getToken();
@@ -4810,91 +4818,416 @@
     }
   }
 
-  async function openQuarantineModal(){
+  function getSyncFaultItems(){
     loadSyncQuarantine();
-    if(!syncQuarantine.length){
-      showToast('Não existem registos em quarentena.');
+    loadSyncQueue();
+    const items = [];
+    const seenQids = new Set();
+
+    syncQuarantine.forEach(it => {
+      const qid = it.qid || ('q_' + (it.recordId || Math.random().toString(36).slice(2)));
+      it.qid = qid;
+      if(!seenQids.has(qid)){
+        seenQids.add(qid);
+        items.push(Object.assign({ _isQuarantined: true }, it));
+      }
+    });
+
+    syncQueue.forEach(it => {
+      const qid = it.qid || ('sq_' + (it.recordId || Math.random().toString(36).slice(2)));
+      it.qid = qid;
+      if(it.lastError || (it.attempts && it.attempts > 0)){
+        if(!seenQids.has(qid)){
+          seenQids.add(qid);
+          items.push(Object.assign({ _isQuarantined: false }, it));
+        }
+      }
+    });
+
+    return items;
+  }
+
+  function updateLocalRecordData(type, id, data){
+    try{
+      if(!type || !id || !dataStore[type]) return;
+      const entry = dataStore[type];
+      if(entry && Array.isArray(entry.items)){
+        const idx = entry.items.findIndex(it => it.key === id || (it.data && it.data.id === id));
+        if(idx >= 0){
+          entry.items[idx].data = Object.assign({}, entry.items[idx].data || {}, data);
+          persistStore();
+        }
+      }
+    }catch(e){}
+  }
+
+  async function openSyncDiagnosticsModal(targetQid){
+    loadSyncQuarantine();
+    loadSyncQueue();
+
+    const faultItems = getSyncFaultItems();
+    const allPending = syncQueue.slice();
+
+    if(!faultItems.length && !allPending.length){
+      showToast('✓ Sincronização a 100%! Não existem registos com erro nem pendentes.');
+      updateSyncStatusUI();
       return;
     }
-    const qItem = syncQuarantine[0];
-    const data = (qItem.payload && qItem.payload.data) || {};
-    const count = syncQuarantine.length;
+
+    const displayList = faultItems.length ? faultItems : allPending;
+    let activeItem = (targetQid ? displayList.find(it => it.qid === targetQid) : null) || displayList[0];
+    if(!activeItem) activeItem = displayList[0];
+
+    const data = (activeItem.payload && activeItem.payload.data) || {};
+    const recType = activeItem.type || (activeItem.payload && activeItem.payload.type) || 'temperatura';
+    const isTemp = recType === 'temperatura';
 
     const equipList = Array.isArray(equipamentos) && equipamentos.length ? equipamentos : DEFAULT_HOTEL_EQUIPAMENTOS;
-    let equipOptionsHtml = equipList.map(e => {
-      const isSel = (e.id === data.equipamentoId || e.nome === data.nome) ? 'selected' : '';
-      return `<option value="${esc(e.id)}" ${isSel}>${esc(e.id)} — ${esc(e.nome)} (${esc(e.ubicacao || '')})</option>`;
+    const sortedEquips = equipList.slice().sort((a,b) => {
+      const uA = String(a.ubicacao || '');
+      const uB = String(b.ubicacao || '');
+      if(uA !== uB) return uA.localeCompare(uB);
+      return String(a.nome || '').localeCompare(String(b.nome || ''));
+    });
+
+    const currEquipId = String(data.equipamentoId || '').trim();
+    const currEquipNome = String(data.nome || data.equipamento || '').trim();
+
+    let equipOptionsHtml = sortedEquips.map(e => {
+      const matchId = currEquipId && String(e.id).toUpperCase() === currEquipId.toUpperCase();
+      const matchName = currEquipNome && String(e.nome).toLowerCase() === currEquipNome.toLowerCase();
+      const isSel = (matchId || matchName) ? 'selected' : '';
+      const minMax = (e.min !== undefined && e.max !== undefined) ? ` [${e.min} a ${e.max} °C]` : '';
+      return `<option value="${esc(e.id)}" ${isSel}>${esc(e.id)} — ${esc(e.nome)} (${esc(e.ubicacao || 'Hotel')})${minMax}</option>`;
     }).join('');
 
+    let pillsHtml = '';
+    if(displayList.length > 1){
+      pillsHtml = `
+        <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px; border-bottom:1px solid var(--line);">
+          ${displayList.map((it, idx) => {
+            const itData = (it.payload && it.payload.data) || {};
+            const itName = itData.nome || itData.equipamentoId || it.type || `Item #${idx+1}`;
+            const itVal = itData.temperatura !== undefined ? `${itData.temperatura}°C` : (itData.quarto ? `Q.${itData.quarto}` : '');
+            const isActive = it.qid === activeItem.qid;
+            const bg = isActive ? 'var(--petrol-800)' : '#f1f5f9';
+            const color = isActive ? '#fff' : 'var(--ink-700)';
+            return `
+              <button type="button" class="btn-diag-tab" data-qid="${esc(it.qid)}" style="white-space:nowrap; padding:5px 10px; border-radius:16px; border:1px solid var(--line); font-size:11.5px; font-weight:600; background:${bg}; color:${color}; cursor:pointer;">
+                ${it.lastError ? '⚠️' : '⏳'} #${idx+1}: ${esc(itName)} ${itVal ? `(${esc(itVal)})` : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    const errDetail = activeItem.lastError || activeItem.quarantineReason || (activeItem.attempts ? `${activeItem.attempts} tentativa(s) falhada(s)` : 'Aguardando envio');
+    const isQuarantined = !!activeItem._isQuarantined;
+
     const modalHtml = `
-      <div style="font-size:13px; line-height:1.6; text-align:left;">
-        <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:10px; padding:10px 14px; margin-bottom:12px; color:#be123c;">
-          <b>⚠️ Registo com Aviso de Equipamento</b>
-          <p style="margin:4px 0 0; font-size:12px;">
-            ${esc(qItem.quarantineReason || 'Equipamento não encontrado no Google Sheets.')}
-          </p>
+      <div class="sync-diagnostics-root" style="font-size:13px; line-height:1.55; text-align:left; max-height:76vh; overflow-y:auto; padding-right:2px;">
+        ${pillsHtml}
+
+        <!-- 1. Alerta de Falha Detalhado -->
+        <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <b style="color:#9f1239; font-size:12.5px;">⚠️ Falha no Envio para o Google Sheets</b>
+            <span style="font-size:10.5px; background:#ffe4e6; color:#9f1239; padding:2px 6px; border-radius:10px; font-weight:700;">
+              ${isQuarantined ? 'ISOLADO NA QUARENTENA' : 'EM FILA'}
+            </span>
+          </div>
+          <div style="background:rgba(255,255,255,0.8); border:1px solid #fecdd3; border-radius:6px; padding:7px 9px; font-family:var(--mono, monospace); font-size:12px; color:#be123c; word-break:break-word;">
+            ${esc(errDetail)}
+          </div>
+          <div style="margin-top:5px; font-size:11px; color:#9f1239;">
+            💡 <i>Este registo foi isolado para proteger os dados no telemóvel e não bloquear os restantes envios.</i>
+          </div>
         </div>
-        <div style="background:var(--paper); padding:10px 12px; border-radius:8px; border:1px solid var(--line); margin-bottom:12px; font-size:12.5px;">
-          📅 <b>Data:</b> ${esc(data.fecha || 'Hoje')} às ${esc(data.hora || '--:--')}<br>
-          🌡️ <b>Temperatura:</b> <b>${esc(data.temperatura || '--')} °C</b><br>
-          🔍 <b>Nome enviado:</b> <i>${esc(data.nome || data.equipamentoId || 'Desconhecido')}</i>
+
+        <!-- 2. Visor dos Dados Registados no Telemóvel -->
+        <div style="background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:11px 13px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid var(--line); padding-bottom:4px;">
+            <span style="font-weight:700; color:var(--ink-800); font-size:12px;">📱 Dados Atuais no Telemóvel</span>
+            <span style="font-size:11px; color:var(--ink-500); text-transform:uppercase; font-weight:600;">Tipo: ${esc(recType)}</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:6px;">
+            <div>
+              <span style="font-size:10.5px; color:var(--ink-500); display:block;">Equipamento / Recurso:</span>
+              <b style="color:#b91c1c; font-size:13px; display:block;">${esc(data.nome || data.equipamentoId || '(Sem nome)')}</b>
+              <span style="font-size:11px; color:var(--ink-400); font-family:var(--mono, monospace);">ID: ${esc(data.equipamentoId || 'N/A')}</span>
+            </div>
+            <div>
+              <span style="font-size:10.5px; color:var(--ink-500); display:block;">Valor Registado:</span>
+              <span style="font-size:18px; font-weight:800; color:var(--primary); line-height:1.2; display:block;">
+                ${esc(data.temperatura !== undefined ? data.temperatura + ' °C' : (data.quarto ? 'Quarto ' + data.quarto : (data.estado || data.descricao || '--')))}
+              </span>
+              <span style="font-size:10.5px; color:var(--ink-400);">${esc(data.ubicacao || '')}</span>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--ink-500); border-top:1px dashed var(--line); padding-top:6px; margin-top:4px;">
+            <span>📅 Data: <b>${esc(data.fecha || '--')}</b> às <b>${esc(data.hora || '--')}</b></span>
+            <span>👤 Técnico: <b>${esc(data.usuario || data.modificadoPor || getCurrentUserName() || 'Técnico')}</b></span>
+          </div>
         </div>
-        <label class="field" style="margin-bottom:12px; display:block;">
-          <span class="lbl" style="font-weight:600; display:block; margin-bottom:6px;">Associar a equipamento válido do hotel:</span>
-          <select id="selectQuarantineEquip" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); font-size:13px;">
-            ${equipOptionsHtml}
-          </select>
-        </label>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <button type="button" id="btnDiscardQuarantineItem" style="background:#fee2e2; color:#b91c1c; border:none; padding:7px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
-            🗑️ Descartar este registo
+
+        <!-- 3. Painel de Correção Interativa -->
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:10px; padding:12px; margin-bottom:12px;">
+          <b style="color:var(--ink-800); font-size:12.5px; display:block; margin-bottom:8px;">
+            🔧 Corrigir Equipamento e Valores no Telemóvel:
+          </b>
+
+          <!-- Opção A: Dropdown de Equipamentos Oficiais -->
+          <label style="display:block; margin-bottom:10px;">
+            <span style="font-size:11.5px; font-weight:600; color:var(--ink-700); display:block; margin-bottom:4px;">
+              Opção A: Selecionar Equipamento Oficial do Hotel (Recomendado):
+            </span>
+            <select id="diagSelectEquip" style="width:100%; padding:8px 10px; border-radius:6px; border:1px solid var(--line); font-size:12.5px; background:#fff;">
+              <option value="">-- Escolha um equipamento da lista oficial --</option>
+              ${equipOptionsHtml}
+            </select>
+          </label>
+
+          <!-- Opção B: Edição Manual do Equipamento -->
+          <div style="background:#fff; border:1px solid var(--line); border-radius:8px; padding:9px 11px; margin-bottom:10px;">
+            <span style="font-size:11px; font-weight:600; color:var(--ink-600); display:block; margin-bottom:6px;">
+              Opção B: Ou Ajustar Manualmente os Detalhes do Equipamento:
+            </span>
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:6px; margin-bottom:6px;">
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Código / ID:</span>
+                <input type="text" id="diagInputEquipId" value="${esc(data.equipamentoId || '')}" style="width:100%; padding:5px 7px; font-size:12px; border-radius:5px; border:1px solid var(--line); font-family:var(--mono, monospace);">
+              </label>
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Nome do Equipamento:</span>
+                <input type="text" id="diagInputEquipNome" value="${esc(data.nome || '')}" style="width:100%; padding:5px 7px; font-size:12px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+            </div>
+            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:6px;">
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Localização:</span>
+                <input type="text" id="diagInputUbicacao" value="${esc(data.ubicacao || '')}" style="width:100%; padding:5px 7px; font-size:12px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Mín (°C):</span>
+                <input type="number" id="diagInputMin" value="${data.temperaturaMin !== undefined ? data.temperaturaMin : 0}" style="width:100%; padding:5px 7px; font-size:12px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Máx (°C):</span>
+                <input type="number" id="diagInputMax" value="${data.temperaturaMax !== undefined ? data.temperaturaMax : 8}" style="width:100%; padding:5px 7px; font-size:12px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+            </div>
+          </div>
+
+          <!-- Correção de Valores da Leitura -->
+          <div style="background:#fff; border:1px solid var(--line); border-radius:8px; padding:9px 11px;">
+            <span style="font-size:11px; font-weight:600; color:var(--ink-600); display:block; margin-bottom:6px;">
+              Ajustar Leitura / Valor e Data:
+            </span>
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom:6px;">
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Temperatura (°C):</span>
+                <input type="number" step="0.1" id="diagInputValor" value="${data.temperatura !== undefined ? data.temperatura : ''}" style="width:100%; padding:5px 7px; font-size:13px; font-weight:700; border-radius:5px; border:1px solid var(--line); color:var(--primary);">
+              </label>
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Data:</span>
+                <input type="date" id="diagInputFecha" value="${esc(data.fecha || todayStr())}" style="width:100%; padding:5px 7px; font-size:11.5px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+              <label>
+                <span style="font-size:10.5px; color:var(--ink-500); display:block;">Hora:</span>
+                <input type="time" id="diagInputHora" value="${esc(data.hora || nowTimeStr())}" style="width:100%; padding:5px 7px; font-size:11.5px; border-radius:5px; border:1px solid var(--line);">
+              </label>
+            </div>
+            <label style="display:block;">
+              <span style="font-size:10.5px; color:var(--ink-500); display:block;">Observações (opcional):</span>
+              <input type="text" id="diagInputObs" value="${esc(data.observacoes || '')}" placeholder="Notas sobre a leitura..." style="width:100%; padding:5px 7px; font-size:11.5px; border-radius:5px; border:1px solid var(--line);">
+            </label>
+          </div>
+        </div>
+
+        <!-- Ações Auxiliares: Registar Equipamento no Google Sheets & Descartar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
+          <button type="button" id="btnDiagRegisterEquip" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; padding:6px 11px; border-radius:7px; font-size:11.5px; font-weight:600; cursor:pointer;">
+            ➕ Registar Equipamento no Sheets
           </button>
-          <span style="font-size:11px; color:var(--ink-400);">Restam ${count} registo(s)</span>
+          <button type="button" id="btnDiagDiscardRecord" style="background:#fee2e2; color:#b91c1c; border:none; padding:6px 11px; border-radius:7px; font-size:11.5px; font-weight:600; cursor:pointer;">
+            🗑️ Descartar Registo
+          </button>
+        </div>
+
+        <div style="font-size:11px; color:var(--ink-400); text-align:center;">
+          Total em diagnóstico: <b>${displayList.length}</b> registo(s) · Sincronização pendente na fila: <b>${syncQueue.length}</b>
         </div>
       </div>
     `;
 
     setTimeout(() => {
-      const btnDiscard = $('btnDiscardQuarantineItem');
-      if(btnDiscard){
-        btnDiscard.onclick = () => {
-          syncQuarantine.shift();
-          persistSyncQuarantine();
+      document.querySelectorAll('.btn-diag-tab').forEach(btn => {
+        btn.onclick = () => {
+          const qid = btn.getAttribute('data-qid');
           closeModal();
-          showToast('Registo descartado.');
-          updateSyncStatusUI();
-          if(syncQuarantine.length > 0) openQuarantineModal();
+          setTimeout(() => openSyncDiagnosticsModal(qid), 60);
+        };
+      });
+
+      const sel = $('diagSelectEquip');
+      if(sel){
+        sel.onchange = () => {
+          const chosenId = sel.value;
+          const chosen = sortedEquips.find(e => e.id === chosenId);
+          if(chosen){
+            if($('diagInputEquipId')) $('diagInputEquipId').value = chosen.id;
+            if($('diagInputEquipNome')) $('diagInputEquipNome').value = chosen.nome;
+            if($('diagInputUbicacao')) $('diagInputUbicacao').value = chosen.ubicacao || '';
+            if($('diagInputMin')) $('diagInputMin').value = chosen.min !== undefined ? chosen.min : 0;
+            if($('diagInputMax')) $('diagInputMax').value = chosen.max !== undefined ? chosen.max : 8;
+            showToast(`✓ Selecionado: ${chosen.nome}`);
+          }
         };
       }
-    }, 50);
 
-    const ok = await confirmDialog('🔧 Resolver Registo de Temperatura', modalHtml, 'Guardar e Sincronizar', 'Fechar');
+      const btnReg = $('btnDiagRegisterEquip');
+      if(btnReg){
+        btnReg.onclick = async () => {
+          const idVal = ($('diagInputEquipId') ? $('diagInputEquipId').value.trim() : '') || undefined;
+          const nomeVal = $('diagInputEquipNome') ? $('diagInputEquipNome').value.trim() : '';
+          if(!nomeVal){
+            showToast('Indique o nome do equipamento para registar.', true);
+            return;
+          }
+          const eqToSave = {
+            id: idVal,
+            nome: nomeVal,
+            tipo: data.tipo || 'Frigorifico',
+            ubicacao: ($('diagInputUbicacao') ? $('diagInputUbicacao').value.trim() : '') || 'COZINHA PISO 0',
+            min: Number($('diagInputMin') ? $('diagInputMin').value : 0),
+            max: Number($('diagInputMax') ? $('diagInputMax').value : 8),
+            ativo: 'Sim'
+          };
+          btnReg.disabled = true;
+          btnReg.textContent = 'A registar…';
+          try {
+            showToast('A enviar equipamento para o Google Sheets…');
+            await apiPost({ action: 'saveEquipamento', data: eqToSave }, 25000);
+            showToast(`✓ Equipamento "${nomeVal}" registado no Google Sheets!`);
+            mergeAndPersistEquipamentos([eqToSave]);
+          } catch(errReg){
+            console.warn('Registo de equipamento falhou:', errReg);
+            showToast(`Aviso: ${errReg.message || 'Servidor não permitiu registar'}. Pode associar a um equipamento existente acima.`, true);
+          } finally {
+            btnReg.disabled = false;
+            btnReg.textContent = '➕ Registar Equipamento no Sheets';
+          }
+        };
+      }
+
+      const btnDisc = $('btnDiagDiscardRecord');
+      if(btnDisc){
+        btnDisc.onclick = async () => {
+          const sure = await confirmDialog('🗑️ Descartar Registo', 'Tem a certeza que deseja eliminar este registo local permanentemente?', 'Sim, Eliminar', 'Cancelar');
+          if(sure){
+            syncQuarantine = syncQuarantine.filter(it => it.qid !== activeItem.qid && it.recordId !== activeItem.recordId);
+            persistSyncQuarantine();
+            syncQueue = syncQueue.filter(it => it.qid !== activeItem.qid && it.recordId !== activeItem.recordId);
+            persistSyncQueue();
+            closeModal();
+            showToast('Registo descartado com sucesso.');
+            updateSyncStatusUI();
+            const remain = getSyncFaultItems();
+            if(remain.length > 0){
+              setTimeout(() => openSyncDiagnosticsModal(), 200);
+            } else {
+              triggerSyncQueue(50);
+            }
+          }
+        };
+      }
+    }, 60);
+
+    const ok = await confirmDialog('🛠️ Diagnóstico & Correção de Sincronização', modalHtml, '🚀 Guardar Correção e Sincronizar Agora', 'Fechar');
     if(ok){
-      const sel = $('selectQuarantineEquip');
-      if(sel && sel.value){
-        const chosenId = sel.value;
-        const chosen = equipList.find(e => e.id === chosenId);
-        if(chosen){
-          data.equipamentoId = chosen.id;
-          data.nome = chosen.nome;
-          data.tipo = chosen.tipo || data.tipo;
-          data.ubicacao = chosen.ubicacao || data.ubicacao;
-          syncQuarantine.shift();
-          persistSyncQuarantine();
-          syncQueue.unshift(qItem);
-          persistSyncQueue();
-          showToast('✓ Equipamento associado! A sincronizar com o Google Sheets…');
-          triggerSyncQueue(10);
+      const newEquipId = $('diagInputEquipId') ? $('diagInputEquipId').value.trim() : '';
+      const newEquipNome = $('diagInputEquipNome') ? $('diagInputEquipNome').value.trim() : '';
+      const newValor = $('diagInputValor') ? $('diagInputValor').value.trim() : '';
+      const newFecha = $('diagInputFecha') ? $('diagInputFecha').value.trim() : '';
+      const newHora = $('diagInputHora') ? $('diagInputHora').value.trim() : '';
+      const newObs = $('diagInputObs') ? $('diagInputObs').value.trim() : '';
+      const newUbic = $('diagInputUbicacao') ? $('diagInputUbicacao').value.trim() : '';
+      const newMin = Number($('diagInputMin') ? $('diagInputMin').value : 0);
+      const newMax = Number($('diagInputMax') ? $('diagInputMax').value : 8);
+
+      if(!newEquipNome && !newEquipId){
+        showToast('Erro: É necessário indicar o equipamento.', true);
+        setTimeout(() => openSyncDiagnosticsModal(activeItem.qid), 200);
+        return;
+      }
+
+      if(!activeItem.payload) activeItem.payload = { action: 'save', type: recType, data: {} };
+      if(!activeItem.payload.data) activeItem.payload.data = {};
+      const targetData = activeItem.payload.data;
+
+      targetData.equipamentoId = newEquipId;
+      targetData.nome = newEquipNome;
+      targetData.ubicacao = newUbic || targetData.ubicacao;
+      targetData.temperaturaMin = newMin;
+      targetData.temperaturaMax = newMax;
+      if(newValor !== '') targetData.temperatura = newValor;
+      if(newFecha) targetData.fecha = newFecha;
+      if(newHora) targetData.hora = newHora;
+      if(newObs !== undefined) targetData.observacoes = newObs;
+
+      if(isTemp && newValor !== ''){
+        const numVal = parseFloat(String(newValor).replace(',', '.'));
+        if(!isNaN(numVal)){
+          targetData.dentroIntervalo = (numVal < newMin || numVal > newMax) ? 'Não' : 'Sim';
         }
+      }
+
+      updateLocalRecordData(recType, activeItem.recordId, targetData);
+
+      showToast(`A enviar registo corrigido de "${newEquipNome}" para o Google Sheets…`);
+      try {
+        await apiPost(activeItem.payload, 35000);
+        syncQuarantine = syncQuarantine.filter(it => it.qid !== activeItem.qid && it.recordId !== activeItem.recordId);
+        persistSyncQuarantine();
+        syncQueue = syncQueue.filter(it => it.qid !== activeItem.qid && it.recordId !== activeItem.recordId);
+        persistSyncQueue();
+
+        lastSyncErrorMsg = '';
+        syncAuthPending = false;
+        showToast(`✓ Sucesso! Registo de "${newEquipNome}" (${targetData.temperatura || ''}°C) sincronizado no Google Sheets!`);
+        updateSyncStatusUI();
+
+        const remainFaults = getSyncFaultItems();
+        if(remainFaults.length > 0){
+          setTimeout(() => openSyncDiagnosticsModal(), 300);
+        } else {
+          triggerSyncQueue(50);
+          showToast('✓ 100% dos registos foram sincronizados com sucesso!');
+        }
+      } catch(errResend){
+        console.warn('Envio do registo corrigido ainda falhou:', errResend);
+        activeItem.lastError = errResend.message || String(errResend);
+        if(!syncQuarantine.some(it => it.qid === activeItem.qid)){
+          syncQuarantine.push(activeItem);
+        }
+        persistSyncQuarantine();
+        showToast(`⚠️ O envio ainda foi recusado: ${errResend.message || 'Verifique o equipamento'}. Selecione outro equipamento da lista.`, true);
+        setTimeout(() => openSyncDiagnosticsModal(activeItem.qid), 300);
       }
     }
   }
+
+  const openQuarantineModal = openSyncDiagnosticsModal;
 
   function updateSyncMobileBanner(){
     const banner = $('syncMobileBanner');
     const title = $('syncMobileBannerTitle');
     const desc = $('syncMobileBannerDesc');
     const btn = $('btnSyncMobileAction');
+    const btnSec = $('btnSyncMobileSecondary');
     if(!banner) return;
 
     const count = syncQueue.length;
@@ -4918,13 +5251,36 @@
         btn.textContent = 'A enviar…';
         btn.disabled = true;
       }
-    } else if(count === 0 && qCount > 0){
-      if(title) title.textContent = `✓ Dados sincronizados (${qCount} com aviso de equipamento)`;
-      if(desc) desc.textContent = 'Os restantes dados foram enviados com sucesso. 1 registo requer confirmar o equipamento.';
+      if(btnSec) btnSec.style.display = 'none';
+    } else if(qCount > 0){
+      const firstQ = syncQuarantine[0];
+      const qData = (firstQ.payload && firstQ.payload.data) || {};
+      const equipName = qData.nome || qData.equipamentoId || 'Equipamento';
+      const tempVal = qData.temperatura !== undefined ? ` (${qData.temperatura}°C)` : '';
+
+      if(title) title.textContent = count === 0 
+        ? `⚠️ ${qCount} registo(s) com erro de equipamento para corrigir`
+        : `⚠️ ${qCount} com erro · ${count} por enviar`;
+      if(desc) desc.textContent = count === 0
+        ? `O envio de "${equipName}"${tempVal} falhou no servidor. Corrija o equipamento ou valor para sincronizar a 100%.`
+        : `Os restantes dados continuam a ser enviados. Toque para inspecionar e corrigir o equipamento.`;
+
       if(btn){
-        btn.textContent = 'Resolver Registo';
+        btn.textContent = '🔍 Corrigir Equipamento / Valor';
         btn.disabled = false;
-        btn.onclick = () => openQuarantineModal();
+        btn.onclick = () => openSyncDiagnosticsModal();
+      }
+      if(btnSec){
+        if(count > 0){
+          btnSec.style.display = 'block';
+          btnSec.textContent = `⚡ Sincronizar Restantes (${count})`;
+          btnSec.onclick = () => {
+            showToast('A enviar registos restantes…');
+            triggerSyncQueue(10);
+          };
+        } else {
+          btnSec.style.display = 'none';
+        }
       }
     } else if(syncAuthPending){
       if(title) title.textContent = `⚠️ ${count} registo(s) aguardam validação de PIN`;
@@ -4934,22 +5290,26 @@
         btn.disabled = false;
         btn.onclick = () => openSyncPinModal();
       }
+      if(btnSec) btnSec.style.display = 'none';
     } else if(lastSyncErrorMsg){
       if(title) title.textContent = `⚠️ ${count} registo(s) pendente(s) no telemóvel`;
       if(desc) desc.textContent = `Aviso no envio: ${lastSyncErrorMsg}. Os registos estão guardados no telemóvel.`;
       if(btn){
-        btn.textContent = 'Tentar Novamente';
+        btn.textContent = '🔍 Inspecionar & Corrigir';
         btn.disabled = false;
-        btn.onclick = () => {
+        btn.onclick = () => openSyncDiagnosticsModal();
+      }
+      if(btnSec){
+        btnSec.style.display = 'block';
+        btnSec.textContent = 'Tentar Novamente';
+        btnSec.onclick = () => {
           showToast('A forçar nova tentativa de envio…');
           triggerSyncQueue(10);
         };
       }
     } else {
       if(title) title.textContent = `${count} registo(s) de hoje por sincronizar no telemóvel`;
-      if(desc) desc.textContent = qCount > 0 
-        ? `${qCount} registo(s) com aviso de equipamento isolados. Registos protegidos localmente.`
-        : 'Os registos estão guardados localmente neste dispositivo móvel.';
+      if(desc) desc.textContent = 'Os registos estão guardados localmente neste dispositivo móvel.';
       if(btn){
         btn.textContent = 'Sincronizar Agora';
         btn.disabled = false;
@@ -4958,6 +5318,7 @@
           triggerSyncQueue(10);
         };
       }
+      if(btnSec) btnSec.style.display = 'none';
     }
   }
 
@@ -4999,12 +5360,25 @@
     const count = syncQueue.length;
     const qCount = syncQuarantine.length;
 
+    const chipFault = $('chipSyncFault');
+    const countFault = $('countSyncFault');
+    if(chipFault && countFault){
+      if(qCount > 0){
+        chipFault.style.display = 'inline-flex';
+        countFault.textContent = qCount;
+        chipFault.title = `${qCount} registo(s) com aviso de equipamento. Clique para corrigir agora.`;
+        chipFault.onclick = () => openSyncDiagnosticsModal();
+      } else {
+        chipFault.style.display = 'none';
+      }
+    }
+
     if(count === 0){
       if(qCount > 0){
         chip.className = 'status-chip sync-chip pending';
         if(dot) dot.className = 'sync-dot pending';
-        text.textContent = `Sincronizado (${qCount} aviso)`;
-        chip.title = `${qCount} registo(s) com aviso de equipamento. Clique para resolver.`;
+        text.textContent = `Aviso equip. (${qCount})`;
+        chip.title = `${qCount} registo(s) com aviso de equipamento. Clique para corrigir.`;
       } else {
         chip.className = 'status-chip sync-chip ok';
         if(dot) dot.className = 'sync-dot ok';
@@ -5023,11 +5397,16 @@
       if(dot) dot.className = 'sync-dot pending';
       text.textContent = `PIN Requerido (${count})`;
       chip.title = `${count} registo(s) requerem validação de PIN para sincronizar. Clique para validar.`;
+    } else if(qCount > 0){
+      chip.className = 'status-chip sync-chip pending';
+      if(dot) dot.className = 'sync-dot pending';
+      text.textContent = `${count} pendentes (${qCount} erro) ⚠️`;
+      chip.title = `${count} na fila, ${qCount} com erro de equipamento. Clique para corrigir.`;
     } else if(lastSyncErrorMsg){
       chip.className = 'status-chip sync-chip pending';
       if(dot) dot.className = 'sync-dot pending';
       text.textContent = `${count} pendente${count>1?'s':''} ⚠️`;
-      chip.title = `Último envio falhou: ${lastSyncErrorMsg}. Clique para tentar novamente.`;
+      chip.title = `Último envio falhou: ${lastSyncErrorMsg}. Clique para inspecionar.`;
     } else {
       chip.className = 'status-chip sync-chip pending';
       if(dot) dot.className = 'sync-dot pending';
@@ -5090,20 +5469,26 @@
 
           if(err && err.auth){
             syncAuthPending = true;
-            // Tentar recuperar token genuíno com o cofre de credenciais
             const recovered = await attemptSilentReauth();
             if(recovered){
               syncAuthPending = false;
-              continue; // Tentar de novo o envio imediato com o novo token
+              continue;
             }
             showToast('⚠️ A sessão no telemóvel expirou. Introduza o PIN para sincronizar os dados.', true);
-            break; // Parar até revalidação do PIN
+            break;
           }
 
           const errMsg = String(item.lastError || '').toLowerCase();
-          const isEquipNotFound = errMsg.includes('equipamento não encontrado') || errMsg.includes('equipamento nao encontrado');
+          const errCode = String(err && (err.code || '')).toUpperCase();
+          const isEquipNotFound = errMsg.includes('equipamento não encontrado') || 
+                                  errMsg.includes('equipamento nao encontrado') || 
+                                  errMsg.includes('equipo no encontrado') || 
+                                  errMsg.includes('equipo nao encontrado') ||
+                                  errMsg.includes('código de equipamento') ||
+                                  errMsg.includes('identificador') ||
+                                  errCode === 'NOT_FOUND';
 
-          // 1. TENTATIVA DE AUTO-CURA DO EQUIPAMENTO
+          // 1. TENTATIVA COM EQUIPAMENTO CANÓNICO OFICIAL DO HOTEL
           if(isEquipNotFound && !item._equipHealAttempted && item.type === 'temperatura'){
             item._equipHealAttempted = true;
             const tempRecord = item.payload && item.payload.data;
@@ -5113,46 +5498,50 @@
               const canonical = (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(eqId, eqName, tempRecord.ubicacao, tempRecord.tipo) : null) ||
                 (Array.isArray(equipamentos) ? equipamentos.find(e => e.id === eqId || (eqName && e.nome && e.nome.toLowerCase() === eqName.toLowerCase())) : null);
 
-              const equipToSave = canonical ? Object.assign({}, canonical) : {
-                id: eqId || ('eq_' + Date.now()),
-                nome: eqName || eqId || 'Equipamento Refrigeração',
-                tipo: tempRecord.tipo || 'Frigorifico',
-                ubicacao: tempRecord.ubicacao || 'COZINHA PISO 0',
-                min: tempRecord.temperaturaMin !== undefined ? Number(tempRecord.temperaturaMin) : 0,
-                max: tempRecord.temperaturaMax !== undefined ? Number(tempRecord.temperaturaMax) : 8,
-                ativo: 'Sim'
-              };
-
-              try {
-                console.log('A tentar auto-registar equipamento no Google Sheets:', equipToSave);
-                await apiPost({ action: 'saveEquipamento', data: equipToSave }, 25000);
-                // Sucesso ao registar o equipamento no servidor!
-                item.payload.data.equipamentoId = equipToSave.id;
-                item.payload.data.nome = equipToSave.nome;
-                await apiPost(item.payload, 35000);
-                syncQueue.shift();
-                persistSyncQueue();
-                syncAuthPending = false;
-                lastSyncErrorMsg = '';
-                showToast(`✓ Equipamento "${equipToSave.nome}" auto-registado e leitura enviada!`);
-                continue; // Sucesso com auto-cura! Segue em frente para os próximos registos!
-              } catch(eHeal){
-                console.warn('Tentativa de auto-criação de equipamento falhou:', eHeal);
+              if(canonical){
+                tempRecord.equipamentoId = canonical.id;
+                tempRecord.nome = canonical.nome;
+                tempRecord.tipo = canonical.tipo || tempRecord.tipo;
+                tempRecord.ubicacao = canonical.ubicacao || tempRecord.ubicacao;
+                try {
+                  console.log('A tentar envio com equipamento canónico oficial:', canonical);
+                  await apiPost(item.payload, 35000);
+                  syncQueue.shift();
+                  persistSyncQueue();
+                  syncAuthPending = false;
+                  lastSyncErrorMsg = '';
+                  showToast(`✓ Leitura de "${canonical.nome}" associada e sincronizada!`);
+                  continue;
+                } catch(eCanon){
+                  console.warn('Tentativa com equipamento canónico falhou:', eCanon);
+                }
               }
             }
           }
 
-          // 2. ERROS DE VALIDAÇÃO/DADOS NÃO DEVEM BLOQUEAR A FILA RESTANTE!
-          const isPermanentDataError = isEquipNotFound || errMsg.includes('inválido') || errMsg.includes('invalido') || (err && err.code === 'VALIDATION');
+          // 2. ISOLAMENTO TOTAL DE ERROS DE DADOS E EQUIPAMENTO PARA NUNCA BLOQUEAR OS RESTANTES REGISTOS!
+          const isPermanentDataError = isEquipNotFound || 
+                                       errMsg.includes('inválido') || 
+                                       errMsg.includes('invalido') || 
+                                       errMsg.includes('inativo') || 
+                                       errMsg.includes('inactivo') || 
+                                       errMsg.includes('não encontrado') || 
+                                       errMsg.includes('nao encontrado') || 
+                                       errMsg.includes('not found') || 
+                                       errCode === 'VALIDATION' || 
+                                       errCode === 'CONFLICT' ||
+                                       errCode === 'NOT_FOUND' ||
+                                       (item.attempts && item.attempts >= 2);
+
           if(isPermanentDataError){
             quarantineItem(item, item.lastError);
             syncQueue.shift();
             persistSyncQueue();
-            showToast(`⚠️ Registo de "${item.type}" isolado com aviso de equipamento. A sincronizar registos restantes…`);
-            continue; // CONTINUA O LOOP PARA SINCRONIZAR TODOS OS RESTANTES REGISTOS!
+            const recName = (item.payload && item.payload.data && (item.payload.data.nome || item.payload.data.equipamentoId)) || item.type;
+            showToast(`⚠️ Registo de "${recName}" isolado para correção. A sincronizar registos restantes…`);
+            continue; // CONTINUA O LOOP PARA SINCRONIZAR 100% DOS RESTANTES REGISTOS!
           }
 
-          // Agendar nova tentativa com backoff exponencial suave
           const backoff = Math.min(30000, 2500 * Math.pow(1.5, Math.min(item.attempts, 5)));
           triggerSyncQueue(backoff);
           break;
@@ -5163,9 +5552,9 @@
         syncAuthPending = false;
         lastSyncErrorMsg = '';
         if(syncQuarantine.length > 0){
-          showToast(`✓ Registos sincronizados! ${syncQuarantine.length} registo(s) com aviso de equipamento isolados.`);
+          showToast(`✓ Registos restantes sincronizados! ${syncQuarantine.length} registo(s) com erro de equipamento precisam da sua correção.`);
         } else {
-          showToast('✓ Sincronização concluída! Todos os registos foram enviados para o Google Sheets.');
+          showToast('✓ Sincronização a 100% concluída! Todos os registos foram enviados para o Google Sheets.');
         }
       }
     }finally{
@@ -21387,8 +21776,8 @@
     syncChipEl.addEventListener('click', () => {
       if(syncAuthPending){
         openSyncPinModal();
-      } else if(syncQueue.length === 0 && syncQuarantine.length > 0){
-        openQuarantineModal();
+      } else if(syncQuarantine.length > 0 || lastSyncErrorMsg || syncQueue.some(i => i.lastError)){
+        openSyncDiagnosticsModal();
       } else {
         forceSyncAll(false);
       }
@@ -21398,11 +21787,22 @@
         e.preventDefault();
         if(syncAuthPending){
           openSyncPinModal();
-        } else if(syncQueue.length === 0 && syncQuarantine.length > 0){
-          openQuarantineModal();
+        } else if(syncQuarantine.length > 0 || lastSyncErrorMsg || syncQueue.some(i => i.lastError)){
+          openSyncDiagnosticsModal();
         } else {
           forceSyncAll(false);
         }
+      }
+    });
+  }
+
+  const chipSyncFaultEl = $('chipSyncFault');
+  if(chipSyncFaultEl){
+    chipSyncFaultEl.addEventListener('click', () => openSyncDiagnosticsModal());
+    chipSyncFaultEl.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        openSyncDiagnosticsModal();
       }
     });
   }

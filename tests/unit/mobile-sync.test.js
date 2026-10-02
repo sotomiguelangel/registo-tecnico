@@ -64,4 +64,14 @@ describe('Mobile Sync & Date Normalization Resilience', () => {
         assert.strictEqual(normalizeDate('01/10/2026'), '2026-10-01');
         assert.strictEqual(normalizeDate('2026-10-01'), '2026-10-01');
     });
+
+    test('index.html provides Mobile Sync Diagnostics and Equipment Correction routine', () => {
+        const html = fs.readFileSync('index.html', 'utf8');
+        assert.ok(html.includes('openSyncDiagnosticsModal'), 'Should have openSyncDiagnosticsModal routine');
+        assert.ok(html.includes('getSyncFaultItems'), 'Should have getSyncFaultItems helper');
+        assert.ok(html.includes('chipSyncFault'), 'Should have chipSyncFault status chip');
+        assert.ok(html.includes('diagSelectEquip'), 'Should include official equipment selector');
+        assert.ok(html.includes('btnDiagRegisterEquip'), 'Should include button to register equipment in Google Sheets');
+        assert.ok(html.includes('Guardar Correção e Sincronizar Agora'), 'Should have action to save correction and sync');
+    });
 });
