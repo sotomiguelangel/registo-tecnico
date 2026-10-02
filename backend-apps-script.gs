@@ -13347,6 +13347,30 @@ function prepareTemperaturaRecord(
     );
 
   if (!equipment) {
+    var rawEquipName = trimText(merged.nome || merged.equipamento || merged.equipamentoId, 80);
+    if (rawEquipName) {
+      try {
+        var autoEq = {
+          id: safeString(merged.equipamentoId || '').trim() || undefined,
+          nome: rawEquipName,
+          tipo: safeString(merged.tipo || 'Frigorifico').trim(),
+          ubicacao: safeString(merged.ubicacao || 'COZINHA PISO 0').trim(),
+          min: merged.temperaturaMin !== undefined ? Number(merged.temperaturaMin) : 0,
+          max: merged.temperaturaMax !== undefined ? Number(merged.temperaturaMax) : 8,
+          ativo: 'Sim'
+        };
+        var createResult = repositoryCreate('equipamento', autoEq, { idPrefix: 'eq' });
+        if (createResult && createResult.record) {
+          equipment = createResult.record;
+          invalidateEquipCache();
+        }
+      } catch(eAuto) {
+        console.warn('Auto-criação de equipamento falhou: ' + eAuto);
+      }
+    }
+  }
+
+  if (!equipment) {
     throw apiError(
       API_ERROR_CODES.NOT_FOUND,
       'Equipamento não encontrado — verifique o nome ou identificador'

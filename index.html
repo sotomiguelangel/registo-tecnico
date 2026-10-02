@@ -4660,13 +4660,40 @@
 
   // ---------- Fila de Sincronização em Segundo Plano (Local-First / Resiliente) ----------
   const SYNC_QUEUE_KEY = 'bitacora_sync_queue';
+  const SYNC_QUARANTINE_KEY = 'bitacora_sync_quarantine';
   let syncQueue = [];
+  let syncQuarantine = [];
   let isSyncingQueue = false;
   let syncTimer = null;
   let syncAuthPending = false;
   let lastSyncErrorMsg = '';
   let syncTotalInitial = 0;
   let syncCurrentSent = 0;
+
+  function loadSyncQuarantine(){
+    try{
+      const raw = localStorage.getItem(SYNC_QUARANTINE_KEY);
+      syncQuarantine = raw ? JSON.parse(raw) : [];
+      if(!Array.isArray(syncQuarantine)) syncQuarantine = [];
+    }catch(e){
+      syncQuarantine = [];
+    }
+  }
+
+  function persistSyncQuarantine(){
+    try{
+      localStorage.setItem(SYNC_QUARANTINE_KEY, JSON.stringify(syncQuarantine));
+    }catch(e){}
+    updateSyncStatusUI();
+    updateSyncMobileBanner();
+  }
+
+  function quarantineItem(item, reason){
+    item.quarantinedAt = Date.now();
+    item.quarantineReason = reason || 'Equipamento não encontrado no Google Sheets';
+    syncQuarantine.push(item);
+    persistSyncQuarantine();
+  }
 
   async function attemptSilentReauth(){
     try{
@@ -4783,6 +4810,86 @@
     }
   }
 
+  async function openQuarantineModal(){
+    loadSyncQuarantine();
+    if(!syncQuarantine.length){
+      showToast('Não existem registos em quarentena.');
+      return;
+    }
+    const qItem = syncQuarantine[0];
+    const data = (qItem.payload && qItem.payload.data) || {};
+    const count = syncQuarantine.length;
+
+    const equipList = Array.isArray(equipamentos) && equipamentos.length ? equipamentos : DEFAULT_HOTEL_EQUIPAMENTOS;
+    let equipOptionsHtml = equipList.map(e => {
+      const isSel = (e.id === data.equipamentoId || e.nome === data.nome) ? 'selected' : '';
+      return `<option value="${esc(e.id)}" ${isSel}>${esc(e.id)} — ${esc(e.nome)} (${esc(e.ubicacao || '')})</option>`;
+    }).join('');
+
+    const modalHtml = `
+      <div style="font-size:13px; line-height:1.6; text-align:left;">
+        <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:10px; padding:10px 14px; margin-bottom:12px; color:#be123c;">
+          <b>⚠️ Registo com Aviso de Equipamento</b>
+          <p style="margin:4px 0 0; font-size:12px;">
+            ${esc(qItem.quarantineReason || 'Equipamento não encontrado no Google Sheets.')}
+          </p>
+        </div>
+        <div style="background:var(--paper); padding:10px 12px; border-radius:8px; border:1px solid var(--line); margin-bottom:12px; font-size:12.5px;">
+          📅 <b>Data:</b> ${esc(data.fecha || 'Hoje')} às ${esc(data.hora || '--:--')}<br>
+          🌡️ <b>Temperatura:</b> <b>${esc(data.temperatura || '--')} °C</b><br>
+          🔍 <b>Nome enviado:</b> <i>${esc(data.nome || data.equipamentoId || 'Desconhecido')}</i>
+        </div>
+        <label class="field" style="margin-bottom:12px; display:block;">
+          <span class="lbl" style="font-weight:600; display:block; margin-bottom:6px;">Associar a equipamento válido do hotel:</span>
+          <select id="selectQuarantineEquip" style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line); font-size:13px;">
+            ${equipOptionsHtml}
+          </select>
+        </label>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+          <button type="button" id="btnDiscardQuarantineItem" style="background:#fee2e2; color:#b91c1c; border:none; padding:7px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+            🗑️ Descartar este registo
+          </button>
+          <span style="font-size:11px; color:var(--ink-400);">Restam ${count} registo(s)</span>
+        </div>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const btnDiscard = $('btnDiscardQuarantineItem');
+      if(btnDiscard){
+        btnDiscard.onclick = () => {
+          syncQuarantine.shift();
+          persistSyncQuarantine();
+          closeModal();
+          showToast('Registo descartado.');
+          updateSyncStatusUI();
+          if(syncQuarantine.length > 0) openQuarantineModal();
+        };
+      }
+    }, 50);
+
+    const ok = await confirmDialog('🔧 Resolver Registo de Temperatura', modalHtml, 'Guardar e Sincronizar', 'Fechar');
+    if(ok){
+      const sel = $('selectQuarantineEquip');
+      if(sel && sel.value){
+        const chosenId = sel.value;
+        const chosen = equipList.find(e => e.id === chosenId);
+        if(chosen){
+          data.equipamentoId = chosen.id;
+          data.nome = chosen.nome;
+          data.tipo = chosen.tipo || data.tipo;
+          data.ubicacao = chosen.ubicacao || data.ubicacao;
+          syncQuarantine.shift();
+          persistSyncQuarantine();
+          syncQueue.unshift(qItem);
+          persistSyncQueue();
+          showToast('✓ Equipamento associado! A sincronizar com o Google Sheets…');
+          triggerSyncQueue(10);
+        }
+      }
+    }
+  }
+
   function updateSyncMobileBanner(){
     const banner = $('syncMobileBanner');
     const title = $('syncMobileBannerTitle');
@@ -4791,7 +4898,9 @@
     if(!banner) return;
 
     const count = syncQueue.length;
-    if(count === 0){
+    const qCount = syncQuarantine.length;
+
+    if(count === 0 && qCount === 0){
       banner.style.display = 'none';
       return;
     }
@@ -4808,6 +4917,14 @@
       if(btn){
         btn.textContent = 'A enviar…';
         btn.disabled = true;
+      }
+    } else if(count === 0 && qCount > 0){
+      if(title) title.textContent = `✓ Dados sincronizados (${qCount} com aviso de equipamento)`;
+      if(desc) desc.textContent = 'Os restantes dados foram enviados com sucesso. 1 registo requer confirmar o equipamento.';
+      if(btn){
+        btn.textContent = 'Resolver Registo';
+        btn.disabled = false;
+        btn.onclick = () => openQuarantineModal();
       }
     } else if(syncAuthPending){
       if(title) title.textContent = `⚠️ ${count} registo(s) aguardam validação de PIN`;
@@ -4830,7 +4947,9 @@
       }
     } else {
       if(title) title.textContent = `${count} registo(s) de hoje por sincronizar no telemóvel`;
-      if(desc) desc.textContent = 'Os registos estão guardados localmente neste dispositivo móvel.';
+      if(desc) desc.textContent = qCount > 0 
+        ? `${qCount} registo(s) com aviso de equipamento isolados. Registos protegidos localmente.`
+        : 'Os registos estão guardados localmente neste dispositivo móvel.';
       if(btn){
         btn.textContent = 'Sincronizar Agora';
         btn.disabled = false;
@@ -4850,6 +4969,7 @@
     }catch(e){
       syncQueue = [];
     }
+    loadSyncQuarantine();
   }
 
   function persistSyncQueue(){
@@ -4877,11 +4997,20 @@
     if(!chip || !text) return;
 
     const count = syncQueue.length;
+    const qCount = syncQuarantine.length;
+
     if(count === 0){
-      chip.className = 'status-chip sync-chip ok';
-      if(dot) dot.className = 'sync-dot ok';
-      text.textContent = 'Sincronizado ✓';
-      chip.title = 'Todos os registos estão sincronizados com o Google Sheets.';
+      if(qCount > 0){
+        chip.className = 'status-chip sync-chip pending';
+        if(dot) dot.className = 'sync-dot pending';
+        text.textContent = `Sincronizado (${qCount} aviso)`;
+        chip.title = `${qCount} registo(s) com aviso de equipamento. Clique para resolver.`;
+      } else {
+        chip.className = 'status-chip sync-chip ok';
+        if(dot) dot.className = 'sync-dot ok';
+        text.textContent = 'Sincronizado ✓';
+        chip.title = 'Todos os registos estão sincronizados com o Google Sheets.';
+      }
     } else if(isSyncingQueue){
       chip.className = 'status-chip sync-chip syncing';
       if(dot) dot.className = 'sync-dot syncing';
@@ -4971,6 +5100,58 @@
             break; // Parar até revalidação do PIN
           }
 
+          const errMsg = String(item.lastError || '').toLowerCase();
+          const isEquipNotFound = errMsg.includes('equipamento não encontrado') || errMsg.includes('equipamento nao encontrado');
+
+          // 1. TENTATIVA DE AUTO-CURA DO EQUIPAMENTO
+          if(isEquipNotFound && !item._equipHealAttempted && item.type === 'temperatura'){
+            item._equipHealAttempted = true;
+            const tempRecord = item.payload && item.payload.data;
+            if(tempRecord){
+              const eqId = tempRecord.equipamentoId;
+              const eqName = tempRecord.nome || tempRecord.equipamento;
+              const canonical = (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(eqId, eqName, tempRecord.ubicacao, tempRecord.tipo) : null) ||
+                (Array.isArray(equipamentos) ? equipamentos.find(e => e.id === eqId || (eqName && e.nome && e.nome.toLowerCase() === eqName.toLowerCase())) : null);
+
+              const equipToSave = canonical ? Object.assign({}, canonical) : {
+                id: eqId || ('eq_' + Date.now()),
+                nome: eqName || eqId || 'Equipamento Refrigeração',
+                tipo: tempRecord.tipo || 'Frigorifico',
+                ubicacao: tempRecord.ubicacao || 'COZINHA PISO 0',
+                min: tempRecord.temperaturaMin !== undefined ? Number(tempRecord.temperaturaMin) : 0,
+                max: tempRecord.temperaturaMax !== undefined ? Number(tempRecord.temperaturaMax) : 8,
+                ativo: 'Sim'
+              };
+
+              try {
+                console.log('A tentar auto-registar equipamento no Google Sheets:', equipToSave);
+                await apiPost({ action: 'saveEquipamento', data: equipToSave }, 25000);
+                // Sucesso ao registar o equipamento no servidor!
+                item.payload.data.equipamentoId = equipToSave.id;
+                item.payload.data.nome = equipToSave.nome;
+                await apiPost(item.payload, 35000);
+                syncQueue.shift();
+                persistSyncQueue();
+                syncAuthPending = false;
+                lastSyncErrorMsg = '';
+                showToast(`✓ Equipamento "${equipToSave.nome}" auto-registado e leitura enviada!`);
+                continue; // Sucesso com auto-cura! Segue em frente para os próximos registos!
+              } catch(eHeal){
+                console.warn('Tentativa de auto-criação de equipamento falhou:', eHeal);
+              }
+            }
+          }
+
+          // 2. ERROS DE VALIDAÇÃO/DADOS NÃO DEVEM BLOQUEAR A FILA RESTANTE!
+          const isPermanentDataError = isEquipNotFound || errMsg.includes('inválido') || errMsg.includes('invalido') || (err && err.code === 'VALIDATION');
+          if(isPermanentDataError){
+            quarantineItem(item, item.lastError);
+            syncQueue.shift();
+            persistSyncQueue();
+            showToast(`⚠️ Registo de "${item.type}" isolado com aviso de equipamento. A sincronizar registos restantes…`);
+            continue; // CONTINUA O LOOP PARA SINCRONIZAR TODOS OS RESTANTES REGISTOS!
+          }
+
           // Agendar nova tentativa com backoff exponencial suave
           const backoff = Math.min(30000, 2500 * Math.pow(1.5, Math.min(item.attempts, 5)));
           triggerSyncQueue(backoff);
@@ -4981,7 +5162,11 @@
       if(syncQueue.length === 0){
         syncAuthPending = false;
         lastSyncErrorMsg = '';
-        showToast('✓ Sincronização concluída! Todos os registos foram enviados para o Google Sheets.');
+        if(syncQuarantine.length > 0){
+          showToast(`✓ Registos sincronizados! ${syncQuarantine.length} registo(s) com aviso de equipamento isolados.`);
+        } else {
+          showToast('✓ Sincronização concluída! Todos os registos foram enviados para o Google Sheets.');
+        }
       }
     }finally{
       isSyncingQueue = false;
@@ -21181,7 +21366,11 @@
       else if(currentView === 'pedidos') renderPedidosView();
 
       if(syncQueue.length === 0){
-        if(!silent) showToast('Sincronização completa com a folha Google Sheets ✓');
+        if(syncQuarantine.length > 0){
+          if(!silent) showToast(`Sincronização concluída com ${syncQuarantine.length} registo(s) com aviso de equipamento.`);
+        } else {
+          if(!silent) showToast('Sincronização completa com a folha Google Sheets ✓');
+        }
       } else if(syncAuthPending){
         if(!silent) showToast('Atenção: Introduza o seu PIN para enviar os registos pendentes.', true);
         openSyncPinModal();
@@ -21198,6 +21387,8 @@
     syncChipEl.addEventListener('click', () => {
       if(syncAuthPending){
         openSyncPinModal();
+      } else if(syncQueue.length === 0 && syncQuarantine.length > 0){
+        openQuarantineModal();
       } else {
         forceSyncAll(false);
       }
@@ -21207,6 +21398,8 @@
         e.preventDefault();
         if(syncAuthPending){
           openSyncPinModal();
+        } else if(syncQueue.length === 0 && syncQuarantine.length > 0){
+          openQuarantineModal();
         } else {
           forceSyncAll(false);
         }
