@@ -4469,8 +4469,11 @@
       if(!usuario || !userObj) return;
       const vault = JSON.parse(localStorage.getItem('bitacora_auth_vault') || '{}');
       const norm = String(usuario).trim().toLowerCase();
+      const existingPin = vault[norm] && vault[norm].pin ? vault[norm].pin : '';
+      const fallbackPin = userObj && userObj.pin ? String(userObj.pin).trim() : '';
+      const resolvedPin = (pin && String(pin).trim()) || existingPin || fallbackPin;
       vault[norm] = {
-        pin: pin ? String(pin).trim() : (vault[norm] ? vault[norm].pin : ''),
+        pin: resolvedPin,
         user: userObj,
         savedAt: Date.now()
       };
@@ -4615,6 +4618,7 @@
     if (isOffline || isNetworkErr) {
       const localMatch = findLocalUserMatch(normUser, normPin);
       if (localMatch) {
+        saveToAuthVault(normUser, normPin, localMatch);
         const offlineToken = 'offline_' + Math.random().toString(36).slice(2) + '_' + Date.now();
         try {
           localStorage.setItem('sessionToken', offlineToken);
@@ -4659,6 +4663,10 @@
   let syncQueue = [];
   let isSyncingQueue = false;
   let syncTimer = null;
+  let syncAuthPending = false;
+  let lastSyncErrorMsg = '';
+  let syncTotalInitial = 0;
+  let syncCurrentSent = 0;
 
   async function attemptSilentReauth(){
     try{
@@ -4696,6 +4704,8 @@
           localStorage.setItem('bitacora_token', json.token);
           localStorage.setItem('bitacora_session_token', json.token);
         }catch(e){}
+        syncAuthPending = false;
+        lastSyncErrorMsg = '';
         console.log('Reautenticação silenciosa bem-sucedida para o utilizador:', username);
         return true;
       }
@@ -4705,24 +4715,70 @@
     return false;
   }
 
-  function showSyncPendingAuthAlert(){
-    const banner = $('syncMobileBanner');
-    const title = $('syncMobileBannerTitle');
-    const desc = $('syncMobileBannerDesc');
-    const btn = $('btnSyncMobileAction');
-    if(banner){
-      banner.style.display = 'block';
-      if(title) title.textContent = `Atenção: ${syncQueue.length} registo(s) aguardam validação de PIN`;
-      if(desc) desc.textContent = 'Os dados carregados no telemóvel estão salvaguardados mas requerem revalidação para envio à folha Google Sheets.';
-      if(btn){
-        btn.textContent = 'Introduzir PIN e Sincronizar';
-        btn.onclick = () => {
-          if(typeof promptForPinUnlock === 'function'){
-            promptForPinUnlock();
-          } else if($('btnLockScreen')){
-            $('lockScreen').classList.add('show');
+  async function openSyncPinModal(){
+    const user = currentUser || recallUser();
+    const username = (user && (user.usuario || user.nome || user.nombre)) || 'Técnico';
+    const count = syncQueue.length;
+
+    const modalHtml = `
+      <div style="font-size:13.5px; line-height:1.6; text-align:left;">
+        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:10px 14px; margin-bottom:12px; color:#9a3412;">
+          <b>⚠️ Revalidação de Sessão para Sincronização</b>
+          <p style="margin:4px 0 0; font-size:12.5px;">
+            Existem <b>${count} registo(s)</b> guardados com segurança no seu telemóvel aguardando validação para envio à folha Google Sheets.
+          </p>
+        </div>
+        <div style="background:var(--paper); padding:10px 14px; border-radius:10px; border:1px solid var(--line); margin-bottom:12px; font-size:13px; font-weight:600; color:var(--petrol-900);">
+          👤 Utilizador: <b>${esc(username)}</b>
+        </div>
+        <label class="field" style="margin-bottom:12px; display:block;">
+          <span class="lbl" style="font-weight:600; display:block; margin-bottom:6px;">Introduza o seu PIN de 4 dígitos:</span>
+          <input type="password" id="inputSyncPin" inputmode="numeric" pattern="[0-9]*" placeholder="••••" maxlength="8" style="width:100%; font-size:22px; letter-spacing:6px; text-align:center; padding:10px; border-radius:8px; border:2px solid var(--aqua-500); font-family:var(--mono);">
+        </label>
+        <p style="font-size:11.5px; color:var(--ink-400); margin:0;">
+          Os dados carregados hoje no dispositivo não serão perdidos e serão enviados logo após a validação.
+        </p>
+      </div>
+    `;
+
+    setTimeout(() => {
+      const pinInput = $('inputSyncPin');
+      if(pinInput) {
+        pinInput.focus();
+        pinInput.addEventListener('keydown', (e) => {
+          if(e.key === 'Enter') {
+            const btn = document.querySelector('.modal-btn-confirm');
+            if(btn) btn.click();
           }
-        };
+        });
+      }
+    }, 60);
+
+    const ok = await confirmDialog('🔑 Validar PIN e Sincronizar', modalHtml, 'Validar e Sincronizar', 'Cancelar');
+    if(ok){
+      const pinInput = $('inputSyncPin');
+      const pin = pinInput ? pinInput.value.trim() : '';
+      if(!pin){
+        showToast('PIN não introduzido. Os registos permanecem guardados localmente.');
+        return;
+      }
+
+      showToast('A validar PIN e a enviar registos pendentes…');
+      try {
+        const sesion = await iniciarSesion(username, pin);
+        if(sesion && sesion.token){
+          setToken(sesion.token);
+          saveToAuthVault(username, pin, sesion.user || user);
+          syncAuthPending = false;
+          lastSyncErrorMsg = '';
+          showToast('✓ Sessão revalidada! A sincronizar com o Google Sheets…');
+          updateSyncStatusUI();
+          triggerSyncQueue(10);
+        }
+      } catch(err) {
+        showToast('Falha na validação: ' + (err.message || 'PIN incorreto'), true);
+        syncAuthPending = true;
+        updateSyncStatusUI();
       }
     }
   }
@@ -4741,12 +4797,36 @@
     }
 
     banner.style.display = 'block';
+
     if(isSyncingQueue){
-      if(title) title.textContent = `A sincronizar ${count} registo(s) com o Google Sheets…`;
-      if(desc) desc.textContent = 'A enviar os dados carregados no telemóvel em segundo plano.';
+      const sentNum = Math.min(syncCurrentSent, syncTotalInitial || count);
+      const totalNum = syncTotalInitial || count;
+      if(title) title.textContent = totalNum > 1 
+        ? `A sincronizar: registo ${sentNum} de ${totalNum} com o Google Sheets…`
+        : `A enviar registo para o Google Sheets…`;
+      if(desc) desc.textContent = 'A transmitir dados em segundo plano… Por favor aguarde.';
       if(btn){
         btn.textContent = 'A enviar…';
         btn.disabled = true;
+      }
+    } else if(syncAuthPending){
+      if(title) title.textContent = `⚠️ ${count} registo(s) aguardam validação de PIN`;
+      if(desc) desc.textContent = 'A sessão no telemóvel expirou. Introduza o PIN para enviar os dados para o Google Sheets.';
+      if(btn){
+        btn.textContent = 'Validar PIN e Enviar';
+        btn.disabled = false;
+        btn.onclick = () => openSyncPinModal();
+      }
+    } else if(lastSyncErrorMsg){
+      if(title) title.textContent = `⚠️ ${count} registo(s) pendente(s) no telemóvel`;
+      if(desc) desc.textContent = `Aviso no envio: ${lastSyncErrorMsg}. Os registos estão guardados no telemóvel.`;
+      if(btn){
+        btn.textContent = 'Tentar Novamente';
+        btn.disabled = false;
+        btn.onclick = () => {
+          showToast('A forçar nova tentativa de envio…');
+          triggerSyncQueue(10);
+        };
       }
     } else {
       if(title) title.textContent = `${count} registo(s) de hoje por sincronizar no telemóvel`;
@@ -4755,8 +4835,8 @@
         btn.textContent = 'Sincronizar Agora';
         btn.disabled = false;
         btn.onclick = () => {
-          triggerSyncQueue(10);
           showToast('A forçar sincronização imediata…');
+          triggerSyncQueue(10);
         };
       }
     }
@@ -4805,8 +4885,20 @@
     } else if(isSyncingQueue){
       chip.className = 'status-chip sync-chip syncing';
       if(dot) dot.className = 'sync-dot syncing';
-      text.textContent = `A sincronizar (${count})…`;
+      const sentNum = Math.min(syncCurrentSent, syncTotalInitial || count);
+      const totalNum = syncTotalInitial || count;
+      text.textContent = totalNum > 1 ? `A sincronizar (${sentNum}/${totalNum})…` : `A sincronizar…`;
       chip.title = `A enviar ${count} registo(s) para o Google Sheets em segundo plano…`;
+    } else if(syncAuthPending){
+      chip.className = 'status-chip sync-chip pending';
+      if(dot) dot.className = 'sync-dot pending';
+      text.textContent = `PIN Requerido (${count})`;
+      chip.title = `${count} registo(s) requerem validação de PIN para sincronizar. Clique para validar.`;
+    } else if(lastSyncErrorMsg){
+      chip.className = 'status-chip sync-chip pending';
+      if(dot) dot.className = 'sync-dot pending';
+      text.textContent = `${count} pendente${count>1?'s':''} ⚠️`;
+      chip.title = `Último envio falhou: ${lastSyncErrorMsg}. Clique para tentar novamente.`;
     } else {
       chip.className = 'status-chip sync-chip pending';
       if(dot) dot.className = 'sync-dot pending';
@@ -4826,12 +4918,16 @@
   async function processSyncQueue(){
     if(isSyncingQueue) return;
     if(!syncQueue.length){
+      syncAuthPending = false;
+      lastSyncErrorMsg = '';
       updateSyncStatusUI();
       return;
     }
     if(!API_URL || API_URL.indexOf('http') !== 0) return;
 
     isSyncingQueue = true;
+    syncTotalInitial = syncQueue.length;
+    syncCurrentSent = 0;
     updateSyncStatusUI();
 
     try{
@@ -4843,11 +4939,16 @@
 
       while(syncQueue.length > 0){
         const item = syncQueue[0];
+        syncCurrentSent++;
+        updateSyncStatusUI();
+
         try{
           await apiPost(item.payload, 35000);
           // Enviado com sucesso: remove da fila e persiste
           syncQueue.shift();
           persistSyncQueue();
+          syncAuthPending = false;
+          lastSyncErrorMsg = '';
           try {
             window.dispatchEvent(new Event('storage'));
           } catch(e){}
@@ -4855,15 +4956,18 @@
           console.warn('Tentativa de sincronização falhada para item:', item, err);
           item.attempts = (item.attempts || 0) + 1;
           item.lastError = err.message || String(err);
+          lastSyncErrorMsg = err.message || String(err);
           persistSyncQueue();
 
           if(err && err.auth){
+            syncAuthPending = true;
             // Tentar recuperar token genuíno com o cofre de credenciais
             const recovered = await attemptSilentReauth();
             if(recovered){
+              syncAuthPending = false;
               continue; // Tentar de novo o envio imediato com o novo token
             }
-            showSyncPendingAuthAlert();
+            showToast('⚠️ A sessão no telemóvel expirou. Introduza o PIN para sincronizar os dados.', true);
             break; // Parar até revalidação do PIN
           }
 
@@ -4872,6 +4976,12 @@
           triggerSyncQueue(backoff);
           break;
         }
+      }
+
+      if(syncQueue.length === 0){
+        syncAuthPending = false;
+        lastSyncErrorMsg = '';
+        showToast('✓ Sincronização concluída! Todos os registos foram enviados para o Google Sheets.');
       }
     }finally{
       isSyncingQueue = false;
@@ -6302,11 +6412,20 @@
       resetIdleTimer();
       showToast('Sessão desbloqueada ✓');
 
-      // Revalidação em segundo plano sem prender o técnico e sem desconectar em caso de erro transitório
+      saveToAuthVault((currentUser && currentUser.usuario) || normUser, pin, localMatch || currentUser);
+      syncAuthPending = false;
+      lastSyncErrorMsg = '';
+
+      // Revalidação em segundo plano sem prender o técnico e disparo imediato da sincronização
       if (currentUser && currentUser.usuario) {
         llamarApi({ action:'login', usuario: currentUser.usuario, pin }).then(r => {
           if (r && r.ok && r.token) setToken(r.token);
-        }).catch(()=>{});
+          triggerSyncQueue(10);
+        }).catch(()=>{
+          triggerSyncQueue(50);
+        });
+      } else {
+        triggerSyncQueue(50);
       }
       return;
     }
@@ -6321,11 +6440,14 @@
         rememberUser(currentUser);
         saveToAuthVault(currentUser.usuario, pin, currentUser);
       }
+      syncAuthPending = false;
+      lastSyncErrorMsg = '';
       isAppLocked = false;
       $('lockScreen').classList.remove('show');
       $('lock-pin').value = '';
       resetIdleTimer();
       showToast('Sessão desbloqueada ✓');
+      triggerSyncQueue(10);
     }catch(e){
       $('lockHint').textContent = e.message || 'PIN incorreto.';
     }finally{
@@ -21030,6 +21152,12 @@
 
   // Interação e sincronização com o chip de sincronização
   async function forceSyncAll(silent = false){
+    if(syncAuthPending){
+      if(!silent) showToast('Atenção: A sessão no telemóvel expirou. Introduza o PIN para validar.', true);
+      openSyncPinModal();
+      return;
+    }
+
     if(!silent) showToast('A forçar sincronização com o Google Sheets…');
     triggerSyncQueue(10);
     try {
@@ -21051,19 +21179,37 @@
       else if(currentView === 'quarto') renderRoomGrid();
       else if(currentView === 'historial') renderHistorial(true).catch(()=>{});
       else if(currentView === 'pedidos') renderPedidosView();
-      if(!silent) showToast('Sincronização completa com a folha Google Sheets ✓');
+
+      if(syncQueue.length === 0){
+        if(!silent) showToast('Sincronização completa com a folha Google Sheets ✓');
+      } else if(syncAuthPending){
+        if(!silent) showToast('Atenção: Introduza o seu PIN para enviar os registos pendentes.', true);
+        openSyncPinModal();
+      } else {
+        if(!silent) showToast(`Fila de envio ativa: ${syncQueue.length} registo(s) a transmitir…`);
+      }
     } catch(e) {
-      if(!silent) showToast('Fila de envio disparada. Dados locais sincronizados.');
+      if(!silent) showToast('Fila de envio disparada. Dados locais protegidos.');
     }
   }
 
   const syncChipEl = $('chipSyncStatus');
   if(syncChipEl){
-    syncChipEl.addEventListener('click', () => forceSyncAll(false));
+    syncChipEl.addEventListener('click', () => {
+      if(syncAuthPending){
+        openSyncPinModal();
+      } else {
+        forceSyncAll(false);
+      }
+    });
     syncChipEl.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        forceSyncAll(false);
+        if(syncAuthPending){
+          openSyncPinModal();
+        } else {
+          forceSyncAll(false);
+        }
       }
     });
   }
@@ -21693,7 +21839,7 @@
         currentUser.nombre = currentUser.nome;
       }
       rememberUser(currentUser);
-      saveToAuthVault(currentUser.usuario, null, currentUser);
+      saveToAuthVault(currentUser.usuario, currentUser.pin || null, currentUser);
       sessionChecked = true;
       
       // Assegurar que o ecrã de login permanece oculto
