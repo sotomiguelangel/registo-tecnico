@@ -74,4 +74,11 @@ describe('Mobile Sync & Date Normalization Resilience', () => {
         assert.ok(html.includes('btnDiagRegisterEquip'), 'Should include button to register equipment in Google Sheets');
         assert.ok(html.includes('Guardar Correção e Sincronizar Agora'), 'Should have action to save correction and sync');
     });
+
+    test('buttons have anti-flicker stability and mobile banner button does not freeze disabled', () => {
+        const html = fs.readFileSync('index.html', 'utf8');
+        assert.ok(html.includes('touch-action: manipulation;'), 'Should have touch-action manipulation on interactive buttons');
+        assert.ok(!html.includes('window.addEventListener(\'focus\', () => {\n    triggerSyncQueue(50);'), 'Should not trigger DOM sync storm on mobile window focus');
+        assert.ok(html.includes('btn.disabled = false'), 'Mobile banner buttons should stay enabled to prevent frozen clicks');
+    });
 });

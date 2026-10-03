@@ -593,13 +593,11 @@
   .sync-status-row{ display:flex; align-items:center; gap:6px; font-size:11px; }
   .sync-dot{
     width:8px; height:8px; border-radius:50%; display:inline-block;
-    transition:all .3s ease;
+    transition:background-color .2s ease;
   }
   .sync-dot.ok{ background:var(--ok-500); box-shadow:0 0 6px rgba(62,164,114,.7); }
-  .sync-dot.syncing{ background:var(--aqua-400); animation:sync-spin 1.2s infinite ease-in-out; }
-  .sync-dot.pending{ background:var(--amber-500); animation:sync-pulse 1.4s infinite; }
-  @keyframes sync-pulse{ 0%{ transform:scale(0.9); opacity:0.7; } 50%{ transform:scale(1.25); opacity:1; } 100%{ transform:scale(0.9); opacity:0.7; } }
-  @keyframes sync-spin{ 0%{ transform:scale(1); opacity:0.6; } 50%{ transform:scale(1.3); opacity:1; } 100%{ transform:scale(1); opacity:0.6; } }
+  .sync-dot.syncing{ background:var(--aqua-400); box-shadow:0 0 5px rgba(45,212,191,.6); }
+  .sync-dot.pending{ background:var(--amber-500); box-shadow:0 0 5px rgba(245,158,11,.5); }
 
   nav.tabs{
     display:flex; margin:-26px 14px 0; position:relative; z-index:2; background:var(--card);
@@ -607,15 +605,17 @@
   }
   nav.tabs button{
     flex:1; border:none; background:transparent; padding:11px 4px; font-family:var(--sans); font-size:12px;
-    font-weight:600; color:var(--ink-400); border-radius:10px; cursor:pointer; transition:.15s ease; white-space:nowrap;
+    font-weight:600; color:var(--ink-400); border-radius:10px; cursor:pointer; transition:background-color .15s ease, color .15s ease; white-space:nowrap;
   }
   nav.tabs button.active{ background:var(--petrol-900); color:#fff; }
-  /* Anti-shake and layout stability guarantees across all buttons and interactive elements */
-  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare, nav.tabs button {
+  /* Anti-flicker, anti-shake and layout stability guarantees across all buttons and interactive elements */
+  button, .btn, .tab-btn, .maint-kpi-tab-btn, .maint-kpi-sort-btn, .strategic-tab-btn, .cycle-btn, .chip, .room-chip, .equip-chip, .btn-strat-action, .maint-stat-card, .card-kpi, .btn-new-strategic, .maint-kpi-btn-compare, nav.tabs button, .btn-sync-mobile-action {
     transform: none !important;
     backface-visibility: visible;
     -webkit-backface-visibility: visible;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease !important;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease !important;
   }
   button:hover, .btn:hover, .tab-btn:hover, .maint-kpi-tab-btn:hover, .maint-kpi-sort-btn:hover, .strategic-tab-btn:hover, .cycle-btn:hover, .chip:hover, .room-chip:hover, .equip-chip:hover, .btn-strat-action:hover, .maint-stat-card:hover, .card-kpi:hover, .btn-new-strategic:hover, .maint-kpi-btn-compare:hover, nav.tabs button:hover,
   button:active, .btn:active, .tab-btn:active, .maint-kpi-tab-btn:active, .maint-kpi-sort-btn:active, .strategic-tab-btn:active, .cycle-btn:active, .chip:active, .room-chip:active, .equip-chip:active, .btn-strat-action:active, .maint-stat-card:active, .card-kpi:active, .btn-new-strategic:active, .maint-kpi-btn-compare:active, nav.tabs button:active {
@@ -1785,15 +1785,28 @@
     color: #fff;
     border: none;
     border-radius: 8px;
-    padding: 7px 14px;
+    padding: 8px 14px;
     font-weight: 700;
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s ease;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
   }
   .btn-sync-mobile-action:hover {
     background: #0369a1;
+  }
+  .btn-sync-mobile-action:disabled {
+    opacity: 0.85;
+    cursor: default;
   }
 
   .fullscreen-overlay{
@@ -5126,7 +5139,7 @@
       const btnDisc = $('btnDiagDiscardRecord');
       if(btnDisc){
         btnDisc.onclick = async () => {
-          const sure = await confirmDialog('🗑️ Descartar Registo', 'Tem a certeza que deseja eliminar este registo local permanentemente?', 'Sim, Eliminar', 'Cancelar');
+          const sure = window.confirm('🗑️ Descartar Registo\n\nTem a certeza que deseja eliminar este registo local permanentemente?');
           if(sure){
             syncQuarantine = syncQuarantine.filter(it => it.qid !== activeItem.qid && it.recordId !== activeItem.recordId);
             persistSyncQuarantine();
@@ -5234,91 +5247,94 @@
     const qCount = syncQuarantine.length;
 
     if(count === 0 && qCount === 0){
-      banner.style.display = 'none';
+      if(banner.style.display !== 'none') banner.style.display = 'none';
       return;
     }
 
-    banner.style.display = 'block';
+    if(banner.style.display !== 'block') banner.style.display = 'block';
 
-    if(isSyncingQueue){
-      const sentNum = Math.min(syncCurrentSent, syncTotalInitial || count);
-      const totalNum = syncTotalInitial || count;
-      if(title) title.textContent = totalNum > 1 
-        ? `A sincronizar: registo ${sentNum} de ${totalNum} com o Google Sheets…`
-        : `A enviar registo para o Google Sheets…`;
-      if(desc) desc.textContent = 'A transmitir dados em segundo plano… Por favor aguarde.';
-      if(btn){
-        btn.textContent = 'A enviar…';
-        btn.disabled = true;
-      }
-      if(btnSec) btnSec.style.display = 'none';
-    } else if(qCount > 0){
+    function setSafeText(el, text){
+      if(el && el.textContent !== text) el.textContent = text;
+    }
+
+    // NUNCA desabilitar os botões do banner móvel para garantir que o utilizador
+    // nunca sinta cliques congelados nem perda de resposta táctil no telemóvel
+    if(btn && btn.disabled) btn.disabled = false;
+    if(btnSec && btnSec.disabled) btnSec.disabled = false;
+
+    // 1. PRIORIDADE MÁXIMA: Se há registos em quarentena / erro de equipamento,
+    // o botão de diagnóstico/correção DEVE permanecer fixo e clicável sem oscilar
+    if(qCount > 0){
       const firstQ = syncQuarantine[0];
       const qData = (firstQ.payload && firstQ.payload.data) || {};
       const equipName = qData.nome || qData.equipamentoId || 'Equipamento';
       const tempVal = qData.temperatura !== undefined ? ` (${qData.temperatura}°C)` : '';
 
-      if(title) title.textContent = count === 0 
-        ? `⚠️ ${qCount} registo(s) com erro de equipamento para corrigir`
-        : `⚠️ ${qCount} com erro · ${count} por enviar`;
-      if(desc) desc.textContent = count === 0
-        ? `O envio de "${equipName}"${tempVal} falhou no servidor. Corrija o equipamento ou valor para sincronizar a 100%.`
-        : `Os restantes dados continuam a ser enviados. Toque para inspecionar e corrigir o equipamento.`;
-
-      if(btn){
-        btn.textContent = '🔍 Corrigir Equipamento / Valor';
-        btn.disabled = false;
-        btn.onclick = () => openSyncDiagnosticsModal();
+      if(isSyncingQueue){
+        setSafeText(title, `⚠️ ${qCount} com aviso · a enviar restantes (${count})…`);
+        setSafeText(desc, `Os registos válidos continuam a ser transmitidos. Toque em "Corrigir Falhas" para inspecionar.`);
+      } else {
+        setSafeText(title, count === 0 
+          ? `⚠️ ${qCount} registo(s) com erro de equipamento para corrigir`
+          : `⚠️ ${qCount} com erro · ${count} por enviar`);
+        setSafeText(desc, count === 0
+          ? `O envio de "${equipName}"${tempVal} falhou no servidor. Corrija o equipamento ou valor para sincronizar a 100%.`
+          : `Os restantes dados continuam a ser enviados. Toque para inspecionar e corrigir o equipamento.`);
       }
+
+      setSafeText(btn, `🔍 Corrigir Falhas (${qCount})`);
+      btn.onclick = () => openSyncDiagnosticsModal();
+
       if(btnSec){
-        if(count > 0){
-          btnSec.style.display = 'block';
-          btnSec.textContent = `⚡ Sincronizar Restantes (${count})`;
+        if(count > 0 && !isSyncingQueue){
+          if(btnSec.style.display !== 'block') btnSec.style.display = 'block';
+          setSafeText(btnSec, `⚡ Sincronizar Restantes (${count})`);
           btnSec.onclick = () => {
             showToast('A enviar registos restantes…');
             triggerSyncQueue(10);
           };
         } else {
-          btnSec.style.display = 'none';
+          if(btnSec.style.display !== 'none') btnSec.style.display = 'none';
         }
       }
     } else if(syncAuthPending){
-      if(title) title.textContent = `⚠️ ${count} registo(s) aguardam validação de PIN`;
-      if(desc) desc.textContent = 'A sessão no telemóvel expirou. Introduza o PIN para enviar os dados para o Google Sheets.';
-      if(btn){
-        btn.textContent = 'Validar PIN e Enviar';
-        btn.disabled = false;
-        btn.onclick = () => openSyncPinModal();
-      }
-      if(btnSec) btnSec.style.display = 'none';
+      setSafeText(title, `⚠️ ${count} registo(s) aguardam validação de PIN`);
+      setSafeText(desc, 'A sessão no telemóvel expirou. Introduza o PIN para enviar os dados para o Google Sheets.');
+      setSafeText(btn, '🔑 Validar PIN e Enviar');
+      btn.onclick = () => openSyncPinModal();
+      if(btnSec && btnSec.style.display !== 'none') btnSec.style.display = 'none';
+    } else if(isSyncingQueue){
+      const sentNum = Math.min(syncCurrentSent, syncTotalInitial || count);
+      const totalNum = syncTotalInitial || count;
+      setSafeText(title, totalNum > 1 
+        ? `A sincronizar: registo ${sentNum} de ${totalNum} com o Google Sheets…`
+        : `A enviar registo para o Google Sheets…`);
+      setSafeText(desc, 'A transmitir dados em segundo plano… A interface permanece 100% responsiva.');
+      setSafeText(btn, `⏳ A sincronizar… (${count})`);
+      btn.onclick = () => showToast(`A sincronizar ${count} registo(s) com o Google Sheets em segundo plano…`);
+      if(btnSec && btnSec.style.display !== 'none') btnSec.style.display = 'none';
     } else if(lastSyncErrorMsg){
-      if(title) title.textContent = `⚠️ ${count} registo(s) pendente(s) no telemóvel`;
-      if(desc) desc.textContent = `Aviso no envio: ${lastSyncErrorMsg}. Os registos estão guardados no telemóvel.`;
-      if(btn){
-        btn.textContent = '🔍 Inspecionar & Corrigir';
-        btn.disabled = false;
-        btn.onclick = () => openSyncDiagnosticsModal();
-      }
+      setSafeText(title, `⚠️ ${count} registo(s) pendente(s) no telemóvel`);
+      setSafeText(desc, `Aviso no envio: ${lastSyncErrorMsg}. Os registos estão guardados no telemóvel.`);
+      setSafeText(btn, '🔍 Inspecionar & Corrigir');
+      btn.onclick = () => openSyncDiagnosticsModal();
       if(btnSec){
-        btnSec.style.display = 'block';
-        btnSec.textContent = 'Tentar Novamente';
+        if(btnSec.style.display !== 'block') btnSec.style.display = 'block';
+        setSafeText(btnSec, '⚡ Tentar Enviar');
         btnSec.onclick = () => {
           showToast('A forçar nova tentativa de envio…');
           triggerSyncQueue(10);
         };
       }
     } else {
-      if(title) title.textContent = `${count} registo(s) de hoje por sincronizar no telemóvel`;
-      if(desc) desc.textContent = 'Os registos estão guardados localmente neste dispositivo móvel.';
-      if(btn){
-        btn.textContent = 'Sincronizar Agora';
-        btn.disabled = false;
-        btn.onclick = () => {
-          showToast('A forçar sincronização imediata…');
-          triggerSyncQueue(10);
-        };
-      }
-      if(btnSec) btnSec.style.display = 'none';
+      setSafeText(title, `${count} registo(s) de hoje por sincronizar no telemóvel`);
+      setSafeText(desc, 'Os registos estão guardados localmente neste dispositivo móvel.');
+      setSafeText(btn, `⚡ Sincronizar Agora (${count})`);
+      btn.onclick = () => {
+        showToast('A forçar sincronização imediata…');
+        triggerSyncQueue(10);
+      };
+      if(btnSec && btnSec.style.display !== 'none') btnSec.style.display = 'none';
     }
   }
 
@@ -5531,7 +5547,7 @@
                                        errCode === 'VALIDATION' || 
                                        errCode === 'CONFLICT' ||
                                        errCode === 'NOT_FOUND' ||
-                                       (item.attempts && item.attempts >= 2);
+                                       (item.attempts && item.attempts >= 1);
 
           if(isPermanentDataError){
             quarantineItem(item, item.lastError);
@@ -5542,7 +5558,8 @@
             continue; // CONTINUA O LOOP PARA SINCRONIZAR 100% DOS RESTANTES REGISTOS!
           }
 
-          const backoff = Math.min(30000, 2500 * Math.pow(1.5, Math.min(item.attempts, 5)));
+          // Se for erro de ligação offline/timeout, pausar pelo menos 45s para não sobrecarregar
+          const backoff = Math.max(45000, 30000 * Math.pow(1.5, Math.min(item.attempts, 4)));
           triggerSyncQueue(backoff);
           break;
         }
@@ -7091,16 +7108,20 @@
 
   // ---------- Separadores ----------
   const views = ['dashboard','ejecutivo','general','quarto','temperatura','pedidos','historial','reportes','usuarios','importar'];
+  let currentView = 'ejecutivo';
 
   function switchToTab(viewName, options = {}){
     const shouldRender = options.render !== false;
+    currentView = viewName;
     document.querySelectorAll('nav.tabs button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view===viewName));
     views.forEach(v=> {
-      const el = $('view-'+v);
-      if(el) el.classList.remove('active');
+      if(v !== viewName){
+        const el = $('view-'+v);
+        if(el && el.classList.contains('active')) el.classList.remove('active');
+      }
     });
     const target = $('view-'+viewName);
-    if(target) target.classList.add('active');
+    if(target && !target.classList.contains('active')) target.classList.add('active');
 
     if(!shouldRender) return;
 
@@ -21725,10 +21746,19 @@
   }
 
   // Interação e sincronização com o chip de sincronização
+  let isForcingSyncAll = false;
+  let lastForceSyncAllTime = 0;
   async function forceSyncAll(silent = false){
+    const now = Date.now();
+    if(isForcingSyncAll) return;
+    if(silent && (now - lastForceSyncAllTime < 25000)) return;
+    isForcingSyncAll = true;
+    lastForceSyncAllTime = now;
+
     if(syncAuthPending){
       if(!silent) showToast('Atenção: A sessão no telemóvel expirou. Introduza o PIN para validar.', true);
       openSyncPinModal();
+      isForcingSyncAll = false;
       return;
     }
 
@@ -21747,12 +21777,20 @@
       ]);
       invalidateMemo();
       if(typeof refreshChips === 'function') refreshChips();
-      if(currentView === 'ejecutivo') renderEjecutivo(null, null, { force: true, silent: true });
-      else if(currentView === 'dashboard') renderDashboard(true, { silent: true });
-      else if(currentView === 'temperatura') renderTempView();
-      else if(currentView === 'quarto') renderRoomGrid();
-      else if(currentView === 'historial') renderHistorial(true).catch(()=>{});
-      else if(currentView === 'pedidos') renderPedidosView();
+
+      // Se a sincronização for silenciosa (em segundo plano), NUNCA re-renderizar formulários
+      // interativos ativos (temperatura, quarto, pedidos) para evitar congelamento e piscar de botões
+      if(!silent){
+        if(currentView === 'ejecutivo') renderEjecutivo(null, null, { force: true, silent: true });
+        else if(currentView === 'dashboard') renderDashboard(true, { silent: true });
+        else if(currentView === 'temperatura') renderTempView();
+        else if(currentView === 'quarto') renderRoomGrid();
+        else if(currentView === 'historial') renderHistorial(true).catch(()=>{});
+        else if(currentView === 'pedidos') renderPedidosView();
+      } else {
+        if(currentView === 'ejecutivo') renderEjecutivo(null, null, { force: false, silent: true });
+        else if(currentView === 'dashboard') renderDashboard(true, { silent: true });
+      }
 
       if(syncQueue.length === 0){
         if(syncQuarantine.length > 0){
@@ -21768,6 +21806,8 @@
       }
     } catch(e) {
       if(!silent) showToast('Fila de envio disparada. Dados locais protegidos.');
+    } finally {
+      isForcingSyncAll = false;
     }
   }
 
@@ -21813,26 +21853,25 @@
     forceSyncAll(true);
   });
 
-  // Revalidação em segundo plano ao regressar à app (telemóvel ou ecrã alternado)
+  // Revalidação em segundo plano ao regressar à app com throttling
+  let lastVisibilitySync = 0;
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      triggerSyncQueue(50);
-      forceSyncAll(true);
+      const now = Date.now();
+      if (now - lastVisibilitySync > 60000) {
+        lastVisibilitySync = now;
+        triggerSyncQueue(500);
+        forceSyncAll(true);
+      }
     }
-  });
-
-  window.addEventListener('focus', () => {
-    triggerSyncQueue(50);
-    forceSyncAll(true);
-    checkVersionThrottled(false).catch(()=>{});
   });
 
   // Polling automático suave em segundo plano para refletir novos dados inseridos a partir do telemóvel
   setInterval(() => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-    triggerSyncQueue(100);
+    triggerSyncQueue(500);
     forceSyncAll(true);
-  }, 45000);
+  }, 60000);
 
   // =========================================================
   // MÓDULO DE TICKETS DE MANUTENÇÃO
