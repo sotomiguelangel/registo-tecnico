@@ -3719,7 +3719,7 @@
       </div>
       <div class="actions">
         <button id="themeButton" type="button" aria-label="Alternar tema">Modo noturno</button>
-        <button id="printButton" type="button" aria-label="Imprimir painel" onclick="window.print()">Imprimir</button>
+        <button id="printButton" type="button" aria-label="Imprimir relatório de pedidos" onclick="window.printTicketReportIndicadores()">Relatório de Pedidos</button>
         <a href="index.html" class="button" id="backToAppBtn">← App principal</a>
       </div>
     </div>
@@ -6909,6 +6909,20 @@
     wireMaintenanceKpisDashboardEvents(wrap, tickets);
   }
 
+  function printTicketReportIndicadores() {
+    try {
+      const reportTickets = getConsolidatedTicketsIndicadores() || [];
+      TicketReportCharts.printableReport(reportTickets, { title: 'Relatório de Pedidos / Tickets' });
+    } catch (error) {
+      console.error('Não foi possível imprimir o relatório de pedidos:', error);
+      if (typeof showToast === 'function') showToast(error && error.message ? error.message : 'Não foi possível imprimir o relatório.', true);
+      else alert(error && error.message ? error.message : 'Não foi possível imprimir o relatório.');
+      return false;
+    }
+    return true;
+  }
+  window.printTicketReportIndicadores = printTicketReportIndicadores;
+
   function getSegmentFilteredTickets(allTickets, segment) {
     const rawList = allTickets || [];
     if (segment === 'critical') {
@@ -7098,15 +7112,7 @@
     if (!wrap) return;
     const printReportButton = wrap.querySelector('#btnPrintTicketReportIndicadores');
     if (printReportButton) {
-      printReportButton.onclick = () => {
-        try {
-          const reportTickets = getConsolidatedTicketsIndicadores() || tickets || [];
-          TicketReportCharts.printableReport(reportTickets, { title: 'Relatório de Pedidos / Tickets' });
-        } catch (error) {
-          console.error('Não foi possível abrir o relatório de pedidos:', error);
-          alert(error && error.message ? error.message : 'Não foi possível abrir o relatório de pedidos.');
-        }
-      };
+      printReportButton.onclick = printTicketReportIndicadores;
     }
 
     // Tab switching
