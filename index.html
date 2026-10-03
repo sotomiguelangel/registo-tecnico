@@ -533,6 +533,7 @@
 <script src="js/runtime-config.js"></script>
 <script src="js/maintenance-categories.js"></script>
 <script src="js/maintenance-workload.js"></script>
+<script src="js/ticket-report-charts.js"></script>
 <style>
   :root{
     --petrol-950:#0a2530; --petrol-900:#0e3341; --petrol-800:#134354; --petrol-700:#1b5568;
@@ -23286,6 +23287,8 @@
         ${statBox('Abertos', porEstado['aberto'] || 0, 'pendentes', (porEstado['aberto'] || 0) > 0 ? 'bad' : 'na')}
         ${statBox('Finalizados', porEstado['finalizado'] || 0, 'concluídos', (porEstado['finalizado'] || 0) > 0 ? 'ok' : 'na')}
       </div>
+
+      ${TicketReportCharts.render(filtered)}
       
       <h2 class="report-heading">Por Categoria</h2>
       <div class="table-scroll"><table class="report">
@@ -23313,7 +23316,9 @@
         </tbody>
       </table></div>
       
-      <button class="btn-print" onclick="imprimirReporteTickets()">Imprimir PDF</button>
+      <div class="report-actions">
+        <button type="button" class="btn-print" onclick="imprimirReporteTickets()">Imprimir PDF</button>
+      </div>
     `;
   }
 
