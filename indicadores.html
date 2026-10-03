@@ -3586,7 +3586,7 @@
       </div>
       <div class="actions">
         <button id="themeButton" type="button" aria-label="Alternar tema">Modo noturno</button>
-        <button id="printButton" type="button" aria-label="Imprimir painel">Imprimir</button>
+        <button id="printButton" type="button" aria-label="Imprimir painel" onclick="window.print()">Imprimir</button>
         <a href="index.html" class="button" id="backToAppBtn">← App principal</a>
       </div>
     </div>
@@ -13561,8 +13561,6 @@
     addChange('refreshInterval', resetTimer);
     addInput('waterRate', safeRender);
     addInput('energyRate', safeRender);
-    addClick('printButton', () => window.print());
-
     function stepPrevMonth() {
       currentMonthOffset--;
       const p = $('period');
