@@ -252,17 +252,9 @@
     `;
   }
 
-  function printableReport(tickets, options = {}) {
+  function printableMarkup(tickets, options = {}) {
     if (!Array.isArray(tickets)) throw new TypeError('Os pedidos do relatório devem ser fornecidos como array.');
     if (!tickets.length) throw new Error('Não existem pedidos para incluir no relatório.');
-    if (typeof window === 'undefined' || typeof window.open !== 'function') {
-      throw new Error('A impressão do relatório não está disponível neste contexto.');
-    }
-
-    const reportWindow = window.open('', '_blank');
-    if (!reportWindow) {
-      throw new Error('O navegador bloqueou a janela do relatório. Permita pop-ups para este site e tente novamente.');
-    }
 
     const title = options.title || 'Relatório de Pedidos / Tickets';
     const period = options.period || 'Todos os períodos disponíveis';
@@ -282,30 +274,8 @@
     const safeTitle = escapeHtml(title);
     const safePeriod = escapeHtml(period);
 
-    reportWindow.document.open();
-    reportWindow.document.write(`<!DOCTYPE html>
-      <html lang="pt-PT">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>${safeTitle}</title>
-        <style>
-          body { margin:24px auto; max-width:1100px; padding:0 20px; color:#152736; font:13px Arial,sans-serif; }
-          h1 { margin:0 0 4px; font-size:22px; }
-          .report-meta { margin:0 0 18px; color:#475569; }
-          h2 { margin:18px 0 8px; font-size:16px; }
-          table { width:100%; border-collapse:collapse; font-size:11px; }
-          th,td { padding:6px 8px; text-align:left; vertical-align:top; border:1px solid #d5e0e9; }
-          th { background:#eff6fa; }
-          tr { break-inside:avoid; }
-          @page { size:A4 landscape; margin:12mm; }
-          @media print {
-            body { max-width:none; margin:0; padding:0; }
-            .ticket-report-chart { break-inside:avoid; page-break-inside:avoid; }
-          }
-        </style>
-      </head>
-      <body>
+    return `
+      <div class="ticket-report-print-document">
         <h1>${safeTitle}</h1>
         <p class="report-meta">Período: ${safePeriod} · ${tickets.length} pedidos · Gerado em ${escapeHtml(new Date().toLocaleString('pt-PT'))}</p>
         ${charts}
@@ -314,12 +284,78 @@
           <thead><tr><th>Data</th><th>Local</th><th>Categoria</th><th>Estado</th><th>Descrição</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <script>window.addEventListener('load',function(){setTimeout(function(){window.focus();window.print();},250);});</script>
-      </body>
-      </html>`);
-    reportWindow.document.close();
-    return reportWindow;
+      </div>
+    `;
   }
 
-  return { render, printableReport, ticketMonthKey };
+  function printableReport(tickets, options = {}) {
+    if (typeof document === 'undefined' || !document.body || typeof window === 'undefined' || typeof window.print !== 'function') {
+      throw new Error('A impressão do relatório não está disponível neste contexto.');
+    }
+
+    const printId = 'ticketReportPrintDocument';
+    const previous = document.getElementById(printId);
+    if (previous) previous.remove();
+
+    let style = document.getElementById('ticketReportPrintStyles');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'ticketReportPrintStyles';
+      style.textContent = `
+        #${printId} { display:none; }
+        #${printId} .ticket-report-print-document { margin:24px auto; max-width:1100px; padding:0 20px; color:#152736; font:13px Arial,sans-serif; }
+        #${printId} h1 { margin:0 0 4px; font-size:22px; }
+        #${printId} .report-meta { margin:0 0 18px; color:#475569; }
+        #${printId} h2 { margin:18px 0 8px; font-size:16px; }
+        #${printId} table { width:100%; border-collapse:collapse; font-size:11px; }
+        #${printId} th,#${printId} td { padding:6px 8px; text-align:left; vertical-align:top; border:1px solid #d5e0e9; }
+        #${printId} th { background:#eff6fa; }
+        #${printId} tr { break-inside:avoid; }
+        @page { size:A4 landscape; margin:12mm; }
+        @media print {
+          body.ticket-report-printing > :not(#${printId}) { display:none !important; }
+          body.ticket-report-printing #${printId} { display:block !important; }
+          body.ticket-report-printing #${printId} .ticket-report-print-document { max-width:none; margin:0; padding:0; }
+          body.ticket-report-printing .ticket-report-chart { break-inside:avoid; page-break-inside:avoid; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const printView = document.createElement('section');
+    printView.id = printId;
+    printView.innerHTML = printableMarkup(tickets, options);
+    document.body.appendChild(printView);
+
+    let cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      document.body.classList.remove('ticket-report-printing');
+      window.removeEventListener('afterprint', cleanup);
+      if (mediaQuery && mediaQuery.removeEventListener) mediaQuery.removeEventListener('change', onMediaChange);
+      if (mediaQuery && mediaQuery.removeListener) mediaQuery.removeListener(onMediaChange);
+      printView.remove();
+    };
+    const onMediaChange = event => {
+      if (!event.matches) cleanup();
+    };
+    const mediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia('print') : null;
+
+    window.addEventListener('afterprint', cleanup, { once: true });
+    if (mediaQuery && mediaQuery.addEventListener) mediaQuery.addEventListener('change', onMediaChange);
+    else if (mediaQuery && mediaQuery.addListener) mediaQuery.addListener(onMediaChange);
+
+    try {
+      document.body.classList.add('ticket-report-printing');
+      window.focus();
+      window.print();
+      return printView;
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
+  }
+
+  return { render, printableMarkup, printableReport, ticketMonthKey };
 });
