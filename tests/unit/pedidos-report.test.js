@@ -44,4 +44,51 @@ describe('Pedidos Workload PDF Report & Print Button', () => {
     assert.match(indexHtml, /id="btnOffClosePedidos"/);
     assert.match(indexHtml, /previewing-official/);
   });
+
+  const indicadoresHtml = fs.readFileSync('indicadores.html', 'utf8');
+
+  test('indicadores.html contains print report button in workload KPI controls', () => {
+    assert.match(indicadoresHtml, /id="maintWorkloadPrintReportBtn"/);
+    assert.match(indicadoresHtml, /🖨️ Relatório PDF/);
+  });
+
+  test('indicadores.html defines workload calculation, SVG chart generator, and report builder functions', () => {
+    assert.match(indicadoresHtml, /function calculateMaintenanceWorkloadData\(tickets, horizon, workloadType, simCapacity\)/);
+    assert.match(indicadoresHtml, /function renderPedidosWorkloadChartSVG\(calcData/);
+    assert.match(indicadoresHtml, /function renderCategoriesChartSVG\(catList/);
+    assert.match(indicadoresHtml, /function renderComparisonChartSVG\(compData/);
+    assert.match(indicadoresHtml, /function renderTimelineProjectionChartSVG\(timelineData/);
+    assert.match(indicadoresHtml, /function renderClassificationMatrixSVG\(calcData/);
+    assert.match(indicadoresHtml, /function renderTopLocationsChartSVG\(topRooms/);
+    assert.match(indicadoresHtml, /function buildPedidosWorkloadReportHTML\(d\)/);
+    assert.match(indicadoresHtml, /async function generatePedidosWorkloadReport\(triggerBtn, customTickets\)/);
+    assert.match(indicadoresHtml, /function printPedidosWorkloadReport\(triggerBtnOrTickets\)/);
+    assert.match(indicadoresHtml, /id="officialReport"/);
+  });
+
+  test('indicadores.html report template frames all 5 pages with all charts and tables', () => {
+    assert.match(indicadoresHtml, /id="reportPage1"/);
+    assert.match(indicadoresHtml, /id="reportPage2"/);
+    assert.match(indicadoresHtml, /id="reportPage3"/);
+    assert.match(indicadoresHtml, /id="reportPage4"/);
+    assert.match(indicadoresHtml, /id="reportPage5"/);
+    assert.match(indicadoresHtml, /2\. Distribuição por 15 Categorias Técnicas/);
+    assert.match(indicadoresHtml, /3\. Análise Comparativa entre Meses/);
+    assert.match(indicadoresHtml, /4\. Tendência & Dinâmica Temporal/);
+    assert.match(indicadoresHtml, /5\. Top Locais & Áreas com Maior Demanda/);
+  });
+
+  test('both html files have completely valid JavaScript syntax with no unescaped script tags', () => {
+    const scriptRegex = /<script(?:\s+[^>]*)?>([\s\S]*?)<\/script>/gi;
+    for (const [filename, content] of [['index.html', indexHtml], ['indicadores.html', indicadoresHtml]]) {
+      let match;
+      while ((match = scriptRegex.exec(content)) !== null) {
+        const src = match[1];
+        if (!src.trim()) continue;
+        assert.doesNotThrow(() => {
+          new Function(src);
+        }, `Syntax error in script tag in ${filename}`);
+      }
+    }
+  });
 });
