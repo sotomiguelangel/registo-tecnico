@@ -2228,6 +2228,28 @@
     .vlist-spacer{ height:auto !important; }
     .vlist-content{ position:static !important; transform:none !important; }
     .vtable-spacer-row{ display:none !important; }
+    .table-scroll, .vtable-viewport, .vtable-container{
+      overflow:visible !important; max-width:100% !important; margin:0 !important; padding:0 !important; border:none !important;
+    }
+    table.report{
+      width:100% !important; font-size:8.5pt !important; border-collapse:collapse !important; table-layout:auto !important; margin-top:4px !important;
+    }
+    table.report th, table.report td{
+      padding:4px 5px !important; font-size:8.5pt !important; white-space:normal !important; word-break:normal !important; border-bottom:1px solid #cbd5e1 !important;
+    }
+    table.report th{
+      font-size:8pt !important; background:#f1f5f9 !important; color:#334155 !important;
+      -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;
+    }
+    table.report td.nowrap-print, table.report th.nowrap-print{
+      white-space:nowrap !important;
+    }
+    table.report tr{
+      break-inside:avoid !important; page-break-inside:avoid !important;
+    }
+    table.report thead{
+      display:table-header-group !important;
+    }
     .entry, .card, .exec-score-card, .exec-fin-card, .exec-matrix-card{
       contain: none !important;
       content-visibility: visible !important;
@@ -12157,17 +12179,71 @@
       initVirtualTable('repTempDetailTableBox', {
         title: `Detalhe de leituras (${desde} → ${hasta})`,
         theadHtml: `<tr>
-          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Estado</th><th>Obs.</th>
+          <th>Data</th>
+          <th class="nowrap-print">Hora</th>
+          <th class="nowrap-print">Equipamento</th>
+          <th class="nowrap-print">Temperatura</th>
+          <th class="nowrap-print">Estado</th>
+          <th>Tipo</th>
+          <th>Ubicacao</th>
+          <th>Utilizador</th>
+          <th>Obs.</th>
         </tr>`,
         items: tp,
         rowRenderer: (r) => {
-          const d = r.data;
-          const bad = String(d.dentroIntervalo) === 'Não';
-          return `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td>${nz(d.temperatura)}</td><td>${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+          const d = (r && r.data) ? r.data : (r || {});
+          const bad = String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não';
+          const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
+            ? d.temperatura
+            : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
+              ? d.temp
+              : ((d.temperaturaC !== undefined && d.temperaturaC !== null && d.temperaturaC !== '')
+                ? d.temperaturaC
+                : (d.valor !== undefined && d.valor !== null && d.valor !== ''
+                  ? d.valor
+                  : (d.leitura !== undefined && d.leitura !== null && d.leitura !== ''
+                    ? d.leitura
+                    : (d.val !== undefined && d.val !== null && d.val !== ''
+                      ? d.val
+                      : ((r && r.temperatura !== undefined && r.temperatura !== null && r.temperatura !== '')
+                        ? r.temperatura
+                        : (r && r.temp !== undefined && r.temp !== null && r.temp !== '' ? r.temp : null)))))));
+          let tempDisplay = '—';
+          if(rawTemp !== undefined && rawTemp !== null && rawTemp !== ''){
+            const sTemp = String(rawTemp).trim();
+            tempDisplay = sTemp.toLowerCase().includes('°c') || sTemp.toLowerCase().includes('ºc') ? sTemp : `${sTemp} °C`;
+          } else if(d.temperaturaMin != null && d.temperaturaMax != null){
+            tempDisplay = `${d.temperaturaMin} a ${d.temperaturaMax} °C`;
+          } else if(r && r.temperaturaMin != null && r.temperaturaMax != null){
+            tempDisplay = `${r.temperaturaMin} a ${r.temperaturaMax} °C`;
+          }
+          const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+            ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {})
+            : {};
+          const equipDisplay = esc(d.nome || d.equipamento || d.equipamentoId || (r && (r.nome || r.equipamento || r.equipamentoId)) || eq.nome || '—');
+          const userDisplay = nz(d.usuario || d.tecnico || (r && (r.usuario || r.tecnico)));
+          const tipoDisplay = esc(d.tipo || (r && r.tipo) || eq.tipo || '—');
+          const ubicDisplay = nz(d.ubicacao || (r && r.ubicacao) || eq.ubicacao);
+          const obsDisplay = nz(d.observacoes || (r && r.observacoes));
+          const fechaDisplay = esc(d.fecha || (r && r.fecha) || d.date || (r && r.date) || '');
+          const horaDisplay = esc(d.hora || (r && r.hora) || d.time || (r && r.time) || '');
+
+          return `<tr${bad?' style="color:var(--coral-500)"':''}>
+            <td class="nowrap-print">${fechaDisplay}</td>
+            <td class="nowrap-print">${horaDisplay}</td>
+            <td style="font-weight:700;" class="nowrap-print">${equipDisplay}</td>
+            <td style="font-weight:800; font-size:12.5px; color:${bad?'#ea580c':'var(--petrol-800, #0a2530)'}; white-space:nowrap;" class="nowrap-print">${esc(tempDisplay)}</td>
+            <td class="nowrap-print"><span style="font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; background:${bad?'#fee2e2':'#dcfce7'}; color:${bad?'#991b1b':'#166534'};">${bad?'⚠️ Fora':'✓ OK'}</span></td>
+            <td>${tipoDisplay}</td>
+            <td>${ubicDisplay}</td>
+            <td>${userDisplay}</td>
+            <td>${obsDisplay}</td>
+          </tr>`;
         },
         searchFn: (r, q) => {
-          const d = r.data || {};
-          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.nome||''} ${d.tipo||''} ${d.ubicacao||''} ${d.observacoes||''}`.toLowerCase().includes(q);
+          const d = (r && r.data) ? r.data : (r || {});
+          const rawTemp = d.temperatura ?? d.temp ?? d.temperaturaC ?? d.valor ?? d.leitura ?? ((r && (r.temperatura ?? r.temp)) || '');
+          return `${d.fecha||(r&&r.fecha)||''} ${d.hora||(r&&r.hora)||''} ${d.usuario||d.tecnico||(r&&(r.usuario||r.tecnico))||''} ${d.nome||d.equipamento||d.equipamentoId||(r&&(r.nome||r.equipamento))||''} ${rawTemp} ${d.tipo||(r&&r.tipo)||''} ${d.ubicacao||(r&&r.ubicacao)||''} ${d.observacoes||(r&&r.observacoes)||''}`.toLowerCase().includes(q);
         },
         rowHeight: 36,
         maxHeight: 460
@@ -12180,10 +12256,29 @@
 
   function exportCsvRefrigeracao(desde, hasta, tp){
     let csv = 'REFRIGERACAO\n';
-    csv += 'Data,Hora,Utilizador,Equipamento,Tipo,Ubicacao,Temperatura(C),DentroDoIntervalo,Observacoes\n';
+    csv += 'Data,Hora,Equipamento,Temperatura(C),Estado,Tipo,Ubicacao,Utilizador,Observacoes\n';
     tp.forEach(r=>{
-      const d = r.data;
-      csv += [d.fecha,d.hora,d.usuario,d.nome,d.tipo,d.ubicacao,d.temperatura,dispYesNo(d.dentroIntervalo),d.observacoes||''].map(csvSafe).join(',') + '\n';
+      const d = (r && r.data) ? r.data : (r || {});
+      const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
+        ? d.temperatura
+        : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
+          ? d.temp
+          : ((d.temperaturaC !== undefined && d.temperaturaC !== null && d.temperaturaC !== '')
+            ? d.temperaturaC
+            : (d.valor ?? d.leitura ?? d.val ?? ((r && (r.temperatura ?? r.temp)) || ''))));
+      const sTemp = (rawTemp !== '' && rawTemp != null) ? String(rawTemp).replace('°C','').replace('ºC','').trim() : (d.temperaturaMin != null && d.temperaturaMax != null ? `${d.temperaturaMin} a ${d.temperaturaMax}` : ((r && r.temperaturaMin != null && r.temperaturaMax != null) ? `${r.temperaturaMin} a ${r.temperaturaMax}` : ''));
+      const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos)) ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {}) : {};
+      csv += [
+        d.fecha || (r && r.fecha) || '',
+        d.hora || (r && r.hora) || '',
+        d.nome || d.equipamento || d.equipamentoId || (r && (r.nome || r.equipamento)) || eq.nome || '',
+        sTemp,
+        dispYesNo(d.dentroIntervalo || (r && r.dentroIntervalo)),
+        d.tipo || (r && r.tipo) || eq.tipo || '',
+        d.ubicacao || (r && r.ubicacao) || eq.ubicacao || '',
+        d.usuario || d.tecnico || (r && (r.usuario || r.tecnico)) || '',
+        d.observacoes || (r && r.observacoes) || ''
+      ].map(csvSafe).join(',') + '\n';
     });
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -12295,19 +12390,74 @@
       initVirtualTable('repTpDetailTableBox', {
         title: `🧊 Refrigeração (${desde} → ${hasta})`,
         theadHtml: `<tr>
-          <th>Data</th><th>Hora</th><th>Utilizador</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Estado</th><th>Obs.</th>
+          <th>Data</th>
+          <th class="nowrap-print">Hora</th>
+          <th class="nowrap-print">Equipamento</th>
+          <th class="nowrap-print">Temperatura</th>
+          <th class="nowrap-print">Intervalo</th>
+          <th class="nowrap-print">Estado</th>
+          <th>Tipo</th>
+          <th>Ubicacao</th>
+          <th>Utilizador</th>
+          <th>Obs.</th>
         </tr>`,
         items: tp,
         rowRenderer: (r) => {
-          const d = r.data;
-          const eq = equipamentos.find(e=> e.id === d.equipamentoId);
-          const rng = eq ? `${eq.min} a ${eq.max}` : '—';
-          const bad = String(d.dentroIntervalo) === 'Não';
-          return `<tr><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.nome)}</td><td>${esc(d.tipo)}</td><td>${nz(d.ubicacao)}</td><td class="${bad?'tbad':''}">${nz(d.temperatura)}</td><td>${esc(rng)}</td><td class="${bad?'tbad':''}">${bad?'⚠ Fora':'✓ OK'}</td><td>${nz(d.observacoes)}</td></tr>`;
+          const d = (r && r.data) ? r.data : (r || {});
+          const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+            ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {})
+            : {};
+          const rng = eq.min !== undefined && eq.max !== undefined ? `${eq.min} a ${eq.max} ºC` : '—';
+          const bad = String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não';
+          const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
+            ? d.temperatura
+            : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
+              ? d.temp
+              : ((d.temperaturaC !== undefined && d.temperaturaC !== null && d.temperaturaC !== '')
+                ? d.temperaturaC
+                : (d.valor !== undefined && d.valor !== null && d.valor !== ''
+                  ? d.valor
+                  : (d.leitura !== undefined && d.leitura !== null && d.leitura !== ''
+                    ? d.leitura
+                    : (d.val !== undefined && d.val !== null && d.val !== ''
+                      ? d.val
+                      : ((r && r.temperatura !== undefined && r.temperatura !== null && r.temperatura !== '')
+                        ? r.temperatura
+                        : (r && r.temp !== undefined && r.temp !== null && r.temp !== '' ? r.temp : null)))))));
+          let tempDisplay = '—';
+          if(rawTemp !== undefined && rawTemp !== null && rawTemp !== ''){
+            const sTemp = String(rawTemp).trim();
+            tempDisplay = sTemp.toLowerCase().includes('°c') || sTemp.toLowerCase().includes('ºc') ? sTemp : `${sTemp} °C`;
+          } else if(d.temperaturaMin != null && d.temperaturaMax != null){
+            tempDisplay = `${d.temperaturaMin} a ${d.temperaturaMax} °C`;
+          } else if(r && r.temperaturaMin != null && r.temperaturaMax != null){
+            tempDisplay = `${r.temperaturaMin} a ${r.temperaturaMax} °C`;
+          }
+          const equipDisplay = esc(d.nome || d.equipamento || d.equipamentoId || (r && (r.nome || r.equipamento || r.equipamentoId)) || eq.nome || '—');
+          const userDisplay = nz(d.usuario || d.tecnico || (r && (r.usuario || r.tecnico)));
+          const tipoDisplay = esc(d.tipo || (r && r.tipo) || eq.tipo || '—');
+          const ubicDisplay = nz(d.ubicacao || (r && r.ubicacao) || eq.ubicacao);
+          const obsDisplay = nz(d.observacoes || (r && r.observacoes));
+          const fechaDisplay = esc(d.fecha || (r && r.fecha) || d.date || (r && r.date) || '');
+          const horaDisplay = esc(d.hora || (r && r.hora) || d.time || (r && r.time) || '');
+
+          return `<tr>
+            <td class="nowrap-print">${fechaDisplay}</td>
+            <td class="nowrap-print">${horaDisplay}</td>
+            <td style="font-weight:700;" class="nowrap-print">${equipDisplay}</td>
+            <td class="${bad?'tbad':''}" style="font-weight:800; font-size:12.5px; color:${bad?'#ea580c':'var(--petrol-800, #0a2530)'}; white-space:nowrap;" class="nowrap-print">${esc(tempDisplay)}</td>
+            <td class="nowrap-print">${esc(rng)}</td>
+            <td class="nowrap-print"><span style="font-weight:700; font-size:11px; padding:2px 6px; border-radius:4px; background:${bad?'#fee2e2':'#dcfce7'}; color:${bad?'#991b1b':'#166534'};">${bad?'⚠️ Fora':'✓ OK'}</span></td>
+            <td>${tipoDisplay}</td>
+            <td>${ubicDisplay}</td>
+            <td>${userDisplay}</td>
+            <td>${obsDisplay}</td>
+          </tr>`;
         },
         searchFn: (r, q) => {
-          const d = r.data || {};
-          return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.nome||''} ${d.tipo||''} ${d.ubicacao||''} ${d.observacoes||''}`.toLowerCase().includes(q);
+          const d = (r && r.data) ? r.data : (r || {});
+          const rawTemp = d.temperatura ?? d.temp ?? d.temperaturaC ?? d.valor ?? d.leitura ?? ((r && (r.temperatura ?? r.temp)) || '');
+          return `${d.fecha||(r&&r.fecha)||''} ${d.hora||(r&&r.hora)||''} ${d.usuario||d.tecnico||(r&&(r.usuario||r.tecnico))||''} ${d.nome||d.equipamento||d.equipamentoId||(r&&(r.nome||r.equipamento))||''} ${rawTemp} ${d.tipo||(r&&r.tipo)||''} ${d.ubicacao||(r&&r.ubicacao)||''} ${d.observacoes||(r&&r.observacoes)||''}`.toLowerCase().includes(q);
         },
         rowHeight: 36,
         maxHeight: 460
@@ -22464,10 +22614,48 @@
     let rowsT = '';
     let tempBadCount = 0;
     tp.forEach(r=>{
-      const d = r.data;
-      const isBad = String(d.dentroIntervalo) === 'Não';
+      const d = (r && r.data) ? r.data : (r || {});
+      const isBad = String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não';
       if(isBad) tempBadCount++;
-      rowsT += `<tr class="${isBad?'bad':''}"><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${esc(d.nome||'')}</td><td>${esc(d.tipo||'')}</td><td>${esc(d.ubicacao||'')}</td><td>${nz2(d.temperatura)}</td><td>${dispYesNo(d.dentroIntervalo)}</td><td>${esc(d.observacoes||'')}</td></tr>`;
+      const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
+        ? d.temperatura
+        : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
+          ? d.temp
+          : ((d.temperaturaC !== undefined && d.temperaturaC !== null && d.temperaturaC !== '')
+            ? d.temperaturaC
+            : (d.valor !== undefined && d.valor !== null && d.valor !== ''
+              ? d.valor
+              : (d.leitura !== undefined && d.leitura !== null && d.leitura !== ''
+                ? d.leitura
+                : (d.val !== undefined && d.val !== null && d.val !== ''
+                  ? d.val
+                  : ((r && r.temperatura !== undefined && r.temperatura !== null && r.temperatura !== '')
+                    ? r.temperatura
+                    : (r && r.temp !== undefined && r.temp !== null && r.temp !== '' ? r.temp : null)))))));
+      let tempTxt = '—';
+      if(rawTemp !== undefined && rawTemp !== null && rawTemp !== ''){
+        const sTemp = String(rawTemp).trim();
+        tempTxt = sTemp.toLowerCase().includes('°c') || sTemp.toLowerCase().includes('ºc') ? sTemp : `${sTemp} °C`;
+      } else if(d.temperaturaMin != null && d.temperaturaMax != null){
+        tempTxt = `${d.temperaturaMin} a ${d.temperaturaMax} °C`;
+      } else if(r && r.temperaturaMin != null && r.temperaturaMax != null){
+        tempTxt = `${r.temperaturaMin} a ${r.temperaturaMax} °C`;
+      }
+      const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+        ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {})
+        : {};
+      const rng = eq.min !== undefined && eq.max !== undefined ? `${eq.min} a ${eq.max} ºC` : (dispYesNo(d.dentroIntervalo || (r && r.dentroIntervalo)));
+      rowsT += `<tr class="${isBad?'bad':''}">
+        <td>${esc(d.fecha || (r && r.fecha) || '')}</td>
+        <td>${esc(d.hora || (r && r.hora) || '')}</td>
+        <td style="font-weight:700;">${esc(d.nome || d.equipamento || d.equipamentoId || (r && (r.nome || r.equipamento)) || eq.nome || '')}</td>
+        <td style="font-weight:800; font-size:10.5px; white-space:nowrap;">${esc(tempTxt)}</td>
+        <td>${rng}</td>
+        <td>${esc(d.tipo || (r && r.tipo) || eq.tipo || '')}</td>
+        <td>${esc(d.ubicacao || (r && r.ubicacao) || eq.ubicacao || '')}</td>
+        <td>${esc(d.usuario || d.tecnico || (r && (r.usuario || r.tecnico)) || '')}</td>
+        <td>${esc(d.observacoes || (r && r.observacoes) || '')}</td>
+      </tr>`;
     });
     return `<div class="off-doc">
       <h1>Relatório Mensal de Controlo — Piscina, AQS e Refrigeração</h1>
@@ -22494,8 +22682,8 @@
       </tr></thead><tbody>${rowsQ || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
       <h2>3. Refrigeração — Frigoríficos, Congeladores e Vinheras (${tp.length})</h2>
       <table><thead><tr>
-        <th>Data</th><th>Hora</th><th>Equipamento</th><th>Tipo</th><th>Ubicacao</th><th>Temp (°C)</th><th>Intervalo</th><th>Observações</th>
-      </tr></thead><tbody>${rowsT || '<tr><td colspan="8">Sem registos no período</td></tr>'}</tbody></table>
+        <th>Data</th><th>Hora</th><th>Equipamento</th><th>Temperatura (°C)</th><th>Intervalo</th><th>Tipo</th><th>Ubicacao</th><th>Técnico</th><th>Observações</th>
+      </tr></thead><tbody>${rowsT || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
       <p style="font-size:9.5px; color:#666;">Linhas sombreadas = valores fora dos intervalos de referência (pH ${th.phMin}–${th.phMax} · cloro livre ${th.cloroMin}–${th.cloroMax} ppm · retorno AQS ≥ ${th.aqsMin} °C · refrigeração: intervalo próprio de cada equipamento). Registos editados/eliminados ficam registados na folha Auditoria.</p>
       <div class="off-sign">
         <div>O Técnico Responsável</div>

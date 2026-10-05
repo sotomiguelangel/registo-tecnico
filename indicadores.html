@@ -14088,7 +14088,17 @@
         cell(row, equipmentName(record));
         cell(row, displayDate(record));
         const temperature = field(record.data, FIELDS.temperature);
-        cell(row, temperature === null ? 'Sem medição' : format(temperature, 1) + ' °C');
+        let tempText = 'Sem medição';
+        if (temperature !== null) {
+          tempText = format(temperature, 1) + ' °C';
+        } else {
+          const raw = record.data?.temperatura ?? record.data?.temp ?? record.temperatura ?? record.temp;
+          if (raw != null && String(raw).trim() !== '') {
+            const s = String(raw).trim();
+            tempText = s.toLowerCase().includes('°') ? s : s + ' °C';
+          }
+        }
+        cell(row, tempText);
 
         const status = declaredState(record.data.dentroIntervalo);
         const td = document.createElement('td');
@@ -15423,7 +15433,16 @@
         add('AQS', FIELDS.aqs, '°C');
         add('Retorno', FIELDS.returnAqs, '°C');
       } else if (record.type === 'temperatura') {
-        add('Temperatura', FIELDS.temperature, '°C');
+        const n = field(d, FIELDS.temperature);
+        if (n !== null) {
+          parts.push('Temperatura: ' + format(n) + ' °C');
+        } else {
+          const raw = d.temperatura ?? d.temp ?? record.temperatura ?? record.temp;
+          if (raw != null && String(raw).trim() !== '') {
+            const s = String(raw).trim();
+            parts.push('Temperatura: ' + (s.toLowerCase().includes('°') ? s : s + ' °C'));
+          }
+        }
       } else {
         add('pH quente', ['phCaliente'], '');
         add('pH fria', ['phFria'], '');
