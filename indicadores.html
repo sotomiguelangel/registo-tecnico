@@ -359,6 +359,7 @@
   <script src="js/runtime-config.js"></script>
   <script src="js/maintenance-categories.js"></script>
   <script src="js/maintenance-workload.js"></script>
+  <script src="js/ticket-report-charts.js"></script>
   <script>
     let d3LoadPromise = null;
     function ensureD3() {
@@ -3802,7 +3803,7 @@
       </div>
       <div class="actions">
         <button id="themeButton" type="button" aria-label="Alternar tema">Modo noturno</button>
-        <button id="printButton" type="button" aria-label="Imprimir painel">Imprimir</button>
+        <button id="printButton" type="button" onclick="window.printTicketReportIndicadores()" aria-label="Imprimir painel">Imprimir</button>
         <a href="index.html" class="button" id="backToAppBtn">← App principal</a>
       </div>
     </div>
@@ -7688,6 +7689,9 @@
             <button type="button" id="maintWorkloadPrintReportBtn" title="Imprimir Relatório Completo de Pedidos em PDF" onclick="printPedidosWorkloadReport()" style="background:#0284c7; color:#fff; border:1px solid #0284c7; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
               🖨️ Relatório PDF
             </button>
+            <button type="button" id="btnPrintTicketReportIndicadores" title="Imprimir Relatório com Gráficos" onclick="window.printTicketReportIndicadores()" style="background:#059669; color:#fff; border:1px solid #059669; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+              📊 Imprimir Gráficos
+            </button>
           </div>
         </div>
       `;
@@ -9869,6 +9873,26 @@
     return generatePedidosWorkloadReport(btn);
   }
 
+  function printTicketReportIndicadores() {
+    const reportTickets = (typeof getConsolidatedTicketsIndicadores === 'function' ? getConsolidatedTicketsIndicadores() : null) || currentMaintKpiTickets || cachedTicketsIndicadores || [];
+    if (typeof TicketReportCharts !== 'undefined' && typeof TicketReportCharts.printableReport === 'function' && Array.isArray(reportTickets) && reportTickets.length > 0) {
+      try {
+        TicketReportCharts.printableReport(reportTickets, {
+          title: 'Relatório Técnico e Indicadores de Manutenção',
+          period: 'Histórico Consolidado'
+        });
+        return;
+      } catch (err) {
+        console.warn('Fallback para relatório oficial de impressão:', err);
+      }
+    }
+    if (typeof printPedidosWorkloadReport === 'function') {
+      printPedidosWorkloadReport(reportTickets);
+    } else {
+      window.print();
+    }
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.body.classList.contains('previewing-official')) {
       closeOfficialPreview();
@@ -9878,6 +9902,7 @@
   if (typeof window !== 'undefined') {
     window.generatePedidosWorkloadReport = generatePedidosWorkloadReport;
     window.printPedidosWorkloadReport = printPedidosWorkloadReport;
+    window.printTicketReportIndicadores = printTicketReportIndicadores;
     window.calculateMaintenanceWorkloadData = calculateMaintenanceWorkloadData;
   }
 
@@ -16413,32 +16438,6 @@
     addChange('refreshInterval', resetTimer);
     addInput('waterRate', safeRender);
     addInput('energyRate', safeRender);
-    let isPrintingReportIndicadores = false;
-    addClick('printButton', (e) => {
-      if (e) { e.preventDefault(); e.stopPropagation(); }
-      if (isPrintingReportIndicadores) return;
-      isPrintingReportIndicadores = true;
-      const btn = $('printButton');
-      if (btn) {
-        btn.textContent = '⏳ A preparar relatório...';
-      }
-      setTimeout(async () => {
-        try {
-          if (typeof printPedidosWorkloadReport === 'function') {
-            await printPedidosWorkloadReport(btn);
-          } else {
-            window.print();
-          }
-        } catch (err) {
-          console.error('Falha ao acionar impressão:', err);
-        } finally {
-          setTimeout(() => {
-            if (btn) btn.textContent = 'Imprimir';
-            isPrintingReportIndicadores = false;
-          }, 800);
-        }
-      }, 10);
-    });
 
     function stepPrevMonth() {
       currentMonthOffset--;
