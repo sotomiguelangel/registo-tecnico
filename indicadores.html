@@ -12966,6 +12966,12 @@
         }
       } catch (e) {}
 
+      // Remove qualquer ar condicionado obsoleto remanescente (apenas os 5 oficiais AC01-AC05 são mantidos)
+      ['AC06', 'AC07', 'AC08', 'AC09'].forEach(badId => {
+        equipMap.delete(badId);
+        equipMap.delete(badId.toLowerCase());
+      });
+
       const merged = Array.from(equipMap.values());
       try {
         localStorage.setItem('bitacora_equipamentos', JSON.stringify(merged));
@@ -13181,6 +13187,11 @@
             deduplicatedMap.set(finalKey, eq);
           }
         }
+      });
+      // Remove qualquer ar condicionado obsoleto remanescente (apenas os 5 oficiais AC01-AC05 são mantidos)
+      ['AC06', 'AC07', 'AC08', 'AC09'].forEach(badId => {
+        deduplicatedMap.delete(badId);
+        deduplicatedMap.delete(badId.toLowerCase());
       });
       list = Array.from(deduplicatedMap.values());
 
