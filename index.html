@@ -5673,6 +5673,19 @@
                   const norm = normalizeDate(it.data.fecha);
                   if(norm) it.data.fecha = norm;
                 }
+                if(t === 'temperatura' && it && it.data && it.data.temperatura != null){
+                  const rawVal = parseFloat(String(it.data.temperatura).replace(',', '.'));
+                  if(!isNaN(rawVal)){
+                    const eqIdStr = String(it.data.equipamentoId || it.data.nome || '').toUpperCase();
+                    const isACRec = /^AC\d+/i.test(eqIdStr) || /ar condicionado|aire acondicionado|climatiz/i.test(String(it.data.nome || '').toLowerCase()) || String(it.data.tipo || '').toLowerCase().includes('condicionado');
+                    const isCongRec = /^CON\d+/i.test(eqIdStr) || /congelad|freezer|arca/i.test(String(it.data.nome || '').toLowerCase()) || String(it.data.tipo || '').toLowerCase().includes('congelad');
+                    if(isACRec && rawVal >= 16 && rawVal <= 28){
+                      it.data.dentroIntervalo = 'Sim';
+                    } else if(isCongRec && rawVal >= -25 && rawVal <= -12){
+                      it.data.dentroIntervalo = 'Sim';
+                    }
+                  }
+                }
               });
               dataStore[t] = s[t];
             } else if(Array.isArray(s[t])){
@@ -5681,6 +5694,19 @@
                 if(rec && rec.fecha){
                   const norm = normalizeDate(rec.fecha);
                   if(norm) rec.fecha = norm;
+                }
+                if(t === 'temperatura' && rec && rec.temperatura != null){
+                  const rawVal = parseFloat(String(rec.temperatura).replace(',', '.'));
+                  if(!isNaN(rawVal)){
+                    const eqIdStr = String(rec.equipamentoId || rec.nome || '').toUpperCase();
+                    const isACRec = /^AC\d+/i.test(eqIdStr) || /ar condicionado|aire acondicionado|climatiz/i.test(String(rec.nome || '').toLowerCase()) || String(rec.tipo || '').toLowerCase().includes('condicionado');
+                    const isCongRec = /^CON\d+/i.test(eqIdStr) || /congelad|freezer|arca/i.test(String(rec.nome || '').toLowerCase()) || String(rec.tipo || '').toLowerCase().includes('congelad');
+                    if(isACRec && rawVal >= 16 && rawVal <= 28){
+                      rec.dentroIntervalo = 'Sim';
+                    } else if(isCongRec && rawVal >= -25 && rawVal <= -12){
+                      rec.dentroIntervalo = 'Sim';
+                    }
+                  }
                 }
                 return { key: String(it?.key || rec.id || Math.random().toString(36).slice(2)), data: rec };
               });
@@ -5752,6 +5778,19 @@
           if(recData.fecha){
             const norm = normalizeDate(recData.fecha);
             if(norm) recData.fecha = norm;
+          }
+          if(type === 'temperatura' && recData.temperatura != null && String(recData.temperatura).trim() !== ''){
+            const rawVal = parseFloat(String(recData.temperatura).replace(',', '.'));
+            if(!isNaN(rawVal)){
+              const eqIdStr = String(recData.equipamentoId || recData.nome || '').toUpperCase();
+              const isACRec = /^AC\d+/i.test(eqIdStr) || /ar condicionado|aire acondicionado|climatiz/i.test(String(recData.nome || '').toLowerCase()) || String(recData.tipo || '').toLowerCase().includes('condicionado');
+              const isCongRec = /^CON\d+/i.test(eqIdStr) || /congelad|freezer|arca/i.test(String(recData.nome || '').toLowerCase()) || String(recData.tipo || '').toLowerCase().includes('congelad');
+              if(isACRec && rawVal >= 16 && rawVal <= 28){
+                recData.dentroIntervalo = 'Sim';
+              } else if(isCongRec && rawVal >= -25 && rawVal <= -12){
+                recData.dentroIntervalo = 'Sim';
+              }
+            }
           }
           itemsMap.set(String(id), { key: String(id), data: recData });
         }
@@ -6023,12 +6062,12 @@
     { id: 'REF03', ref: 'REF03', nome: 'Frigorífico 3 Cozinha Piso 0', descricao: 'Frigorífico 3 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 3', 'frigorifico 3 cozinha piso 0', 'frigorifico 3 cozinha 0', 'frigorifico cocina piso 0 3', 'frigorifico 3 cocina piso 0', 'frigorifico 3', 'frigorifico3', 'frigo 3', 'nevera 3', 'ref 03', 'ref03', 'ref-03', 'ref_03', 'ref 3'] },
     { id: 'REF04', ref: 'REF04', nome: 'Frigorífico 4 Cozinha Piso 0', descricao: 'Frigorífico 4 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 4', 'frigorifico 4 cozinha piso 0', 'frigorifico 4 cozinha 0', 'frigorifico cocina piso 0 4', 'frigorifico 4 cocina piso 0', 'frigorifico 4', 'frigorifico4', 'frigo 4', 'nevera 4', 'ref 04', 'ref04', 'ref-04', 'ref_04', 'ref 4'] },
     { id: 'REF05', ref: 'REF05', nome: 'Frigorífico 5 Cozinha Piso 0', descricao: 'Frigorífico 5 de conservação na Cozinha Piso 0', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['frigorifico cozinha piso 0 5', 'frigorifico 5 cozinha piso 0', 'frigorifico 5 cozinha 0', 'frigorifico cocina piso 0 5', 'frigorifico 5 cocina piso 0', 'frigorifico 5', 'frigorifico5', 'frigo 5', 'nevera 5', 'ref 05', 'ref05', 'ref-05', 'ref_05', 'ref 5'] },
-    { id: 'CON01', ref: 'CON01', nome: 'Congelador Cozinha Piso 0', descricao: 'Congelador de alimentos na Cozinha Piso 0', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['congelador cozinha piso 0', 'congelador cocina piso 0', 'congelador cozinha 0', 'congelador cocina 0', 'congelador cozinha', 'congelador cocina', 'arca congelador cozinha', 'con 01', 'con01', 'con-01', 'con_01', 'con 1'] },
+    { id: 'CON01', ref: 'CON01', nome: 'Congelador Cozinha Piso 0', descricao: 'Congelador de alimentos na Cozinha Piso 0', tipo: 'Congelador', min: -25, max: -12, ubicacao: 'COZINHA PISO 0', ativo: 'Sim', aliases: ['congelador cozinha piso 0', 'congelador cocina piso 0', 'congelador cozinha 0', 'congelador cocina 0', 'congelador cozinha', 'congelador cocina', 'arca congelador cozinha', 'con 01', 'con01', 'con-01', 'con_01', 'con 1'] },
 
     // --- Cozinha Piso -1 ---
     { id: 'REF08', ref: 'REF08', nome: 'Frigorífico Cozinha Piso -1', descricao: 'Frigorífico principal de produção na Cozinha Piso -1', tipo: 'Frigorifico', min: 0, max: 8, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['frigorifico cozinha piso -1', 'frigorifico cozinha piso - 1', 'frigorifico cozinha -1', 'frigorifico cozinha', 'frigorifico cocina piso -1', 'frigorifico cocina -1', 'nevera cocina -1', 'nevera cozinha -1', 'frigorifico producao', 'ref 08', 'ref08', 'ref-08', 'ref_08', 'ref 8'] },
-    { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cozinha', 'congelador 1 cocina -1', 'congelador 1 cocina piso -1', 'congelador 1', 'congelador1', 'con 02', 'con02', 'con-02', 'con_02', 'con 2', 'eq_1787855429206_3949', '3949', '#3949'] },
-    { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -18, max: -1, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cozinha', 'congelador 2 cocina -1', 'congelador 2 cocina piso -1', 'congelador 2', 'congelador2', 'con 03', 'con03', 'con-03', 'con_03', 'con 3', 'eq_1787855463201_3130', '3130', '#3130'] },
+    { id: 'CON02', ref: 'CON02', nome: 'Congelador 1 Cozinha -1', descricao: 'Congelador vertical 1 na Cozinha Piso -1', tipo: 'Congelador', min: -25, max: -12, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 1 cozinha -1', 'congelador 1 cozinha piso -1', 'congelador 1 cozinha piso - 1', 'congelador 1 cozinha', 'congelador 1 cocina -1', 'congelador 1 cocina piso -1', 'congelador 1', 'congelador1', 'con 02', 'con02', 'con-02', 'con_02', 'con 2', 'eq_1787855429206_3949', '3949', '#3949'] },
+    { id: 'CON03', ref: 'CON03', nome: 'Congelador 2 Cozinha -1', descricao: 'Congelador vertical 2 na Cozinha Piso -1', tipo: 'Congelador', min: -25, max: -12, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', aliases: ['congelador 2 cozinha -1', 'congelador 2 cozinha piso -1', 'congelador 2 cozinha piso - 2', 'congelador 2 cozinha', 'congelador 2 cocina -1', 'congelador 2 cocina piso -1', 'congelador 2', 'congelador2', 'con 03', 'con03', 'con-03', 'con_03', 'con 3', 'eq_1787855463201_3130', '3130', '#3130'] },
     { id: 'AC08', ref: 'AC08', nome: 'Ar Condicionado Cozinha Piso -1', descricao: 'Climatização da Cozinha Piso -1', tipo: 'Ar Condicionado', min: 16, max: 28, ubicacao: 'COZINHA PISO -1', ativo: 'Sim', isRange: false, aliases: ['ar condicionado cozinha piso -1', 'ar condicionado cozinha piso - 1', 'ar condicionado cozinha -1', 'ar condicionado cozinha', 'aire acondicionado cocina piso -1', 'aire acondicionado cocina -1', 'aire cocina -1', 'ac 08', 'ac08', 'arc08', 'arc 08', 'ac-08', 'ac_08', 'ac 8'] },
 
     // --- Armazém Piso -1 ---
@@ -6494,15 +6533,27 @@
 
       if(!existing){
         const baseDef = canonical || {};
+        const isAC = isAireAcondicionado(eq) || (canonical && isAireAcondicionado(canonical));
+        const isCong = isCongelador(eq) || (canonical && isCongelador(canonical));
+        let defMin = isAC ? 16 : (isCong ? -25 : (baseDef.min !== undefined ? baseDef.min : 0));
+        let defMax = isAC ? 28 : (isCong ? -12 : (baseDef.max !== undefined ? baseDef.max : 8));
+        let chosenMin = eq.min !== undefined ? parseFloat(eq.min) : defMin;
+        let chosenMax = eq.max !== undefined ? parseFloat(eq.max) : defMax;
+        if (isAC && (isNaN(chosenMin) || isNaN(chosenMax) || (chosenMin === 0 && chosenMax === 8) || chosenMax < 26 || chosenMin > 20)) {
+          chosenMin = 16; chosenMax = 28;
+        }
+        if (isCong && (isNaN(chosenMin) || chosenMax < -12 || (chosenMin === -18 && chosenMax === -1) || chosenMin >= 0)) {
+          chosenMin = -25; chosenMax = -12;
+        }
         equipMap.set(targetKey, Object.assign({}, baseDef, eq, {
           id: targetId,
           ref: eq.ref || (baseDef.ref || targetId),
           nome: safeName,
           descricao: safeDesc,
-          tipo: eq.tipo || baseDef.tipo || 'Frigorifico',
+          tipo: eq.tipo || baseDef.tipo || (isAC ? 'Ar Condicionado' : (isCong ? 'Congelador' : 'Frigorifico')),
           ubicacao: normLoc,
-          min: eq.min !== undefined ? eq.min : (baseDef.min !== undefined ? baseDef.min : (isAireAcondicionado(eq) ? 16 : 0)),
-          max: eq.max !== undefined ? eq.max : (baseDef.max !== undefined ? baseDef.max : (isAireAcondicionado(eq) ? 28 : 8)),
+          min: chosenMin,
+          max: chosenMax,
           ativo: eq.ativo !== undefined ? eq.ativo : 'Sim',
           aliases: canonical && Array.isArray(canonical.aliases) ? canonical.aliases : (eq.aliases || [])
         }));
@@ -6520,13 +6571,31 @@
           if(eq.nome && !/^(eq|id|sq)_[0-9]+/i.test(eq.nome)) existing.nome = eq.nome;
           if(eq.tipo) existing.tipo = eq.tipo;
           if(eq.ubicacao) existing.ubicacao = normLoc;
-          if(eq.min !== undefined) existing.min = eq.min;
-          if(eq.max !== undefined) existing.max = eq.max;
+          if(eq.min !== undefined) existing.min = parseFloat(eq.min);
+          if(eq.max !== undefined) existing.max = parseFloat(eq.max);
           if(eq.ativo !== undefined) existing.ativo = eq.ativo;
           if(eq.descricao) existing.descricao = eq.descricao;
         } else {
           if(!existing.descricao && eq.descricao) existing.descricao = eq.descricao;
           if(canonical && !existing.descricao) existing.descricao = canonical.descricao;
+        }
+        // Sanitização de limites para AC e Congeladores
+        const isAC = isAireAcondicionado(existing) || isAireAcondicionado(eq);
+        const isCong = isCongelador(existing) || isCongelador(eq);
+        if (isAC) {
+          const eMin = parseFloat(existing.min);
+          const eMax = parseFloat(existing.max);
+          if (isNaN(eMin) || isNaN(eMax) || (eMin === 0 && eMax === 8) || eMax < 26 || eMin > 20) {
+            existing.min = 16;
+            existing.max = 28;
+          }
+        } else if (isCong) {
+          const eMin = parseFloat(existing.min);
+          const eMax = parseFloat(existing.max);
+          if (isNaN(eMin) || isNaN(eMax) || eMax < -12 || (eMin === -18 && eMax === -1) || eMin >= 0) {
+            existing.min = -25;
+            existing.max = -12;
+          }
         }
       }
     };
@@ -6594,17 +6663,18 @@
         const canon = findCanonicalEquip(rId, d.nome, d.ubicacao || d.ubicacion, d.tipo) || findCanonicalEquip(d.nome);
         const resolvedId = canon ? canon.id : rId;
         if(!equipMap.has(resolvedId.toUpperCase()) && !deletedIds.has(resolvedId.toLowerCase())){
-          const rTipo = String(d.tipo || '').trim() || (resolvedId.toUpperCase().startsWith('AC') ? 'Aire Acondicionado' : 'Frigorifico');
+          const rTipo = String(d.tipo || '').trim() || (resolvedId.toUpperCase().startsWith('AC') ? 'Ar Condicionado' : (resolvedId.toUpperCase().startsWith('CON') ? 'Congelador' : 'Frigorifico'));
           const isAC = isAireAcondicionado({ tipo: rTipo, nome: d.nome || resolvedId });
+          const isCong = isCongelador({ tipo: rTipo, nome: d.nome || resolvedId });
           addOrUpdate({
             id: resolvedId,
             ref: resolvedId,
             nome: canon ? canon.nome : (d.nome || resolvedId),
             descricao: canon ? canon.descricao : (d.nome || resolvedId),
-            tipo: isAC ? 'Aire Acondicionado' : rTipo,
+            tipo: isAC ? 'Ar Condicionado' : (isCong ? 'Congelador' : rTipo),
             ubicacao: d.ubicacao || (canon ? canon.ubicacao : 'Outras Localizações'),
-            min: isAC ? 16 : 0,
-            max: isAC ? 28 : 8,
+            min: isAC ? 16 : (isCong ? -25 : 0),
+            max: isAC ? 28 : (isCong ? -12 : 8),
             ativo: 'Sim'
           }, false);
         }
@@ -6663,6 +6733,27 @@
     });
     equipMap.clear();
     deduplicatedMap.forEach((v, k) => equipMap.set(k, v));
+
+    // Sanitização e garantia absoluta de limites de referência térmica
+    equipMap.forEach(eq => {
+      const isAC = isAireAcondicionado(eq);
+      const isCong = isCongelador(eq);
+      if (isAC) {
+        const eMin = parseFloat(eq.min);
+        const eMax = parseFloat(eq.max);
+        if (isNaN(eMin) || isNaN(eMax) || (eMin === 0 && eMax === 8) || eMax < 26 || eMin > 20) {
+          eq.min = 16;
+          eq.max = 28;
+        }
+      } else if (isCong) {
+        const eMin = parseFloat(eq.min);
+        const eMax = parseFloat(eq.max);
+        if (isNaN(eMin) || isNaN(eMax) || eMax < -12 || (eMin === -18 && eMax === -1) || eMin >= 0) {
+          eq.min = -25;
+          eq.max = -12;
+        }
+      }
+    });
 
     // Remove qualquer ar condicionado obsoleto remanescente (apenas AC06, AC07 e AC09 são descontinuados)
     ['AC06', 'AC07', 'AC09'].forEach(badId => {
@@ -8822,6 +8913,15 @@
     return str.includes('ar condicionado') || str.includes('aire acondicionado') || str.includes('climat') || str.includes('hvac') || str.includes('a/c') || str.includes(' ac ') || str.startsWith('ac ') || str === 'ac';
   }
 
+  function isCongelador(eq){
+    if(!eq) return false;
+    if(isAireAcondicionado(eq)) return false;
+    const idStr = String(eq.id || eq.ref || '').toUpperCase().trim();
+    if (/^CON\d+/i.test(idStr)) return true;
+    const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+    return str.includes('congelad') || str.includes('congelac') || str.includes('congelaç') || str.includes('freezer') || str.includes('arca');
+  }
+
   function isVinera(eq){
     if(!eq) return false;
     if(isAireAcondicionado(eq)) return false;
@@ -8834,8 +8934,31 @@
     const s = String(tempStr).trim();
     if(!s) return { isRange:false, val:null, min:null, max:null, formatted:'—', formattedRaw:'—', isBad:false };
 
-    const eqMin = eq && !isNaN(parseFloat(eq.min)) ? parseFloat(eq.min) : null;
-    const eqMax = eq && !isNaN(parseFloat(eq.max)) ? parseFloat(eq.max) : null;
+    let targetEq = eq;
+    if (typeof targetEq === 'string') {
+      targetEq = (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(targetEq) : null) || { nome: targetEq, id: targetEq };
+    } else if (targetEq && typeof findCanonicalEquip === 'function' && (targetEq.min === undefined || targetEq.max === undefined)) {
+      const canon = findCanonicalEquip(targetEq.id, targetEq.nome, targetEq.ubicacao, targetEq.tipo);
+      if (canon) targetEq = Object.assign({}, canon, targetEq);
+    }
+
+    let eqMin = targetEq && !isNaN(parseFloat(targetEq.min)) ? parseFloat(targetEq.min) : null;
+    let eqMax = targetEq && !isNaN(parseFloat(targetEq.max)) ? parseFloat(targetEq.max) : null;
+
+    // Normalização defensiva de limites de referência para evitar falsos "fora de intervalo"
+    if (isAireAcondicionado(targetEq)) {
+      // Climatização / AC: faixa regulamentar padrão 16 a 28 °C (corrige valores legados obsoletos de frigorífico 0 a 8 °C ou restritivos)
+      if (eqMin === null || eqMax === null || (eqMin === 0 && eqMax === 8) || eqMax < 26 || eqMin > 20) {
+        eqMin = 16;
+        eqMax = 28;
+      }
+    } else if (isCongelador(targetEq)) {
+      // Congeladores em hotelaria / HACCP: faixa operacional admissível -25 a -12 °C (valores como -17.3 °C são estritamente conformes)
+      if (eqMin === null || eqMax === null || eqMax < -12 || (eqMin === -18 && eqMax === -1) || eqMin >= 0) {
+        eqMin = -25;
+        eqMax = -12;
+      }
+    }
 
     // Reconhece formatos de intervalo: "8 a 14", "8.0 - 14.0", "8 - 14", "8/14", "8..14"
     const rangeMatch = s.match(/^(-?\d+(?:[\.,]\d+)?)\s*(?:[-–—/a]|até|\.\.)\s*(-?\d+(?:[\.,]\d+)?)$/i);
@@ -8903,7 +9026,7 @@
       banner.classList.add('show');
       const isAC = isAireAcondicionado(eq);
       const vin = !isAC && isVinera(eq);
-      const isFreeze = !isAC && (String(eq.tipo).toLowerCase().includes('congelador') || String(eq.tipo).toLowerCase().includes('arca'));
+      const isFreeze = !isAC && isCongelador(eq);
       const icon = isAC ? '💨' : (vin ? '🍷' : (isFreeze ? '❄️' : '🧊'));
       const realCode = getEquipCode(eq);
       const realName = getEquipRealName(eq);
@@ -8928,11 +9051,11 @@
         if(rangeRow) rangeRow.style.display = 'none';
         const neg = isFreeze;
         $('tempSignHint').innerHTML = neg
-          ? `❄️ <span class="ref-badge" style="font-family:var(--mono); font-weight:800; font-size:11px; padding:1px 6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px; margin-right:4px;">${esc(realCode)}</span> <b>${esc(realName)}</b> (Congelador): registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`
-          : `🧊 <span class="ref-badge" style="font-family:var(--mono); font-weight:800; font-size:11px; padding:1px 6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px; margin-right:4px;">${esc(realCode)}</span> <b>${esc(realName)}</b> (${esc(eq.tipo)}): registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min)} a ${esc(eq.max)} °C).`;
+          ? `❄️ <span class="ref-badge" style="font-family:var(--mono); font-weight:800; font-size:11px; padding:1px 6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px; margin-right:4px;">${esc(realCode)}</span> <b>${esc(realName)}</b> (Congelador): registe temperatura <b class="neg">NEGATIVA</b> (intervalo de referência: ${esc(eq.min || -25)} a ${esc(eq.max || -12)} °C).`
+          : `🧊 <span class="ref-badge" style="font-family:var(--mono); font-weight:800; font-size:11px; padding:1px 6px; background:#fff; border:1px solid #cbd5e1; border-radius:4px; margin-right:4px;">${esc(realCode)}</span> <b>${esc(realName)}</b> (${esc(eq.tipo)}): registe temperatura POSITIVA (intervalo de referência: ${esc(eq.min || 0)} a ${esc(eq.max || 8)} °C).`;
         $('t-temperatura').min = neg ? -60 : 0;
         $('t-temperatura').max = neg ? -0.1 : 60;
-        $('t-temperatura').placeholder = neg ? 'Ex.: -18.0' : 'Ex.: 4.0';
+        $('t-temperatura').placeholder = neg ? 'Ex.: -17.5' : 'Ex.: 4.0';
       }
     } else {
       banner.classList.remove('show');
@@ -9152,9 +9275,9 @@
     const canModify = !isViewer();
     const vin = isVinera(equip);
     const isAc = isAireAcondicionado(equip);
-    const icon = isAc ? '💨' : (vin ? '🍷' : (String(equip.tipo).toLowerCase().includes('congelador') ? '❄️' : '🧊'));
+    const icon = isAc ? '💨' : (vin ? '🍷' : (isCongelador(equip) ? '❄️' : '🧊'));
     const parsed = parseTempReading(d.temperatura, equip);
-    const isBad = parsed.isBad || String(d.dentroIntervalo) === 'Não';
+    const isBad = parsed.val !== null ? parsed.isBad : (String(d.dentroIntervalo) === 'Não');
 
     const realCode = getEquipCode(equip);
     const realEquipName = getEquipRealName(equip);
@@ -9265,7 +9388,8 @@
           const lastData = (lastReading && lastReading.data) ? lastReading.data : (lastReading || {});
           const parsed = parseTempReading(lastData.temperatura, eq);
           readingFormatted = parsed.formatted;
-          if(parsed.isBad || String(lastData.dentroIntervalo) === 'Não' || lastData.dentroIntervalo === false){
+          const recBad = parsed.val !== null ? parsed.isBad : (String(lastData.dentroIntervalo) === 'Não' || lastData.dentroIntervalo === false);
+          if(recBad){
             isBad = true;
             alertasCount++;
           }
@@ -9636,7 +9760,8 @@
               return db.localeCompare(da);
             })[0];
             const parsed = parseTempReading(last.data.temperatura, eq);
-            if(parsed.isBad || String(last.data.dentroIntervalo) === 'Não') desvios++;
+            const recBad = parsed.val !== null ? parsed.isBad : (String(last.data.dentroIntervalo) === 'Não');
+            if(recBad) desvios++;
           }
         });
 
@@ -9809,7 +9934,7 @@
           const val = tipoSel.value;
           if(val === 'Aire Acondicionado' || val === 'Ar Condicionado'){ minInp.value = '16'; maxInp.value = '28'; }
           else if(val === 'Frigorifico'){ minInp.value = '0'; maxInp.value = '8'; }
-          else if(val === 'Congelador'){ minInp.value = '-22'; maxInp.value = '-18'; }
+          else if(val === 'Congelador'){ minInp.value = '-25'; maxInp.value = '-12'; }
           else if(val === 'Vinhera'){ minInp.value = '5'; maxInp.value = '16'; }
           else if(val === 'Balcao'){ minInp.value = '0'; maxInp.value = '8'; }
         });
@@ -9828,7 +9953,7 @@
             { value:'Aire Acondicionado', label:'💨 Aire Acondicionado / Ar Condicionado (Min: 16°C, Max: 28°C)' },
             { value:'Ar Condicionado', label:'💨 Ar Condicionado (Min: 16°C, Max: 28°C)' },
             { value:'Frigorifico', label:'🧊 Frigorífico / Conservação (Min: 0°C, Max: 8°C)' },
-            { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -22°C, Max: -18°C)' },
+            { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -25°C, Max: -12°C)' },
             { value:'Vinhera', label:'🍷 Vinheira / Garrafeira (Min: 5°C, Max: 16°C)' },
             { value:'Balcao', label:'🥗 Balcão / Preparação (Min: 0°C, Max: 8°C)' },
             { value:'Outro', label:'⚙️ Outro / Personalizado' }
@@ -9896,7 +10021,7 @@
           const val = tipoSel.value;
           if(val === 'Aire Acondicionado' || val === 'Ar Condicionado'){ minInp.value = '16'; maxInp.value = '28'; }
           else if(val === 'Frigorifico'){ minInp.value = '0'; maxInp.value = '8'; }
-          else if(val === 'Congelador'){ minInp.value = '-22'; maxInp.value = '-18'; }
+          else if(val === 'Congelador'){ minInp.value = '-25'; maxInp.value = '-12'; }
           else if(val === 'Vinhera'){ minInp.value = '5'; maxInp.value = '16'; }
           else if(val === 'Balcao'){ minInp.value = '0'; maxInp.value = '8'; }
         });
@@ -9904,7 +10029,17 @@
     }, 60);
 
     const isAcMatch = isAireAcondicionado(eq);
-    const defaultTipo = isAcMatch ? (eq.tipo || 'Aire Acondicionado') : (eq.tipo || 'Frigorifico');
+    const isCongMatch = isCongelador(eq);
+    const defaultTipo = isAcMatch ? (eq.tipo || 'Aire Acondicionado') : (isCongMatch ? (eq.tipo || 'Congelador') : (eq.tipo || 'Frigorifico'));
+
+    let initMin = eq.min;
+    let initMax = eq.max;
+    if (isAcMatch && ((initMin === 0 && initMax === 8) || initMax < 26 || initMin > 20)) {
+      initMin = 16; initMax = 28;
+    }
+    if (isCongMatch && (initMax < -12 || (initMin === -18 && initMax === -1) || initMin >= 0)) {
+      initMin = -25; initMax = -12;
+    }
 
     const vals = await formDialog('Modificar Características do Equipamento', [
       { id:'nome', label:'Nome do Equipamento', value: eq.nome },
@@ -9916,7 +10051,7 @@
           { value:'Aire Acondicionado', label:'💨 Aire Acondicionado / Ar Condicionado (Min: 16°C, Max: 28°C)' },
           { value:'Ar Condicionado', label:'💨 Ar Condicionado (Min: 16°C, Max: 28°C)' },
           { value:'Frigorifico', label:'🧊 Frigorífico / Conservação (Min: 0°C, Max: 8°C)' },
-          { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -22°C, Max: -18°C)' },
+          { value:'Congelador', label:'❄️ Congelador / Congelação (Min: -25°C, Max: -12°C)' },
           { value:'Vinhera', label:'🍷 Vinheira / Garrafeira (Min: 5°C, Max: 16°C)' },
           { value:'Balcao', label:'🥗 Balcão / Preparação (Min: 0°C, Max: 8°C)' },
           { value:'Outro', label:'⚙️ Outro / Personalizado' }
@@ -9924,8 +10059,8 @@
         value: defaultTipo
       },
       { id:'ubicacao', label:'Localização / Ubicação', value: eq.ubicacao || '' },
-      { id:'min', label:'Temperatura Mínima Admissível (°C)', value: eq.min },
-      { id:'max', label:'Temperatura Máxima Admissível (°C)', value: eq.max }
+      { id:'min', label:'Temperatura Mínima Admissível (°C)', value: initMin },
+      { id:'max', label:'Temperatura Máxima Admissível (°C)', value: initMax }
     ], 'Guardar Características');
     if(!vals) return;
     if(!vals.nome || !vals.tipo){
@@ -10079,10 +10214,10 @@
         resetTempEditState();
       } else {
         const r = await saveRecord('temperatura', data);
-        if(parsed.isBad || (r && r.dentroIntervalo === 'Não')){
-          showToast(`⚠️ Guardada (${tempStr} °C), mas FORA do intervalo de referência (${eq.min} a ${eq.max} °C)`, true);
+        if(parsed.isBad){
+          showToast(`⚠️ Guardada (${tempStr} °C), mas FORA do intervalo de referência (${parsed.min !== null ? parsed.min : eq.min} a ${parsed.max !== null ? parsed.max : eq.max} °C)`, true);
         } else {
-          showToast(`✓ Temperatura ${vin ? 'da vinheira' : ''} guardada`);
+          showToast(`✓ Temperatura ${vin ? 'da vinheira' : ''} guardada (${tempStr} °C · Conforme)`);
         }
       }
       $('t-temperatura').value = '';
@@ -10359,7 +10494,20 @@
     let tempDesvios = 0;
 
     tp.forEach(r => {
-      if(String(r.data.dentroIntervalo) === 'Não'){
+      const d = r && r.data ? r.data : (r || {});
+      const raw = d.temperatura ?? d.temp;
+      let bad = false;
+      if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+        const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+          ? (equipamentos.find(e => isRecordMatchingEquip(r, e)) || equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(d.nome || d.equipamento || d.equipamentoId) : null) || {})
+          : {};
+        const parsed = parseTempReading(raw, eq);
+        if (parsed.val !== null) bad = parsed.isBad;
+        else bad = String(d.dentroIntervalo) === 'Não';
+      } else {
+        bad = String(d.dentroIntervalo) === 'Não';
+      }
+      if(bad){
         tempDesvios++;
       } else {
         tempConformes++;
@@ -12480,10 +12628,8 @@
         rowRenderer: (r) => {
           const d = (r && r.data) ? r.data : (r || {});
           const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
-            ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {})
+            ? (equipamentos.find(e => isRecordMatchingEquip(r, e)) || equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(d.nome || d.equipamento || d.equipamentoId) : null) || {})
             : {};
-          const rng = eq.min !== undefined && eq.max !== undefined ? `${eq.min} a ${eq.max} ºC` : '—';
-          const bad = String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não';
           const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
             ? d.temperatura
             : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
@@ -12499,6 +12645,9 @@
                       : ((r && r.temperatura !== undefined && r.temperatura !== null && r.temperatura !== '')
                         ? r.temperatura
                         : (r && r.temp !== undefined && r.temp !== null && r.temp !== '' ? r.temp : null)))))));
+          const parsed = parseTempReading(rawTemp, eq);
+          const bad = parsed.val !== null ? parsed.isBad : (String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não');
+          const rng = eq.min !== undefined && eq.max !== undefined ? `${eq.min} a ${eq.max} ºC` : '—';
           let tempDisplay = '—';
           if(rawTemp !== undefined && rawTemp !== null && rawTemp !== ''){
             const sTemp = String(rawTemp).trim();
@@ -14865,7 +15014,16 @@
 
     // Refrigeração
     const isTempBad = r => {
-      const v = r.data?.dentroIntervalo;
+      const d = (r && r.data) ? r.data : (r || {});
+      const rawTemp = d.temperatura ?? d.temp ?? d.temperaturaC ?? d.valor ?? d.leitura;
+      if (rawTemp !== undefined && rawTemp !== null && rawTemp !== '') {
+        const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+          ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || d.equipoId || d.equipamento || d.nome || (r && r.equipamentoId))) || {})
+          : {};
+        const parsed = parseTempReading(rawTemp, eq);
+        if (parsed.val !== null) return parsed.isBad;
+      }
+      const v = d.dentroIntervalo;
       if (v === false || v === 0) return true;
       const s = String(v ?? '').trim().toLowerCase();
       return s === 'não' || s === 'nao' || s === 'no' || s === '0' || s === 'false';
@@ -22690,8 +22848,6 @@
     let tempBadCount = 0;
     tp.forEach(r=>{
       const d = (r && r.data) ? r.data : (r || {});
-      const isBad = String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não';
-      if(isBad) tempBadCount++;
       const rawTemp = (d.temperatura !== undefined && d.temperatura !== null && d.temperatura !== '')
         ? d.temperatura
         : ((d.temp !== undefined && d.temp !== null && d.temp !== '')
@@ -22707,6 +22863,12 @@
                   : ((r && r.temperatura !== undefined && r.temperatura !== null && r.temperatura !== '')
                     ? r.temperatura
                     : (r && r.temp !== undefined && r.temp !== null && r.temp !== '' ? r.temp : null)))))));
+      const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
+        ? (equipamentos.find(e => isRecordMatchingEquip(r, e)) || equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || (typeof findCanonicalEquip === 'function' ? findCanonicalEquip(d.nome || d.equipamento || d.equipamentoId) : null) || {})
+        : {};
+      const parsed = parseTempReading(rawTemp, eq);
+      const isBad = (parsed.val !== null) ? parsed.isBad : (String(d.dentroIntervalo) === 'Não' || String(r && r.dentroIntervalo) === 'Não');
+      if(isBad) tempBadCount++;
       let tempTxt = '—';
       if(rawTemp !== undefined && rawTemp !== null && rawTemp !== ''){
         const sTemp = String(rawTemp).trim();
@@ -22716,9 +22878,6 @@
       } else if(r && r.temperaturaMin != null && r.temperaturaMax != null){
         tempTxt = `${r.temperaturaMin} a ${r.temperaturaMax} °C`;
       }
-      const eq = (typeof equipamentos !== 'undefined' && Array.isArray(equipamentos))
-        ? (equipamentos.find(e => String(e.id) === String(d.equipamentoId || (r && r.equipamentoId))) || {})
-        : {};
       const rng = eq.min !== undefined && eq.max !== undefined ? `${eq.min} a ${eq.max} ºC` : (dispYesNo(d.dentroIntervalo || (r && r.dentroIntervalo)));
       rowsT += `<tr class="${isBad?'bad':''}">
         <td>${esc(d.fecha || (r && r.fecha) || '')}</td>

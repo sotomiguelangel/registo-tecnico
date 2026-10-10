@@ -776,6 +776,11 @@ var EQUIP_TIPOS = Object.freeze({
     max: -12
   }),
 
+  'Ar Condicionado': Object.freeze({
+    min: 16,
+    max: 28
+  }),
+
   Vinheira: Object.freeze({
     min: 8,
     max: 18
@@ -12232,6 +12237,18 @@ function normalizeEquipmentType(value) {
     congelador: 'Congelador',
     freezer: 'Congelador',
 
+    'ar condicionado': 'Ar Condicionado',
+    'ar-condicionado': 'Ar Condicionado',
+    'aire acondicionado': 'Ar Condicionado',
+    'aire-acondicionado': 'Ar Condicionado',
+    'climatizacao': 'Ar Condicionado',
+    'climatização': 'Ar Condicionado',
+    'arcondicionado': 'Ar Condicionado',
+    'aireacondicionado': 'Ar Condicionado',
+    ac: 'Ar Condicionado',
+    arc: 'Ar Condicionado',
+    hvac: 'Ar Condicionado',
+
     vinheira: 'Vinheira',
     vinera: 'Vinheira',
 
@@ -12333,16 +12350,30 @@ function listEquipamentos(options) {
           equipment.ubicacao || '',
 
         min:
-          parseDecimal(
-            equipment.min,
-            null
-          ),
+          (function(){
+            var parsed = parseDecimal(equipment.min, null);
+            var eqType = normalizeEquipmentType(equipment.tipo);
+            var idUpper = safeString(equipment.id || equipment.ref || '').toUpperCase();
+            var nameLower = safeString(equipment.nome || '').toLowerCase();
+            var isAC = eqType === 'Ar Condicionado' || /^(AC|ARC)\d+/i.test(idUpper) || nameLower.indexOf('ar condicionado') !== -1 || nameLower.indexOf('aire acondicionado') !== -1 || nameLower.indexOf('climatiz') !== -1;
+            var isCong = eqType === 'Congelador' || /^CON\d+/i.test(idUpper) || nameLower.indexOf('congelad') !== -1 || nameLower.indexOf('freezer') !== -1 || nameLower.indexOf('arca') !== -1;
+            if (isAC && (parsed === null || parsed === 0 || parsed < 14 || parsed > 20)) return 16;
+            if (isCong && (parsed === null || parsed >= 0 || parsed > -25)) return -25;
+            return parsed;
+          })(),
 
         max:
-          parseDecimal(
-            equipment.max,
-            null
-          ),
+          (function(){
+            var parsed = parseDecimal(equipment.max, null);
+            var eqType = normalizeEquipmentType(equipment.tipo);
+            var idUpper = safeString(equipment.id || equipment.ref || '').toUpperCase();
+            var nameLower = safeString(equipment.nome || '').toLowerCase();
+            var isAC = eqType === 'Ar Condicionado' || /^(AC|ARC)\d+/i.test(idUpper) || nameLower.indexOf('ar condicionado') !== -1 || nameLower.indexOf('aire acondicionado') !== -1 || nameLower.indexOf('climatiz') !== -1;
+            var isCong = eqType === 'Congelador' || /^CON\d+/i.test(idUpper) || nameLower.indexOf('congelad') !== -1 || nameLower.indexOf('freezer') !== -1 || nameLower.indexOf('arca') !== -1;
+            if (isAC && (parsed === null || parsed === 8 || parsed < 26)) return 28;
+            if (isCong && (parsed === null || parsed < -12 || parsed >= 0)) return -12;
+            return parsed;
+          })(),
 
         ativo:
           isNo(equipment.ativo)
@@ -13171,14 +13202,31 @@ function evaluateTemperatureReading(
       null
     );
 
+  var eqType = normalizeEquipmentType(equipment.tipo);
+  var idUpper = safeString(equipment.id || equipment.ref || '').toUpperCase();
+  var nameLower = safeString(equipment.nome || '').toLowerCase();
+
+  var isAC = eqType === 'Ar Condicionado' || /^(AC|ARC)\d+/i.test(idUpper) || nameLower.indexOf('ar condicionado') !== -1 || nameLower.indexOf('aire acondicionado') !== -1 || nameLower.indexOf('climatiz') !== -1;
+  var isCong = eqType === 'Congelador' || /^CON\d+/i.test(idUpper) || nameLower.indexOf('congelad') !== -1 || nameLower.indexOf('freezer') !== -1 || nameLower.indexOf('arca') !== -1;
+
+  if (isAC) {
+    if (minimumAllowed === null || maximumAllowed === null || (minimumAllowed === 0 && maximumAllowed === 8) || maximumAllowed < 26 || minimumAllowed > 20) {
+      minimumAllowed = 16;
+      maximumAllowed = 28;
+    }
+  } else if (isCong) {
+    if (minimumAllowed === null || maximumAllowed === null || maximumAllowed < -12 || (minimumAllowed === -18 && maximumAllowed === -1) || minimumAllowed >= 0) {
+      minimumAllowed = -25;
+      maximumAllowed = -12;
+    }
+  }
+
   if (
     minimumAllowed === null ||
     maximumAllowed === null
   ) {
-    throw apiError(
-      API_ERROR_CODES.VALIDATION,
-      'O equipamento não possui um intervalo de referência válido'
-    );
+    minimumAllowed = isAC ? 16 : (isCong ? -25 : 0);
+    maximumAllowed = isAC ? 28 : (isCong ? -12 : 8);
   }
 
   var measuredMinimum =
@@ -13350,13 +13398,15 @@ function prepareTemperaturaRecord(
     var rawEquipName = trimText(merged.nome || merged.equipamento || merged.equipamentoId, 80);
     if (rawEquipName) {
       try {
+        var isAutoAC = /^(AC|ARC)\d+/i.test(String(merged.equipamentoId || '')) || /ar condicionado|aire acondicionado|climatiz/i.test(String(rawEquipName).toLowerCase());
+        var isAutoCong = /^CON\d+/i.test(String(merged.equipamentoId || '')) || /congelad|freezer|arca/i.test(String(rawEquipName).toLowerCase());
         var autoEq = {
           id: safeString(merged.equipamentoId || '').trim() || undefined,
           nome: rawEquipName,
-          tipo: safeString(merged.tipo || 'Frigorifico').trim(),
+          tipo: isAutoAC ? 'Ar Condicionado' : (isAutoCong ? 'Congelador' : safeString(merged.tipo || 'Frigorifico').trim()),
           ubicacao: safeString(merged.ubicacao || 'COZINHA PISO 0').trim(),
-          min: merged.temperaturaMin !== undefined ? Number(merged.temperaturaMin) : 0,
-          max: merged.temperaturaMax !== undefined ? Number(merged.temperaturaMax) : 8,
+          min: isAutoAC ? 16 : (isAutoCong ? -25 : (merged.temperaturaMin !== undefined ? Number(merged.temperaturaMin) : 0)),
+          max: isAutoAC ? 28 : (isAutoCong ? -12 : (merged.temperaturaMax !== undefined ? Number(merged.temperaturaMax) : 8)),
           ativo: 'Sim'
         };
         var createResult = repositoryCreate('equipamento', autoEq, { idPrefix: 'eq' });
