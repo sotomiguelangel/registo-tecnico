@@ -1727,16 +1727,23 @@
   .off-doc .off-sub{ font-size:12px; color:#555; margin-bottom:4px; }
   .off-doc .off-meta{ font-family:var(--mono); font-size:10.5px; color:#777; margin-bottom:14px; }
   .off-doc table{ width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 14px; }
-  .off-doc th, .off-doc td{ border:1px solid #bbb; padding:4px 5px; text-align:left; }
+  .off-doc thead{ display:table-header-group; }
+  .off-doc tbody{ display:table-row-group; }
+  .off-doc tr{ break-inside:avoid; page-break-inside:avoid; }
+  .off-doc th, .off-doc td{ border:1px solid #bbb; padding:4px 5px; text-align:left; word-break:break-word; overflow-wrap:break-word; }
   .off-doc th{ background:#eee; font-weight:700; }
   .off-doc tr.bad td{ background:#fde8e0; font-weight:700; }
   .off-doc .off-sum{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 16px; }
   .off-doc .off-sum div{ border:1px solid #bbb; border-radius:8px; padding:7px 10px; font-size:10.5px; }
   .off-doc .off-sum b{ display:block; font-size:13px; }
   .off-doc .off-missing{ font-size:11px; color:#a33; margin:6px 0 14px; }
-  .off-doc .off-sign{ display:flex; justify-content:space-between; margin-top:48px; font-size:11px; }
+  .off-doc .off-sign{ display:flex; justify-content:space-between; margin-top:32px; font-size:11px; break-inside:avoid; page-break-inside:avoid; }
   .off-doc .off-sign div{ width:45%; border-top:1px solid #333; padding-top:6px; text-align:center; }
   .off-doc .off-avoid-break{ break-inside:avoid; page-break-inside:avoid; }
+  .off-doc .off-detail-table{ width:100% !important; border-collapse:collapse !important; table-layout:fixed !important; margin:8px 0 14px !important; }
+  .off-doc .off-detail-table thead{ display:table-header-group !important; }
+  .off-doc .off-detail-table tr{ break-inside:avoid !important; page-break-inside:avoid !important; }
+  .off-doc .off-detail-table th, .off-doc .off-detail-table td{ border:1px solid #cbd5e1 !important; padding:4px 5px !important; vertical-align:top !important; word-break:break-word !important; overflow-wrap:break-word !important; }
 
   h2.report-heading{ font-family:var(--mono); font-size:14px; margin:22px 0 8px; color:var(--petrol-800); }
   h2.report-heading:first-child{ margin-top:0; }
@@ -2249,6 +2256,24 @@
     }
     table.report thead{
       display:table-header-group !important;
+    }
+    .off-doc table{
+      width:100% !important; border-collapse:collapse !important;
+    }
+    .off-doc thead{
+      display:table-header-group !important;
+    }
+    .off-doc tbody{
+      display:table-row-group !important;
+    }
+    .off-doc tr{
+      break-inside:avoid !important; page-break-inside:avoid !important;
+    }
+    .off-doc .off-detail-table{
+      width:100% !important; table-layout:fixed !important;
+    }
+    .off-doc .off-sign{
+      break-inside:avoid !important; page-break-inside:avoid !important;
     }
     .entry, .card, .exec-score-card, .exec-fin-card, .exec-matrix-card{
       contain: none !important;
@@ -12248,7 +12273,7 @@
     }finally{ setLoading(btn, false); }
   });
 
-  $('btnOfficialReport').addEventListener('click', ()=>{
+  $('btnOfficialReport').addEventListener('click', async ()=>{
     let desde, hasta;
     if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
     else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
@@ -12257,10 +12282,25 @@
       desde = $('rep-desde').value; hasta = $('rep-hasta').value;
       if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
     }
+    if(reportTipo === 'pedidos'){
+      const btn = $('btnOfficialReport');
+      if(btn) setLoading(btn, true);
+      try{
+        const allTickets = (await loadTickets()) || [];
+        const inRange = t => (!desde || !hasta) || (t.dataReporte >= desde && t.dataReporte <= hasta);
+        const filtered = allTickets.filter(inRange);
+        await generatePedidosWorkloadReport(btn, filtered, { desde, hasta });
+      }catch(err){
+        showToast('Erro ao gerar relatório de pedidos: ' + err.message, true);
+      }finally{
+        if(btn) setLoading(btn, false);
+      }
+      return;
+    }
     generateOfficialReport(desde, hasta);
   });
 
-  if($('btnExecReportFromReports')) $('btnExecReportFromReports').addEventListener('click', (e)=>{
+  if($('btnExecReportFromReports')) $('btnExecReportFromReports').addEventListener('click', async (e)=>{
     let desde, hasta;
     if(periodoActual==='semana'){ [desde,hasta] = rangoSemanaActual(); }
     else if(periodoActual==='mes'){ [desde,hasta] = rangoMesActual(); }
@@ -12268,6 +12308,21 @@
     else{
       desde = $('rep-desde').value; hasta = $('rep-hasta').value;
       if(!desde || !hasta){ showToast('Indique o intervalo de datas'); return; }
+    }
+    if(reportTipo === 'pedidos'){
+      const btn = e.currentTarget;
+      if(btn) setLoading(btn, true);
+      try{
+        const allTickets = (await loadTickets()) || [];
+        const inRange = t => (!desde || !hasta) || (t.dataReporte >= desde && t.dataReporte <= hasta);
+        const filtered = allTickets.filter(inRange);
+        await generatePedidosWorkloadReport(btn, filtered, { desde, hasta });
+      }catch(err){
+        showToast('Erro ao gerar relatório de pedidos: ' + err.message, true);
+      }finally{
+        if(btn) setLoading(btn, false);
+      }
+      return;
     }
     generateExecutiveReport(e.currentTarget, desde, hasta);
   });
@@ -19608,17 +19663,29 @@
     .off-doc .off-sub { font-size:12px; color:#555; margin-bottom:4px; }
     .off-doc .off-meta { font-family: monospace; font-size:10px; color:#777; margin-bottom:12px; }
     .off-doc table { width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 12px; }
-    .off-doc th, .off-doc td { border:1px solid #bbb; padding:4px 5px; text-align:left; }
-    .off-doc th { background:#eee; font-weight:700; }
+    .off-doc thead { display:table-header-group; }
+    .off-doc tbody { display:table-row-group; }
+    .off-doc tr { break-inside:avoid; page-break-inside:avoid; }
+    .off-doc th, .off-doc td { border:1px solid #cbd5e1; padding:4px 5px; text-align:left; vertical-align:top; word-break:break-word; overflow-wrap:break-word; }
+    .off-doc th { background:#f1f5f9; font-weight:700; }
     .off-doc tr.bad td, .off-doc tr.bad { background:#fde8e0 !important; }
-    .off-doc .off-sign { display:flex; justify-content:space-between; margin-top:28px; padding-top:20px; border-top:1px dashed #999; font-size:10px; }
+    .off-doc .off-detail-table { width:100% !important; border-collapse:collapse !important; table-layout:fixed !important; margin:8px 0 14px !important; }
+    .off-doc .off-detail-table thead { display:table-header-group !important; }
+    .off-doc .off-detail-table tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+    .off-doc .off-sign { display:flex; justify-content:space-between; margin-top:28px; padding-top:20px; border-top:1px dashed #999; font-size:10px; break-inside:avoid; page-break-inside:avoid; }
     .off-doc .off-sign div { width:40%; text-align:center; border-top:1px solid #333; padding-top:4px; }
     .off-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:6px; margin:8px 0; }
     .off-stats > div { border:1px solid #bbb; padding:5px 8px; border-radius:6px; font-size:10.5px; }
     .off-stats > div b { display:block; font-size:9px; text-transform:uppercase; color:#555; }
     .off-missing { font-size:10.5px; padding:6px 8px; background:#fff2df; border:1px solid #d99b26; border-radius:6px; margin:6px 0; font-family:monospace; }
+    .off-avoid-break { break-inside:avoid; page-break-inside:avoid; }
     @media print {
       body { padding: 0; }
+      .off-doc table { width:100% !important; border-collapse:collapse !important; }
+      .off-doc thead { display:table-header-group !important; }
+      .off-doc tr { break-inside:avoid !important; page-break-inside:avoid !important; }
+      .off-doc .off-detail-table { width:100% !important; table-layout:fixed !important; }
+      .off-doc .off-sign { break-inside:avoid !important; page-break-inside:avoid !important; }
     }
   </style>
 </head>
@@ -20177,6 +20244,7 @@
 
         <div class="off-meta" style="font-family:var(--mono, monospace); font-size:10px; color:#64748b; margin-bottom:14px; background:#f8fafc; border:1px solid #e2e8f0; padding:6px 10px; border-radius:6px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px;">
           <span>📅 Emissão: <b>${todayStr()} ${nowTimeStr()}</b></span>
+          ${d.customOptions && d.customOptions.desde && d.customOptions.hasta ? `<span>🗓️ Período: <b>${safeEsc(d.customOptions.desde)} a ${safeEsc(d.customOptions.hasta)}</b></span>` : ''}
           <span>👤 Emissor: <b>${safeEsc(getCurrentUserName())}</b></span>
           <span>📦 Filtro de Tipo: <b>${safeEsc(d.workloadType === 'all' ? 'Todos os Tipos' : d.workloadType)}</b></span>
           <span>⏱️ Horizonte: <b>${safeEsc(d.horizon === 'all' ? 'Histórico Completo' : d.horizon + ' Meses (+3 Projeção)')}</b></span>
@@ -20464,8 +20532,118 @@
         </div>
         ` : ''}
 
+        <!-- REGISTO DETALHADO DOS PEDIDOS DE MANUTENÇÃO (DETALHE DOS PEDIDOS) -->
+        <div class="off-orders-detail-section" style="margin-top:14px; margin-bottom:14px;">
+          <div class="off-avoid-break">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:6px; border-bottom:1.5px solid #0f172a; padding-bottom:4px;">
+              <div>
+                <h2 style="font-size:12px; font-weight:800; color:#0f172a; margin:0 0 2px; text-transform:uppercase; letter-spacing:0.02em;">
+                  📋 ${d.strategicTickets && d.strategicTickets.length > 0 ? '6' : '5'}. Detalhe dos Pedidos de Manutenção & Intervenções
+                </h2>
+                <div style="font-size:9.5px; color:#64748b;">
+                  Registo discriminado e quadrado por intervenção · Total: <b>${d.filtered.length} pedidos</b>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px; font-size:8.5px; font-family:var(--mono, monospace);">
+                <span style="background:#dcfce7; color:#15803d; padding:2px 6px; border-radius:3px; border:1px solid #86efac; font-weight:700;">✓ Concluídos: ${d.statusCounts ? d.statusCounts.finalizado : 0}</span>
+                <span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:3px; border:1px solid #7dd3fc; font-weight:700;">⚙️ Em Curso: ${d.statusCounts ? d.statusCounts.em_andamento : 0}</span>
+                <span style="background:#fef3c7; color:#b45309; padding:2px 6px; border-radius:3px; border:1px solid #fcd34d; font-weight:700;">⏳ Abertos: ${d.statusCounts ? d.statusCounts.aberto : 0}</span>
+                ${(d.statusCounts && d.statusCounts.pausado > 0) ? `<span style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:3px; border:1px solid #cbd5e1; font-weight:700;">⏸️ Pausados: ${d.statusCounts.pausado}</span>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <table class="off-detail-table" style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:8px; margin:6px 0 16px;">
+            <colgroup>
+              <col style="width:8.5%;">
+              <col style="width:10.5%;">
+              <col style="width:13.5%;">
+              <col style="width:12.5%;">
+              <col style="width:11%;">
+              <col style="width:12%;">
+              <col style="width:32%;">
+            </colgroup>
+            <thead style="display:table-header-group;">
+              <tr style="background:#f1f5f9; border-bottom:1.5px solid #334155;">
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Data</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Local / Quarto</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Categoria</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Tipo / Prioridade</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:center; font-size:8px; font-weight:800; color:#0f172a;">Estado</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Técnico</th>
+                <th style="padding:4px 5px; border:1px solid #cbd5e1; text-align:left; font-size:8px; font-weight:800; color:#0f172a;">Descrição & Resolução</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.filtered.length === 0 ? `
+                <tr><td colspan="7" style="padding:12px; text-align:center; color:#64748b; font-style:italic;">Não foram encontrados pedidos registados no período selecionado.</td></tr>
+              ` : (
+                [...d.filtered]
+                  .sort((a,b) => String(b.dataReporte || b.fecha || '').localeCompare(String(a.dataReporte || a.fecha || '')) || String(b.quarto || '').localeCompare(String(a.quarto || '')))
+                  .map((t, idx) => {
+                    const st = String(t.situacao || t.estado || 'aberto').toLowerCase();
+                    const isFin = st.includes('fin') || st.includes('fech') || st.includes('conc') || st.includes('resolv');
+                    const isProg = st.includes('andamento') || st.includes('prog') || st.includes('curso');
+                    const isPause = st.includes('paus');
+                    const statusBadge = isFin
+                      ? '<span style="font-size:7.5px; font-weight:700; padding:1.5px 5px; border-radius:3px; background:#dcfce7; color:#15803d; border:1px solid #86efac; display:inline-block; white-space:nowrap;">✓ Concluído</span>'
+                      : (isProg
+                        ? '<span style="font-size:7.5px; font-weight:700; padding:1.5px 5px; border-radius:3px; background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; display:inline-block; white-space:nowrap;">⚙️ Em Curso</span>'
+                        : (isPause
+                          ? '<span style="font-size:7.5px; font-weight:700; padding:1.5px 5px; border-radius:3px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; display:inline-block; white-space:nowrap;">⏸️ Pausado</span>'
+                          : '<span style="font-size:7.5px; font-weight:700; padding:1.5px 5px; border-radius:3px; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; display:inline-block; white-space:nowrap;">⏳ Aberto</span>'));
+
+                    const tpStr = String(t.tipo || '').toLowerCase();
+                    const isCorr = tpStr.includes('corr');
+                    const isPrev = tpStr.includes('prev');
+                    const isStrat = isStrategicTicket(t) || tpStr.includes('estrat');
+                    const tipoLabel = isStrat ? 'Estratégico' : (isCorr ? 'Corretivo' : (isPrev ? 'Preventivo' : (t.tipo || 'Geral')));
+                    const tipoBg = isStrat ? '#faf5ff; color:#7c3aed; border:1px solid #d8b4fe;' : (isCorr ? '#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;' : (isPrev ? '#f0fdf4; color:#15803d; border:1px solid #bbf7d0;' : '#f8fafc; color:#475569; border:1px solid #e2e8f0;'));
+
+                    const prioStr = String(t.prioridade || '').toLowerCase();
+                    const prioBadge = prioStr.includes('crit')
+                      ? '<span style="font-size:7px; font-weight:800; color:#b91c1c; background:#fef2f2; padding:1px 3px; border-radius:2px; border:1px solid #fecaca; margin-left:2px;">CRÍTICA</span>'
+                      : (prioStr.includes('alt')
+                        ? '<span style="font-size:7px; font-weight:700; color:#c2410c; background:#fff7ed; padding:1px 3px; border-radius:2px; border:1px solid #fed7aa; margin-left:2px;">ALTA</span>'
+                        : '');
+
+                    const dataStr = safeEsc(t.dataReporte || t.fecha || t.data || '—');
+                    const horaStr = t.horaReporte || t.hora ? `<br><span style="font-size:7px; color:#64748b;">${safeEsc(t.horaReporte || t.hora)}</span>` : '';
+                    const localStr = safeEsc(t.quarto || t.local || t.area || 'Geral');
+                    const catStr = safeEsc(t.categoria || 'Geral');
+                    const tecStr = safeEsc(t.tecnico || t.responsavel || t.atribuidoA || t.utilizador || 'Equipa Geral');
+                    const descStr = safeEsc(t.descricao || t.titulo || '—');
+                    const solucaoStr = (t.solucao || t.observacoes || t.resolucao)
+                      ? `<div style="margin-top:2px; font-size:7.5px; color:#047857; font-weight:600; background:#f0fdf4; padding:2px 4px; border-radius:2px; border-left:2px solid #10b981; word-break:break-word;"><b>Resolução:</b> ${safeEsc(t.solucao || t.observacoes || t.resolucao)}</div>`
+                      : '';
+
+                    return `
+                      <tr style="border-bottom:1px solid #cbd5e1; page-break-inside:avoid; break-inside:avoid; background:${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; font-weight:600; font-family:var(--mono, monospace); font-size:8px; white-space:nowrap; vertical-align:top;">${dataStr}${horaStr}</td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; font-weight:700; color:#0f172a; font-size:8.5px; vertical-align:top; word-break:break-word;">${localStr}</td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; font-size:8px; color:#334155; vertical-align:top; word-break:break-word;">${catStr}</td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; vertical-align:top;">
+                          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:2px;">
+                            <span style="font-size:7.5px; font-weight:700; padding:1px 4px; border-radius:2px; background:${tipoBg}">${safeEsc(tipoLabel)}</span>
+                            ${prioBadge}
+                          </div>
+                        </td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; text-align:center; vertical-align:top;">${statusBadge}</td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; font-size:8px; color:#334155; vertical-align:top; word-break:break-word;">${tecStr}</td>
+                        <td style="padding:3.5px 5px; border:1px solid #cbd5e1; font-size:8px; line-height:1.3; color:#1e293b; vertical-align:top; word-break:break-word;">
+                          <div>${descStr}</div>
+                          ${solucaoStr}
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')
+              )}
+            </tbody>
+          </table>
+        </div>
+
         <!-- 7. ASSINATURAS E VALIDAÇÃO -->
-        <div class="off-sign" style="display:flex; justify-content:space-between; margin-top:32px; font-size:10px; page-break-inside:avoid;">
+        <div class="off-sign off-avoid-break" style="display:flex; justify-content:space-between; margin-top:24px; padding-top:14px; font-size:9.5px; page-break-inside:avoid; break-inside:avoid; border-top:1px dashed #cbd5e1;">
           <div style="width:45%; border-top:1.5px solid #334155; padding-top:6px; text-align:center;">
             <b>O Técnico Responsável</b><br>
             <span style="font-size:9px; color:#64748b;">${safeEsc(getCurrentUserName())}</span>
@@ -20479,7 +20657,9 @@
     `;
   }
 
-  async function generatePedidosWorkloadReport(triggerBtn, customTickets) {
+  function generatePedidosWorkloadReport(triggerBtn, customTickets) {
+    const customOptions = arguments[2];
+    return (async () => {
     if (triggerBtn && typeof setLoading === 'function') setLoading(triggerBtn, true);
     try {
       let tickets = customTickets;
@@ -20498,6 +20678,9 @@
         typeof currentMaintWorkloadType !== 'undefined' ? currentMaintWorkloadType : 'all',
         typeof currentMaintWorkloadSimCapacity !== 'undefined' ? currentMaintWorkloadSimCapacity : 0
       );
+      if (customOptions) {
+        calcData.customOptions = customOptions;
+      }
 
       const reportHtml = buildPedidosWorkloadReportHTML(calcData);
       const printDiv = $('officialReport');
@@ -20564,6 +20747,7 @@
     } finally {
       if (triggerBtn && typeof setLoading === 'function') setLoading(triggerBtn, false);
     }
+    })();
   }
 
   function printPedidosWorkloadReport(triggerBtnOrTickets) {
@@ -23738,12 +23922,15 @@
   if ($('p-fecha')) $('p-fecha').value = todayStr();
 
   // Relatório de tickets
+  let lastReporteTicketsData = null;
+
   async function renderReporteTickets(desde, hasta){
     const out = $('reporteOutput');
     if(!out) return;
     const tickets = (await loadTickets()) || [];
     
     const filtered = tickets.filter(t => t.dataReporte >= desde && t.dataReporte <= hasta);
+    lastReporteTicketsData = { tickets: filtered, desde, hasta };
     
     if(!filtered.length){
       out.innerHTML = '<div class="empty">Sem tickets no período.</div>';
@@ -23782,20 +23969,64 @@
       </table></div>
       
       <h2 class="report-heading">Detalhe dos Tickets</h2>
-      <div class="table-scroll"><table class="report">
+      <div class="table-scroll"><table class="report" style="width:100%; border-collapse:collapse;">
         <thead><tr>
-          <th>Data</th><th>Quarto</th><th>Categoria</th><th>Estado</th><th>Descrição</th>
+          <th style="white-space:nowrap;">Data</th>
+          <th>Quarto / Local</th>
+          <th>Categoria</th>
+          <th>Tipo / Prioridade</th>
+          <th style="text-align:center;">Estado</th>
+          <th>Técnico</th>
+          <th>Descrição & Resolução</th>
         </tr></thead>
         <tbody>
-          ${filtered.sort((a,b) => String(b.dataReporte || '').localeCompare(String(a.dataReporte || ''))).map(t => `
-            <tr>
-              <td>${esc(t.dataReporte || '—')}</td>
-              <td>${esc(t.quarto || '—')}</td>
-              <td>${esc(t.categoria || '—')}</td>
-              <td>${esc(t.situacao || '—')}</td>
-              <td>${esc(String(t.descricao || '').substring(0,50))}${String(t.descricao || '').length > 50 ? '...' : ''}</td>
-            </tr>
-          `).join('')}
+          ${filtered.sort((a,b) => String(b.dataReporte || b.fecha || '').localeCompare(String(a.dataReporte || a.fecha || '')) || String(b.quarto || '').localeCompare(String(a.quarto || ''))).map(t => {
+            const st = String(t.situacao || t.estado || 'aberto').toLowerCase();
+            const isFin = st.includes('fin') || st.includes('fech') || st.includes('conc') || st.includes('resolv');
+            const isProg = st.includes('andamento') || st.includes('prog') || st.includes('curso');
+            const isPause = st.includes('paus');
+            const statusBadge = isFin
+              ? '<span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:#dcfce7; color:#15803d; border:1px solid #86efac; white-space:nowrap;">✓ Concluído</span>'
+              : (isProg
+                ? '<span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; white-space:nowrap;">⚙️ Em Curso</span>'
+                : (isPause
+                  ? '<span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; white-space:nowrap;">⏸️ Pausado</span>'
+                  : '<span style="font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; white-space:nowrap;">⏳ Aberto</span>'));
+
+            const tpStr = String(t.tipo || '').toLowerCase();
+            const isCorr = tpStr.includes('corr');
+            const isPrev = tpStr.includes('prev');
+            const isStrat = isStrategicTicket(t) || tpStr.includes('estrat');
+            const tipoLabel = isStrat ? 'Estratégico' : (isCorr ? 'Corretivo' : (isPrev ? 'Preventivo' : (t.tipo || 'Geral')));
+            const tipoBg = isStrat ? '#faf5ff; color:#7c3aed; border:1px solid #d8b4fe;' : (isCorr ? '#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;' : (isPrev ? '#f0fdf4; color:#15803d; border:1px solid #bbf7d0;' : '#f8fafc; color:#475569; border:1px solid #e2e8f0;'));
+
+            const prioStr = String(t.prioridade || '').toLowerCase();
+            const prioBadge = prioStr.includes('crit')
+              ? '<span style="font-size:9px; font-weight:800; color:#b91c1c; background:#fef2f2; padding:1px 4px; border-radius:2px; border:1px solid #fecaca; margin-left:2px;">CRÍTICA</span>'
+              : (prioStr.includes('alt')
+                ? '<span style="font-size:9px; font-weight:700; color:#c2410c; background:#fff7ed; padding:1px 4px; border-radius:2px; border:1px solid #fed7aa; margin-left:2px;">ALTA</span>'
+                : '');
+
+            return `
+              <tr>
+                <td style="white-space:nowrap; font-family:var(--mono, monospace); font-weight:600;">${esc(t.dataReporte || t.fecha || '—')}${t.horaReporte || t.hora ? `<br><span style="font-size:10px; color:var(--ink-400);">${esc(t.horaReporte || t.hora)}</span>` : ''}</td>
+                <td style="font-weight:700; color:var(--petrol-800);">${esc(t.quarto || t.local || '—')}</td>
+                <td>${esc(t.categoria || '—')}</td>
+                <td>
+                  <div style="display:flex; flex-wrap:wrap; align-items:center; gap:3px;">
+                    <span style="font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:3px; background:${tipoBg}">${esc(tipoLabel)}</span>
+                    ${prioBadge}
+                  </div>
+                </td>
+                <td style="text-align:center;">${statusBadge}</td>
+                <td>${esc(t.tecnico || t.responsavel || t.atribuidoA || t.utilizador || '—')}</td>
+                <td>
+                  <div>${esc(t.descricao || t.titulo || '—')}</div>
+                  ${(t.solucao || t.observacoes || t.resolucao) ? `<div style="margin-top:3px; font-size:10.5px; color:#047857; font-weight:600; background:#f0fdf4; padding:2px 6px; border-radius:3px; border-left:2px solid #10b981;"><b>Resolução:</b> ${esc(t.solucao || t.observacoes || t.resolucao)}</div>` : ''}
+                </td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table></div>
       
@@ -23806,8 +24037,14 @@
   }
 
   function imprimirReporteTickets(){
+    const data = lastReporteTicketsData;
     if (typeof generatePedidosWorkloadReport === 'function') {
-      generatePedidosWorkloadReport();
+      const btn = document.querySelector('.report-actions .btn-print') || null;
+      if (data && data.tickets && data.tickets.length > 0) {
+        generatePedidosWorkloadReport(btn, data.tickets, { desde: data.desde, hasta: data.hasta });
+      } else {
+        generatePedidosWorkloadReport(btn);
+      }
     } else {
       window.print();
     }

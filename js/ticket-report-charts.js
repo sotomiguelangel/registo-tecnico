@@ -261,15 +261,29 @@
     const rows = tickets
       .slice()
       .sort((a, b) => String(b.dataReporte || '').localeCompare(String(a.dataReporte || '')))
-      .map(ticket => `
-        <tr>
-          <td>${escapeHtml(ticket.dataReporte || '—')}</td>
-          <td>${escapeHtml(ticket.quarto || ticket.local || '—')}</td>
+      .map((ticket, index) => {
+        const st = String(ticket.situacao || 'aberto').toLowerCase();
+        const isFin = st.includes('fin') || st.includes('fech') || st.includes('conc') || st.includes('resolv');
+        const isProg = st.includes('andamento') || st.includes('prog');
+        const isPause = st.includes('paus');
+        const stBadge = isFin
+          ? '<span style="font-weight:700; color:#15803d; background:#dcfce7; padding:2px 5px; border-radius:3px; border:1px solid #86efac;">✓ Concluído</span>'
+          : (isProg
+            ? '<span style="font-weight:700; color:#0369a1; background:#e0f2fe; padding:2px 5px; border-radius:3px; border:1px solid #7dd3fc;">⚙️ Em curso</span>'
+            : (isPause
+              ? '<span style="font-weight:700; color:#475569; background:#f1f5f9; padding:2px 5px; border-radius:3px; border:1px solid #cbd5e1;">⏸️ Pausado</span>'
+              : '<span style="font-weight:700; color:#b45309; background:#fef3c7; padding:2px 5px; border-radius:3px; border:1px solid #fcd34d;">⏳ Aberto</span>'));
+
+        return `
+        <tr style="background:${index % 2 === 0 ? '#ffffff' : '#f8fafc'}; break-inside:avoid; page-break-inside:avoid;">
+          <td style="white-space:nowrap; font-weight:600;">${escapeHtml(ticket.dataReporte || '—')}</td>
+          <td style="font-weight:700;">${escapeHtml(ticket.quarto || ticket.local || '—')}</td>
           <td>${escapeHtml(ticket.categoria || 'Outros')}</td>
-          <td>${escapeHtml(ticket.situacao || 'aberto')}</td>
-          <td>${escapeHtml(ticket.descricao || '')}</td>
+          <td style="text-align:center;">${stBadge}</td>
+          <td style="word-break:break-word; overflow-wrap:break-word;">${escapeHtml(ticket.descricao || '')}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     const charts = render(tickets);
     const safeTitle = escapeHtml(title);
     const safePeriod = escapeHtml(period);
@@ -280,8 +294,15 @@
         <p class="report-meta">Período: ${safePeriod} · ${tickets.length} pedidos · Gerado em ${escapeHtml(new Date().toLocaleString('pt-PT'))}</p>
         ${charts}
         <h2>Detalhe dos pedidos</h2>
-        <table>
-          <thead><tr><th>Data</th><th>Local</th><th>Categoria</th><th>Estado</th><th>Descrição</th></tr></thead>
+        <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+          <colgroup>
+            <col style="width:12%;">
+            <col style="width:14%;">
+            <col style="width:16%;">
+            <col style="width:14%;">
+            <col style="width:44%;">
+          </colgroup>
+          <thead style="display:table-header-group;"><tr><th>Data</th><th>Local</th><th>Categoria</th><th style="text-align:center;">Estado</th><th>Descrição</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -307,15 +328,20 @@
         #${printId} h1 { margin:0 0 4px; font-size:22px; }
         #${printId} .report-meta { margin:0 0 18px; color:#475569; }
         #${printId} h2 { margin:18px 0 8px; font-size:16px; }
-        #${printId} table { width:100%; border-collapse:collapse; font-size:11px; }
-        #${printId} th,#${printId} td { padding:6px 8px; text-align:left; vertical-align:top; border:1px solid #d5e0e9; }
-        #${printId} th { background:#eff6fa; }
-        #${printId} tr { break-inside:avoid; }
+        #${printId} table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:11px; }
+        #${printId} thead { display:table-header-group; }
+        #${printId} tbody { display:table-row-group; }
+        #${printId} th,#${printId} td { padding:6px 8px; text-align:left; vertical-align:top; border:1px solid #d5e0e9; word-break:break-word; overflow-wrap:break-word; }
+        #${printId} th { background:#eff6fa; font-weight:700; }
+        #${printId} tr { break-inside:avoid; page-break-inside:avoid; }
         @page { size:A4 landscape; margin:12mm; }
         @media print {
           body.ticket-report-printing > :not(#${printId}) { display:none !important; }
           body.ticket-report-printing #${printId} { display:block !important; }
           body.ticket-report-printing #${printId} .ticket-report-print-document { max-width:none; margin:0; padding:0; }
+          body.ticket-report-printing #${printId} table { width:100% !important; border-collapse:collapse !important; table-layout:fixed !important; }
+          body.ticket-report-printing #${printId} thead { display:table-header-group !important; }
+          body.ticket-report-printing #${printId} tr { break-inside:avoid !important; page-break-inside:avoid !important; }
           body.ticket-report-printing .ticket-report-chart { break-inside:avoid; page-break-inside:avoid; }
         }
       `;
