@@ -2,6 +2,7 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const indexHtml = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const indicadoresHtml = fs.readFileSync(new URL('../../indicadores.html', import.meta.url), 'utf8');
@@ -72,5 +73,56 @@ describe('Temperature Ranges and Out-of-Range Bugfix', () => {
 
     const rACRestricted = simulateParse('23', { id: 'AC03', tipo: 'Ar Condicionado', min: 18, max: 22 });
     assert.strictEqual(rACRestricted.isBad, false, '23 must be compliant even with narrow max 22');
+  });
+
+  test('Official Hotel AC inventory: Rooftop has no AC (AC05 removed), Cozinha -1 has AC08', () => {
+    // 1. Verify AC05 does NOT exist in DEFAULT_HOTEL_EQUIPAMENTOS in index.html and indicadores.html
+    assert.doesNotMatch(indexHtml, /id:\s*['"]AC05['"]/);
+    assert.doesNotMatch(indicadoresHtml, /id:\s*['"]AC05['"]/);
+
+    // 2. Verify AC08 exists in DEFAULT_HOTEL_EQUIPAMENTOS for Cozinha Piso -1
+    assert.match(indexHtml, /id:\s*['"]AC08['"].*?COZINHA PISO -1/s);
+    assert.match(indicadoresHtml, /id:\s*['"]AC08['"].*?COZINHA PISO -1/s);
+
+    // 3. Verify exactly the 5 valid ACs (AC01, AC02, AC03, AC04, AC08) exist in index.html DEFAULT_HOTEL_EQUIPAMENTOS
+    const defaultBlock = indexHtml.match(/const DEFAULT_HOTEL_EQUIPAMENTOS = \[(.*?)\];/s)?.[1] || '';
+    const acIds = Array.from(defaultBlock.matchAll(/id:\s*['"](AC\d+)['"]/g), m => m[1]);
+    assert.deepStrictEqual(acIds.sort(), ['AC01', 'AC02', 'AC03', 'AC04', 'AC08'].sort());
+
+    // 4. In Rooftop, only VIH01 exists
+    const rooftopMatches = Array.from(defaultBlock.matchAll(/\{[^{}]*?id:\s*['"](\w+)['"][^{}]*?ubicacao:\s*['"]BAR ROOFTOP['"][^{}]*?\}/gs), m => m[1]);
+    assert.deepStrictEqual(rooftopMatches, ['VIH01']);
+  });
+
+  test('Canonical equipment matching: AC Cozinha -1 never maps to AC01, always to AC08', () => {
+    // Extract functions from index.html
+    const script = `
+      function isAireAcondicionado(eq){
+        if(!eq) return false;
+        const idStr = String(eq.id || eq.ref || '').toUpperCase().trim();
+        if (/^(AC|ARC)\\d+/i.test(idStr)) return true;
+        const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+        return str.includes('ar condicionado') || str.includes('aire acondicionado') || str.includes('climat') || str.includes('hvac') || str.includes('a/c') || str.includes(' ac ') || str.startsWith('ac ') || str === 'ac';
+      }
+      ${indexHtml.slice(indexHtml.indexOf('const DEFAULT_HOTEL_EQUIPAMENTOS ='), indexHtml.indexOf('function formatRefShort'))}
+      this.findCanonicalEquip = findCanonicalEquip;
+      this.extractCanonicalCode = extractCanonicalCode;
+    `;
+    const ctx = {};
+    vm.createContext(ctx);
+    vm.runInContext(script, ctx);
+
+    // AC Cozinha -1 cases must resolve to AC08
+    assert.strictEqual(ctx.extractCanonicalCode('AC-1'), 'AC08');
+    assert.strictEqual(ctx.extractCanonicalCode('AC -1'), 'AC08');
+    assert.strictEqual(ctx.extractCanonicalCode('AC08'), 'AC08');
+    assert.strictEqual(ctx.findCanonicalEquip('AC-1', 'Ar Condicionado Cozinha -1')?.id, 'AC08');
+    assert.strictEqual(ctx.findCanonicalEquip('AC -1', 'Aire Cocina -1')?.id, 'AC08');
+    assert.strictEqual(ctx.findCanonicalEquip(null, 'Ar Condicionado Cozinha Piso -1', 'COZINHA PISO -1', 'Ar Condicionado')?.id, 'AC08');
+    assert.strictEqual(ctx.findCanonicalEquip('AC_COZINHA', 'Aire Cocina -1', 'COZINHA PISO -1', 'Ar Condicionado')?.id, 'AC08');
+
+    // Rooftop AC must return null
+    assert.strictEqual(ctx.findCanonicalEquip('AC05', 'Ar Condicionado Bar Rooftop', 'BAR ROOFTOP', 'Ar Condicionado'), null);
+    assert.strictEqual(ctx.findCanonicalEquip(null, 'Ar Condicionado Rooftop', 'BAR ROOFTOP', 'Ar Condicionado'), null);
   });
 });

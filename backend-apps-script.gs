@@ -12323,17 +12323,18 @@ function listEquipamentos(options) {
       settings
     );
 
-  if (
-    settings.includeInactive !== true
-  ) {
-    records = records.filter(
-      function (equipment) {
-        return !isNo(
-          equipment.ativo
-        );
-      }
-    );
-  }
+  records = records.filter(
+    function (equipment) {
+      var idUpper = safeString(equipment.id || equipment.ref || '').toUpperCase();
+      if (['AC05', 'AC06', 'AC07', 'AC09'].indexOf(idUpper) !== -1) return false;
+      var nameUpper = safeString(equipment.nome || '').toUpperCase();
+      var locUpper = safeString(equipment.ubicacao || '').toUpperCase();
+      var isAC = idUpper.indexOf('AC') !== -1 || nameUpper.indexOf('AR CONDICIONADO') !== -1 || nameUpper.indexOf('AIRE') !== -1;
+      if (isAC && (nameUpper.indexOf('ROOFTOP') !== -1 || locUpper.indexOf('ROOFTOP') !== -1)) return false;
+      if (settings.includeInactive !== true && isNo(equipment.ativo)) return false;
+      return true;
+    }
+  );
 
   return records.map(
     function (equipment) {
