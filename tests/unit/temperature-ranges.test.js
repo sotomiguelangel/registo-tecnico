@@ -125,4 +125,59 @@ describe('Temperature Ranges and Out-of-Range Bugfix', () => {
     assert.strictEqual(ctx.findCanonicalEquip('AC05', 'Ar Condicionado Bar Rooftop', 'BAR ROOFTOP', 'Ar Condicionado'), null);
     assert.strictEqual(ctx.findCanonicalEquip(null, 'Ar Condicionado Rooftop', 'BAR ROOFTOP', 'Ar Condicionado'), null);
   });
+
+  test('Official Hotel Refrigeration inventory: REF11 and CON04 are included and canonicalized', () => {
+    // 1. Verify REF11 exists in DEFAULT_HOTEL_EQUIPAMENTOS in index.html and indicadores.html
+    assert.match(indexHtml, /id:\s*['"]REF11['"].*?ALMACEN PISO -1/s);
+    assert.match(indicadoresHtml, /id:\s*['"]REF11['"].*?ALMACEN PISO -1/s);
+
+    // 2. Verify CON04 exists in DEFAULT_HOTEL_EQUIPAMENTOS in index.html and indicadores.html
+    assert.match(indexHtml, /id:\s*['"]CON04['"].*?COZINHA PISO -1/s);
+    assert.match(indicadoresHtml, /id:\s*['"]CON04['"].*?COZINHA PISO -1/s);
+
+    // 3. Verify canonicalCodes contains ref11 and con04
+    assert.match(indexHtml, /['"]REF11['"].*?['"]CON04['"]/s);
+    assert.match(indicadoresHtml, /['"]REF11['"].*?['"]CON04['"]/s);
+
+    // 4. Test extraction and matching in VM
+    const script = `
+      function isAireAcondicionado(eq){
+        if(!eq) return false;
+        const idStr = String(eq.id || eq.ref || '').toUpperCase().trim();
+        if (/^(AC|ARC)\\d+/i.test(idStr)) return true;
+        const str = (String(eq.tipo || '') + ' ' + String(eq.nome || '')).toLowerCase();
+        return str.includes('ar condicionado') || str.includes('aire acondicionado') || str.includes('climat') || str.includes('hvac') || str.includes('a/c') || str.includes(' ac ') || str.startsWith('ac ') || str === 'ac';
+      }
+      ${indexHtml.slice(indexHtml.indexOf('const DEFAULT_HOTEL_EQUIPAMENTOS ='), indexHtml.indexOf('function formatRefShort'))}
+      this.findCanonicalEquip = findCanonicalEquip;
+      this.extractCanonicalCode = extractCanonicalCode;
+    `;
+    const ctx = {};
+    vm.createContext(ctx);
+    vm.runInContext(script, ctx);
+
+    assert.strictEqual(ctx.extractCanonicalCode('REF11'), 'REF11');
+    assert.strictEqual(ctx.extractCanonicalCode('REF-11'), 'REF11');
+    assert.strictEqual(ctx.extractCanonicalCode('REF 11'), 'REF11');
+    assert.strictEqual(ctx.extractCanonicalCode('CON04'), 'CON04');
+    assert.strictEqual(ctx.extractCanonicalCode('CON-04'), 'CON04');
+    assert.strictEqual(ctx.extractCanonicalCode('CON 4'), 'CON04');
+
+    const ref11 = ctx.findCanonicalEquip('REF11');
+    assert.ok(ref11);
+    assert.strictEqual(ref11.id, 'REF11');
+    assert.strictEqual(ref11.tipo, 'Frigorifico');
+    assert.strictEqual(ref11.min, 0);
+    assert.strictEqual(ref11.max, 8);
+    assert.strictEqual(ref11.ubicacao, 'ALMACEN PISO -1');
+
+    const con04 = ctx.findCanonicalEquip('CON04');
+    assert.ok(con04);
+    assert.strictEqual(con04.id, 'CON04');
+    assert.strictEqual(con04.tipo, 'Congelador');
+    assert.strictEqual(con04.min, -25);
+    assert.strictEqual(con04.max, -12);
+    assert.strictEqual(con04.ubicacao, 'COZINHA PISO -1');
+  });
 });
+
