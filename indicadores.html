@@ -5084,10 +5084,10 @@
     function defaultRooms() {
       const arr = [];
       for (let i = 1; i <= 4; i++) arr.push('00' + i);
-      for (let i = 1; i <= 9; i++) arr.push('1' + String(i).padStart(2, '0'));
-      for (let i = 1; i <= 9; i++) arr.push('2' + String(i).padStart(2, '0'));
-      for (let i = 1; i <= 9; i++) arr.push('3' + String(i).padStart(2, '0'));
-      for (let i = 1; i <= 9; i++) arr.push('4' + String(i).padStart(2, '0'));
+      for (let i = 1; i <= 14; i++) arr.push('1' + String(i).padStart(2, '0'));
+      for (let i = 1; i <= 14; i++) arr.push('2' + String(i).padStart(2, '0'));
+      for (let i = 1; i <= 14; i++) arr.push('3' + String(i).padStart(2, '0'));
+      for (let i = 1; i <= 14; i++) arr.push('4' + String(i).padStart(2, '0'));
       return arr;
     }
 
@@ -5103,7 +5103,22 @@
     }
 
     function groupQuartoRecordsIntoCycles(rawRecords, rList) {
-      const roomList = (rList || getRoomsList()).map(normRoom).filter(Boolean);
+      let roomList = (rList || getRoomsList()).map(normRoom).filter(Boolean);
+      if (Array.isArray(rawRecords)) {
+        rawRecords.forEach(record => {
+          const nr = normRoom(
+            record.data?.numero ||
+            record.data?.quarto ||
+            record.data?.quartoNumero ||
+            record.numero ||
+            record.quarto
+          );
+          if (nr && !roomList.includes(nr)) {
+            roomList.push(nr);
+          }
+        });
+        roomList.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      }
       const validRooms = new Set(roomList);
       const targetSize = roomList.length || 40;
 
@@ -5174,9 +5189,15 @@
       }
 
       sorted.forEach(record => {
-        const roomNum = normRoom(record.data?.numero || record.data?.quarto || record.data?.quartoNumero);
+        const roomNum = normRoom(
+          record.data?.numero ||
+          record.data?.quarto ||
+          record.data?.quartoNumero ||
+          record.numero ||
+          record.quarto
+        );
         cycleRecords.push(record);
-        if (!roomNum || !validRooms.has(roomNum)) return;
+        if (!roomNum) return;
         cycleRoomsMap.set(roomNum, record);
         if (roomList.every(room => cycleRoomsMap.has(room))) {
           const finished = finalizeCycle(false);

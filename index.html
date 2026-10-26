@@ -3153,6 +3153,25 @@
 
       <button class="primary" id="btnSaveQuarto"><span class="spinner"></span><span class="lbl-text">Guardar leitura de quarto</span></button>
       <button class="ghost-cancel" id="btnCancelEditQuarto" style="display:none">Cancelar edição</button>
+
+      <div class="card" id="quartoRecentReadingsCard" style="margin-top:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+          <div style="font-size:13px; font-weight:700; color:var(--ink-800); display:flex; align-items:center; gap:6px;">
+            <span>📋 Leituras Registadas de Quartos</span>
+            <span class="week-pill ok" id="quartoReadingsCountPill" style="font-size:10px; padding:2px 7px;">0 registos</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <label style="font-size:11.5px; color:var(--ink-500); display:inline-flex; align-items:center; gap:4px;">
+              Ver:
+              <select id="quartoReadingsFilterMode" style="padding:4px 8px; font-size:11.5px; border-radius:6px; border:1px solid var(--line); background:#fff;">
+                <option value="selected">Ciclo selecionado</option>
+                <option value="all">Todas as leituras (histórico completo)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div id="quartoRecentReadingsTableBox" style="overflow-x:auto;"></div>
+      </div>
     </section>
 
     <!-- REFRIGERAÇÃO -->
@@ -3269,6 +3288,7 @@
           <option value="Amenities/Acessórios">Amenities/Acessórios</option>
           <option value="Casa de Banho">Casa de Banho</option>
         </select>
+        <input type="text" id="pedidoFiltroBusca" placeholder="🔍 Filtrar por quarto (ex.: 101), técnico ou texto..." style="flex:1; min-width:200px; padding:6px 10px; border-radius:6px; border:1px solid var(--line); font-size:12px;">
       </div>
       
       <!-- Lista de tickets -->
@@ -5698,6 +5718,13 @@
                   const norm = normalizeDate(it.data.fecha);
                   if(norm) it.data.fecha = norm;
                 }
+                if(t === 'quarto' && it && it.data){
+                  const roomNum = normRoom(it.data.numero || it.data.quarto || it.data.Quarto || it.data.quartoNumero || it.numero || it.quarto);
+                  if(roomNum){
+                    it.data.numero = roomNum;
+                    it.data.quarto = roomNum;
+                  }
+                }
                 if(t === 'temperatura' && it && it.data && it.data.temperatura != null){
                   const rawVal = parseFloat(String(it.data.temperatura).replace(',', '.'));
                   if(!isNaN(rawVal)){
@@ -5719,6 +5746,13 @@
                 if(rec && rec.fecha){
                   const norm = normalizeDate(rec.fecha);
                   if(norm) rec.fecha = norm;
+                }
+                if(t === 'quarto' && rec){
+                  const roomNum = normRoom(rec.numero || rec.quarto || rec.Quarto || rec.quartoNumero);
+                  if(roomNum){
+                    rec.numero = roomNum;
+                    rec.quarto = roomNum;
+                  }
                 }
                 if(t === 'temperatura' && rec && rec.temperatura != null){
                   const rawVal = parseFloat(String(rec.temperatura).replace(',', '.'));
@@ -5797,12 +5831,20 @@
     if(Array.isArray(serverRecordsRaw)){
       serverRecordsRaw.forEach(d => {
         if(!d) return;
-        const id = d.id || d.ID || (d.data && d.data.id) || d.key || ('id_' + (d.fecha || '') + '_' + (d.hora || '') + '_' + (d.equipamentoId || Math.random().toString(36).slice(2,7)));
+        const roomHint = normRoom(d.numero || d.quarto || (d.data && (d.data.numero || d.data.quarto)));
+        const id = d.id || d.ID || (d.data && d.data.id) || d.key || ('id_' + (d.fecha || '') + '_' + (d.hora || '') + '_' + (d.equipamentoId || roomHint || Math.random().toString(36).slice(2,7)));
         if(id) {
           const recData = (d.data && typeof d.data === 'object' && !Array.isArray(d.data)) ? Object.assign({}, d.data) : Object.assign({}, d);
           if(recData.fecha){
             const norm = normalizeDate(recData.fecha);
             if(norm) recData.fecha = norm;
+          }
+          if(type === 'quarto'){
+            const roomNum = normRoom(recData.numero || recData.quarto || recData.Quarto || recData.quartoNumero || recData.hab || recData.room);
+            if(roomNum){
+              recData.numero = roomNum;
+              recData.quarto = roomNum;
+            }
           }
           if(type === 'temperatura' && recData.temperatura != null && String(recData.temperatura).trim() !== ''){
             const rawVal = parseFloat(String(recData.temperatura).replace(',', '.'));
@@ -5897,6 +5939,13 @@
     } else {
       data.fecha = todayStr();
     }
+    if(type === 'quarto' && data){
+      const roomNum = normRoom(data.numero || data.quarto || data.Quarto || data.quartoNumero);
+      if(roomNum){
+        data.numero = roomNum;
+        data.quarto = roomNum;
+      }
+    }
 
     // 1. Atualização otimista imediata na cache local (0 ms de espera)
     let entry = dataStore[type];
@@ -5950,6 +5999,13 @@
     if(data.fecha){
       const nf = normalizeDate(data.fecha);
       if(nf) data.fecha = nf;
+    }
+    if(type === 'quarto' && data){
+      const roomNum = normRoom(data.numero || data.quarto || data.Quarto || data.quartoNumero);
+      if(roomNum){
+        data.numero = roomNum;
+        data.quarto = roomNum;
+      }
     }
 
     // 1. Atualização otimista imediata na cache
@@ -7629,14 +7685,31 @@
   // ========== CORREÇÃO DO CICLO DE QUARTOS ==========
 
   // Agrupa TODOS os registos de quartos num ciclo contínuo
-  // O ciclo completa-se apenas quando se atingem os 'targetSize' quartos (40), NÃO por semana nem por mês
+  // O ciclo completa-se apenas quando se atingem os 'targetSize' quartos, NÃO por semana nem por mês
   function groupQuartoRecordsIntoCycles(rawRecords, rList) {
     const rCandidate = (rList && rList.length)
       ? rList
       : ((roomsList && roomsList.length) ? roomsList : (typeof defaultRooms === 'function' ? defaultRooms() : []));
-    const roomList = rCandidate
+    let roomList = rCandidate
       .map(normRoom)
       .filter(Boolean);
+
+    // Dynamic discovery: Resgatar e incluir dinamicamente todos os quartos que têm registos
+    if (Array.isArray(rawRecords)) {
+      rawRecords.forEach(record => {
+        const nr = normRoom(
+          record.data?.numero ||
+          record.data?.quarto ||
+          record.data?.quartoNumero ||
+          record.numero ||
+          record.quarto
+        );
+        if (nr && !roomList.includes(nr)) {
+          roomList.push(nr);
+        }
+      });
+      roomList.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
 
     const validRooms = new Set(roomList);
     const targetSize = roomList.length || 40;
@@ -7653,7 +7726,7 @@
         currentMonthKey
       );
 
-      emptyCycle.label = `Ciclo en curso (0/${targetSize})`;
+      emptyCycle.label = `Ciclo em curso (0/${targetSize})`;
 
       return {
         completedCycles: [],
@@ -7707,21 +7780,25 @@
         record.quarto
       );
 
-      // El registro pertenece al ciclo actual, incluso si su habitación
-      // no está en la lista oficial. Pero no contará para completar el ciclo.
+      // Garantir paridade dos campos numero e quarto no registo
+      if (record.data && roomNumber) {
+        if (!record.data.numero) record.data.numero = roomNumber;
+        if (!record.data.quarto) record.data.quarto = roomNumber;
+      }
+
+      // O registo pertence ao ciclo
       cycleRecords.push(record);
 
-      // Solo habitaciones existentes en la lista configurada cuentan.
-      if (!roomNumber || !validRooms.has(roomNumber)) {
+      // Quarto válido identificado
+      if (!roomNumber) {
         return;
       }
 
-      // Si se repite una habitación, la última lectura reemplaza
-      // la lectura representativa de ese cuarto dentro del ciclo.
+      // Se se repete uma habitacao, a ultima leitura substitui
+      // a leitura representativa desse quarto no ciclo
       cycleRoomsMap.set(roomNumber, record);
 
-      // Un ciclo se completa solo cuando TODAS las habitaciones
-      // configuradas han sido medidas al menos una vez.
+      // O ciclo completa-se quando todos os quartos configurados forem medidos
       const cycleCompleted = roomList.every(room => cycleRoomsMap.has(room));
 
       if (cycleCompleted) {
@@ -7731,15 +7808,14 @@
 
         completedCycles.push(finishedCycle);
 
-        // Se abre automáticamente el próximo ciclo.
+        // Abre automaticamente o próximo ciclo
         cycleIndex++;
         cycleRecords = [];
         cycleRoomsMap = new Map();
       }
     });
 
-    // Después de procesar los registros siempre existe un ciclo actual.
-    // Puede estar vacío si el último registro completó el ciclo anterior.
+    // Depois de processar os registos existe sempre um ciclo atual
     const currentCycle = finalizeCycle(true);
     currentCycle.isActive = true;
     currentCycle.isCompleted = false;
@@ -7791,14 +7867,22 @@
   async function loadCycleDone() {
     try {
       const existing = await listRecords('quarto');
-      const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
-
-      // El ciclo actual se calcula desde el historial real.
-      // No depende exclusivamente de localStorage.
-      cycleDone = grouped.currentCycle
-        ? grouped.currentCycle.uniqueRooms.slice()
-        : [];
-
+      if (Array.isArray(existing) && existing.length > 0) {
+        const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+        cycleDone = grouped.currentCycle
+          ? grouped.currentCycle.uniqueRooms.slice()
+          : [];
+      } else {
+        const stored = localStorage.getItem('bitacora_cicloQuartosHechos');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length) {
+              cycleDone = parsed.map(normRoom).filter(Boolean);
+            }
+          } catch(e){}
+        }
+      }
       saveCycleDone();
     } catch (e) {
       console.warn('Erro ao carregar progresso do ciclo:', e);
@@ -7859,15 +7943,21 @@
     // Contar quartos que têm registo
     const roomsWithRecords = new Set();
     existing.forEach(r => {
-      const num = normRoom(r.data?.numero);
+      const num = normRoom(r.data?.numero || r.data?.quarto || r.numero || r.quarto);
       if(num) roomsWithRecords.add(num);
     });
     
+    // Assegurar que qualquer quarto descoberto no histórico é integrado
+    roomsWithRecords.forEach(n => {
+      if(!roomsList.includes(n)) roomsList.push(n);
+    });
+    roomsList.sort((a,b)=> a.localeCompare(b, undefined, { numeric:true }));
+    try{ localStorage.setItem('bitacora_rooms', JSON.stringify(roomsList)); }catch(e){}
+
     const listNormalized = roomsList.map(normRoom);
     const validSet = new Set(listNormalized);
     
     const matched = Array.from(roomsWithRecords).filter(n => validSet.has(n));
-    const unmatched = Array.from(roomsWithRecords).filter(n => !validSet.has(n));
     
     cycleDone = matched;
     saveCycleDone();
@@ -7880,23 +7970,15 @@
       msg += ` (${matched.slice(0,10).join(', ')}${matched.length>10?'…':''})`;
     }
     showToast(msg);
-    
-    if(unmatched.length > 0){
-      await confirmDialog(
-        'Quartos fora da lista',
-        `Existem ${unmatched.length} registo(s) de quartos que não correspondem à lista atual:\n${unmatched.slice(0,15).join(', ')}${unmatched.length>15?'…':''}`,
-        'Compreendido', 'Fechar'
-      );
-    }
   }
 
   function defaultRooms(){
     const arr = [];
     for(let i=1;i<=4;i++) arr.push('00'+i);
-    for(let i=1;i<=9;i++) arr.push('1'+String(i).padStart(2,'0'));
-    for(let i=1;i<=9;i++) arr.push('2'+String(i).padStart(2,'0'));
-    for(let i=1;i<=9;i++) arr.push('3'+String(i).padStart(2,'0'));
-    for(let i=1;i<=9;i++) arr.push('4'+String(i).padStart(2,'0'));
+    for(let i=1;i<=14;i++) arr.push('1'+String(i).padStart(2,'0'));
+    for(let i=1;i<=14;i++) arr.push('2'+String(i).padStart(2,'0'));
+    for(let i=1;i<=14;i++) arr.push('3'+String(i).padStart(2,'0'));
+    for(let i=1;i<=14;i++) arr.push('4'+String(i).padStart(2,'0'));
     return arr;
   }
   async function loadRooms(){
@@ -7911,11 +7993,28 @@
     }catch(e){}
     try{
       const v = await getConfigCached('rooms');
-      if(v){ roomsList = JSON.parse(v).map(normRoom).filter(Boolean); return; }
+      if(v){ roomsList = JSON.parse(v).map(normRoom).filter(Boolean); }
     }catch(e){}
     if(!roomsList || !roomsList.length){
       roomsList = defaultRooms();
     }
+    // Resgatar dinamicamente quartos presentes no histórico de registos e filas locais
+    try{
+      const discovered = new Set(roomsList.map(normRoom));
+      const qItems = (dataStore.quarto && Array.isArray(dataStore.quarto.items)) ? dataStore.quarto.items : [];
+      qItems.forEach(it => {
+        const nr = normRoom(it.data?.numero || it.data?.quarto || it.numero || it.quarto);
+        if(nr) discovered.add(nr);
+      });
+      syncQueue.forEach(q => {
+        if(q.type === 'quarto' && q.payload && q.payload.data){
+          const nr = normRoom(q.payload.data.numero || q.payload.data.quarto);
+          if(nr) discovered.add(nr);
+        }
+      });
+      roomsList = Array.from(discovered).sort((a,b)=> a.localeCompare(b, undefined, { numeric:true }));
+      localStorage.setItem('bitacora_rooms', JSON.stringify(roomsList));
+    }catch(e){}
     try{
       await apiPost({ action:'setConfig', key:'rooms', value: JSON.stringify(roomsList) });
       invalidateConfig('rooms');
@@ -8039,7 +8138,7 @@
       // 2. Preparar dados comuns: extrair pH, cloro, piso, quarto, data, hora, técnico
       const pontos = cycleRecords.map(r => {
         if (!r || !r.data) return null;
-        const numero = normRoom(r.data.numero);
+        const numero = normRoom(r.data.numero || r.data.quarto);
         const piso = numero.charAt(0);
         if (!piso || !/[0-4]/.test(piso)) return null;
 
@@ -8686,12 +8785,143 @@
     });
 
     await drawFloorQualityChart();
+    await renderQuartoRecentReadings(targetCycle);
   }
+
+  async function renderQuartoRecentReadings(targetCycle){
+    const container = $('quartoRecentReadingsTableBox');
+    if(!container) return;
+    const countPill = $('quartoReadingsCountPill');
+    const filterSelect = $('quartoReadingsFilterMode');
+    const filterMode = filterSelect ? filterSelect.value : 'selected';
+
+    if(filterSelect && !filterSelect._boundListener){
+      filterSelect._boundListener = true;
+      filterSelect.addEventListener('change', async () => {
+        const existing = await listRecords('quarto');
+        const grouped = groupQuartoRecordsIntoCycles(existing, roomsList);
+        const selIdx = $('qCycleSelect')?.value || 'current';
+        const isPast = selIdx !== 'current';
+        let tCycle = grouped.currentCycle;
+        if(isPast){
+          const found = grouped.allCycles.find(c => String(c.index) === String(selIdx));
+          if(found) tCycle = found;
+        }
+        await renderQuartoRecentReadings(tCycle);
+      });
+    }
+
+    const allRecords = await listRecords('quarto');
+    let displayList = [];
+
+    if(filterMode === 'selected' && targetCycle && Array.isArray(targetCycle.records)){
+      displayList = targetCycle.records.slice();
+    } else {
+      displayList = allRecords.slice();
+    }
+
+    // Incluir registos pendentes da syncQueue caso ainda não estejam no displayList
+    syncQueue.forEach(q => {
+      if(q.type === 'quarto' && q.payload && q.payload.data){
+        const qData = Object.assign({}, q.payload.data);
+        const qId = String(qData.id || q.recordId);
+        if(!displayList.some(it => String(it.key || (it.data && it.data.id) || it.id) === qId)){
+          displayList.push({ key: qId, data: qData, isPending: true });
+        }
+      }
+    });
+
+    displayList.sort((a,b)=> {
+      const da = (a.data?.fecha || a.fecha || '') + ' ' + (a.data?.hora || a.hora || '00:00');
+      const db = (b.data?.fecha || b.fecha || '') + ' ' + (b.data?.hora || b.hora || '00:00');
+      return db.localeCompare(da);
+    });
+
+    if(countPill){
+      countPill.textContent = `${displayList.length} ${displayList.length === 1 ? 'registo' : 'registos'}`;
+    }
+
+    if(displayList.length === 0){
+      const hasOther = allRecords.length > 0;
+      container.innerHTML = `
+        <div style="padding:28px 16px; text-align:center; color:var(--ink-400); font-size:12.5px;">
+          <div style="font-size:22px; margin-bottom:6px;">📭</div>
+          ${hasOther ? `Não existem leituras no <b>ciclo selecionado</b>, mas existem <b>${allRecords.length} leituras registadas</b> no histórico.<br><button type="button" class="cycle-btn" style="margin-top:8px; font-size:11.5px; padding:4px 10px;" onclick="$('quartoReadingsFilterMode').value='all'; $('quartoReadingsFilterMode').dispatchEvent(new Event('change'));">Ver todas as leituras de quartos</button>` : 'Ainda não foram registadas leituras de quartos. Selecione um quarto na grelha acima para registar a primeira leitura.'}
+        </div>
+      `;
+      return;
+    }
+
+    const canModify = !isViewer();
+    let rowsHtml = '';
+    displayList.forEach(item => {
+      const d = item.data || item;
+      const num = normRoom(d.numero || d.quarto || d.Quarto);
+      const id = String(d.id || item.key || '');
+      const isPending = item.isPending ? '<span class="week-pill warn" style="font-size:9px; padding:1px 5px; margin-left:4px;">A sincronizar</span>' : '';
+      
+      const phHot = (d.phCaliente !== undefined && d.phCaliente !== null && d.phCaliente !== '') ? Number(d.phCaliente).toFixed(2) : '—';
+      const clHot = (d.cloroCaliente !== undefined && d.cloroCaliente !== null && d.cloroCaliente !== '') ? `${Number(d.cloroCaliente).toFixed(2)} ppm` : '—';
+      const clTotHot = (d.cloroTotalCaliente !== undefined && d.cloroTotalCaliente !== null && d.cloroTotalCaliente !== '') ? ` (${Number(d.cloroTotalCaliente).toFixed(2)})` : '';
+      
+      const phCold = (d.phFria !== undefined && d.phFria !== null && d.phFria !== '') ? Number(d.phFria).toFixed(2) : '—';
+      const clCold = (d.cloroFria !== undefined && d.cloroFria !== null && d.cloroFria !== '') ? `${Number(d.cloroFria).toFixed(2)} ppm` : '—';
+      const clTotCold = (d.cloroTotalFria !== undefined && d.cloroTotalFria !== null && d.cloroTotalFria !== '') ? ` (${Number(d.cloroTotalFria).toFixed(2)})` : '';
+
+      rowsHtml += `
+        <tr>
+          <td style="white-space:nowrap; font-weight:700; color:var(--ink-800);">
+            <span class="room-chip done" style="display:inline-block; font-size:12px; padding:2px 8px; margin-right:4px;">${esc(num)}</span>
+            ${isPending}
+          </td>
+          <td style="white-space:nowrap; font-size:12px;">${esc(d.fecha || '—')} <span style="color:var(--ink-400); font-size:11px;">${esc(d.hora || '')}</span></td>
+          <td style="font-size:12px;">👤 ${esc(d.usuario || 'Técnico')}</td>
+          <td style="font-size:11.5px; font-family:var(--mono);">
+            pH: <b>${phHot}</b> · Cl: <b>${clHot}${clTotHot}</b>
+          </td>
+          <td style="font-size:11.5px; font-family:var(--mono);">
+            pH: <b>${phCold}</b> · Cl: <b>${clCold}${clTotCold}</b>
+          </td>
+          <td style="text-align:right; white-space:nowrap;">
+            ${canModify ? `<button type="button" class="cycle-btn" style="padding:3px 8px; font-size:11px; font-weight:700;" onclick="startEditQuartoDirectly('${esc(id)}')">✏️ Editar</button>` : ''}
+          </td>
+        </tr>
+      `;
+    });
+
+    container.innerHTML = `
+      <table class="report" style="width:100%; margin:0; font-size:12px;">
+        <thead>
+          <tr>
+            <th style="padding:6px 8px;">Quarto</th>
+            <th style="padding:6px 8px;">Data / Hora</th>
+            <th style="padding:6px 8px;">Técnico</th>
+            <th style="padding:6px 8px;">🔥 Água Quente</th>
+            <th style="padding:6px 8px;">💧 Água Fria</th>
+            <th style="padding:6px 8px; text-align:right;">Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function startEditQuartoDirectly(id){
+    listRecords('quarto').then(items => {
+      const it = items.find(x => String(x.key || (x.data && x.data.id) || x.id) === String(id));
+      if(it){
+        startEditRecord({ type:'quarto', data: it.data || it });
+      }
+    });
+  }
+  window.startEditQuartoDirectly = startEditQuartoDirectly;
 
   // Modal com detalhe da leitura do quarto no ciclo com opção de edição direta
   async function openRoomDetailAndEditDialog(rec, cycle){
-    const d = rec.data;
-    const num = normRoom(d.numero);
+    const d = rec.data || rec;
+    const num = normRoom(d.numero || d.quarto);
     const canModify = !isViewer();
 
     const title = `Quarto ${num} · ${cycle.isActive ? 'Ciclo Atual' : 'Ciclo #' + cycle.index}`;
@@ -11252,7 +11482,7 @@
       if(isAdminU) delBtn = `<button class="del" data-del-id="${esc(d.id)}" data-type="${it.type}">Eliminar</button>`;
     } else {
       editBtn = canEdit ? `<button class="edit" data-edit-id="${esc(d.id)}">Editar</button>` : '';
-      delBtn = isAdminU ? `<button class="del" data-del-id="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero) : '')}">Eliminar</button>` : '';
+      delBtn = isAdminU ? `<button class="del" data-del-id="${esc(d.id)}" data-type="${it.type}" data-numero="${esc(it.type==='quarto' ? normRoom(d.numero || d.quarto) : '')}">Eliminar</button>` : '';
     }
     const actions = (editBtn || delBtn) ? `<div class="entry-actions">${editBtn}${delBtn}</div>` : '';
     const auditHtml = (d.modificadoPor || d.editado === 'Sim') ? `<div class="entry-audit-badge">✏️ Modificado por <b>${esc(d.modificadoPor||'—')}</b> (${esc(d.modificadoEn||'')})</div>` : '';
@@ -11293,8 +11523,9 @@
         ${actions}
       </div>`;
     } else {
+      const roomNumDisplay = normRoom(d.numero || d.quarto) || '—';
       return `<div class="entry" data-id="${esc(d.id)}">
-        <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-quarto">Quarto ${esc(d.numero)}</span></div>
+        <div class="entry-head"><span class="entry-date">${esc(d.fecha)} · ${esc(d.hora)}</span><span class="entry-tag tag-quarto">Quarto ${esc(roomNumDisplay)}</span></div>
         <div class="entry-user">👤 ${esc(d.usuario || '—')}</div>
         <div class="entry-grid">
           ${entryItem('pH quente', d.phCaliente, '', phWarnCal(d.phCaliente))}
@@ -11655,6 +11886,11 @@
     });
   }
 
+  function renderHistory(refetch){
+    if(typeof renderHistorial === 'function') return renderHistorial(refetch);
+  }
+  window.renderHistory = renderHistory;
+
   async function renderHistorial(refetch){
     const list = $('histList');
     const tipo = $('histFiltroTipo').value;
@@ -11786,7 +12022,7 @@
       estimatedHeight: 175,
       searchFn: (it, q) => {
         const d = it.data || {};
-        const txt = `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''} ${d.nome||''} ${d.observacoes||''} ${it.type||''}`.toLowerCase();
+        const txt = `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''} ${d.quarto||''} ${d.nome||''} ${d.observacoes||''} ${it.type||''}`.toLowerCase();
         return txt.includes(q);
       },
       emptyHtml: `<div class="empty"><span class="glyph">◌</span>Não existem registos para o período selecionado (${chosenMonth !== 'all' ? formatMonthName(chosenMonth) : 'geral'}).</div>`,
@@ -11800,7 +12036,7 @@
         try{
           await deleteRecordApi(type, id);
           if(type === 'quarto' && numero){
-            const remaining = (await listRecords('quarto')).filter(r=> normRoom(r.data.numero) === numero);
+            const remaining = (await listRecords('quarto')).filter(r=> normRoom(r.data?.numero || r.data?.quarto) === numero);
             if(remaining.length === 0){
               await unmarkRoomFromCycle(numero);
               renderRoomGrid();
@@ -11848,7 +12084,8 @@
     } else {
       resetGeneralEditState();
       editingQuartoId = d.id;
-      selectRoom(normRoom(d.numero));
+      const roomVal = normRoom(d.numero || d.quarto);
+      selectRoom(roomVal);
       $('q-fecha').value = d.fecha || todayStr();
       $('q-hora').value = d.hora || nowTimeStr();
       $('q-phCaliente').value = d.phCaliente || '';
@@ -11859,11 +12096,11 @@
       $('q-cloroTotalFria').value = d.cloroTotalFria || '';
       const banner = $('editBannerQuarto');
       if(banner){
-        banner.innerHTML = `✏️ A editar a leitura do Quarto <b>${esc(d.numero)}</b> (${esc(d.fecha)} às ${esc(d.hora)}) — ao guardar será atualizada.`;
+        banner.innerHTML = `✏️ A editar a leitura do Quarto <b>${esc(roomVal)}</b> (${esc(d.fecha)} às ${esc(d.hora)}) — ao guardar será atualizada.`;
         banner.classList.add('show');
       }
       $('btnCancelEditQuarto').style.display = '';
-      $('btnSaveQuarto').querySelector('.lbl-text').textContent = `Atualizar leitura do quarto ${d.numero}`;
+      $('btnSaveQuarto').querySelector('.lbl-text').textContent = `Atualizar leitura do quarto ${roomVal}`;
       switchToTab('quarto');
       setTimeout(()=>{
         const target = $('selectedRoomBanner') || $('q-numero') || $('q-fecha');
@@ -12342,7 +12579,7 @@
     }
 
     const roomsNorm = roomsList.map(normRoom);
-    const measuredRooms = new Set(qu.map(r=> normRoom(r.data.numero)));
+    const measuredRooms = new Set(qu.map(r=> normRoom(r.data?.numero || r.data?.quarto)));
     const notMeasured = roomsNorm.filter(n=> !measuredRooms.has(n));
     const coveredCount = roomsNorm.filter(n=> measuredRooms.has(n)).length;
     const coveragePct = roomsNorm.length ? Math.round(coveredCount / roomsNorm.length * 100) : 0;
@@ -12353,8 +12590,8 @@
     // Última leitura de cada quarto dentro do período
     const lastByRoom = {};
     qu.forEach(r=>{
-      const n = normRoom(r.data.numero);
-      const key = r.data.fecha + r.data.hora;
+      const n = normRoom(r.data?.numero || r.data?.quarto);
+      const key = (r.data?.fecha || '') + (r.data?.hora || '');
       if(!lastByRoom[n] || key > lastByRoom[n]._key){ lastByRoom[n] = Object.assign({ _key: key }, r.data); }
     });
 
@@ -12402,13 +12639,14 @@
       </tr>`,
       items: qu,
       rowRenderer: (r) => {
-        const d = r.data;
+        const d = r.data || {};
+        const roomNum = normRoom(d.numero || d.quarto) || '—';
         const bad = phWarn(d.phCaliente) || phWarn(d.phFria) || cloroWarn(d.cloroCaliente) || cloroWarn(d.cloroFria);
-        return `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(d.numero)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
+        return `<tr${bad?' style="color:var(--coral-500)"':''}><td>${esc(d.fecha)}</td><td>${esc(d.hora)}</td><td>${nz(d.usuario)}</td><td>${esc(roomNum)}</td><td>${nz(d.phCaliente)}</td><td>${nz(d.cloroCaliente)}</td><td>${nz(d.cloroTotalCaliente)}</td><td>${nz(d.phFria)}</td><td>${nz(d.cloroFria)}</td><td>${nz(d.cloroTotalFria)}</td></tr>`;
       },
       searchFn: (r, q) => {
         const d = r.data || {};
-        return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''}`.toLowerCase().includes(q);
+        return `${d.fecha||''} ${d.hora||''} ${d.usuario||''} ${d.numero||''} ${d.quarto||''}`.toLowerCase().includes(q);
       },
       rowHeight: 36,
       maxHeight: 460
@@ -12422,8 +12660,9 @@
     let csv = 'LEITURAS DE QUARTOS\n';
     csv += 'Data,Hora,Utilizador,Quarto,pH Quente,CloroLivreQuente,CloroTotalQuente,pH Fria,CloroLivreFria,CloroTotalFria\n';
     qu.forEach(r=>{
-      const d = r.data;
-      csv += [d.fecha,d.hora,d.usuario,d.numero,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
+      const d = r.data || {};
+      const roomNum = normRoom(d.numero || d.quarto) || '';
+      csv += [d.fecha,d.hora,d.usuario,roomNum,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
     });
     const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
     const url = URL.createObjectURL(blob);
@@ -21101,8 +21340,9 @@
     csv += '\nLEITURAS DE QUARTOS\n';
     csv += 'Data,Hora,Utilizador,Quarto,pH Quente,CloroLivreQuente,CloroTotalQuente,pH Fria,CloroLivreFria,CloroTotalFria\n';
     qu.forEach(r=>{
-      const d=r.data;
-      csv += [d.fecha,d.hora,d.usuario,d.numero,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
+      const d=r.data || {};
+      const roomNum = normRoom(d.numero || d.quarto) || '';
+      csv += [d.fecha,d.hora,d.usuario,roomNum,d.phCaliente,d.cloroCaliente,d.cloroTotalCaliente,d.phFria,d.cloroFria,d.cloroTotalFria].map(csvSafe).join(',') + '\n';
     });
     csv += '\nREFRIGERACAO\n';
     csv += 'Data,Hora,Utilizador,Equipamento,Tipo,Ubicacao,Temperatura(C),DentroDoIntervalo,Observacoes\n';
@@ -23506,6 +23746,17 @@
       }
       if (filtroCat !== 'all') {
         filtered = filtered.filter(t => t.categoria === filtroCat);
+      }
+      const filtroBusca = $('pedidoFiltroBusca') ? $('pedidoFiltroBusca').value.trim().toLowerCase() : '';
+      if (filtroBusca) {
+        filtered = filtered.filter(t => {
+          const txt = `${t.quarto||''} ${t.descricao||''} ${t.colaborador||''} ${t.categoria||''} ${t.observacao||''} ${t.tipo||''}`.toLowerCase();
+          return txt.includes(filtroBusca);
+        });
+      }
+      if ($('pedidoFiltroBusca') && !$('pedidoFiltroBusca')._bound) {
+        $('pedidoFiltroBusca')._bound = true;
+        $('pedidoFiltroBusca').addEventListener('input', () => renderPedidosView());
       }
       
       // Ordenar: estratégicos ativos primeiro, depois por data descendente
