@@ -456,9 +456,44 @@
   .off-toolbar-float .b-close{ background:#f1f5f9; color:#1e293b; max-width:120px; }
   .off-doc{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    color:#0f172a; background:transparent; padding:0; max-width:920px; margin:0 auto 24px;
+    color:#0f172a; background:#ffffff; padding:24px 20px; max-width:920px; margin:0 auto 24px;
+    box-shadow:0 4px 18px rgba(15,23,42,0.08); border-radius:8px;
   }
+  .off-doc h1{ font-size:17px; margin:0 0 2px; color:#0f172a; }
+  .off-doc h2{ font-size:13px; margin:16px 0 4px; color:#0f172a; }
+  .off-doc .off-sub{ font-size:12px; color:#475569; margin-bottom:4px; }
+  .off-doc .off-meta{ font-family:var(--mono, monospace); font-size:10px; color:#64748b; margin-bottom:14px; }
+  .off-doc table{ width:100%; border-collapse:collapse; font-size:9.5px; margin:8px 0 14px; }
+  .off-doc thead{ display:table-header-group; }
+  .off-doc tbody{ display:table-row-group; }
+  .off-doc tr{ break-inside:avoid; page-break-inside:avoid; }
+  .off-doc th, .off-doc td{ border:1px solid #cbd5e1; padding:4px 5px; text-align:left; word-break:break-word; overflow-wrap:break-word; }
+  .off-doc th{ background:#f1f5f9; font-weight:700; color:#1e293b; }
+  .off-doc tr.bad td{ background:#fde8e0 !important; font-weight:700; }
+  .off-doc .off-sum{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 16px; }
+  .off-doc .off-sum div{ border:1px solid #cbd5e1; border-radius:8px; padding:7px 10px; font-size:10.5px; background:#f8fafc; }
+  .off-doc .off-sum b{ display:block; font-size:13px; color:#0f172a; }
+  .off-doc .off-missing{ font-size:11px; color:#b91c1c; margin:6px 0 14px; font-family:var(--mono, monospace); }
+  .off-doc .off-sign{ display:flex; justify-content:space-between; margin-top:32px; font-size:11px; break-inside:avoid; page-break-inside:avoid; }
+  .off-doc .off-sign div{ width:45%; border-top:1px solid #333; padding-top:6px; text-align:center; }
   .off-doc .off-avoid-break{ break-inside:avoid; page-break-inside:avoid; }
+  .btn-report-op {
+    background: #059669;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+  }
+  .btn-report-op:hover {
+    background: #047857;
+  }
   .off-page-break{
     page-break-after:always !important;
     break-after:page !important;
@@ -4020,6 +4055,7 @@
         <div class="active-period-nav">
           <button type="button" class="btn-nav-step" id="btnBannerPrevMonth">‹ Mês Anterior</button>
           <button type="button" class="btn-nav-step" id="btnBannerNextMonth">Mês Seguinte ›</button>
+          <button type="button" class="btn-report-op" id="btnIndicadoresOfficialReport" title="Emitir Relatório Mensal de Controlo Operacional (Piscina, AQS, Quartos e Refrigeração — sem secção de pedidos)">🏛️ Relatório Mensal (PDF)</button>
         </div>
       </section>
 
@@ -10058,11 +10094,269 @@
     }
   });
 
+  // =========================================================
+  // RELATÓRIO MENSAL OPERACIONAL DE CONTROLO (SEM PEDIDOS)
+  // Piscina, AQS, Refrigeração e Quartos (DGS Legionella / HACCP)
+  // =========================================================
+
+  function buildOfficialReport(desde, hasta, gen, qu, tp) {
+    const th = DASH_THRESHOLDS || { phMin: 7.0, phMax: 7.8, cloroMin: 0.5, cloroMax: 3.0, aqsMin: 45.0 };
+    const bad = r => {
+      const d = r && r.data ? r.data : (r || {});
+      const ph = parseFloat(d.phPiscina ?? d.ph), cl = parseFloat(d.cloroLibre ?? d.cloro), ret = parseFloat(d.retornoAqs);
+      return (!isNaN(ph) && (ph < th.phMin || ph > th.phMax)) ||
+             (!isNaN(cl) && (cl < th.cloroMin || cl > th.cloroMax)) ||
+             (!isNaN(ret) && ret < th.aqsMin);
+    };
+    const stat = (label, key, dec, unit) => {
+      const vals = (gen || []).map(r => {
+        const d = r && r.data ? r.data : (r || {});
+        return parseFloat(d[key]);
+      }).filter(n => !isNaN(n));
+      if (!vals.length) return `<div><b>${safeEsc(label)}</b>sem dados</div>`;
+      const mn = Math.min(...vals), mx = Math.max(...vals), av = vals.reduce((a, b) => a + b, 0) / vals.length;
+      return `<div><b>${safeEsc(label)}</b>mín ${mn.toFixed(dec)} · méd ${av.toFixed(dec)} · máx ${mx.toFixed(dec)} ${unit || ''}</div>`;
+    };
+
+    const comp = typeof complianceStatsRange === 'function'
+      ? complianceStatsRange(gen, desde, hasta)
+      : { workPct: 100, covered: gen.length, workTotal: gen.length, restDays: 0, missingWorkDays: [] };
+
+    let rows = '';
+    (gen || []).forEach(r => {
+      const d = r && r.data ? r.data : (r || {});
+      rows += `<tr class="${bad(r) ? 'bad' : ''}">
+        <td>${safeEsc(d.fecha || '')}</td>
+        <td>${safeEsc(d.hora || '')}</td>
+        <td>${safeEsc(d.usuario || d.tecnico || '')}</td>
+        <td>${nzVal(d.agua)}</td>
+        <td>${nzVal(d.electricidad)}</td>
+        <td>${nzVal(d.retornoAqs)}</td>
+        <td>${nzVal(d.aqsQuartos || d.aqs)}</td>
+        <td>${safeEsc(d.estadoPiscina || '')}</td>
+        <td>${nzVal(d.tempPiscina)}</td>
+        <td>${nzVal(d.phPiscina || d.ph)}</td>
+        <td>${nzVal(d.cloroLibre || d.cloro)}</td>
+        <td>${nzVal(d.cloroTotal)}</td>
+        <td>${safeDispYesNo(d.lavadoPrefiltro)}</td>
+        <td>${safeDispYesNo(d.lavadoFiltroArena)}</td>
+        <td>${safeDispYesNo(d.limpiezaSkimmer)}</td>
+        <td>${safeEsc(d.observacoes || '')}</td>
+      </tr>`;
+    });
+
+    let rowsQ = '';
+    (qu || []).forEach(r => {
+      const d = r && r.data ? r.data : (r || {});
+      const roomNum = d.numero || d.quarto || '';
+      rowsQ += `<tr>
+        <td>${safeEsc(d.fecha || '')}</td>
+        <td>${safeEsc(d.hora || '')}</td>
+        <td>${safeEsc(roomNum)}</td>
+        <td>${nzVal(d.phCaliente)}</td>
+        <td>${nzVal(d.cloroCaliente)}</td>
+        <td>${nzVal(d.cloroTotalCaliente)}</td>
+        <td>${nzVal(d.phFria)}</td>
+        <td>${nzVal(d.cloroFria)}</td>
+        <td>${nzVal(d.cloroTotalFria)}</td>
+      </tr>`;
+    });
+
+    let rowsT = '';
+    let tempBadCount = 0;
+    const equipsList = typeof getHotelEquipamentos === 'function' ? getHotelEquipamentos() : [];
+
+    (tp || []).forEach(r => {
+      const d = r && r.data ? r.data : (r || {});
+      const rawTemp = d.temperatura ?? d.temp ?? d.temperaturaC ?? d.valor ?? d.leitura;
+      const eqId = d.equipamentoId || d.equipoId || d.nome || d.equipamento;
+      const eq = (Array.isArray(equipsList) && equipsList.find(e => (typeof isRecordMatchingEquip === 'function' && isRecordMatchingEquip(r, e)) || String(e.id) === String(eqId) || e.nome === eqId)) || {};
+      
+      const parsed = typeof parseTempReadingVal === 'function' ? parseTempReadingVal(rawTemp, eq) : { val: null, isBad: false };
+      const isBad = (parsed.val !== null) ? parsed.isBad : (String(d.dentroIntervalo) === 'Não' || String(d.dentroIntervalo) === '0');
+      if (isBad) tempBadCount++;
+
+      let tempTxt = '—';
+      if (rawTemp !== undefined && rawTemp !== null && String(rawTemp).trim() !== '') {
+        const sTemp = String(rawTemp).trim();
+        tempTxt = sTemp.toLowerCase().includes('°') ? sTemp : `${sTemp} °C`;
+      }
+
+      const rng = (eq.min !== undefined && eq.max !== undefined)
+        ? `${eq.min} a ${eq.max} ºC`
+        : safeDispYesNo(d.dentroIntervalo);
+
+      rowsT += `<tr class="${isBad ? 'bad' : ''}">
+        <td>${safeEsc(d.fecha || '')}</td>
+        <td>${safeEsc(d.hora || '')}</td>
+        <td style="font-weight:700;">${safeEsc(d.nome || d.equipamento || eq.nome || eqId || '')}</td>
+        <td style="font-weight:800; font-size:10.5px; white-space:nowrap;">${safeEsc(tempTxt)}</td>
+        <td>${rng}</td>
+        <td>${safeEsc(d.tipo || eq.tipo || '')}</td>
+        <td>${safeEsc(d.ubicacao || eq.ubicacao || '')}</td>
+        <td>${safeEsc(d.usuario || d.tecnico || '')}</td>
+        <td>${safeEsc(d.observacoes || '')}</td>
+      </tr>`;
+    });
+
+    const dateFormatted = typeof todayStr === 'function' ? todayStr() : new Date().toLocaleDateString('pt-PT');
+    const timeFormatted = typeof nowTimeStr === 'function' ? nowTimeStr() : `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`;
+
+    return `<div class="off-doc">
+      <h1>Relatório Mensal de Controlo — Piscina, AQS e Refrigeração</h1>
+      <div class="off-sub">MS Funchal · Manutenção & Engenharia · Cumprimento Técnico e Sanitário (DGS Legionella · HACCP/APPCC)</div>
+      <div class="off-meta">Período: <b>${safeEsc(desde)} a ${safeEsc(hasta)}</b> · Emitido em ${dateFormatted} às ${timeFormatted} · Modo sem secção de pedidos</div>
+      <div class="off-sum">
+        <div><b>${comp.workPct || 100}%</b>cumprimento em escala (${comp.covered || gen.length}/${comp.workTotal || gen.length} dias de serviço)</div>
+        ${stat('pH piscina', 'phPiscina', 2, '')}
+        ${stat('Cloro livre', 'cloroLibre', 2, 'ppm')}
+        ${stat('Cloro total', 'cloroTotal', 2, 'ppm')}
+        ${stat('Temp. piscina', 'tempPiscina', 1, '°C')}
+        ${stat('Retorno AQS', 'retornoAqs', 1, '°C')}
+        ${stat('AQS quartos', 'aqsQuartos', 1, '°C')}
+        <div><b>${tp.length}</b>leituras de refrigeração (${tempBadCount} fora do intervalo)</div>
+      </div>
+      ${comp.missingWorkDays && comp.missingWorkDays.length ? `<div class="off-missing">⚠ Dias em falta em escala de serviço: ${safeEsc(comp.missingWorkDays.join(', '))}. (${comp.restDays || 0} dias salvaguardados como folgas por lei).</div>` : `<div class="off-missing" style="color:#059669; border-color:#86efac; background:#ecfdf5;">✓ 100% de cumprimento nos dias de escala de serviço.</div>`}
+      <h2>1. Controlo diário — Instalações, Piscina e AQS</h2>
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Técnico</th><th>Água m³</th><th>Elet. kWh</th><th>Ret.AQS</th><th>AQS Qts</th><th>Estado</th><th>Temp</th><th>pH</th><th>Cl.livre</th><th>Cl.total</th><th>Préf.</th><th>Areia</th><th>Skim.</th><th>Observações</th>
+      </tr></thead><tbody>${rows || '<tr><td colspan="16">Sem registos no período</td></tr>'}</tbody></table>
+      <h2>2. Medições de quartos (${qu.length})</h2>
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Quarto</th><th>pH qu.</th><th>Cl.qu.</th><th>Cl.tot qu.</th><th>pH fr.</th><th>Cl.fr.</th><th>Cl.tot fr.</th>
+      </tr></thead><tbody>${rowsQ || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
+      <h2>3. Refrigeração — Frigoríficos, Congeladores e Vinheiras (${tp.length})</h2>
+      <table><thead><tr>
+        <th>Data</th><th>Hora</th><th>Equipamento</th><th>Temperatura (°C)</th><th>Intervalo</th><th>Tipo</th><th>Ubicacao</th><th>Técnico</th><th>Observações</th>
+      </tr></thead><tbody>${rowsT || '<tr><td colspan="9">Sem registos no período</td></tr>'}</tbody></table>
+      <p style="font-size:9.5px; color:#64748b; margin-top:8px;">Linhas sombreadas = valores fora dos intervalos regulamentares (pH ${th.phMin}–${th.phMax} · cloro livre ${th.cloroMin}–${th.cloroMax} ppm · retorno AQS ≥ ${th.aqsMin} °C · refrigeração: tolerâncias térmicas de cada equipamento). Registos em estrita conformidade com auditoria técnica.</p>
+      <div class="off-sign">
+        <div>O Técnico Responsável</div>
+        <div>Direção / Gerência</div>
+      </div>
+      <div style="margin-top:16px; padding-top:10px; border-top:1px dashed #cbd5e1; text-align:center; font-size:10px; color:#64748b; font-family:system-ui, sans-serif;">
+        MS Funchal · Sistema de Registo Técnico e Manutenção · Relatório Operacional Autónomo
+      </div>
+    </div>`;
+  }
+
+  function nzVal(v) { return (v === undefined || v === null || v === '') ? '—' : safeEsc(v); }
+  function safeDispYesNo(v) {
+    if (v === true || v === 'Sim' || v === 'sim' || v === 1 || v === '1') return 'Sim';
+    if (v === false || v === 'Não' || v === 'nao' || v === 'no' || v === 0 || v === '0') return 'Não';
+    return '—';
+  }
+
+  function generateOfficialReportIndicadores(customDesde, customHasta) {
+    let desde = customDesde, hasta = customHasta;
+    if (!desde || !hasta) {
+      if (typeof getActiveDateRange === 'function') {
+        const rng = getActiveDateRange();
+        desde = rng.desde;
+        hasta = rng.hasta;
+      }
+    }
+    if (!desde || !hasta) {
+      const p = document.getElementById('period');
+      if (p && p.value === 'month-prev' && typeof rangoMesAnterior === 'function') {
+        [desde, hasta] = rangoMesAnterior();
+      } else if (typeof rangoMesActual === 'function') {
+        [desde, hasta] = rangoMesActual();
+      }
+    }
+    if (!desde || !hasta) {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const pad2 = n => String(n).padStart(2, '0');
+      desde = `${first.getFullYear()}-${pad2(first.getMonth()+1)}-${pad2(first.getDate())}`;
+      hasta = `${last.getFullYear()}-${pad2(last.getMonth()+1)}-${pad2(last.getDate())}`;
+    }
+
+    const recs = (typeof records !== 'undefined' && records) ? records : { general: [], quarto: [], temperatura: [] };
+    const inRange = r => {
+      const f = r.date || (r.data && r.data.fecha) || r.fecha;
+      return f >= desde && f <= hasta;
+    };
+
+    const gen = (recs.general || []).filter(inRange).sort((a,b) => ((a.date||a.data?.fecha||'') + (a.data?.hora||'')).localeCompare((b.date||b.data?.fecha||'') + (b.data?.hora||'')));
+    const qu = (recs.quarto || []).filter(inRange).sort((a,b) => ((a.date||a.data?.fecha||'') + (a.data?.hora||'')).localeCompare((b.date||b.data?.fecha||'') + (b.data?.hora||'')));
+    const tp = (recs.temperatura || []).filter(inRange).sort((a,b) => ((a.date||a.data?.fecha||'') + (a.data?.hora||'')).localeCompare((b.date||b.data?.fecha||'') + (b.data?.hora||'')));
+
+    if (!gen.length && !qu.length && !tp.length) {
+      alert(`Sem registos operacionais entre ${desde} e ${hasta}. Selecione outro período no painel.`);
+      return;
+    }
+
+    const reportHtml = buildOfficialReport(desde, hasta, gen, qu, tp);
+    let printDiv = document.getElementById('officialReport');
+    if (!printDiv) {
+      printDiv = document.createElement('div');
+      printDiv.id = 'officialReport';
+      document.body.appendChild(printDiv);
+    }
+
+    printDiv.innerHTML = `
+      <div class="off-toolbar-float">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🏛️</span>
+          <div>
+            <b style="color:#fff; font-size:13px;">Relatório Mensal de Controlo Operacional (Sem Pedidos)</b>
+            <div style="color:#94a3b8; font-size:10px;">Piscina, AQS, Quartos e Refrigeração · DGS / HACCP</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
+          <button class="b-print" id="btnOffDoPrintOficial" title="Imprimir diretamente ou guardar como PDF">🖨️ Imprimir / Guardar PDF</button>
+          <button class="b-newwin" id="btnOffNewWinOficial" title="Abrir numa nova aba para impressão">🗗 Abrir e Imprimir (Nova Janela)</button>
+          <button class="b-download" id="btnOffDownloadOficial" title="Descarregar ficheiro HTML">💾 Descarregar Ficheiro</button>
+          <button class="b-close" id="btnOffCloseOficial" title="Voltar ao painel">✕ Fechar</button>
+        </div>
+      </div>
+    ` + reportHtml;
+
+    document.body.classList.add('previewing-official');
+    window.scrollTo(0, 0);
+
+    const doPrintBtn = document.getElementById('btnOffDoPrintOficial');
+    if (doPrintBtn) {
+      doPrintBtn.addEventListener('click', () => {
+        printOfficialDocument('Relatório Mensal de Controlo · MS Funchal');
+      });
+    }
+
+    const newWinBtn = document.getElementById('btnOffNewWinOficial');
+    if (newWinBtn) {
+      newWinBtn.addEventListener('click', () => {
+        openPrintableWindow(reportHtml, 'Relatório Mensal de Controlo · MS Funchal');
+      });
+    }
+
+    const downloadBtn = document.getElementById('btnOffDownloadOficial');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => {
+        downloadOfficialReportHTML(reportHtml, 'Relatorio_Mensal_Controlo_MS_Funchal');
+      });
+    }
+
+    const closeBtn = document.getElementById('btnOffCloseOficial');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', closeOfficialPreview);
+    }
+
+    setTimeout(() => {
+      try {
+        printOfficialDocument('Relatório Mensal de Controlo');
+      } catch (e) {}
+    }, 350);
+  }
+
   if (typeof window !== 'undefined') {
     window.generatePedidosWorkloadReport = generatePedidosWorkloadReport;
     window.printPedidosWorkloadReport = printPedidosWorkloadReport;
     window.printTicketReportIndicadores = printTicketReportIndicadores;
     window.calculateMaintenanceWorkloadData = calculateMaintenanceWorkloadData;
+    window.buildOfficialReport = buildOfficialReport;
+    window.generateOfficialReportIndicadores = generateOfficialReportIndicadores;
   }
 
   // ---------------------------------------------------------
@@ -17007,6 +17301,11 @@
     addClick('btnNextMonth', stepNextMonth);
     addClick('btnBannerPrevMonth', stepPrevMonth);
     addClick('btnBannerNextMonth', stepNextMonth);
+    addClick('btnIndicadoresOfficialReport', () => {
+      if (typeof generateOfficialReportIndicadores === 'function') {
+        generateOfficialReportIndicadores();
+      }
+    });
     addClick('btnApplyCustom', safeRender);
 
     // Equipment Visual Grid View Mode Controls
